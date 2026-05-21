@@ -1,0 +1,20 @@
+## Basic Mako config
+font=JetBrainsMono Nerd Font Mono 11
+background-color=#1e1e2e
+text-color=#cdd6f4
+border-color=#89b4fa
+progress-color=over #89b4fa
+border-size=2
+border-radius=10
+padding=12
+margin=8
+default-timeout=5000
+ignore-timeout=false
+
+max-visible=5
+max-history=50
+
+icon-location=left
+max-icon-size=48
+
+group-by=app-name
