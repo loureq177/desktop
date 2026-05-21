@@ -1,5 +1,7 @@
-## Basic Mako config
-font=JetBrainsMono Nerd Font Mono 11
+font=adwaita-sans-13
+width=500
+height=150
+max-icon-size=150
 background-color=#1e1e2e
 text-color=#cdd6f4
 border-color=#89b4fa
@@ -8,7 +10,7 @@ border-size=2
 border-radius=10
 padding=12
 margin=8
-default-timeout=5000
+default-timeout=8000
 ignore-timeout=false
 
 max-visible=5
