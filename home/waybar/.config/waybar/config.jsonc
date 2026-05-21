@@ -5,6 +5,7 @@
   "modules-left": ["hyprland/workspaces", "hyprland/window"],
   "modules-center": ["clock"],
   "modules-right": [
+    "custom/webcam",
     "privacy",
     "pulseaudio",
     "pulseaudio#microphone",
@@ -21,11 +22,21 @@
     "transition-duration": 250,
     "modules": [
       {
+        "type": "screenshare",
+        "tooltip": true,
+        "tooltip-icon-size": 24,
+      },
+      {
         "type": "audio-in",
         "tooltip": true,
         "tooltip-icon-size": 24,
       },
     ],
+  },
+  "custom/webcam": {
+    "return-type": "json",
+    "interval": 2,
+    "exec": "pids=$(fuser /dev/video* 2>/dev/null); if [ -n \"$pids\" ]; then ps -o comm= -p $pids | jq -R -s -c 'split(\"\\n\") | map(select(length > 0)) | {text: \" \", tooltip: join(\", \"), class: \"active\"}'; else echo '{\"text\": \"\", \"tooltip\": \"\", \"class\": \"\"}'; fi",
   },
   "pulseaudio": {
     "format": "{icon} {volume}%",

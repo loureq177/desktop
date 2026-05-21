@@ -77,5 +77,13 @@ window#waybar {
 }
 
 #privacy-item.audio-in {
-  color: #f53c3c;
+  color: #26a65b;
+}
+
+#privacy-item.screenshare {
+  color: #9b59b6;
+}
+
+#custom-webcam {
+  color: #26a65b;
 }
