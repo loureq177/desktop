@@ -50,18 +50,29 @@ hl.window_rule({
 
 -- Discord and Spotify to special workspace as floating
 hl.window_rule({
-	name = "discord-special",
+	name = "discord-special-float",
 	match = { class = ".*discord.*" },
 	workspace = "special:special",
 	float = true,
+})
+
+hl.window_rule({
+	name = "discord-special-size",
+	match = { class = ".*discord.*" },
 	size = "90% 90%",
 	center = true,
 })
+
 hl.window_rule({
-	name = "spotify-special",
+	name = "spotify-special-float",
 	match = { class = ".*[Ss]potify.*" },
 	workspace = "special:special",
 	float = true,
+})
+
+hl.window_rule({
+	name = "spotify-special-size",
+	match = { class = ".*[Ss]potify.*" },
 	size = "90% 90%",
 	center = true,
 })
