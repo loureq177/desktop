@@ -48,38 +48,23 @@ hl.window_rule({
 	float = true,
 })
 
--- Discord and Spotify to special workspace as floating
-hl.window_rule({
-	name = "discord-special-float",
-	match = { class = ".*discord.*" },
-	workspace = "special:special",
-	float = true,
-})
+local special_apps = { ".*[Dd]iscord.*", ".*[Ss]potify.*" }
+
+for _, app in ipairs(special_apps) do
+	hl.window_rule({
+		match = { class = app },
+		workspace = "special:special",
+		float = true,
+	})
+
+	hl.window_rule({
+		match = { class = app },
+		size = "1728 972",
+		center = true,
+	})
+end
 
 hl.window_rule({
-	name = "discord-special-size",
-	match = { class = ".*discord.*" },
-	size = "90% 90%",
-	center = true,
-})
-
-hl.window_rule({
-	name = "spotify-special-float",
-	match = { class = ".*[Ss]potify.*" },
-	workspace = "special:special",
-	float = true,
-})
-
-hl.window_rule({
-	name = "spotify-special-size",
-	match = { class = ".*[Ss]potify.*" },
-	size = "90% 90%",
-	center = true,
-})
-
--- Browser to workspace 1
-hl.window_rule({
-	name = "browser-workspace",
 	match = { class = ".*[Zz]en.*" },
 	workspace = "1",
 })
