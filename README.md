@@ -1,6 +1,7 @@
 # dotfiles
 
-Managed with [GNU Stow](https://www.gnu.org/software/stow/). Split into OS-specific and common configs.
+Managed with [GNU Stow](https://www.gnu.org/software/stow/). Split into
+OS-specific and common configs.
 
 ## Apply configs
 
@@ -8,10 +9,10 @@ Managed with [GNU Stow](https://www.gnu.org/software/stow/). Split into OS-speci
 git clone <repo-url> ~/.files
 
 # Apply shared configs (macOS & Linux)
-cd ~/.files/common && stow -R -t ~ */
+cd ~/.files/common && stow --restow --target ~ */
 
 # Apply Arch Linux configs
-cd ~/.files/archlinux && stow -R -t ~ */
+cd ~/.files/archlinux && stow --restow --target ~ */
 ```
 
 ## Manage packages
@@ -20,8 +21,9 @@ cd ~/.files/archlinux && stow -R -t ~ */
 # Add a new config
 mkdir -p ~/.files/common/starship/.config
 mv ~/.config/starship.toml ~/.files/common/starship/.config/
-cd ~/.files/common && stow -R -t ~ starship
+cd ~/.files/common && stow --restow --target  ~ starship
 
 # Remove a config
 cd ~/.files/common && stow -D -t ~ starship
 ```
+
