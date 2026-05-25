@@ -48,6 +48,12 @@ hl.window_rule({
 	float = true,
 })
 
+hl.config({
+	misc = {
+		focus_on_activate = true,
+	},
+})
+
 local special_apps = { ".*[Dd]iscord.*", ".*[Ss]potify.*" }
 
 for _, app in ipairs(special_apps) do
@@ -67,4 +73,12 @@ end
 hl.window_rule({
 	match = { class = ".*[Zz]en.*" },
 	workspace = "1",
+})
+
+hl.window_rule({
+	match = { class = "galculator" },
+	workspace = "special:special",
+	size = "20% 60%",
+	float = true,
+	center = true,
 })
