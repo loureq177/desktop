@@ -8,8 +8,8 @@ hl.config({
 		no_hardware_cursors = true,
 	},
 	general = {
-		gaps_in = 10,
-		gaps_out = 20,
+		gaps_in = 4,
+		gaps_out = 5,
 
 		border_size = 2,
 
@@ -33,7 +33,7 @@ hl.config({
 
 		-- Change transparency of focused and unfocused windows
 		active_opacity = 1.0,
-		inactive_opacity = 0.70,
+		inactive_opacity = 0.55,
 
 		shadow = {
 			enabled = true,

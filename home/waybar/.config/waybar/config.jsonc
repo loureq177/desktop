@@ -108,7 +108,6 @@
   "clock": {
     "interval": 60,
     "format": "{:%d %B %Y, %H:%M}",
-    "on-click": "gnome-clocks",
     "tooltip-format": "<big>{:%Y %B}</big>\n<tt><small>{calendar}</small></tt>",
   },
 }
