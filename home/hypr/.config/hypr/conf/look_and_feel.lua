@@ -8,8 +8,8 @@ hl.config({
 		no_hardware_cursors = true,
 	},
 	general = {
-		gaps_in = 4,
-		gaps_out = 5,
+		gaps_in = 10,
+		gaps_out = 20,
 
 		border_size = 2,
 

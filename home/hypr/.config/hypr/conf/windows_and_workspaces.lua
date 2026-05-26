@@ -14,7 +14,7 @@ local suppressMaximizeRule = hl.window_rule({
 
 	suppress_event = "maximize",
 })
-suppressMaximizeRule:set_enabled(false)
+suppressMaximizeRule:set_enabled(true)
 
 hl.window_rule({
 	-- Fix some dragging issues with XWayland
@@ -44,7 +44,7 @@ hl.window_rule({
 	name = "move-hyprland-run",
 	match = { class = "hyprland-run" },
 
-	move = "20 monitor_h-120",
+	move = "20 95%",
 	float = true,
 })
 
@@ -54,21 +54,23 @@ hl.config({
 	},
 })
 
-local special_apps = { ".*[Dd]iscord.*", ".*[Ss]potify.*" }
+hl.window_rule({
+	match = { class = ".*[Ss]potify.*" },
 
-for _, app in ipairs(special_apps) do
-	hl.window_rule({
-		match = { class = app },
-		workspace = "special:special",
-		float = true,
-	})
+	workspace = "special:spotify",
+	float = true,
+	center = true,
+	size = "80% 80%",
+})
 
-	hl.window_rule({
-		match = { class = app },
-		size = "1728 972",
-		center = true,
-	})
-end
+hl.window_rule({
+	match = { class = ".*[Dd]iscord.*" },
+
+	workspace = "special:discord",
+	float = true,
+	center = true,
+	size = "1536 864",
+})
 
 hl.window_rule({
 	match = { class = ".*[Zz]en.*" },
@@ -81,4 +83,11 @@ hl.window_rule({
 	size = "20% 60%",
 	float = true,
 	center = true,
+})
+
+hl.window_rule({
+	match = { workspace = "special:focus" },
+	float = true,
+	center = true,
+	size = "95% 95%",
 })
