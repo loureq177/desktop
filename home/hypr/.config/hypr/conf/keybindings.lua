@@ -11,7 +11,20 @@ hl.bind(mainMod .. " + RETURN", hl.dsp.exec_cmd(programs.terminal))
 
 hl.bind(mainMod .. " + D", hl.dsp.workspace.toggle_special("discord"))
 hl.bind(mainMod .. " + X", hl.dsp.workspace.toggle_special("spotify"))
-hl.bind(mainMod .. " + B", hl.dsp.exec_cmd(programs.browser))
+hl.bind(mainMod .. " + B", function()
+	local windows = hl.get_windows()
+	local found = false
+	for _, win in ipairs(windows) do
+		if win.class == "zen" then
+			hl.dispatch(hl.dsp.focus({ window = "address:" .. win.address }))
+			found = true
+			break
+		end
+	end
+	if not found then
+		hl.dispatch(hl.dsp.exec_cmd(programs.browser))
+	end
+end)
 hl.bind(mainMod .. " + Q", hl.dsp.window.close())
 hl.bind(mainMod .. " + Escape", hl.dsp.exec_cmd(programs.btop))
 hl.bind(mainMod .. " + M", hl.dsp.exec_cmd("hyprlock"))
@@ -26,8 +39,14 @@ hl.bind(mainMod .. " + F", hl.dsp.window.fullscreen({ mode = 1 }))
 hl.bind(mainMod .. " + space", hl.dsp.exec_cmd(programs.launcher))
 hl.bind(mainMod .. " + SHIFT + space", hl.dsp.exec_cmd(programs.runner))
 hl.bind(mainMod .. " + P", hl.dsp.window.pseudo())
-hl.bind(mainMod .. " + S", hl.dsp.exec_cmd("hyprctl dispatch togglespecialworkspace focus"))
-hl.bind(mainMod .. " + SHIFT + S", hl.dsp.window.move({ workspace = "special:focus" }))
+hl.bind(mainMod .. " + S", hl.dsp.workspace.toggle_special("focus"))
+hl.bind(mainMod .. " + SHIFT + S", function()
+	hl.dispatch(hl.dsp.window.move({ workspace = "special:focus" }))
+	hl.dispatch(hl.dsp.window.set_prop({ prop = "float", value = true }))
+	hl.dispatch("resizeactive", "exact 90% 90%")
+	hl.dispatch(hl.dsp.window.center())
+end)
+hl.bind(mainMod .. " + W", hl.dsp.exec_cmd("rofi -show window"))
 hl.bind(mainMod .. " + T", hl.dsp.layout("togglesplit"))
 
 -- Move focus with mainMod + hjkl
@@ -63,11 +82,11 @@ hl.bind(mainMod .. " + mouse:273", hl.dsp.window.resize(), { mouse = true })
 -- Screenshots
 hl.bind(
 	"Print",
-	hl.dsp.exec_cmd("grimblast --freeze copysave area ~/Pictures/Screenshots/$(date +'%Y-%m-%d_%H-%M-%S').png")
+	hl.dsp.exec_cmd("grim -g \"$(slurp)\" - | satty --filename - --fullscreen --output-filename ~/Pictures/Screenshots/$(date +'%Y-%m-%d_%H-%M-%S').png")
 )
 hl.bind(
 	"SHIFT + Print",
-	hl.dsp.exec_cmd("grimblast copysave output ~/Pictures/Screenshots/$(date +'%Y-%m-%d_%H-%M-%S').png")
+	hl.dsp.exec_cmd("grim - | satty --filename - --fullscreen --output-filename ~/Pictures/Screenshots/$(date +'%Y-%m-%d_%H-%M-%S').png")
 )
 hl.bind(mainMod .. " + Period", hl.dsp.exec_cmd("rofi -show emoji -modi emoji"))
 

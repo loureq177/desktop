@@ -84,10 +84,3 @@ hl.window_rule({
 	float = true,
 	center = true,
 })
-
-hl.window_rule({
-	match = { workspace = "special:focus" },
-	float = true,
-	center = true,
-	size = "95% 95%",
-})

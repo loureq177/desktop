@@ -20,3 +20,6 @@ icon-location=left
 max-icon-size=48
 
 group-by=app-name
+
+on-button-left=dismiss
+on-notify=exec pw-play ~/.config/mako/sounds/notify.oga

@@ -50,14 +50,15 @@
       "car": "",
       "default": ["", "", ""],
     },
-    "on-click": "pavucontrol",
+    "on-click": "pwvucontrol --tab 4",
   },
   "pulseaudio#microphone": {
     "format": "{format_source}",
     "format-source": "",
     "format-source-muted": "",
     "on-click": "wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle",
-    "on-scroll-up": "wpctl set-volume -l 1.0 @DEFAULT_AUDIO_SOURCE@ 5%+",
+    "on-click-right": "pwvucontrol --tab 3",
+    "on-scroll-up": "wpctl set-volume -l 0.3 @DEFAULT_AUDIO_SOURCE@ 5%+",
     "on-scroll-down": "wpctl set-volume @DEFAULT_AUDIO_SOURCE@ 5%-",
   },
   "bluetooth": {
@@ -75,7 +76,7 @@
     "format-ethernet": "󰈀",
     "format-disconnected": "󰖪",
     "tooltip-format": "{essid}",
-    "on-click": "ghostty -e impala",
+    "on-click": "ghostty -e sh -c 'sleep 1 && impala'",
   },
   "hyprland/window": {
     "format": "{title}",
