@@ -82,28 +82,28 @@ hl.bind(mainMod .. " + mouse:273", hl.dsp.window.resize(), { mouse = true })
 -- Screenshots
 hl.bind(
 	"Print",
-	hl.dsp.exec_cmd("grim -g \"$(slurp)\" - | satty --filename - --fullscreen --output-filename ~/Pictures/Screenshots/$(date +'%Y-%m-%d_%H-%M-%S').png")
+	hl.dsp.exec_cmd("~/.config/hypr/scripts/screenshot.sh region")
 )
 hl.bind(
 	"SHIFT + Print",
-	hl.dsp.exec_cmd("grim - | satty --filename - --fullscreen --output-filename ~/Pictures/Screenshots/$(date +'%Y-%m-%d_%H-%M-%S').png")
+	hl.dsp.exec_cmd("~/.config/hypr/scripts/screenshot.sh full")
 )
 hl.bind(mainMod .. " + Period", hl.dsp.exec_cmd("rofi -show emoji -modi emoji"))
 
--- Volume and brightness (swayosd)
+-- Volume and brightness
 hl.bind(
 	"XF86AudioRaiseVolume",
-	hl.dsp.exec_cmd("swayosd-client --output-volume raise"),
+	hl.dsp.exec_cmd("wpctl set-volume -l 1.5 @DEFAULT_AUDIO_SINK@ 5%+ && pw-play /usr/share/sounds/freedesktop/stereo/audio-volume-change.oga"),
 	{ locked = true, repeating = true }
 )
 hl.bind(
 	"XF86AudioLowerVolume",
-	hl.dsp.exec_cmd("swayosd-client --output-volume lower"),
+	hl.dsp.exec_cmd("wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%- && pw-play /usr/share/sounds/freedesktop/stereo/audio-volume-change.oga"),
 	{ locked = true, repeating = true }
 )
 hl.bind(
 	"XF86AudioMute",
-	hl.dsp.exec_cmd("swayosd-client --output-volume mute-toggle"),
+	hl.dsp.exec_cmd("wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"),
 	{ locked = true, repeating = true }
 )
 hl.bind(
@@ -113,12 +113,12 @@ hl.bind(
 )
 hl.bind(
 	"XF86MonBrightnessUp",
-	hl.dsp.exec_cmd("swayosd-client --brightness raise"),
+	hl.dsp.exec_cmd("brightnessctl set +5%"),
 	{ locked = true, repeating = true }
 )
 hl.bind(
 	"XF86MonBrightnessDown",
-	hl.dsp.exec_cmd("swayosd-client --brightness lower"),
+	hl.dsp.exec_cmd("brightnessctl set 5%-"),
 	{ locked = true, repeating = true }
 )
 
