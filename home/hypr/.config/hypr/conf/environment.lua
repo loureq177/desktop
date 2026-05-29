@@ -19,8 +19,8 @@ hl.env("XCURSOR_THEME", "Adwaita")
 hl.env("XCURSOR_SIZE", 24)
 hl.env("HYPRCURSOR_THEME", "Adwaita")
 hl.env("HYPRCURSOR_SIZE", 24)
+hl.env("QT_QPA_PLATFORMTHEME", "qt5ct")
 
 -- Wayland optimizations for Electron/Chromium and LibreOffice
 hl.env("ELECTRON_OZONE_PLATFORM_HINT", "auto")
 hl.env("SAL_USE_VCLPLUGIN", "gtk3")
-hl.env("GTK_USE_PORTAL", "0")
