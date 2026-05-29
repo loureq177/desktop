@@ -11,19 +11,13 @@ hl.bind(mainMod .. " + RETURN", hl.dsp.exec_cmd(programs.terminal))
 
 hl.bind(mainMod .. " + D", hl.dsp.workspace.toggle_special("discord"))
 hl.bind(mainMod .. " + X", hl.dsp.workspace.toggle_special("spotify"))
+
 hl.bind(mainMod .. " + B", function()
-	local desktopWindows = hl.get_windows()
-	local isBrowserFound = false
+	local zenWindows = hl.get_windows({ class = "zen" })
 
-	for _, window in ipairs(desktopWindows) do
-		if window.class == "zen" then
-			hl.dispatch(hl.dsp.focus({ window = "address:" .. window.address }))
-			isBrowserFound = true
-			break
-		end
-	end
-
-	if not isBrowserFound then
+	if #zenWindows > 0 then
+		hl.dispatch(hl.dsp.focus({ window = "address:" .. zenWindows[1].address }))
+	else
 		hl.dispatch(hl.dsp.exec_cmd(programs.browser))
 	end
 end)
@@ -42,12 +36,7 @@ hl.bind(mainMod .. " + space", hl.dsp.exec_cmd(programs.launcher))
 hl.bind(mainMod .. " + SHIFT + space", hl.dsp.exec_cmd(programs.runner))
 hl.bind(mainMod .. " + P", hl.dsp.window.pseudo())
 hl.bind(mainMod .. " + S", hl.dsp.workspace.toggle_special("focus"))
-hl.bind(mainMod .. " + SHIFT + S", function()
-	hl.dispatch(hl.dsp.window.move({ workspace = "special:focus" }))
-	hl.dispatch(hl.dsp.window.set_prop({ prop = "float", value = true }))
-	hl.dispatch("resizeactive", "exact 90% 90%")
-	hl.dispatch(hl.dsp.window.center())
-end)
+hl.bind(mainMod .. " + SHIFT + S", hl.dsp.window.move({ workspace = "special:focus" }))
 hl.bind(mainMod .. " + W", hl.dsp.exec_cmd("rofi -show window"))
 hl.bind(mainMod .. " + T", hl.dsp.layout("togglesplit"))
 
