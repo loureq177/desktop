@@ -12,16 +12,18 @@ hl.bind(mainMod .. " + RETURN", hl.dsp.exec_cmd(programs.terminal))
 hl.bind(mainMod .. " + D", hl.dsp.workspace.toggle_special("discord"))
 hl.bind(mainMod .. " + X", hl.dsp.workspace.toggle_special("spotify"))
 hl.bind(mainMod .. " + B", function()
-	local windows = hl.get_windows()
-	local found = false
-	for _, win in ipairs(windows) do
-		if win.class == "zen" then
-			hl.dispatch(hl.dsp.focus({ window = "address:" .. win.address }))
-			found = true
+	local desktopWindows = hl.get_windows()
+	local isBrowserFound = false
+
+	for _, window in ipairs(desktopWindows) do
+		if window.class == "zen" then
+			hl.dispatch(hl.dsp.focus({ window = "address:" .. window.address }))
+			isBrowserFound = true
 			break
 		end
 	end
-	if not found then
+
+	if not isBrowserFound then
 		hl.dispatch(hl.dsp.exec_cmd(programs.browser))
 	end
 end)
@@ -80,25 +82,23 @@ hl.bind(mainMod .. " + mouse:272", hl.dsp.window.drag(), { mouse = true })
 hl.bind(mainMod .. " + mouse:273", hl.dsp.window.resize(), { mouse = true })
 
 -- Screenshots
-hl.bind(
-	"Print",
-	hl.dsp.exec_cmd("~/.config/hypr/scripts/screenshot.sh region")
-)
-hl.bind(
-	"SHIFT + Print",
-	hl.dsp.exec_cmd("~/.config/hypr/scripts/screenshot.sh full")
-)
+hl.bind("Print", hl.dsp.exec_cmd("~/.config/hypr/scripts/screenshot.sh region"))
+hl.bind("SHIFT + Print", hl.dsp.exec_cmd("~/.config/hypr/scripts/screenshot.sh full"))
 hl.bind(mainMod .. " + Period", hl.dsp.exec_cmd("rofi -show emoji -modi emoji"))
 
 -- Volume and brightness
 hl.bind(
 	"XF86AudioRaiseVolume",
-	hl.dsp.exec_cmd("wpctl set-volume -l 1.5 @DEFAULT_AUDIO_SINK@ 5%+ && pw-play /usr/share/sounds/freedesktop/stereo/audio-volume-change.oga"),
+	hl.dsp.exec_cmd(
+		"wpctl set-volume -l 1.5 @DEFAULT_AUDIO_SINK@ 5%+ && pw-play /usr/share/sounds/freedesktop/stereo/audio-volume-change.oga"
+	),
 	{ locked = true, repeating = true }
 )
 hl.bind(
 	"XF86AudioLowerVolume",
-	hl.dsp.exec_cmd("wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%- && pw-play /usr/share/sounds/freedesktop/stereo/audio-volume-change.oga"),
+	hl.dsp.exec_cmd(
+		"wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%- && pw-play /usr/share/sounds/freedesktop/stereo/audio-volume-change.oga"
+	),
 	{ locked = true, repeating = true }
 )
 hl.bind(
@@ -111,27 +111,11 @@ hl.bind(
 	hl.dsp.exec_cmd("wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle"),
 	{ locked = true, repeating = true }
 )
-hl.bind(
-	"XF86MonBrightnessUp",
-	hl.dsp.exec_cmd("brightnessctl set +5%"),
-	{ locked = true, repeating = true }
-)
-hl.bind(
-	"XF86MonBrightnessDown",
-	hl.dsp.exec_cmd("brightnessctl set 5%-"),
-	{ locked = true, repeating = true }
-)
+hl.bind("XF86MonBrightnessUp", hl.dsp.exec_cmd("brightnessctl set +5%"), { locked = true, repeating = true })
+hl.bind("XF86MonBrightnessDown", hl.dsp.exec_cmd("brightnessctl set 5%-"), { locked = true, repeating = true })
 
 -- Requires playerctl
 hl.bind("XF86AudioNext", hl.dsp.exec_cmd("playerctl next"), { locked = true })
 hl.bind("XF86AudioPause", hl.dsp.exec_cmd("playerctl play-pause"), { locked = true })
 hl.bind("XF86AudioPlay", hl.dsp.exec_cmd("playerctl play-pause"), { locked = true })
 hl.bind("XF86AudioPrev", hl.dsp.exec_cmd("playerctl previous"), { locked = true })
-
--- Clamshell mode (wyłączanie ekranu laptopa przy zamknięciu klapy)
-hl.bind("switch:on:Lid Switch", hl.dsp.exec_cmd("hyprctl keyword monitor 'eDP-2, disable'"), { locked = true })
-hl.bind(
-	"switch:off:Lid Switch",
-	hl.dsp.exec_cmd("hyprctl keyword monitor 'eDP-2, 1920x1080@165, 0x0, 1'"),
-	{ locked = true }
-)

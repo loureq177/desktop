@@ -1,25 +1,32 @@
-------------------
----- MONITORS ----
-------------------
-
--- See https://wiki.hypr.land/Configuring/Basics/Monitors/
 hl.monitor({
 	output = "eDP-1",
-	mode = "1920x1080@165",
+	mode = "highres",
 	position = "0x0",
-	scale = "1",
 })
-
-hl.monitor({
-	output = "DP-1",
-	mode = "2560x1440@60",
-	position = "1920x0",
-	scale = "1",
-})
-
 hl.monitor({
 	output = "",
-	mode = "preferred",
+	mode = "highres",
 	position = "auto",
-	scale = "1",
 })
+
+hl.bind("switch:on:Lid Switch", function()
+	hl.monitor({ output = "eDP-1", disabled = true })
+
+	hl.timer(function()
+		local idx = 1
+		for _, m in ipairs(hl.get_monitors()) do
+			if m.name ~= "eDP-1" then
+				hl.dispatch(hl.dsp.workspace.rename(m.active_workspace.id .. " " .. idx))
+				idx = idx + 1
+			end
+		end
+	end, { timeout = 500, type = "oneshot" })
+end, { locked = true })
+
+hl.bind("switch:off:Lid Switch", function()
+	hl.monitor({ output = "eDP-1", disabled = false, mode = "highres", position = "0x0" })
+
+	for _, ws in ipairs(hl.get_workspaces()) do
+		hl.dispatch(hl.dsp.workspace.rename(ws.id .. " " .. ws.id))
+	end
+end, { locked = true })
