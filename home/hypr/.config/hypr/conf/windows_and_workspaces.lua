@@ -5,8 +5,9 @@
 -- See https://wiki.hypr.land/Configuring/Basics/Window-Rules/
 -- and https://wiki.hypr.land/Configuring/Basics/Workspace-Rules/
 
--- Example window rules that are useful
+local programs = require("conf.programs")
 
+-- Example window rules that are useful
 local suppressMaximizeRule = hl.window_rule({
 	-- Ignore maximize requests from all apps. You'll probably like this.
 	name = "suppress-maximize-events",
@@ -54,24 +55,21 @@ hl.config({
 	},
 })
 
-hl.window_rule({
-	match = { class = ".*[Ss]potify.*" },
-
-	workspace = "special:spotify",
-	float = true,
-	center = true,
-	size = "80% 80%",
-})
-
-hl.window_rule({
-	match = { class = ".*[Dd]iscord.*" },
-
+hl.workspace_rule({
 	workspace = "special:discord",
-	float = true,
-	center = true,
-	size = "1536 864",
+	on_created_empty = programs.discord,
+	gaps_out = { top = 54, right = 96, bottom = 54, left = 96 },
+	gaps_in = 0,
 })
 
+hl.workspace_rule({
+	workspace = "special:spotify",
+	on_created_empty = programs.spotify,
+	gaps_out = { top = 54, right = 96, bottom = 54, left = 96 },
+	gaps_in = 0,
+})
+
+-- Zen
 hl.window_rule({
 	match = { class = ".*[Zz]en.*" },
 	workspace = "1",
@@ -80,7 +78,13 @@ hl.window_rule({
 hl.window_rule({
 	match = { class = "galculator" },
 	workspace = "special:special",
-	size = "20% 60%",
+	size = "300 500",
 	float = true,
 	center = true,
+})
+
+hl.workspace_rule({
+	workspace = "special:focus",
+	gaps_out = { top = 54, right = 96, bottom = 54, left = 96 },
+	gaps_in = 0,
 })
