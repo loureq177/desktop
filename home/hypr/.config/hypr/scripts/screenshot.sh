@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 MODE=$1
 DIR="$HOME/Pictures/Screenshots"
@@ -11,15 +11,12 @@ else
     grim "$FILE"
 fi
 
-# Jeśli zrzut został anulowany (np. escape w slurp), to zakończ
 if [ ! -f "$FILE" ]; then
     exit 0
 fi
 
-# Skopiuj do schowka
-wl-copy < "$FILE"
+wl-copy <"$FILE"
 
-# Wyślij powiadomienie i czekaj na akcję użytkownika
 ACTION=$(notify-send -t 5000 -a "Screenshot" -i "$FILE" -A "default=Edytuj" -A "edit=Edytuj w Satty" "Zrzut ekranu zapisany" "Skopiowano do schowka. Kliknij, aby edytować.")
 
 if [ "$ACTION" = "default" ] || [ "$ACTION" = "edit" ]; then
