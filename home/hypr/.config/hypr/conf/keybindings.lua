@@ -60,10 +60,10 @@ end)
 
 -- Switch workspaces with mainMod + [0-9]
 -- Move active window to a workspace with mainMod + SHIFT + [0-9]
-for i = 1, 10 do
-	local key = i % 10 -- 10 maps to key 0
-	hl.bind(mainMod .. " + " .. key, hl.dsp.focus({ workspace = i }))
-	hl.bind(mainMod .. " + SHIFT + " .. key, hl.dsp.window.move({ workspace = i }))
+for index_number = 1, 10 do
+	local key_mapped = index_number % 10
+	hl.bind(mainMod .. " + " .. key_mapped, hl.dsp.focus({ workspace = index_number }))
+	hl.bind(mainMod .. " + SHIFT + " .. key_mapped, hl.dsp.window.move({ workspace = index_number }))
 end
 
 -- Move/resize windows with mainMod + LMB/RMB and dragging
