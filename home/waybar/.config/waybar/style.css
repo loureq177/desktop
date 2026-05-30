@@ -14,17 +14,9 @@ window#waybar {
   color: #ffffff;
 }
 
-#workspaces button,
-#window,
-#clock,
-#battery,
-#network,
-#cpu,
-#memory,
-#pulseaudio,
-#bluetooth,
-#custom-clipboard,
-#privacy {
+.modules-left > widget > *,
+.modules-center > widget > *,
+.modules-right > widget > * {
   background: transparent;
   color: #ffffff;
   padding: 0 10px;
@@ -50,10 +42,6 @@ window#waybar {
   font-weight: 700;
 }
 
-#battery {
-  color: #ffffff;
-}
-
 #battery.charging,
 #battery.plugged {
   color: #26a65b;
@@ -76,14 +64,11 @@ window#waybar {
   animation-direction: alternate;
 }
 
-#privacy-item.audio-in {
+#privacy-item.audio-in,
+#custom-webcam {
   color: #26a65b;
 }
 
 #privacy-item.screenshare {
   color: #9b59b6;
-}
-
-#custom-webcam {
-  color: #26a65b;
 }

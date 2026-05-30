@@ -36,7 +36,12 @@
   "custom/webcam": {
     "return-type": "json",
     "interval": 2,
-    "exec": "pids=$(fuser /dev/video* 2>/dev/null); if [ -n \"$pids\" ]; then ps -o comm= -p $pids | jq -R -s -c 'split(\"\\n\") | map(select(length > 0)) | {text: \" \", tooltip: join(\", \"), class: \"active\"}'; else echo '{\"text\": \"\", \"tooltip\": \"\", \"class\": \"\"}'; fi",
+    "exec": "if fuser /dev/video* >/dev/null 2>&1; then echo '{\"text\": \" \", \"tooltip\": \"Camera active\", \"class\": \"active\"}'; else echo '{\"text\": \"\", \"tooltip\": \"\", \"class\": \"\"}'; fi",
+  },
+  "custom/clipboard": {
+    "format": "󰅌",
+    "on-click": "cliphist list | rofi -dmenu -p 'Clipboard' | cliphist decode | wl-copy",
+    "tooltip": false,
   },
   "pulseaudio": {
     "format": "{icon} {volume}%",
@@ -69,14 +74,14 @@
     "tooltip-format-connected": "{controller_alias}\t{controller_address}\n\n{num_connections} connected\n\n{device_enumerate}",
     "tooltip-format-enumerate-connected": "{device_alias}\t{device_address}",
     "tooltip-format-enumerate-connected-battery": "{device_alias}\t{device_address}\t{device_battery_percentage}%",
-    "on-click": "blueman-manager",
+    "on-click": "bluetui",
   },
   "network": {
     "format-wifi": "",
     "format-ethernet": "󰈀",
     "format-disconnected": "󰖪",
     "tooltip-format": "{essid}",
-    "on-click": "ghostty -e sh -c 'sleep 1 && impala'",
+    "on-click": "ghostty --class=impala-float -e impala",
   },
   "hyprland/window": {
     "format": "{title}",
@@ -91,15 +96,16 @@
     "on-scroll-down": "hyprctl dispatch workspace e-1",
   },
   "cpu": {
-    "interval": 2,
+    "interval": 5,
     "format": " {usage}%",
-    "on-click": "ghostty -e btop",
+    "on-click": "ghostty --class=btop-float -e btop",
     "tooltip": false,
   },
   "memory": {
-    "interval": 2,
+    "interval": 5,
     "format": "󰍛 {}%",
-    "on-click": "ghostty -e btop",
+    "on-click": "ghostty --class=btop-float -e btop",
+    "tooltip": false,
   },
   "battery": {
     "interval": 60,
