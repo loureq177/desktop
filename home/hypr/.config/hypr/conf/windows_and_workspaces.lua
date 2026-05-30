@@ -82,9 +82,9 @@ local floatingRules = {
 		{ class = "blueman-manager" },
 	},
 	["1500 900"] = {
-		{ class = "loupe" },
-		{ class = "showtime" },
-		{ class = "snapshot" },
+		{ class = "org.gnome.Loupe" },
+		{ class = "org.gnome.Showtime" },
+		{ class = "org.gnome.Snapshot" },
 		{ title = "yazi-float" },
 		{ title = "btop-float" },
 		{ title = "bluetui-float" },
