@@ -1,27 +1,28 @@
----------------------
----- MY PROGRAMS ----
----------------------
+local wallpaper = "/home/mlorenc/Pictures/Wallpapers/hyprland.png"
 
--- Set programs that you use
 local terminal = "ghostty"
-local fileManager = "ghostty -e yazi"
 local browser = "zen-browser"
 local discord = "discord"
 local spotify = "spotify"
-local btop = "ghostty -e btop"
+
+local fileManager = "ghostty --title=yazi-float -e yazi"
+local impala = "ghostty --title=impala-float -e impala"
+local bluetui = "ghostty --title=bluetui-float -e bluetui"
+local btop = "ghostty --title=btop-float -e btop"
+
 local launcher = "rofi -show drun"
 local runner = "rofi -show run"
 
-local wallpaper = "/home/mlorenc/Pictures/Wallpapers/hyprland.png"
-
 return {
-	terminal = terminal,
-	fileManager = fileManager,
+	wallpaper = wallpaper,
 	browser = browser,
 	discord = discord,
 	spotify = spotify,
+	terminal = terminal,
+	fileManager = fileManager,
+	impala = impala,
+	bluetui = bluetui,
 	btop = btop,
 	launcher = launcher,
 	runner = runner,
-	wallpaper = wallpaper,
 }
