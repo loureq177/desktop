@@ -1,11 +1,5 @@
--------------------------------
----- ENVIRONMENT VARIABLES ----
--------------------------------
-
 -- See https://wiki.hypr.land/Configuring/Advanced-and-Cool/Environment-variables/
-
 hl.env("LIBVA_DRIVER_NAME", "radeonsi")
-hl.env("WLR_DRM_DEVICES", "/dev/dri/card1:/dev/dri/card0")
 hl.env("__GLX_VENDOR_LIBRARY_NAME", "mesa")
 hl.env("XDG_SESSION_TYPE", "wayland")
 hl.env("XDG_CURRENT_DESKTOP", "Hyprland")

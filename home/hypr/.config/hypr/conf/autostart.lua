@@ -1,17 +1,21 @@
 hl.on("hyprland.start", function()
 	hl.exec_cmd(
-		"dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP && systemctl --user import-environment WAYLAND_DISPLAY XDG_CURRENT_DESKTOP"
+		"dbus-update-activation-environment --systemd DISPLAY WAYLAND_DISPLAY XDG_CURRENT_DESKTOP XDG_SESSION_TYPE XDG_SESSION_DESKTOP"
 	)
+	hl.exec_cmd(
+		"systemctl --user import-environment DISPLAY WAYLAND_DISPLAY XDG_CURRENT_DESKTOP XDG_SESSION_TYPE XDG_SESSION_DESKTOP"
+	)
+	hl.exec_cmd("gsettings set org.gnome.desktop.interface cursor-theme 'Adwaita'")
+	hl.exec_cmd("gsettings set org.gnome.desktop.interface icon-theme 'Papirus-Dark'")
+	hl.exec_cmd("gsettings set org.gnome.desktop.interface font-name 'Adwaita Sans 12'")
+	hl.exec_cmd("gsettings set org.gnome.desktop.wm.preferences button-layout 'appmenu:close'")
+	hl.exec_cmd("gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark'")
+
 	hl.exec_cmd("hyprpm reload -n &")
 	hl.exec_cmd("nm-applet &")
 	hl.exec_cmd("systemctl --user start hyprpolkitagent")
 	hl.exec_cmd("aw-qt &")
 	hl.exec_cmd("hyprctl setcursor Adwaita 24")
-	hl.exec_cmd("gsettings set org.gnome.desktop.interface cursor-theme 'Adwaita'")
-	hl.exec_cmd("gsettings set org.gnome.desktop.interface icon-theme 'Papirus-Dark'")
-	hl.exec_cmd("gsettings set org.gnome.desktop.interface font-name 'Adwaita Sans 12'")
-	hl.exec_cmd("gsettings set org.gnome.desktop.wm.preferences button-layout 'appmenu:close'")
-	hl.exec_cmd("gnome-keyring-daemon --start --components=secrets")
 	hl.exec_cmd("wl-paste --type text --watch cliphist store -max-items 20 &")
 	hl.exec_cmd("hyprsunset &")
 	hl.exec_cmd("waybar &")
