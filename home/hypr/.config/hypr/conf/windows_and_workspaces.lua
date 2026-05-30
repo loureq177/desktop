@@ -1,24 +1,17 @@
---------------------------------
----- WINDOWS AND WORKSPACES ----
---------------------------------
-
--- See https://wiki.hypr.land/Configuring/Basics/Window-Rules/
--- and https://wiki.hypr.land/Configuring/Basics/Workspace-Rules/
-
 local programs = require("conf.programs")
 
--- Example window rules that are useful
+------------------------
+---- GLOBAL FIXES ------
+------------------------
+
 local suppressMaximizeRule = hl.window_rule({
-	-- Ignore maximize requests from all apps. You'll probably like this.
 	name = "suppress-maximize-events",
 	match = { class = ".*" },
-
 	suppress_event = "maximize",
 })
 suppressMaximizeRule:set_enabled(true)
 
 hl.window_rule({
-	-- Fix some dragging issues with XWayland
 	name = "fix-xwayland-drags",
 	match = {
 		class = "^$",
@@ -28,63 +21,84 @@ hl.window_rule({
 		fullscreen = false,
 		pin = false,
 	},
-
 	no_focus = true,
 })
 
--- Layer rules also return a handle.
--- local overlayLayerRule = hl.layer_rule({
---     name  = "no-anim-overlay",
---     match = { namespace = "^my-overlay$" },
---     no_anim = true,
--- })
--- overlayLayerRule:set_enabled(false)
+hl.layer_rule({
+	name = "rofi-blur",
+	match = { namespace = "^rofi$" },
+	blur = true,
+	ignore_alpha = 0.2,
+})
 
--- Hyprland-run windowrule
 hl.window_rule({
 	name = "move-hyprland-run",
 	match = { class = "hyprland-run" },
-
 	move = "20 95%",
 	float = true,
 })
 
-hl.config({
-	misc = {
-		focus_on_activate = true,
-	},
-})
+---------------------------------
+---- SPECIAL WORKSPACE APPS -----
+---------------------------------
 
-hl.workspace_rule({
-	workspace = "special:discord",
-	on_created_empty = programs.discord,
-	gaps_out = { top = 54, right = 96, bottom = 54, left = 96 },
-	gaps_in = 0,
-})
+local focusGaps = { top = 54, right = 96, bottom = 54, left = 96 }
 
-hl.workspace_rule({
-	workspace = "special:spotify",
-	on_created_empty = programs.spotify,
-	gaps_out = { top = 54, right = 96, bottom = 54, left = 96 },
-	gaps_in = 0,
-})
+-- Zamiast regexów ".*[Dd]iscord.*", używamy dokładnych klas Waylanda
+local specialApps = {
+	{ class = "discord", workspace = "special:discord", exe = programs.discord },
+	{ class = "Spotify", workspace = "special:spotify", exe = programs.spotify },
+}
 
--- Zen
-hl.window_rule({
-	match = { class = ".*[Zz]en.*" },
-	workspace = "1",
-})
+for _, app in ipairs(specialApps) do
+	hl.workspace_rule({
+		workspace = app.workspace,
+		on_created_empty = app.exe,
+		gaps_out = focusGaps,
+		gaps_in = 0,
+	})
 
-hl.window_rule({
-	match = { class = "galculator" },
-	workspace = "special:special",
-	size = "300 500",
-	float = true,
-	center = true,
-})
+	hl.window_rule({
+		match = { class = app.class },
+		workspace = app.workspace,
+	})
+end
 
 hl.workspace_rule({
 	workspace = "special:focus",
-	gaps_out = { top = 54, right = 96, bottom = 54, left = 96 },
+	gaps_out = focusGaps,
 	gaps_in = 0,
 })
+
+-------------------------
+---- FLOATING APPS ------
+-------------------------
+
+local floatingRules = {
+	["600 400"] = {
+		{ class = "org.gnome.Calculator" },
+		{ class = "com.saivert.pwvucontrol" },
+		{ class = "org.gnome.clocks" },
+		{ class = "blueman-manager" },
+	},
+	["1500 900"] = {
+		{ class = "loupe" },
+		{ class = "showtime" },
+		{ class = "snapshot" },
+		{ title = "yazi-float" },
+		{ title = "btop-float" },
+		{ title = "bluetui-float" },
+		{ title = "impala-float" },
+	},
+}
+
+for size, apps in pairs(floatingRules) do
+	for _, appMatch in ipairs(apps) do
+		hl.window_rule({
+			match = appMatch,
+			float = true,
+			center = true,
+			size = size,
+		})
+	end
+end
