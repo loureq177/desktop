@@ -75,6 +75,9 @@ hl.bind("Print", hl.dsp.exec_cmd("~/.config/hypr/scripts/screenshot.sh region"))
 hl.bind("SHIFT + Print", hl.dsp.exec_cmd("~/.config/hypr/scripts/screenshot.sh full"))
 hl.bind(mainMod .. " + Period", hl.dsp.exec_cmd("rofi -show emoji -modi emoji"))
 
+-- Color picker
+hl.bind(mainMod .. " + SHIFT + P", hl.dsp.exec_cmd("hyprpicker -a --notify"))
+
 -- Volume and brightness
 hl.bind(
 	"XF86AudioRaiseVolume",
