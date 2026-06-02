@@ -81,7 +81,7 @@
     "format-ethernet": "󰈀",
     "format-disconnected": "󰖪",
     "tooltip-format": "{essid}",
-    "on-click": "ghostty --class=impala-float -e impala",
+    "on-click": "ghostty --title=impala-float -e impala",
   },
   "hyprland/window": {
     "format": "{title}",
@@ -98,13 +98,13 @@
   "cpu": {
     "interval": 5,
     "format": " {usage}%",
-    "on-click": "ghostty --class=btop-float -e btop",
+    "on-click": "ghostty --title=btop-float -e btop",
     "tooltip": false,
   },
   "memory": {
     "interval": 5,
     "format": "󰍛 {}%",
-    "on-click": "ghostty --class=btop-float -e btop",
+    "on-click": "ghostty --title=btop-float -e btop",
     "tooltip": false,
   },
   "battery": {
