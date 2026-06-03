@@ -16,3 +16,6 @@ require("conf.misc")
 require("conf.input")
 require("conf.keybindings")
 require("conf.windows_and_workspaces")
+
+-- HyprMod managed settings
+require("hyprland-gui")
