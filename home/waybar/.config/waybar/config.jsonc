@@ -1,7 +1,7 @@
 {
   "layer": "top",
   "height": 30,
-  "spacing": 12,
+  "spacing": 4,
   "modules-left": ["hyprland/workspaces", "hyprland/window"],
   "modules-center": ["clock"],
   "modules-right": [
@@ -15,6 +15,7 @@
     "memory",
     "battery",
     "network",
+    "custom/power",
   ],
   "privacy": {
     "icon-spacing": 4,
@@ -40,7 +41,7 @@
   },
   "custom/clipboard": {
     "format": "󰅌",
-    "on-click": "cliphist list | rofi -dmenu -p 'Clipboard' | cliphist decode | wl-copy",
+    "on-click": "cliphist list | rofi -dmenu -display-columns 2 | cliphist decode | wl-copy",
     "tooltip": false,
   },
   "pulseaudio": {
@@ -82,6 +83,11 @@
     "format-disconnected": "󰖪",
     "tooltip-format": "{essid}",
     "on-click": "ghostty --title=impala-float -e impala",
+  },
+  "custom/power": {
+    "format": "⏻",
+    "on-click": "~/.config/hypr/scripts/powermenu.sh",
+    "tooltip": false,
   },
   "hyprland/window": {
     "format": "{title}",
