@@ -1,5 +1,5 @@
 configuration {
-    modi: "drun,run,window";
+    modi: "drun,run";
     icon-theme: "Papirus-Dark";
     show-icons: true;
     terminal: "ghostty";
@@ -7,8 +7,6 @@ configuration {
     location: 0;
     disable-history: false;
     hide-scrollbar: true;
-    display-drun: "   Apps ";
-    display-run: "   Run ";
     sidebar-mode: true;
 }
 
