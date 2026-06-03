@@ -22,16 +22,16 @@ hl.bind(mainMod .. " + B", function()
 	end
 end)
 hl.bind(mainMod .. " + Q", hl.dsp.window.close())
-hl.bind(mainMod .. " + Escape", hl.dsp.exec_cmd(programs.btop))
+hl.bind(mainMod .. " + Escape", hl.dsp.exec_cmd("~/.config/hypr/scripts/powermenu.sh"))
 hl.bind(mainMod .. " + M", hl.dsp.exec_cmd("hyprlock"))
 hl.bind(mainMod .. " + SHIFT + M", hl.dsp.exit())
 hl.bind(mainMod .. " + E", hl.dsp.exec_cmd(programs.fileManager))
-hl.bind(mainMod .. " + V", hl.dsp.window.float({ action = "toggle" }))
+hl.bind(mainMod .. " + SHIFT + V", hl.dsp.window.float({ action = "toggle" }))
 hl.bind(
-	mainMod .. " + SHIFT + V",
-	hl.dsp.exec_cmd("cliphist list | rofi -dmenu -p 'Clipboard' | cliphist decode | wl-copy")
+	mainMod .. " + V",
+	hl.dsp.exec_cmd("cliphist list | rofi -dmenu -display-columns 2 | cliphist decode | wl-copy")
 )
-hl.bind(mainMod .. " + F", hl.dsp.window.fullscreen({ mode = 1 }))
+hl.bind(mainMod .. " + F", hl.dsp.window.fullscreen())
 hl.bind(mainMod .. " + space", hl.dsp.exec_cmd(programs.launcher))
 hl.bind(mainMod .. " + SHIFT + space", hl.dsp.exec_cmd(programs.runner))
 hl.bind(mainMod .. " + P", hl.dsp.window.pseudo())
