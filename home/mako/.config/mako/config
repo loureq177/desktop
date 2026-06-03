@@ -1,4 +1,4 @@
-font=adwaita-sans-13
+font=Adwaita Sans 13
 width=500
 height=150
 max-icon-size=150
@@ -10,14 +10,13 @@ border-size=2
 border-radius=10
 padding=12
 margin=8
-default-timeout=8000
-ignore-timeout=false
+default-timeout=10000
+ignore-timeout=true
 
 max-visible=5
 max-history=50
 
 icon-location=left
-max-icon-size=48
 
 group-by=app-name
 
