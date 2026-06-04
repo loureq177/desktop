@@ -1,10 +1,16 @@
 configuration {
-    modi: "drun,run";
+    terminal: "ghostty";
+    modi: "drun,run,window";
     show-icons: true;
     icon-theme: "Papirus-Dark";
     font: "JetBrainsMono Nerd Font Mono 13";
     drun-display-format: "{icon} {name}";
     display-drun: " ";
     display-run: " ";
+    display-window: " ";
+    scroll-method: 1;
+    matching: "fuzzy";
+    sort: true;
+    sorting-method: "fzf";
 }
 @theme "tokyonight"

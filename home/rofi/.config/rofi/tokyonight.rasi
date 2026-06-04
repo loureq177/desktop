@@ -2,7 +2,7 @@
     bg0: #222436;
     bg1: #2f334d;
     fg0: #c8d3f5;
-    accent: #82aaff;
+    accent: #2ccade;
     urgent: #ff757f;
     background-color: transparent;
     text-color: @fg0;
@@ -15,7 +15,7 @@ window {
     border: 2px;
     border-color: @accent;
     border-radius: 8px;
-    width: 600px;
+    width: 750px;
 }
 inputbar {
     padding: 12px;
@@ -26,14 +26,12 @@ prompt {
     text-color: @accent;
     padding: 0 8px 0 0;
 }
-entry {
-    placeholder: "Search...";
-}
 listview {
     padding: 8px;
-    lines: 8;
+    lines: 10;
     columns: 1;
     fixed-height: true;
+    scrollbar: false;
 }
 element {
     padding: 8px;
@@ -49,4 +47,9 @@ element-text {
 element-icon {
     size: 1.5em;
     padding: 0 8px 0 0;
+}
+entry {
+    placeholder: "Search...";
+    placeholder-color: #565f89;
+    text-color: @fg0;
 }
