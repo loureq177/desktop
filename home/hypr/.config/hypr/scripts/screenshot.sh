@@ -15,9 +15,9 @@ if [ ! -f "$FILE" ]; then
     exit 0
 fi
 
-wl-copy <"$FILE"
+wl-copy --type image/png < "$FILE"
 
-ACTION=$(notify-send -t 5000 -a "Screenshot" -i "$FILE" -A "default=Edytuj" -A "edit=Edytuj w Satty" "Zrzut ekranu zapisany" "Skopiowano do schowka. Kliknij, aby edytować.")
+ACTION=$(notify-send -t 5000 -a "Screenshot" -i "$FILE" -A "default=Edit" -A "edit=Edit with Satty" "Screenshot saved." "Copied to clipboard. Click to edit.")
 
 if [ "$ACTION" = "default" ] || [ "$ACTION" = "edit" ]; then
     satty --filename "$FILE" --fullscreen --output-filename "$FILE"
