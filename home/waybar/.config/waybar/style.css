@@ -64,11 +64,11 @@ window#waybar {
   animation-direction: alternate;
 }
 
-#privacy-item.audio-in,
-#custom-webcam {
+#privacy-item.audio-in {
   color: #26a65b;
 }
 
 #privacy-item.screenshare {
   color: #9b59b6;
 }
+
