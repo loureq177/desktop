@@ -44,7 +44,6 @@ hl.window_rule({
 
 local focusGaps = { top = 54, right = 96, bottom = 54, left = 96 }
 
--- Zamiast regexów ".*[Dd]iscord.*", używamy dokładnych klas Waylanda
 local specialApps = {
 	{ class = "discord", workspace = "special:discord", exe = programs.discord },
 	{ class = "Spotify", workspace = "special:spotify", exe = programs.spotify },
@@ -74,31 +73,17 @@ hl.workspace_rule({
 ---- FLOATING APPS ------
 -------------------------
 
-local floatingRules = {
-	["600 400"] = {
-		{ class = "org.gnome.Calculator" },
-		{ class = "com.saivert.pwvucontrol" },
-		{ class = "org.gnome.clocks" },
-		{ class = "blueman-manager" },
+hl.window_rule({
+	match = {
+		class = "^(org.gnome.Calculator|com.saivert.pwvucontrol|org.gnome.clocks|org.gnome.Loupe|org.gnome.Showtime|org.gnome.Snapshot)$",
 	},
-	["1500 900"] = {
-		{ class = "org.gnome.Loupe" },
-		{ class = "org.gnome.Showtime" },
-		{ class = "org.gnome.Snapshot" },
-		{ title = "yazi-float" },
-		{ title = "btop-float" },
-		{ title = "bluetui-float" },
-		{ title = "impala-float" },
-	},
-}
+	float = true,
+	center = true,
+})
 
-for size, apps in pairs(floatingRules) do
-	for _, appMatch in ipairs(apps) do
-		hl.window_rule({
-			match = appMatch,
-			float = true,
-			center = true,
-			size = size,
-		})
-	end
-end
+hl.window_rule({
+	match = { title = "^(yazi|btop|bluetui|impala)-float$" },
+	float = true,
+	center = true,
+	size = "90% 90%",
+})
