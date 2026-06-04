@@ -1,13 +1,2 @@
-configuration {
-    modi: "drun,run";
-    icon-theme: "Papirus-Dark";
-    show-icons: true;
-    terminal: "ghostty";
-    drun-display-format: "{icon} {name}";
-    location: 0;
-    disable-history: false;
-    hide-scrollbar: true;
-    sidebar-mode: true;
-}
 
-@theme "catppuccin-mocha"
+@theme "/usr/share/rofi/themes/Arc-Dark.rasi"
