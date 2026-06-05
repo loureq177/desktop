@@ -116,7 +116,7 @@
   "cpu": {
     "interval": 5,
     "format": " {usage}%",
-    "on-click": "ghostty --title=btop-float -e btop",
+    "on-click": "ghostty --title=btop -e btop",
     "tooltip": true,
     "tooltip-format": "Load: {load_percent:.1f}%\nFreq: {frequency} MHz",
   },
@@ -124,7 +124,7 @@
   "memory": {
     "interval": 5,
     "format": "󰍛 {}%",
-    "on-click": "ghostty --title=btop-float -e btop",
+    "on-click": "ghostty --title=btop -e btop",
     "tooltip": true,
     "tooltip-format": "Used: {used}/{total}\nAvail: {avail}",
   },
