@@ -4,12 +4,11 @@ local programs = require("conf.programs")
 ---- GLOBAL FIXES ------
 ------------------------
 
-local suppressMaximizeRule = hl.window_rule({
+hl.window_rule({
 	name = "suppress-maximize-events",
 	match = { class = ".*" },
 	suppress_event = "maximize",
 })
-suppressMaximizeRule:set_enabled(true)
 
 hl.window_rule({
 	name = "fix-xwayland-drags",
@@ -34,7 +33,7 @@ hl.layer_rule({
 hl.window_rule({
 	name = "move-hyprland-run",
 	match = { class = "hyprland-run" },
-	move = "20 95%",
+	move = "20 monitor_h*0.95",
 	float = true,
 })
 
@@ -42,32 +41,55 @@ hl.window_rule({
 ---- SPECIAL WORKSPACE APPS -----
 ---------------------------------
 
-local focusGaps = { top = 54, right = 96, bottom = 54, left = 96 }
-
 local specialApps = {
-	{ class = "discord", workspace = "special:discord", exe = programs.discord },
-	{ class = "Spotify", workspace = "special:spotify", exe = programs.spotify },
+	{ match = { class = "discord" }, workspace = "special:discord", exe = programs.discord },
+	{ match = { class = "Spotify" }, workspace = "special:spotify", exe = programs.spotify },
+	{ match = { initial_title = "^btop$" }, workspace = "special:btop", exe = programs.btop },
+}
+
+local specialWorkspaces = {
+	"special:discord",
+	"special:spotify",
+	"special:btop",
+	"special:focus",
 }
 
 for _, app in ipairs(specialApps) do
 	hl.workspace_rule({
 		workspace = app.workspace,
 		on_created_empty = app.exe,
-		gaps_out = focusGaps,
-		gaps_in = 0,
 	})
-
 	hl.window_rule({
-		match = { class = app.class },
+		match = app.match,
 		workspace = app.workspace,
 	})
 end
 
-hl.workspace_rule({
-	workspace = "special:focus",
-	gaps_out = focusGaps,
-	gaps_in = 0,
-})
+-- dynamiczne gapy: 85% ekranu niezależnie od rozdzielczości
+local function applyFocusGaps(monitor)
+	local gapV = math.floor(monitor.height * 0.075)
+	local gapH = math.floor(monitor.width * 0.075)
+	local gaps = { top = gapV, right = gapH, bottom = gapV, left = gapH }
+
+	for _, ws in ipairs(specialWorkspaces) do
+		hl.workspace_rule({
+			workspace = ws,
+			gaps_out = gaps,
+			gaps_in = 0,
+		})
+	end
+end
+
+for _, monitor in ipairs(hl.get_monitors()) do
+	applyFocusGaps(monitor)
+end
+
+hl.on("monitor.added", applyFocusGaps)
+hl.on("monitor.removed", function(_)
+	for _, monitor in ipairs(hl.get_monitors()) do
+		applyFocusGaps(monitor)
+	end
+end)
 
 -------------------------
 ---- FLOATING APPS ------
@@ -82,8 +104,8 @@ hl.window_rule({
 })
 
 hl.window_rule({
-	match = { title = "^(yazi|btop|bluetui|impala)-float$" },
+	match = { initial_title = "^(yazi|bluetui|impala)-float$" },
 	float = true,
 	center = true,
-	size = "90% 90%",
+	size = "monitor_w*0.8 monitor_h*0.8",
 })
