@@ -24,7 +24,10 @@ hl.bind(mod .. " + Escape", hl.dsp.exec_cmd("~/.config/hypr/scripts/powermenu.sh
 hl.bind(mod .. " + M", hl.dsp.exec_cmd("hyprlock"))
 hl.bind(mod .. " + SHIFT + M", hl.dsp.exit())
 hl.bind(mod .. " + SHIFT + V", hl.dsp.window.float({ action = "toggle" }))
-hl.bind(mod .. " + V", hl.dsp.exec_cmd("cliphist list | rofi -dmenu -display-columns 2 | cliphist decode | wl-copy"))
+hl.bind(
+	mod .. " + V",
+	hl.dsp.exec_cmd("cliphist list | rofi -dmenu -p 'Clipboard' -display-columns 2 | cliphist decode | wl-copy")
+)
 hl.bind(mod .. " + F", hl.dsp.window.fullscreen())
 hl.bind(mod .. " + P", hl.dsp.window.pseudo())
 hl.bind(mod .. " + S", hl.dsp.workspace.toggle_special("focus"))

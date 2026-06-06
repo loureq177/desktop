@@ -6,16 +6,16 @@ mkdir -p "$DIR"
 FILE="$DIR/$(date +'%Y-%m-%d_%H-%M-%S').png"
 
 if [ "$MODE" = "region" ]; then
-    grim -g "$(slurp)" "$FILE"
+    grimblast --freeze save area "$FILE"
 else
-    grim "$FILE"
+    grimblast save output "$FILE"
 fi
 
 if [ ! -f "$FILE" ]; then
     exit 0
 fi
 
-wl-copy --type image/png < "$FILE"
+wl-copy --type image/png <"$FILE"
 
 ACTION=$(notify-send -t 5000 -a "Screenshot" -i "$FILE" -A "default=Edit" -A "edit=Edit with Satty" "Screenshot saved." "Copied to clipboard. Click to edit.")
 
