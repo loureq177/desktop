@@ -5,9 +5,9 @@ configuration {
     icon-theme: "Papirus-Dark";
     font: "JetBrainsMono Nerd Font Mono 13";
     drun-display-format: "{icon} {name}";
-    display-drun: " ";
-    display-run: " ";
-    display-window: " ";
+    display-drun: " Apps";
+    display-run: " Commands";
+    display-window: " Windows";
     scroll-method: 1;
     matching: "fuzzy";
     sort: true;
