@@ -10,7 +10,7 @@ border-size=2
 border-radius=12
 padding=12
 margin=8
-default-timeout=10000
+default-timeout=0
 ignore-timeout=true
 
 max-visible=5
