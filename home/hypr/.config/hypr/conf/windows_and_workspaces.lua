@@ -44,13 +44,11 @@ hl.window_rule({
 local specialApps = {
 	{ match = { class = "discord" }, workspace = "special:discord", exe = programs.discord },
 	{ match = { class = "Spotify" }, workspace = "special:spotify", exe = programs.spotify },
-	{ match = { initial_title = "^btop$" }, workspace = "special:btop", exe = programs.btop },
 }
 
 local specialWorkspaces = {
 	"special:discord",
 	"special:spotify",
-	"special:btop",
 	"special:focus",
 }
 
@@ -104,7 +102,7 @@ hl.window_rule({
 })
 
 hl.window_rule({
-	match = { initial_title = "^(yazi|bluetui|impala)-float$" },
+	match = { initial_title = "^(yazi|bluetui|impala|float)-float$" },
 	float = true,
 	center = true,
 	size = "monitor_w*0.8 monitor_h*0.8",
