@@ -10,7 +10,7 @@
 }
 
 window#waybar {
-  background-color: rgba(0, 0, 0, 0.7);
+  background-color: rgba(0, 0, 0, 0);
   color: #ffffff;
 }
 
@@ -71,4 +71,3 @@ window#waybar {
 #privacy-item.screenshare {
   color: #9b59b6;
 }
-

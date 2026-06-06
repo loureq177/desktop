@@ -1,6 +1,6 @@
 {
   "layer": "top",
-  "height": 30,
+  "height": 25,
   "spacing": 4,
 
   "modules-left": ["hyprland/workspaces", "hyprland/window"],
@@ -10,6 +10,7 @@
   "modules-right": [
     "privacy",
     "custom/usb",
+    "custom/caffeine",
     "pulseaudio",
     "pulseaudio#microphone",
     "bluetooth",
@@ -44,6 +45,14 @@
     "exec": "lsblk -J -o NAME,MOUNTPOINT | grep -q /run/media && echo 'Mounted' || echo ''",
     "interval": 2,
     "on-click": "xdg-open /run/media/$USER/*",
+  },
+
+  "custom/caffeine": {
+    "format": "{}",
+    "interval": 2,
+    "exec": "pidof hypridle > /dev/null && echo '💤' || echo '☕'",
+    "on-click": "pidof hypridle > /dev/null && pkill hypridle || hypridle &",
+    "tooltip": false,
   },
 
   "pulseaudio": {
@@ -116,7 +125,7 @@
   "cpu": {
     "interval": 5,
     "format": " {usage}%",
-    "on-click": "ghostty --title=btop -e btop",
+    "on-click": "ghostty --title=btop-float -e btop",
     "tooltip": true,
     "tooltip-format": "Load: {load_percent:.1f}%\nFreq: {frequency} MHz",
   },
@@ -124,17 +133,19 @@
   "memory": {
     "interval": 5,
     "format": "󰍛 {}%",
-    "on-click": "ghostty --title=btop -e btop",
+    "on-click": "ghostty --title=btop-float -e btop",
     "tooltip": true,
     "tooltip-format": "Used: {used}/{total}\nAvail: {avail}",
   },
 
   "battery": {
     "interval": 60,
-    "format": "{icon} {capacity}%",
+    "format": "{icon} {capacity}%",
+    "format-charging": " {capacity}%",
+    "format-plugged": " {capacity}%",
     "format-icons": ["󰂎", "󰁺", "󰁻", "󰁼", "󰁽", "󰁾", "󰁿", "󰂀", "󰂁", "󰂂", "󰁹"],
     "tooltip": true,
-    "tooltip-format": "{capacity}%\n{status}\n{timeToFull}{timeToEmpty}",
+    "tooltip-format": "{capacity}%\nRemaining time: {time}",
   },
 
   "clock": {
