@@ -9,7 +9,6 @@
 
   "modules-right": [
     "privacy",
-    "custom/usb",
     "custom/caffeine",
     "pulseaudio",
     "pulseaudio#microphone",
@@ -38,13 +37,6 @@
         "tooltip-icon-size": 24,
       },
     ],
-  },
-
-  "custom/usb": {
-    "format": " {}",
-    "exec": "lsblk -J -o NAME,MOUNTPOINT | grep -q /run/media && echo 'Mounted' || echo ''",
-    "interval": 2,
-    "on-click": "xdg-open /run/media/$USER/*",
   },
 
   "custom/caffeine": {
@@ -91,7 +83,7 @@
 
   "custom/clipboard": {
     "format": "󰅌",
-    "on-click": "cliphist list | rofi -dmenu -display-columns 2 | cliphist decode | wl-copy",
+    "on-click": "cliphist list | rofi -dmenu -p 'Clipboard' -display-columns 2 | cliphist decode | wl-copy",
     "tooltip": false,
   },
 
