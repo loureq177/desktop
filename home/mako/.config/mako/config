@@ -2,6 +2,7 @@ font=Adwaita Sans 13
 width=500
 height=150
 max-icon-size=70
+format=<b>[%a]</b> %s\n%b
 background-color=#1e1e2e
 text-color=#cdd6f4
 border-color=#89b4fa
