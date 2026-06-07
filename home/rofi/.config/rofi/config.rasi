@@ -9,7 +9,6 @@ configuration {
     display-run: " Commands";
     display-window: " Windows";
     scroll-method: 1;
-    matching: "fuzzy";
     sort: true;
     sorting-method: "fzf";
 }
