@@ -1,6 +1,4 @@
 * {
-    bg0: #222436;
-    bg1: #2f334d;
     fg0: #c8d3f5;
     accent: #2ccade;
     urgent: #ff757f;
@@ -11,7 +9,7 @@
     spacing: 0;
 }
 window {
-    background-color: @bg0;
+    background-color: rgba(34, 36, 54, 0.95);
     border: 2px;
     border-color: @accent;
     border-radius: 8px;
@@ -19,7 +17,7 @@ window {
 }
 inputbar {
     padding: 12px;
-    background-color: @bg1;
+    background-color: rgba(47, 51, 77, 0.4);
     children: [prompt, entry];
 }
 prompt {
@@ -28,7 +26,7 @@ prompt {
 }
 listview {
     padding: 8px;
-    lines: 10;
+    lines: 6;
     columns: 1;
     fixed-height: true;
     scrollbar: false;
@@ -38,7 +36,7 @@ element {
     border-radius: 4px;
 }
 element selected {
-    background-color: @bg1;
+    background-color: rgba(47, 51, 77, 0.4);
     text-color: @accent;
 }
 element-text {
