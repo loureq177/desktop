@@ -1,21 +1,19 @@
 #!/usr/bin/env bash
 
-MODE=$1
+MODE="$1"
 DIR="$HOME/Pictures/Screenshots"
 mkdir -p "$DIR"
 FILE="$DIR/$(date +'%Y-%m-%d_%H-%M-%S').png"
 
 if [ "$MODE" = "region" ]; then
-    grimblast --freeze save area "$FILE"
+    grimblast --freeze copysave area "$FILE"
 else
-    grimblast save output "$FILE"
+    grimblast copysave output "$FILE"
 fi
 
 if [ ! -f "$FILE" ]; then
     exit 0
 fi
-
-wl-copy --type image/png <"$FILE"
 
 ACTION=$(notify-send -t 5000 -a "Screenshot" -i "$FILE" -A "default=Edit" -A "edit=Edit with Satty" "Screenshot saved." "Copied to clipboard. Click to edit.")
 
