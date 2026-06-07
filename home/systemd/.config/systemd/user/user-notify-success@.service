@@ -1,0 +1,6 @@
+[Unit]
+Description=Notify on service success
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/systemd-notify-success %i
