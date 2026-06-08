@@ -1,5 +1,5 @@
 [Unit]
-Description=Run Rclone Bisync periodically
+Description=Run Rclone Sync periodically
 
 [Timer]
 OnBootSec=5min

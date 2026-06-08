@@ -1,9 +1,9 @@
 [Unit]
-Description=Rclone Bisync Background Sync
+Description=Rclone Sync Background Sync
 After=network-online.target
 OnFailure=user-notify-fail@%n.service
 OnSuccess=user-notify-success@%n.service
 
 [Service]
 Type=oneshot
-ExecStart=%h/.local/bin/rclone_bisync
+ExecStart=%h/.local/bin/rclone_sync
