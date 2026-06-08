@@ -1,4 +1,3 @@
-local wallpaper = "/home/mlorenc/Pictures/Wallpapers/hyprland.png"
 local terminal = "ghostty"
 local browser = "zen-browser"
 local discord = "discord"
@@ -11,7 +10,6 @@ local launcher = "rofi -show drun"
 local runner = "rofi -show run"
 
 return {
-	wallpaper = wallpaper,
 	browser = browser,
 	discord = discord,
 	spotify = spotify,
