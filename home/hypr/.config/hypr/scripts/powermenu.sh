@@ -6,6 +6,6 @@ case "$entry" in
 " lock") hyprlock ;;
 " logout") hyprctl dispatch exit ;;
 " suspend") systemctl suspend ;;
-" reboot") systemctl reboot ;;
-" shutdown") systemctl poweroff ;;
+" reboot") hyprshutdown --post-cmd "systemctl reboot" ;;
+" shutdown") hyprshutdown --post-cmd "systemctl poweroff" ;;
 esac
