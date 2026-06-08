@@ -1,8 +1,12 @@
-font=Adwaita Sans 13
+font=Adwaita Sans 12
 width=500
+layer=overlay
+anchor=top-right
+outer-margin=6
 height=150
 max-icon-size=70
-format=<b>[%a]</b> %s\n%b
+markup=true
+format=<b>%a\n</b>%s: %b
 background-color=#1e1e2e
 text-color=#cdd6f4
 border-color=#89b4fa
