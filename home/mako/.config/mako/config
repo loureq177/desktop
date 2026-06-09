@@ -15,8 +15,8 @@ border-size=2
 border-radius=12
 padding=12
 margin=8
-default-timeout=0
-ignore-timeout=true
+default-timeout=8000
+ignore-timeout=false
 
 max-visible=5
 max-history=50
