@@ -83,7 +83,7 @@
 
   "custom/clipboard": {
     "format": "󰅌",
-    "on-click": "cliphist list | rofi -dmenu -p 'Clipboard' -display-columns 2 | cliphist decode | wl-copy",
+    "on-click": "~/.config/hypr/scripts/cliphist-paste.sh",
     "tooltip": false,
   },
 

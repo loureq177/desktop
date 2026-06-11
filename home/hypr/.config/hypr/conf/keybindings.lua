@@ -26,7 +26,7 @@ hl.bind(mod .. " + SHIFT + M", hl.dsp.exit())
 hl.bind(mod .. " + SHIFT + V", hl.dsp.window.float({ action = "toggle" }))
 hl.bind(
 	mod .. " + V",
-	hl.dsp.exec_cmd("cliphist list | rofi -dmenu -p 'Clipboard' -display-columns 2 | cliphist decode | wl-copy")
+	hl.dsp.exec_cmd("~/.config/hypr/scripts/cliphist-paste.sh")
 )
 hl.bind(mod .. " + F", hl.dsp.window.fullscreen())
 hl.bind(mod .. " + P", hl.dsp.window.pseudo())
