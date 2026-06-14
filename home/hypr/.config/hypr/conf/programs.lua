@@ -12,7 +12,7 @@ return {
 	runner = runner,
 
 	browser = {
-		exe = "flatpak run io.github.zen_browser.zen",
+		exe = "flatpak run app.zen_browser.zen",
 		class = "app.zen_browser.zen",
 	},
 
