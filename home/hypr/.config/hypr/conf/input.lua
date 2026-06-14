@@ -17,8 +17,22 @@ hl.config({
 })
 
 hl.gesture({ fingers = 3, direction = "horizontal", scale = 2.0, action = "workspace" })
-hl.gesture({ fingers = 2, direction = "pinchin", action = "cursorZoom", zoom_level = 2.0, mode = "mult" })
-hl.gesture({ fingers = 2, direction = "pinchout", action = "cursorZoom", zoom_level = 0.5, mode = "mult" })
+hl.gesture({
+	fingers = 2,
+	direction = "pinchin",
+	mods = "SUPER",
+	action = "cursorZoom",
+	zoom_level = 2.0,
+	mode = "mult",
+})
+hl.gesture({
+	fingers = 2,
+	direction = "pinchout",
+	mods = "SUPER",
+	action = "cursorZoom",
+	zoom_level = 0.5,
+	mode = "mult",
+})
 
 -- Example per-device config
 -- See https://wiki.hypr.land/Configuring/Advanced-and-Cool/Devices/ for more
