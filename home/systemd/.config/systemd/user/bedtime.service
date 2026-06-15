@@ -1,0 +1,5 @@
+[Unit]
+Description=Bedtime routine script
+
+[Service]
+ExecStart=%h/.local/bin/bedtime

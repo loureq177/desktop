@@ -1,0 +1,9 @@
+[Unit]
+Description=Timer for bedtime routine
+
+[Timer]
+OnCalendar=*-*-* 21:45:00
+Persistent=false
+
+[Install]
+WantedBy=timers.target
