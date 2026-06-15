@@ -15,6 +15,13 @@ hl.bind(mod .. " + D", hl.dsp.workspace.toggle_special(programs.special.discord.
 hl.bind(mod .. " + S", hl.dsp.workspace.toggle_special(programs.special.spotify.ws))
 hl.bind(mod .. " + E", hl.dsp.workspace.toggle_special(programs.special.yazi.ws))
 
+hl.bind(mod .. " + Escape", function()
+	local special_ws = hl.get_active_special_workspace()
+	if special_ws then
+		hl.dispatch(hl.dsp.workspace.toggle_special(special_ws.name:match("^special:(.+)$") or special_ws.name))
+	end
+end)
+
 hl.bind(mod .. " + B", function()
 	local zenWindows = hl.get_windows({ class = programs.browser.class })
 
@@ -26,7 +33,7 @@ hl.bind(mod .. " + B", function()
 end)
 
 hl.bind(mod .. " + Q", hl.dsp.window.close())
-hl.bind(mod .. " + Escape", hl.dsp.exec_cmd("~/.config/hypr/scripts/powermenu.sh"))
+hl.bind(mod .. " + SHIFT + Escape", hl.dsp.exec_cmd("~/.config/hypr/scripts/powermenu.sh"))
 hl.bind(mod .. " + SHIFT + M", hl.dsp.exec_cmd("hyprlock"))
 hl.bind(mod .. " + SHIFT + V", hl.dsp.window.float({ action = "toggle" }))
 hl.bind(mod .. " + V", hl.dsp.exec_cmd("~/.config/hypr/scripts/cliphist-paste.sh"))
