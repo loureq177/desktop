@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+source_root="/home/mlorenc"
+remote_root="google-drive-backup:mlorenc-backup"
+
+excludes=(
+    "--exclude=.*/**"
+    "--exclude=.*"
+    "--exclude=node_modules/**"
+    "--exclude=.venv/**"
+    "--exclude=venv/**"
+    "--exclude=__pycache__/**"
+    "--exclude=dist/**"
+    "--exclude=build/**"
+    "--exclude=target/**"
+    "--exclude=.next/**"
+    "--exclude=.idea/**"
+    "--exclude=.vscode/**"
+)
+
+echo "Syncing: $source_root -> $remote_root"
+rclone sync \
+    "$source_root" \
+    "$remote_root" \
+    "${excludes[@]}" \
+    --progress \
+    --drive-chunk-size 128M \
+    --transfers 8 \
+    --checkers 8 \
+    --buffer-size 32M \
+    --fast-list \
+    --track-renames \
+    --drive-use-trash=false \
+    --verbose

@@ -1,0 +1,23 @@
+#!/usr/bin/env zsh
+
+nvim --headless "+Lazy! sync" +qa
+
+zsh -ic "zinit update --all && zinit self-update"
+
+
+if command -v bun >/dev/null 2>&1; then
+    bun upgrade
+fi
+
+if command -v rustup >/dev/null 2>&1; then
+    rustup update
+fi
+
+fwupdmgr refresh
+fwupdmgr update -y
+
+tldr --update
+
+paru -Syu --devel
+
+flatpak update

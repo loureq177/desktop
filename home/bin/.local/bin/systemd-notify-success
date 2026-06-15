@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+
+SERVICE_NAME="${1:-Unspecified Service}"
+
+notify-send -u low \
+    -a "Systemd" \
+    "Usługa systemd zakończona" \
+    "Usługa <b>${SERVICE_NAME}</b> zakończyła się pomyślnie!"

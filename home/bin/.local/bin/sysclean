@@ -1,0 +1,19 @@
+#!/usr/bin/env zsh
+
+orphans=$(paru -Qdtq)
+
+if [ -n "$orphans" ]; then
+    echo "Orphaned packages to be deleted:\n$orphans"
+    paru -Rns --noconfirm ${=orphans}
+fi
+
+echo "\nCleaning cached packages..."
+paru -Scc --noconfirm
+
+echo "\nCleaning ~/.cache older than 30 days..."
+find "$HOME/.cache" -type f -mtime +30 -delete 2>/dev/null || true
+
+echo "\nVacuuming journal (2 weeks)..."
+sudo journalctl --vacuum-time=2weeks
+
+echo "\nYour system is clean."
