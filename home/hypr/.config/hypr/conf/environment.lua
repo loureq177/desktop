@@ -8,10 +8,10 @@ hl.env("GDK_BACKEND", "wayland,x11")
 hl.env("QT_QPA_PLATFORM", "wayland;xcb")
 hl.env("SDL_VIDEODRIVER", "wayland")
 hl.env("CLUTTER_BACKEND", "wayland")
-hl.env("MOZ_ENABLE_WAYLAND", 1)
-hl.env("XCURSOR_SIZE", 24)
+hl.env("MOZ_ENABLE_WAYLAND", "1")
+hl.env("XCURSOR_SIZE", "24")
 hl.env("HYPRCURSOR_THEME", "Bibata-Modern-Classic")
-hl.env("HYPRCURSOR_SIZE", 24)
+hl.env("HYPRCURSOR_SIZE", "24")
 hl.env("QT_QPA_PLATFORMTHEME", "qt6ct")
 
 -- Wayland optimizations for Electron/Chromium and LibreOffice
