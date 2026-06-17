@@ -73,7 +73,7 @@ hl.window_rule({
 	match = { initial_title = "^Clipboard$" },
 	float = true,
 	center = true,
-	size = "monitor_w*0.6 monitor_h*0.75",
+	size = "monitor_w*0.45 monitor_h*0.4",
 })
 hl.layer_rule({
 	name = "clipboard-blur",
