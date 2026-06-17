@@ -1,18 +1,30 @@
 #!/usr/bin/env bash
-set -euo pipefail
 
+set -euo pipefail
 cd "$(dirname "$0")"
+
+if ! command -v stow &>/dev/null; then
+    echo "Error: GNU Stow is not installed."
+    exit 1
+fi
+
+mkdir -p ~/.config ~/.local/share ~/.local/state ~/.local/bin ~/.cache
+
 OS="$(uname -s)"
 
 if [ "$OS" = "Linux" ]; then
     echo "Detected Linux. Applying Archlinux configs..."
-    chmod +x archlinux/bin/.local/bin/*
+    if [ -d "archlinux/bin/.local/bin" ]; then
+        chmod +x archlinux/bin/.local/bin/* 2>/dev/null || true
+    fi
     (cd archlinux && stow --restow --target ~ */)
 fi
 
 if [ "$OS" = "Darwin" ]; then
     echo "Detected macOS. Applying macOS configs..."
-    chmod +x macos/bin/.local/bin/* 2>/dev/null || true
+    if [ -d "macos/bin/.local/bin" ]; then
+        chmod +x macos/bin/.local/bin/* 2>/dev/null || true
+    fi
     (cd macos && stow --restow --target ~ */)
 fi
 
@@ -24,4 +36,5 @@ if command -v bat &>/dev/null; then
     bat cache --build >/dev/null 2>&1
     echo "Bat cache rebuilt."
 fi
+
 echo "Done."
