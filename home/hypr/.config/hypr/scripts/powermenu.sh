@@ -3,7 +3,7 @@
 entry=$(printf " lock\n logout\n suspend\n reboot\n poweroff" | rofi -dmenu -p 'Power' -format s)
 
 case "$entry" in
-" lock") hyprlock ;;
+" lock") hyprlock --immediate-render --no-fade-in ;;
 " logout") hyprctl dispatch exit ;;
 " suspend") systemctl suspend ;;
 " reboot") hyprshutdown --post-cmd "systemctl reboot" ;;
