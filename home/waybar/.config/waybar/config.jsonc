@@ -9,6 +9,7 @@
 
   "modules-right": [
     "privacy",
+    "custom/dnd",
     "custom/caffeine",
     "pulseaudio",
     "pulseaudio#microphone",
@@ -37,6 +38,14 @@
         "tooltip-icon-size": 24,
       },
     ],
+  },
+
+  "custom/dnd": {
+    "format": "{}",
+    "exec": "~/.config/hypr/scripts/dnd-toggle.sh --status",
+    "on-click": "~/.config/hypr/scripts/dnd-toggle.sh",
+    "return-type": "json",
+    "interval": 5,
   },
 
   "custom/caffeine": {

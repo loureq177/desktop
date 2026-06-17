@@ -71,3 +71,10 @@ window#waybar {
 #privacy-item.screenshare {
   color: #9b59b6;
 }
+
+#custom-dnd.dnd-on {
+  color: #f38ba8;
+}
+#custom-dnd.dnd-off {
+  color: #a6adc8;
+}
