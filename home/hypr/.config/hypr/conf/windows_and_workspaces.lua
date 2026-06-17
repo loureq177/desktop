@@ -68,3 +68,16 @@ hl.window_rule({
 	center = true,
 	size = "monitor_w*0.85 monitor_h*0.85",
 })
+hl.window_rule({
+	name = "clipboard-float",
+	match = { initial_title = "^Clipboard$" },
+	float = true,
+	center = true,
+	size = "monitor_w*0.6 monitor_h*0.75",
+})
+hl.layer_rule({
+	name = "clipboard-blur",
+	match = { initial_title = "^Clipboard$" },
+	blur = true,
+	ignore_alpha = 0.2,
+})
