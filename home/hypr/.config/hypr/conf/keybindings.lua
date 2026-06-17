@@ -34,7 +34,7 @@ end)
 
 hl.bind(mod .. " + Q", hl.dsp.window.close())
 hl.bind(mod .. " + SHIFT + Escape", hl.dsp.exec_cmd("~/.config/hypr/scripts/powermenu.sh"))
-hl.bind(mod .. " + SHIFT + M", hl.dsp.exec_cmd("hyprlock"))
+hl.bind(mod .. " + SHIFT + M", hl.dsp.exec_cmd("hyprlock --immediate-render --no-fade-in"))
 hl.bind(mod .. " + SHIFT + V", hl.dsp.window.float({ action = "toggle" }))
 hl.bind(mod .. " + V", hl.dsp.exec_cmd("~/.config/hypr/scripts/cliphist-paste.sh"))
 hl.bind(mod .. " + F", hl.dsp.window.fullscreen())
@@ -115,11 +115,11 @@ hl.bind("XF86AudioPrev", hl.dsp.exec_cmd("playerctl previous"), { locked = true 
 -- For multi-monitor management
 hl.bind(
 	"switch:on:Lid Switch",
-	hl.dsp.exec_cmd([=[hyprctl eval 'hl.monitor({output = "eDP-1", disabled = true})']=]),
+	hl.dsp.exec_cmd([=[hyprctl eval 'hl.monitor({output = "desc:BOE 0x0998", disabled = true})']=]),
 	{ locked = true }
 )
 hl.bind(
 	"switch:off:Lid Switch",
-	hl.dsp.exec_cmd([=[hyprctl eval 'hl.monitor({output = "eDP-1", disabled = false})']=]),
+	hl.dsp.exec_cmd([=[hyprctl eval 'hl.monitor({output = "desc:BOE 0x0998", disabled = false})']=]),
 	{ locked = true }
 )
