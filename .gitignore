@@ -2,3 +2,4 @@ todo.md
 .zcompdump
 .zcompdump.zwc
 .zsh_history
+node_modules/
