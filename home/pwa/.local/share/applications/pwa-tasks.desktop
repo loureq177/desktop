@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Tasks
+Exec=pwa-tasks
+Icon=pwa-tasks
+Terminal=false
+Type=Application
+StartupWMClass=chrome-tasks.google.com__-Default
+Categories=Office;Utility;

@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Gmail
+Exec=pwa-mail
+Icon=pwa-mail
+Terminal=false
+Type=Application
+StartupWMClass=chrome-mail.google.com__-Default
+Categories=Network;Email;

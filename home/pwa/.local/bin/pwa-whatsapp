@@ -1,0 +1,4 @@
+#!/bin/bash
+chromium --ozone-platform-hint=auto \
+  --user-data-dir="$HOME/.local/share/pwa/chromium-profile" \
+  --app=https://web.whatsapp.com
