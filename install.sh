@@ -25,7 +25,9 @@ if [ "$OS" = "Darwin" ]; then
     if [ -d "macos/bin/.local/bin" ]; then
         chmod +x macos/bin/.local/bin/* 2>/dev/null || true
     fi
-    (cd macos && stow --restow --target ~ */)
+    if [ -d "macos" ]; then
+        (cd macos && stow --restow --target ~ */)
+    fi
 fi
 
 echo "Applying common configs..."
@@ -35,6 +37,12 @@ if command -v bat &>/dev/null; then
     echo "Building bat cache for custom themes..."
     bat cache --build >/dev/null 2>&1
     echo "Bat cache rebuilt."
+fi
+
+if command -v hyprpm &>/dev/null; then
+    echo "Setting up Hyprland plugins..."
+    sudo hyprpm add https://github.com/KZDKM/Hyprspace 2>/dev/null || true
+    sudo hyprpm enable Hyprspace 2>/dev/null || true
 fi
 
 echo "Done."
