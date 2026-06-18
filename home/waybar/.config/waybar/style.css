@@ -1,3 +1,10 @@
+@define-color text #ffffff;
+@define-color text-inactive #aaaaaa;
+@define-color hover-bg rgba(255, 255, 255, 0.1);
+@define-color dnd-off #a6adc8;
+@define-color theme-dark #7c7cac;
+@define-color theme-light #f9c74f;
+
 * {
   font-family: "JetBrainsMono Nerd Font Propo", sans-serif;
   font-size: 16px;
@@ -11,28 +18,28 @@
 
 window#waybar {
   background-color: rgba(0, 0, 0, 0);
-  color: #ffffff;
+  color: @text;
 }
 
 .modules-left > widget > *,
 .modules-center > widget > *,
 .modules-right > widget > * {
   background: transparent;
-  color: #ffffff;
+  color: @text;
   padding: 0 10px;
 }
 
 #workspaces button {
   padding: 0 5px;
-  color: #aaaaaa;
+  color: @text-inactive;
 }
 
 #workspaces button.active {
-  color: #ffffff;
+  color: @text;
 }
 
 #workspaces button:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: @hover-bg;
   box-shadow: inherit;
   text-shadow: inherit;
   border-radius: 4px;
@@ -76,5 +83,15 @@ window#waybar {
   color: #f38ba8;
 }
 #custom-dnd.dnd-off {
-  color: #a6adc8;
+  color: @dnd-off;
+}
+
+#custom-theme {
+  padding: 0 12px;
+}
+#custom-theme.light {
+  color: @theme-light;
+}
+#custom-theme.dark {
+  color: @theme-dark;
 }

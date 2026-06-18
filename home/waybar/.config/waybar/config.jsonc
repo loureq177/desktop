@@ -19,6 +19,7 @@
     "memory",
     "battery",
     "network",
+    "custom/theme",
     "custom/power",
   ],
 
@@ -49,11 +50,18 @@
   },
 
   "custom/caffeine": {
+    "exec": "~/.config/hypr/scripts/caffeine-toggle.sh --status",
+    "on-click": "~/.config/hypr/scripts/caffeine-toggle.sh",
+    "return-type": "json",
+    "interval": 1,
+  },
+
+  "custom/theme": {
     "format": "{}",
-    "interval": 2,
-    "exec": "pidof hypridle > /dev/null && echo '💤' || echo '☕'",
-    "on-click": "pidof hypridle > /dev/null && pkill hypridle || hypridle &",
-    "tooltip": false,
+    "exec": "~/.config/waybar/scripts/theme-status.sh",
+    "on-click": "~/.config/hypr/scripts/theme-toggle.sh",
+    "return-type": "json",
+    "signal": 1,
   },
 
   "pulseaudio": {
