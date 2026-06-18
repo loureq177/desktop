@@ -32,4 +32,3 @@ on-notify=exec pw-play /usr/share/sounds/freedesktop/stereo/message.oga
 [mode=dnd]
 invisible=1
 on-notify=exec true
-
