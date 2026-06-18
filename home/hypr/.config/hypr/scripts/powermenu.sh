@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-entry=$(printf " lock\n logout\n suspend\n reboot\n poweroff" | rofi -dmenu -p 'Power' -format s)
+entry=$(printf " lock\n logout\n suspend\n reboot\n poweroff" | rofi -dmenu -p 'Power' -format s -theme ~/.config/rofi/powermenu.rasi)
 
 case "$entry" in
 " lock") hyprlock --immediate-render --no-fade-in ;;

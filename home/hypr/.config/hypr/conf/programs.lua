@@ -1,9 +1,9 @@
 local terminal = "ghostty"
-local launcher = "rofi -show drun"
-local runner = "rofi -show run"
+local launcher = "rofi -show drun -replace"
+local runner = "rofi -show run -replace"
 
-local function webApp(url)
-	return ("flatpak run org.chromium.Chromium --app=%s"):format(url)
+local function pwaApp(name)
+	return os.getenv("HOME") .. "/.local/bin/" .. name
 end
 
 return {
@@ -12,23 +12,31 @@ return {
 	runner = runner,
 
 	browser = {
-		exe = "flatpak run app.zen_browser.zen",
+		exe = "app.zen_browser.zen",
 		class = "app.zen_browser.zen",
 	},
 
 	special = {
-		discord = { exe = "flatpak run com.discordapp.Discord", class = "com.discordapp.Discord", ws = "discord" },
-		spotify = { exe = "flatpak run com.spotify.Client", class = "spotify", ws = "spotify" },
+		discord = { exe = "discord", class = "discord", ws = "discord" },
+		spotify = { exe = "spotify-launcher", class = "Spotify", ws = "spotify" },
 		yazi = { exe = "ghostty --class=yazi-special -e yazi", class = "yazi-special", ws = "yazi" },
+		tasks = {
+			exe = pwaApp("pwa-tasks"),
+			class = "chrome-tasks.google.com__-Default",
+			ws = "tasks",
+		},
 		calendar = {
-			exe = webApp("https://calendar.google.com"),
+			exe = pwaApp("pwa-calendar"),
 			class = "chrome-calendar.google.com__-Default",
 			ws = "calendar",
 		},
-		tasks = { exe = webApp("https://tasks.google.com"), class = "chrome-tasks.google.com__-Default", ws = "tasks" },
-		mail = { exe = webApp("https://mail.google.com"), class = "chrome-mail.google.com__-Default", ws = "mail" },
+		mail = {
+			exe = pwaApp("pwa-mail"),
+			class = "chrome-mail.google.com__-Default",
+			ws = "mail",
+		},
 		whatsapp = {
-			exe = webApp("https://web.whatsapp.com"),
+			exe = pwaApp("pwa-whatsapp"),
 			class = "chrome-web.whatsapp.com__-Default",
 			ws = "whatsapp",
 		},

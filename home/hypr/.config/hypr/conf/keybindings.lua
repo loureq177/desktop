@@ -73,10 +73,16 @@ hl.bind(mod .. " + mouse:272", hl.dsp.window.drag(), { mouse = true })
 -- Screenshots
 hl.bind("Print", hl.dsp.exec_cmd("~/.config/hypr/scripts/screenshot.sh region"))
 hl.bind("SHIFT + Print", hl.dsp.exec_cmd("~/.config/hypr/scripts/screenshot.sh full"))
-hl.bind(mod .. " + Period", hl.dsp.exec_cmd("rofi -show emoji -modi emoji"))
+hl.bind(mod .. " + Period", hl.dsp.exec_cmd("rofi -show emoji -modi emoji -theme ~/.config/rofi/powermenu.rasi"))
+hl.bind(mod .. " + SHIFT + slash", hl.dsp.exec_cmd("~/.config/hypr/scripts/keybinds.sh"))
 
 -- Color picker
 hl.bind(mod .. " + SHIFT + P", hl.dsp.exec_cmd("hyprpicker -a --notify"))
+
+-- Workspace overview (hyprspace)
+hl.bind(mod .. " + G", function()
+	hl.dispatch("overview:toggle")
+end)
 
 -- Volume and brightness
 hl.bind(
