@@ -29,7 +29,7 @@ listview {
     lines: 6;
     columns: 1;
     fixed-height: true;
-    scrollbar: false;
+    scrollbar: true;
 }
 element {
     padding: 8px;
@@ -50,4 +50,8 @@ entry {
     placeholder: "Search...";
     placeholder-color: #565f89;
     text-color: @fg0;
+}
+scrollbar {
+    width: 6px;
+    handle-color: @accent;
 }
