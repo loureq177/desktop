@@ -40,5 +40,17 @@ return {
 			class = "chrome-web.whatsapp.com__-Default",
 			ws = "whatsapp",
 		},
+		bluetui = { exe = "ghostty --class=bluetui -e bluetui", class = "bluetui", ws = "bluetui" },
+		impala = { exe = "ghostty --class=impala -e impala", class = "impala", ws = "impala" },
+		btop = { exe = "ghostty --class=btop -e btop", class = "btop", ws = "btop" },
+	},
+
+	scratchpad = {
+		calculator = { exe = "org.gnome.Calculator", class = "org.gnome.Calculator" },
+		pwvucontrol = { exe = "com.saivert.pwvucontrol", class = "com.saivert.pwvucontrol" },
+		clocks = { exe = "org.gnome.clocks", class = "org.gnome.clocks" },
+		loupe = { exe = "org.gnome.Loupe", class = "org.gnome.Loupe" },
+		showtime = { exe = "org.gnome.Showtime", class = "org.gnome.Showtime" },
+		snapshot = { exe = "org.gnome.Snapshot", class = "org.gnome.Snapshot" },
 	},
 }

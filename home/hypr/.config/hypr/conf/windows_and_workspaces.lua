@@ -33,6 +33,10 @@ for _, app in pairs(programs.special) do
 	hl.window_rule({ match = { class = app.class }, workspace = ws })
 end
 
+for _, app in pairs(programs.scratchpad) do
+	hl.window_rule({ match = { class = app.class }, workspace = "special:scratchpad" })
+end
+
 local function applyFocusGaps(monitor)
 	local gH = math.floor(monitor.height * 0.075)
 	local gW = math.floor(monitor.width * 0.075)
@@ -41,6 +45,7 @@ local function applyFocusGaps(monitor)
 	for _, app in pairs(programs.special) do
 		hl.workspace_rule({ workspace = "special:" .. app.ws, gaps_out = gaps, gaps_in = 0 })
 	end
+	hl.workspace_rule({ workspace = "special:scratchpad", gaps_out = gaps, gaps_in = 0 })
 end
 
 for _, monitor in ipairs(hl.get_monitors()) do
@@ -63,10 +68,7 @@ hl.window_rule({
 	center = true,
 })
 hl.window_rule({
-	match = { initial_title = "^(bluetui|impala|btop)-float$" },
-	float = true,
-	center = true,
-	size = "monitor_w*0.85 monitor_h*0.85",
+	match = { class = "^(bluetui|impala|btop)$" },
 })
 hl.window_rule({
 	name = "clipboard-float",

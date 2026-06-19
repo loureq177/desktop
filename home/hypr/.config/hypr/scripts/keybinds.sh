@@ -80,5 +80,5 @@ process() {
     if ((d > 0)); then acc="$line"; depth=$d; else process "$line"; fi
   done < "$LUA"
 } | sort -f | while IFS=$'\t' read -r desc key; do
-  printf "%-44s %s\n" "$desc" "$key"
+  printf "%-28s %s\n" "$desc" "$key"
 done | rofi -dmenu -i -p " Keybinds " -theme "$TEMA"

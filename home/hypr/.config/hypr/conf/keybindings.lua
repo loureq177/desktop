@@ -7,6 +7,8 @@ hl.bind(mod .. " + RETURN", hl.dsp.exec_cmd(programs.terminal))
 hl.bind(mod .. " + space", hl.dsp.exec_cmd(programs.launcher))
 hl.bind(mod .. " + SHIFT + space", hl.dsp.exec_cmd(programs.runner))
 
+hl.bind(mod .. " + SHIFT + S", hl.dsp.workspace.toggle_special("scratchpad"))
+
 hl.bind(mod .. " + C", hl.dsp.workspace.toggle_special(programs.special.calendar.ws))
 hl.bind(mod .. " + T", hl.dsp.workspace.toggle_special(programs.special.tasks.ws))
 hl.bind(mod .. " + W", hl.dsp.workspace.toggle_special(programs.special.whatsapp.ws))
@@ -59,9 +61,9 @@ hl.bind(mod .. " + Tab", function()
 	hl.dispatch(hl.dsp.window.bring_to_top())
 end)
 
--- Switch workspaces with mainMod + [0-9]
--- Move active window to a workspace with mainMod + SHIFT + [0-9]
-for index_number = 1, 10 do
+-- Switch workspaces with mainMod + [1-6]
+-- Move active window to a workspace with mainMod + SHIFT + [1-6]
+for index_number = 1, 6 do
 	local key_mapped = index_number % 10
 	hl.bind(mod .. " + " .. key_mapped, hl.dsp.focus({ workspace = index_number }))
 	hl.bind(mod .. " + SHIFT + " .. key_mapped, hl.dsp.window.move({ workspace = index_number }))
@@ -79,16 +81,15 @@ hl.bind(mod .. " + SHIFT + slash", hl.dsp.exec_cmd("~/.config/hypr/scripts/keybi
 -- Color picker
 hl.bind(mod .. " + SHIFT + P", hl.dsp.exec_cmd("hyprpicker -a --notify"))
 
--- Workspace overview (hyprspace)
-hl.bind(mod .. " + G", function() hl.dispatch("overview:toggle") end)
-
 -- System controls (SUPER + CTRL)
 hl.bind(mod .. " + CTRL + D", hl.dsp.exec_cmd("~/.config/hypr/scripts/dnd-toggle.sh"))
 hl.bind(mod .. " + CTRL + C", hl.dsp.exec_cmd("~/.config/hypr/scripts/caffeine-toggle.sh"))
 hl.bind(mod .. " + CTRL + T", hl.dsp.exec_cmd("~/.config/hypr/scripts/theme-toggle.sh"))
-hl.bind(mod .. " + CTRL + B", hl.dsp.exec_cmd("ghostty --title=bluetui-float -e bluetui"))
-hl.bind(mod .. " + CTRL + N", hl.dsp.exec_cmd("ghostty --title=impala-float -e impala"))
-hl.bind(mod .. " + CTRL + Escape", hl.dsp.exec_cmd("ghostty --title=btop-float -e btop"))
+hl.bind(mod .. " + CTRL + R", hl.dsp.exec_cmd("~/.config/hypr/scripts/record.sh"))
+hl.bind(mod .. " + CTRL + B", hl.dsp.workspace.toggle_special("bluetui"))
+hl.bind(mod .. " + CTRL + N", hl.dsp.workspace.toggle_special("impala"))
+hl.bind(mod .. " + CTRL + S", hl.dsp.exec_cmd("~/.local/bin/dictate.sh"))
+hl.bind(mod .. " + CTRL + Escape", hl.dsp.workspace.toggle_special("btop"))
 
 -- Volume and brightness
 hl.bind(
@@ -135,6 +136,3 @@ hl.bind(
 	hl.dsp.exec_cmd([=[hyprctl eval 'hl.monitor({output = "desc:BOE 0x0998", disabled = false})']=]),
 	{ locked = true }
 )
-
--- Speech-to-Text (Dictate)
-hl.bind("SUPER + CTRL + S", hl.dsp.exec_cmd("~/.local/bin/dictate.sh"))

@@ -18,7 +18,7 @@ fi
 notify() {
     local icon
     if [[ "$mode" == "dark" ]]; then
-        icon="weather-night"
+        icon="weather-clear-night"
     else
         icon="weather-clear"
     fi
@@ -42,16 +42,20 @@ apply_mako() {
     local cfg="$HOME/.config/mako/config"
     if [[ ! -f "$cfg" ]]; then return; fi
 
+    sed -i "0,/^format=/s|^format=.*|format=<b>%a</b>\\\\n<span font_size=\"small\">%s</span>|" "$cfg"
+
     if [[ "$mode" == "dark" ]]; then
         sed -i "s/^background-color=.*/background-color=#1e1e2e/" "$cfg"
         sed -i "s/^text-color=.*/text-color=#cdd6f4/" "$cfg"
-        sed -i "s/^border-color=.*/border-color=#89b4fa/" "$cfg"
+        sed -i "0,/^border-color=#/s/^border-color=#.*/border-color=#89b4fa/" "$cfg"
         sed -i "s/^progress-color=.*/progress-color=over #89b4fa/" "$cfg"
+        sed -i "/^\[urgency=critical\]/,/^\[/s/^border-color=.*/border-color=#f38ba8/" "$cfg"
     else
         sed -i "s/^background-color=.*/background-color=#e1e2e7/" "$cfg"
         sed -i "s/^text-color=.*/text-color=#3760bf/" "$cfg"
-        sed -i "s/^border-color=.*/border-color=#2e7de9/" "$cfg"
+        sed -i "0,/^border-color=#/s/^border-color=#.*/border-color=#2e7de9/" "$cfg"
         sed -i "s/^progress-color=.*/progress-color=over #2e7de9/" "$cfg"
+        sed -i "/^\[urgency=critical\]/,/^\[/s/^border-color=.*/border-color=#e64553/" "$cfg"
     fi
 
     killall mako 2>/dev/null
@@ -90,6 +94,17 @@ apply_ghostty() {
     fi
 
     pkill -USR2 -x ghostty 2>/dev/null || true
+}
+
+apply_btop() {
+    local cfg="$HOME/.config/btop/btop.conf"
+    if [[ ! -f "$cfg" ]]; then return; fi
+
+    if [[ "$mode" == "dark" ]]; then
+        sed -i 's/^color_theme = .*/color_theme = "tokyonight_moon.theme"/' "$cfg"
+    else
+        sed -i 's/^color_theme = .*/color_theme = "tokyonight_day.theme"/' "$cfg"
+    fi
 }
 
 apply_hyprland_borders() {
@@ -139,6 +154,7 @@ apply_gsettings
 apply_waybar
 apply_rofi
 apply_ghostty
+apply_btop
 apply_hyprland_borders
 apply_wallpaper
 apply_mako
