@@ -27,7 +27,7 @@ group-by=app-name
 
 on-button-left=invoke-default-action
 on-button-right=dismiss
-on-notify=exec pw-play /usr/share/sounds/freedesktop/stereo/message.oga
+on-notify=exec pw-play /usr/share/sounds/freedesktop/stereo/message.oga 2>/dev/null || true
 
 [mode=dnd]
 invisible=1
