@@ -17,7 +17,12 @@ if [ "$OS" = "Linux" ]; then
     if [ -d "archlinux/bin/.local/bin" ]; then
         chmod +x archlinux/bin/.local/bin/* 2>/dev/null || true
     fi
-    (cd archlinux && stow --restow --target ~ */)
+    (cd archlinux && stow --verbose --restow --target ~ */)
+
+    if [ -f "archlinux/speech-to-text/.local/bin/dictate-setup" ]; then
+        echo "Setting up Speech-to-Text (Dictate)..."
+        bash archlinux/speech-to-text/.local/bin/dictate-setup
+    fi
 fi
 
 if [ "$OS" = "Darwin" ]; then
@@ -26,12 +31,12 @@ if [ "$OS" = "Darwin" ]; then
         chmod +x macos/bin/.local/bin/* 2>/dev/null || true
     fi
     if [ -d "macos" ]; then
-        (cd macos && stow --restow --target ~ */)
+        (cd macos && stow --verbose --restow --target ~ */)
     fi
 fi
 
 echo "Applying common configs..."
-(cd common && stow --restow --target ~ */)
+(cd common && stow --verbose --restow --target ~ */)
 
 if command -v bat &>/dev/null; then
     echo "Building bat cache for custom themes..."
@@ -39,10 +44,10 @@ if command -v bat &>/dev/null; then
     echo "Bat cache rebuilt."
 fi
 
-if command -v hyprpm &>/dev/null; then
-    echo "Setting up Hyprland plugins..."
-    sudo hyprpm add https://github.com/KZDKM/Hyprspace 2>/dev/null || true
-    sudo hyprpm enable Hyprspace 2>/dev/null || true
+if command -v systemctl &>/dev/null; then
+    echo "Enabling user services..."
+    systemctl --user daemon-reload 2>/dev/null || true
+    systemctl --user enable --now dictate-daemon.service 2>/dev/null || true
 fi
 
 echo "Done."
