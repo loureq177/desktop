@@ -2,7 +2,6 @@
 set -euo pipefail
 
 STATE_FILE="$HOME/.cache/theme-mode"
-
 if [[ -f "$STATE_FILE" ]]; then
     current=$(cat "$STATE_FILE")
 else
@@ -41,9 +40,7 @@ apply_gsettings() {
 apply_mako() {
     local cfg="$HOME/.config/mako/config"
     if [[ ! -f "$cfg" ]]; then return; fi
-
     sed -i "0,/^format=/s|^format=.*|format=<b>%a</b>\\\\n<span font_size=\"small\">%s</span>|" "$cfg"
-
     if [[ "$mode" == "dark" ]]; then
         sed -i "s/^background-color=.*/background-color=#1e1e2e/" "$cfg"
         sed -i "s/^text-color=.*/text-color=#cdd6f4/" "$cfg"
@@ -57,15 +54,12 @@ apply_mako() {
         sed -i "s/^progress-color=.*/progress-color=over #2e7de9/" "$cfg"
         sed -i "/^\[urgency=critical\]/,/^\[/s/^border-color=.*/border-color=#e64553/" "$cfg"
     fi
-
-    killall mako 2>/dev/null
-    mako &
+    makoctl reload || true
 }
 
 apply_rofi() {
     local rasi="$HOME/.config/rofi/tokyonight.rasi"
     if [[ ! -f "$rasi" ]]; then return; fi
-
     if [[ "$mode" == "dark" ]]; then
         sed -i "s/^    fg0: .*/    fg0: #c8d3f5;/" "$rasi"
         sed -i "s/^    accent: .*/    accent: #2ccade;/" "$rasi"
@@ -86,20 +80,17 @@ apply_rofi() {
 apply_ghostty() {
     local cfg="$HOME/.config/ghostty/config"
     if [[ ! -f "$cfg" ]]; then return; fi
-
     if [[ "$mode" == "dark" ]]; then
         sed -i 's/^theme = .*/theme = "TokyoNight Moon"/' "$cfg"
     else
         sed -i 's/^theme = .*/theme = "TokyoNight Day"/' "$cfg"
     fi
-
-    pkill -USR2 -x ghostty 2>/dev/null || true
+    pkill -USR2 -x ghostty || true
 }
 
 apply_btop() {
     local cfg="$HOME/.config/btop/btop.conf"
     if [[ ! -f "$cfg" ]]; then return; fi
-
     if [[ "$mode" == "dark" ]]; then
         sed -i 's/^color_theme = .*/color_theme = "tokyonight_moon.theme"/' "$cfg"
     else
@@ -109,25 +100,25 @@ apply_btop() {
 
 apply_hyprland_borders() {
     if [[ "$mode" == "dark" ]]; then
-        hyprctl keyword general:col.active_border "rgba(33ccffee) rgba(00ff99ee) 45deg" 2>/dev/null || true
-        hyprctl keyword general:col.inactive_border "rgba(595959aa)" 2>/dev/null || true
+        hyprctl keyword general:col.active_border "rgba(33ccffee) rgba(00ff99ee) 45deg" >/dev/null 2>&1 || true
+        hyprctl keyword general:col.inactive_border "rgba(595959aa)" >/dev/null 2>&1 || true
     else
-        hyprctl keyword general:col.active_border "rgba(2e7de9ee) rgba(0f9cbaee) 45deg" 2>/dev/null || true
-        hyprctl keyword general:col.inactive_border "rgba(888888aa)" 2>/dev/null || true
+        hyprctl keyword general:col.active_border "rgba(2e7de9ee) rgba(0f9cbaee) 45deg" >/dev/null 2>&1 || true
+        hyprctl keyword general:col.inactive_border "rgba(888888aa)" >/dev/null 2>&1 || true
     fi
 }
 
 apply_wallpaper() {
     local wallpaper="$HOME/Pictures/Wallpapers/hyprland-${mode}.png"
     if [[ ! -f "$wallpaper" ]]; then return; fi
-    pkill swaybg 2>/dev/null
-    swaybg -i "$wallpaper" -m fill &
+    pkill -x swaybg || true
+    swaybg -i "$wallpaper" -m fill >/dev/null 2>&1 &
+    disown
 }
 
 apply_waybar() {
     local css="$HOME/.config/waybar/style.css"
     if [[ ! -f "$css" ]]; then return; fi
-
     if [[ "$mode" == "dark" ]]; then
         sed -i "s/^@define-color text .*/@define-color text #ffffff;/" "$css"
         sed -i "s/^@define-color text-inactive .*/@define-color text-inactive #aaaaaa;/" "$css"
@@ -139,13 +130,19 @@ apply_waybar() {
         sed -i "s/^@define-color hover-bg .*/@define-color hover-bg rgba(0, 0, 0, 0.1);/" "$css"
         sed -i "s/^@define-color dnd-off .*/@define-color dnd-off #6c7086;/" "$css"
     fi
-
-    killall waybar 2>/dev/null
-    waybar &
 }
 
 signal_waybar() {
-    killall -RTMIN+1 waybar 2>/dev/null || true
+    local old_pids
+    old_pids=$(pgrep -x waybar) || true
+    waybar >/dev/null 2>&1 &
+    disown
+    if [[ -n "$old_pids" ]]; then
+        sleep 0.3
+        for pid in $old_pids; do
+            kill "$pid" 2>/dev/null || true
+        done
+    fi
 }
 
 echo "$mode" >"$STATE_FILE"
@@ -158,5 +155,6 @@ apply_btop
 apply_hyprland_borders
 apply_wallpaper
 apply_mako
+
 notify
 signal_waybar

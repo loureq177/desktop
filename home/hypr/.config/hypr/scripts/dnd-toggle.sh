@@ -11,8 +11,7 @@ status() {
 
 toggle() {
     makoctl mode -t dnd >/dev/null 2>&1
-    status
-    killall -RTMIN+1 waybar 2>/dev/null || true
+    pkill -RTMIN+1 -x waybar || true
 }
 
 case "${1:-}" in
