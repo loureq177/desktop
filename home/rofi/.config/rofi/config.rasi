@@ -11,5 +11,9 @@ configuration {
     scroll-method: 1;
     sort: true;
     sorting-method: "fzf";
+    location: 5;
+    anchor: center;
+    yoffset: -150;
+    fullscreen: false;
 }
-@theme "tokyonight"
+@theme "spotlight"

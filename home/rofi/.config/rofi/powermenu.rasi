@@ -1,51 +1,19 @@
-* {
-    fg0: #c8d3f5;
-    accent: #2ccade;
-    urgent: #ff757f;
-    background-color: transparent;
-    text-color: @fg0;
-    margin: 0;
-    padding: 0;
-    spacing: 0;
-}
+@theme "spotlight"
+
 window {
-    background-color: rgba(34, 36, 54, 0.95);
-    border: 2px;
-    border-color: @accent;
-    border-radius: 8px;
-    width: 400px;
-}
-inputbar {
-    padding: 12px;
-    background-color: rgba(47, 51, 77, 0.4);
-    children: [prompt, entry];
-}
-prompt {
-    text-color: @accent;
-    padding: 0 8px 0 0;
-    font: "JetBrainsMono Nerd Font Mono 14";
+    width: 450px;
+    yoffset: -100;
 }
 listview {
-    padding: 8px;
     lines: 5;
-    columns: 1;
-    fixed-height: true;
-    scrollbar: false;
+    padding: 16px 24px 24px 24px;
 }
 element {
-    padding: 10px 12px;
-    border-radius: 4px;
-}
-element selected {
-    background-color: rgba(47, 51, 77, 0.4);
-    text-color: @accent;
+    padding: 14px 16px;
 }
 element-text {
-    vertical-align: 0.5;
     font: "JetBrainsMono Nerd Font Mono 14";
 }
 entry {
-    placeholder: "Search...";
-    placeholder-color: #565f89;
-    text-color: @fg0;
+    placeholder: "Search power options...";
 }
