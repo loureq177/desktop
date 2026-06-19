@@ -15,6 +15,10 @@ echo "\nCleaning ~/.cache older than 30 days..."
 find "$HOME/.cache" -type f -mtime +30 -delete 2>/dev/null || true
 
 echo "\nVacuuming journal (2 weeks)..."
-sudo journalctl --vacuum-time=2weeks
+if sudo -n journalctl --vacuum-time=2weeks 2>/dev/null; then
+    :
+else
+    echo "Skipping journal vacuum (sudo requires password — set up NOPASSWD for journalctl in sudoers)"
+fi
 
 echo "\nYour system is clean."
