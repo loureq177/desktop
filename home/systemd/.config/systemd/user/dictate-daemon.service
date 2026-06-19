@@ -1,0 +1,12 @@
+[Unit]
+Description=Dictate speech-to-text daemon (faster-whisper)
+Documentation=https://github.com/loureq177/speech-to-text
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/dictate-daemon-wrapper.sh
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
