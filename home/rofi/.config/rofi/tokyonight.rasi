@@ -12,28 +12,44 @@ window {
     background-color: rgba(34, 36, 54, 0.95);
     border: 2px;
     border-color: @accent;
-    border-radius: 8px;
-    width: 750px;
+    border-radius: 12px;
+    width: 720px;
+    location: center;
+    anchor: center;
+    yoffset: -150;
+    fullscreen: false;
 }
 inputbar {
-    padding: 12px;
+    padding: 20px;
     background-color: rgba(47, 51, 77, 0.4);
     children: [prompt, entry];
 }
 prompt {
     text-color: @accent;
-    padding: 0 8px 0 0;
+    padding: 8px 12px 8px 0;
+    font: "JetBrainsMono Nerd Font Mono 15";
+}
+entry {
+    placeholder: "Search...";
+    placeholder-color: #565f89;
+    text-color: @fg0;
+    font: "JetBrainsMono Nerd Font Mono 15";
+    padding: 8px 12px;
+    background-color: rgba(47, 51, 77, 0.3);
+    border-radius: 8px;
 }
 listview {
-    padding: 8px;
-    lines: 6;
+    padding: 12px 20px 20px 20px;
+    lines: 8;
     columns: 1;
     fixed-height: true;
     scrollbar: true;
+    spacing: 4px;
 }
 element {
-    padding: 8px;
-    border-radius: 4px;
+    padding: 10px 14px;
+    border-radius: 6px;
+    background-color: transparent;
 }
 element selected {
     background-color: rgba(47, 51, 77, 0.4);
@@ -41,17 +57,16 @@ element selected {
 }
 element-text {
     vertical-align: 0.5;
+    font: "JetBrainsMono Nerd Font Mono 14";
 }
 element-icon {
-    size: 1.5em;
-    padding: 0 8px 0 0;
-}
-entry {
-    placeholder: "Search...";
-    placeholder-color: #565f89;
-    text-color: @fg0;
+    size: 1.6em;
+    padding: 0 10px 0 0;
 }
 scrollbar {
-    width: 6px;
+    width: 4px;
     handle-color: @accent;
+    handle-width: 4px;
+    border: 0;
+    padding: 0;
 }

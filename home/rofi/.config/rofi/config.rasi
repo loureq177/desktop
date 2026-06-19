@@ -16,4 +16,4 @@ configuration {
     yoffset: -150;
     fullscreen: false;
 }
-@theme "spotlight"
+@theme "tokyonight"

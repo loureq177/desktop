@@ -1,11 +1,11 @@
-@theme "spotlight"
+@theme "tokyonight"
 
 window {
-    width: 950px;
+    width: 700px;
     yoffset: -100;
 }
 listview {
-    lines: 15;
+    lines: 10;
     padding: 16px 24px 24px 24px;
 }
 element-text {
