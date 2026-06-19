@@ -12,8 +12,8 @@ return {
 	runner = runner,
 
 	browser = {
-		exe = "app.zen_browser.zen",
-		class = "app.zen_browser.zen",
+		exe = "zen-browser",
+		class = "zen",
 	},
 
 	special = {
@@ -31,7 +31,7 @@ return {
 			ws = "calendar",
 		},
 		mail = {
-			exe = pwaApp("pwa-mail"),
+			exe = pwaApp("pwa-gmail"),
 			class = "chrome-mail.google.com__-Default",
 			ws = "mail",
 		},

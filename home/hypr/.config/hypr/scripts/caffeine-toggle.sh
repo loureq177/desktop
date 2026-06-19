@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-PID_FILE="/tmp/hypridle-caffeine.pid"
+set -euo pipefail
 
 _status() {
-    if [ -f "$PID_FILE" ] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
+    if pgrep -x hypridle >/dev/null 2>&1; then
         echo '{"text": "💤", "alt": "on", "class": "caffeine-off", "tooltip": "Idle on"}'
     else
         echo '{"text": "☕", "alt": "off", "class": "caffeine-on", "tooltip": "Stay awake"}'
@@ -10,15 +10,13 @@ _status() {
 }
 
 _toggle() {
-    if [ -f "$PID_FILE" ] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
-        kill "$(cat "$PID_FILE")" 2>/dev/null
-        rm -f "$PID_FILE"
+    if pgrep -x hypridle >/dev/null 2>&1; then
+        pkill -x hypridle 2>/dev/null || true
     else
-        pkill -x hypridle 2>/dev/null
         hypridle &
-        echo $! > "$PID_FILE"
     fi
     _status
+    killall -RTMIN+1 waybar 2>/dev/null || true
 }
 
 case "${1:-}" in

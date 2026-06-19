@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -euo pipefail
 
 status() {
     if makoctl mode 2>/dev/null | grep -q dnd; then
@@ -9,12 +10,9 @@ status() {
 }
 
 toggle() {
-    if makoctl mode 2>/dev/null | grep -q dnd; then
-        makoctl mode -r dnd >/dev/null 2>&1
-    else
-        makoctl mode -a dnd >/dev/null 2>&1
-    fi
+    makoctl mode -t dnd >/dev/null 2>&1
     status
+    killall -RTMIN+1 waybar 2>/dev/null || true
 }
 
 case "${1:-}" in

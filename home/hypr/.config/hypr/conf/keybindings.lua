@@ -73,16 +73,22 @@ hl.bind(mod .. " + mouse:272", hl.dsp.window.drag(), { mouse = true })
 -- Screenshots
 hl.bind("Print", hl.dsp.exec_cmd("~/.config/hypr/scripts/screenshot.sh region"))
 hl.bind("SHIFT + Print", hl.dsp.exec_cmd("~/.config/hypr/scripts/screenshot.sh full"))
-hl.bind(mod .. " + Period", hl.dsp.exec_cmd("rofi -show emoji -modi emoji -theme ~/.config/rofi/powermenu.rasi"))
+hl.bind(mod .. " + Period", hl.dsp.exec_cmd("rofi -show emoji -modi emoji"))
 hl.bind(mod .. " + SHIFT + slash", hl.dsp.exec_cmd("~/.config/hypr/scripts/keybinds.sh"))
 
 -- Color picker
 hl.bind(mod .. " + SHIFT + P", hl.dsp.exec_cmd("hyprpicker -a --notify"))
 
 -- Workspace overview (hyprspace)
-hl.bind(mod .. " + G", function()
-	hl.dispatch("overview:toggle")
-end)
+hl.bind(mod .. " + G", function() hl.dispatch("overview:toggle") end)
+
+-- System controls (SUPER + CTRL)
+hl.bind(mod .. " + CTRL + D", hl.dsp.exec_cmd("~/.config/hypr/scripts/dnd-toggle.sh"))
+hl.bind(mod .. " + CTRL + C", hl.dsp.exec_cmd("~/.config/hypr/scripts/caffeine-toggle.sh"))
+hl.bind(mod .. " + CTRL + T", hl.dsp.exec_cmd("~/.config/hypr/scripts/theme-toggle.sh"))
+hl.bind(mod .. " + CTRL + B", hl.dsp.exec_cmd("ghostty --title=bluetui-float -e bluetui"))
+hl.bind(mod .. " + CTRL + N", hl.dsp.exec_cmd("ghostty --title=impala-float -e impala"))
+hl.bind(mod .. " + CTRL + Escape", hl.dsp.exec_cmd("ghostty --title=btop-float -e btop"))
 
 -- Volume and brightness
 hl.bind(
@@ -129,3 +135,6 @@ hl.bind(
 	hl.dsp.exec_cmd([=[hyprctl eval 'hl.monitor({output = "desc:BOE 0x0998", disabled = false})']=]),
 	{ locked = true }
 )
+
+-- Speech-to-Text (Dictate)
+hl.bind("SUPER + CTRL + S", hl.dsp.exec_cmd("~/.local/bin/dictate.sh"))

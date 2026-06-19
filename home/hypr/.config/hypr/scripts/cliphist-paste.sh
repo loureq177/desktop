@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
 preview="${XDG_CONFIG_HOME:-$HOME/.config}/hypr/scripts/cliphist-preview.sh"
 runner=$(mktemp)

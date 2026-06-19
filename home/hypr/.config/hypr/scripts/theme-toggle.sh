@@ -1,128 +1,146 @@
 #!/usr/bin/env bash
+set -euo pipefail
 
 STATE_FILE="$HOME/.cache/theme-mode"
 
 if [[ -f "$STATE_FILE" ]]; then
-	current=$(cat "$STATE_FILE")
+    current=$(cat "$STATE_FILE")
 else
-	current="dark"
+    current="dark"
 fi
 
 if [[ "$current" == "dark" ]]; then
-	mode="light"
+    mode="light"
 else
-	mode="dark"
+    mode="dark"
 fi
 
 notify() {
-	notify-send -t 2000 -h string:x-canonical-private-synchronous:theme "Theme: $mode"
+    local icon
+    if [[ "$mode" == "dark" ]]; then
+        icon="weather-night"
+    else
+        icon="weather-clear"
+    fi
+    notify-send -a "Themes" -t 2000 -i "$icon" -h string:x-canonical-private-synchronous:theme \
+        "Theme Switched to $mode mode"
 }
 
 apply_gsettings() {
-	if [[ "$mode" == "dark" ]]; then
-		gsettings set org.gnome.desktop.interface gtk-theme "Adwaita-dark"
-		gsettings set org.gnome.desktop.interface color-scheme "prefer-dark"
-		gsettings set org.gnome.desktop.interface icon-theme "Papirus-Dark"
-	else
-		gsettings set org.gnome.desktop.interface gtk-theme "Adwaita"
-		gsettings set org.gnome.desktop.interface color-scheme "prefer-light"
-		gsettings set org.gnome.desktop.interface icon-theme "Papirus"
-	fi
-}
-
-apply_waybar() {
-	local css="$HOME/.config/waybar/style.css"
-	if [[ ! -f "$css" ]]; then return; fi
-
-	if [[ "$mode" == "dark" ]]; then
-		sed -i "s/^@define-color text .*/@define-color text #ffffff;/" "$css"
-		sed -i "s/^@define-color text-inactive .*/@define-color text-inactive #aaaaaa;/" "$css"
-		sed -i "s/^@define-color hover-bg .*/@define-color hover-bg rgba(255, 255, 255, 0.1);/" "$css"
-		sed -i "s/^@define-color dnd-off .*/@define-color dnd-off #a6adc8;/" "$css"
-	else
-		sed -i "s/^@define-color text .*/@define-color text #1e1e2e;/" "$css"
-		sed -i "s/^@define-color text-inactive .*/@define-color text-inactive #888888;/" "$css"
-		sed -i "s/^@define-color hover-bg .*/@define-color hover-bg rgba(0, 0, 0, 0.1);/" "$css"
-		sed -i "s/^@define-color dnd-off .*/@define-color dnd-off #6c7086;/" "$css"
-	fi
-
-	killall waybar 2>/dev/null; waybar &
+    if [[ "$mode" == "dark" ]]; then
+        gsettings set org.gnome.desktop.interface gtk-theme "Adwaita-dark"
+        gsettings set org.gnome.desktop.interface color-scheme "prefer-dark"
+        gsettings set org.gnome.desktop.interface icon-theme "Papirus-Dark"
+    else
+        gsettings set org.gnome.desktop.interface gtk-theme "Adwaita"
+        gsettings set org.gnome.desktop.interface color-scheme "prefer-light"
+        gsettings set org.gnome.desktop.interface icon-theme "Papirus"
+    fi
 }
 
 apply_mako() {
-	local cfg="$HOME/.config/mako/config"
-	if [[ ! -f "$cfg" ]]; then return; fi
+    local cfg="$HOME/.config/mako/config"
+    if [[ ! -f "$cfg" ]]; then return; fi
 
-	if [[ "$mode" == "dark" ]]; then
-		sed -i "s/^background-color=.*/background-color=#1e1e2e/" "$cfg"
-		sed -i "s/^text-color=.*/text-color=#cdd6f4/" "$cfg"
-		sed -i "s/^border-color=.*/border-color=#89b4fa/" "$cfg"
-		sed -i "s/^progress-color=.*/progress-color=over #89b4fa/" "$cfg"
-	else
-		sed -i "s/^background-color=.*/background-color=#e1e2e7/" "$cfg"
-		sed -i "s/^text-color=.*/text-color=#3760bf/" "$cfg"
-		sed -i "s/^border-color=.*/border-color=#2e7de9/" "$cfg"
-		sed -i "s/^progress-color=.*/progress-color=over #2e7de9/" "$cfg"
-	fi
+    if [[ "$mode" == "dark" ]]; then
+        sed -i "s/^background-color=.*/background-color=#1e1e2e/" "$cfg"
+        sed -i "s/^text-color=.*/text-color=#cdd6f4/" "$cfg"
+        sed -i "s/^border-color=.*/border-color=#89b4fa/" "$cfg"
+        sed -i "s/^progress-color=.*/progress-color=over #89b4fa/" "$cfg"
+    else
+        sed -i "s/^background-color=.*/background-color=#e1e2e7/" "$cfg"
+        sed -i "s/^text-color=.*/text-color=#3760bf/" "$cfg"
+        sed -i "s/^border-color=.*/border-color=#2e7de9/" "$cfg"
+        sed -i "s/^progress-color=.*/progress-color=over #2e7de9/" "$cfg"
+    fi
 
-	killall mako 2>/dev/null; mako &
+    killall mako 2>/dev/null
+    mako &
 }
 
 apply_rofi() {
-	local rasi="$HOME/.config/rofi/tokyonight.rasi"
-	if [[ ! -f "$rasi" ]]; then return; fi
+    local rasi="$HOME/.config/rofi/tokyonight.rasi"
+    if [[ ! -f "$rasi" ]]; then return; fi
 
-	if [[ "$mode" == "dark" ]]; then
-		sed -i "s/^    fg0: .*/    fg0: #c8d3f5;/" "$rasi"
-		sed -i "s/^    accent: .*/    accent: #2ccade;/" "$rasi"
-		sed -i "/^window {/,/^}/s/background-color:.*/background-color: rgba(34, 36, 54, 0.95);/" "$rasi"
-		sed -i "/^inputbar {/,/^}/s/background-color:.*/background-color: rgba(47, 51, 77, 0.4);/" "$rasi"
-		sed -i "/^element selected {/,/^}/s/background-color:.*/background-color: rgba(47, 51, 77, 0.4);/" "$rasi"
-		sed -i "s/placeholder-color: .*/placeholder-color: #565f89;/" "$rasi"
-	else
-		sed -i "s/^    fg0: .*/    fg0: #3760bf;/" "$rasi"
-		sed -i "s/^    accent: .*/    accent: #2e7de9;/" "$rasi"
-		sed -i "/^window {/,/^}/s/background-color:.*/background-color: rgba(225, 226, 231, 0.95);/" "$rasi"
-		sed -i "/^inputbar {/,/^}/s/background-color:.*/background-color: rgba(196, 200, 218, 0.4);/" "$rasi"
-		sed -i "/^element selected {/,/^}/s/background-color:.*/background-color: rgba(196, 200, 218, 0.4);/" "$rasi"
-		sed -i "s/placeholder-color: .*/placeholder-color: #888888;/" "$rasi"
-	fi
+    if [[ "$mode" == "dark" ]]; then
+        sed -i "s/^    fg0: .*/    fg0: #c8d3f5;/" "$rasi"
+        sed -i "s/^    accent: .*/    accent: #2ccade;/" "$rasi"
+        sed -i "/^window {/,/^}/s/background-color:.*/background-color: rgba(34, 36, 54, 0.95);/" "$rasi"
+        sed -i "/^inputbar {/,/^}/s/background-color:.*/background-color: rgba(47, 51, 77, 0.4);/" "$rasi"
+        sed -i "/^element selected {/,/^}/s/background-color:.*/background-color: rgba(47, 51, 77, 0.4);/" "$rasi"
+        sed -i "s/placeholder-color: .*/placeholder-color: #565f89;/" "$rasi"
+    else
+        sed -i "s/^    fg0: .*/    fg0: #3760bf;/" "$rasi"
+        sed -i "s/^    accent: .*/    accent: #2e7de9;/" "$rasi"
+        sed -i "/^window {/,/^}/s/background-color:.*/background-color: rgba(225, 226, 231, 0.95);/" "$rasi"
+        sed -i "/^inputbar {/,/^}/s/background-color:.*/background-color: rgba(196, 200, 218, 0.4);/" "$rasi"
+        sed -i "/^element selected {/,/^}/s/background-color:.*/background-color: rgba(196, 200, 218, 0.4);/" "$rasi"
+        sed -i "s/placeholder-color: .*/placeholder-color: #888888;/" "$rasi"
+    fi
 }
 
 apply_ghostty() {
-	local cfg="$HOME/.config/ghostty/config"
-	if [[ ! -f "$cfg" ]]; then return; fi
+    local cfg="$HOME/.config/ghostty/config"
+    if [[ ! -f "$cfg" ]]; then return; fi
 
-	if [[ "$mode" == "dark" ]]; then
-		sed -i 's/^theme = .*/theme = "TokyoNight Moon"/' "$cfg"
-	else
-		sed -i 's/^theme = .*/theme = "TokyoNight Day"/' "$cfg"
-	fi
+    if [[ "$mode" == "dark" ]]; then
+        sed -i 's/^theme = .*/theme = "TokyoNight Moon"/' "$cfg"
+    else
+        sed -i 's/^theme = .*/theme = "TokyoNight Day"/' "$cfg"
+    fi
 
-	killall -USR1 ghostty 2>/dev/null || true
+    pkill -USR2 -x ghostty 2>/dev/null || true
 }
 
 apply_hyprland_borders() {
-	if [[ "$mode" == "dark" ]]; then
-		hyprctl keyword general:col.active_border "rgba(33ccffee) rgba(00ff99ee) 45deg" 2>/dev/null || true
-		hyprctl keyword general:col.inactive_border "rgba(595959aa)" 2>/dev/null || true
-	else
-		hyprctl keyword general:col.active_border "rgba(2e7de9ee) rgba(0f9cbaee) 45deg" 2>/dev/null || true
-		hyprctl keyword general:col.inactive_border "rgba(888888aa)" 2>/dev/null || true
-	fi
+    if [[ "$mode" == "dark" ]]; then
+        hyprctl keyword general:col.active_border "rgba(33ccffee) rgba(00ff99ee) 45deg" 2>/dev/null || true
+        hyprctl keyword general:col.inactive_border "rgba(595959aa)" 2>/dev/null || true
+    else
+        hyprctl keyword general:col.active_border "rgba(2e7de9ee) rgba(0f9cbaee) 45deg" 2>/dev/null || true
+        hyprctl keyword general:col.inactive_border "rgba(888888aa)" 2>/dev/null || true
+    fi
+}
+
+apply_wallpaper() {
+    local wallpaper="$HOME/Pictures/Wallpapers/hyprland-${mode}.png"
+    if [[ ! -f "$wallpaper" ]]; then return; fi
+    pkill swaybg 2>/dev/null
+    swaybg -i "$wallpaper" -m fill &
+}
+
+apply_waybar() {
+    local css="$HOME/.config/waybar/style.css"
+    if [[ ! -f "$css" ]]; then return; fi
+
+    if [[ "$mode" == "dark" ]]; then
+        sed -i "s/^@define-color text .*/@define-color text #ffffff;/" "$css"
+        sed -i "s/^@define-color text-inactive .*/@define-color text-inactive #aaaaaa;/" "$css"
+        sed -i "s/^@define-color hover-bg .*/@define-color hover-bg rgba(255, 255, 255, 0.1);/" "$css"
+        sed -i "s/^@define-color dnd-off .*/@define-color dnd-off #a6adc8;/" "$css"
+    else
+        sed -i "s/^@define-color text .*/@define-color text #1e1e2e;/" "$css"
+        sed -i "s/^@define-color text-inactive .*/@define-color text-inactive #888888;/" "$css"
+        sed -i "s/^@define-color hover-bg .*/@define-color hover-bg rgba(0, 0, 0, 0.1);/" "$css"
+        sed -i "s/^@define-color dnd-off .*/@define-color dnd-off #6c7086;/" "$css"
+    fi
+
+    killall waybar 2>/dev/null
+    waybar &
 }
 
 signal_waybar() {
-	killall -RTMIN+1 waybar 2>/dev/null || true
+    killall -RTMIN+1 waybar 2>/dev/null || true
 }
 
-echo "$mode" > "$STATE_FILE"
+echo "$mode" >"$STATE_FILE"
 
 apply_gsettings
 apply_waybar
 apply_rofi
 apply_ghostty
 apply_hyprland_borders
-notify
+apply_wallpaper
 apply_mako
+notify
 signal_waybar

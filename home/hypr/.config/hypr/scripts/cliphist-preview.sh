@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
 entry_id="$1"
 mime=$(cliphist decode "$entry_id" | file -b --mime-type -)
