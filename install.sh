@@ -30,11 +30,6 @@ if [ "$OS" = "Linux" ]; then
         chmod +x archlinux/pwa/.local/bin/* 2>/dev/null || true
     fi
     (cd archlinux && stow --verbose --restow --target ~ --ignore="\.venv" --ignore="node_modules" --ignore="__pycache__" --ignore="\.pyc$" --ignore="\.zwc$" */)
-
-    if [ -f "archlinux/speech-to-text/.local/bin/dictate-setup" ]; then
-        echo "Setting up Speech-to-Text (Dictate)..."
-        bash archlinux/speech-to-text/.local/bin/dictate-setup
-    fi
 fi
 
 if [ "$OS" = "Darwin" ]; then
