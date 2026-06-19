@@ -2,8 +2,8 @@
 @define-color text-inactive #aaaaaa;
 @define-color hover-bg rgba(255, 255, 255, 0.1);
 @define-color dnd-off #a6adc8;
-@define-color theme-dark #7c7cac;
-@define-color theme-light #f9c74f;
+@define-color theme-dark #f9c74f;
+@define-color theme-light #3760bf;
 
 * {
   font-family: "JetBrainsMono Nerd Font Propo", sans-serif;
@@ -94,4 +94,12 @@ window#waybar {
 }
 #custom-theme.dark {
   color: @theme-dark;
+}
+
+#custom-dictate.dictate-listening {
+  color: #f38ba8;
+  animation: blink 1s infinite;
+}
+#custom-dictate.dictate-idle {
+  color: transparent;
 }

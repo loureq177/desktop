@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -euo pipefail
 
 STATE_FILE="$HOME/.cache/theme-mode"
 

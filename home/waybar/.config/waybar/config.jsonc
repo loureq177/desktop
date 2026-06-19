@@ -11,6 +11,7 @@
     "privacy",
     "custom/dnd",
     "custom/caffeine",
+    "custom/dictate",
     "pulseaudio",
     "pulseaudio#microphone",
     "bluetooth",
@@ -33,11 +34,6 @@
         "tooltip": true,
         "tooltip-icon-size": 24,
       },
-      {
-        "type": "audio-in",
-        "tooltip": true,
-        "tooltip-icon-size": 24,
-      },
     ],
   },
 
@@ -47,11 +43,18 @@
     "on-click": "~/.config/hypr/scripts/dnd-toggle.sh",
     "return-type": "json",
     "interval": 5,
+    "signal": 1,
   },
 
   "custom/caffeine": {
     "exec": "~/.config/hypr/scripts/caffeine-toggle.sh --status",
     "on-click": "~/.config/hypr/scripts/caffeine-toggle.sh",
+    "return-type": "json",
+    "interval": 1,
+  },
+
+  "custom/dictate": {
+    "exec": "~/.config/waybar/scripts/dictate-status.sh",
     "return-type": "json",
     "interval": 1,
   },
