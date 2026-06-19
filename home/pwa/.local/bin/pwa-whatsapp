@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 chromium --ozone-platform-hint=auto \
   --user-data-dir="$HOME/.local/share/pwa/chromium-profile" \
   --app=https://web.whatsapp.com
