@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
+set -euo pipefail
 
-# Download sevice name
+# Service name passed as argument
 SERVICE_NAME="${1:-Unspecified Service}"
 
 notify-send -u critical \

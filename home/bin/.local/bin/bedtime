@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -euo pipefail
 
 notify-send -u critical "It's time to sleep" "Internet will turn off in 15 minutes."
 sleep 600
