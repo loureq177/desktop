@@ -1,41 +1,46 @@
 #!/bin/bash
-
 set -euo pipefail
 
-DIR="$(dirname "$(realpath "$0")")"
 VENV_PYTHON="$HOME/.files/.venv/bin/python"
-
-if [ ! -f "$VENV_PYTHON" ]; then
-    notify-send -a "Dictate" -u critical "Error" "Virtual environment not found"
-    exit 1
-fi
-DAEMON_PID_FILE="/tmp/dictate_daemon.pid"
+RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+AUDIO_FILE="$RUNTIME_DIR/dictate_recording.wav"
+PY_PID_FILE="$RUNTIME_DIR/dictate_py.pid"
+REC_PID_FILE="$RUNTIME_DIR/dictate_rec.pid"
+STATUS_FILE="$RUNTIME_DIR/dictate_status"
 
 SITE_PACKAGES=$("$VENV_PYTHON" -c "import sysconfig; print(sysconfig.get_path('purelib'))")
 export LD_LIBRARY_PATH="${SITE_PACKAGES}/nvidia/cublas/lib:${SITE_PACKAGES}/nvidia/cudnn/lib:${LD_LIBRARY_PATH:-}"
+export DICTATE_AUDIO_FILE="$AUDIO_FILE"
 
-if [ -f "$DAEMON_PID_FILE" ]; then
-    DAEMON_PID=$(cat "$DAEMON_PID_FILE")
-    if kill -0 "$DAEMON_PID" 2>/dev/null; then
-        kill -SIGUSR1 "$DAEMON_PID"
-        exit 0
+stop_dictation() {
+    if [ -f "$REC_PID_FILE" ]; then
+        kill "$(cat "$REC_PID_FILE")" 2>/dev/null || true
+        rm -f "$REC_PID_FILE"
     fi
-    rm -f "$DAEMON_PID_FILE"
+
+    if [ -f "$PY_PID_FILE" ]; then
+        kill -SIGUSR1 "$(cat "$PY_PID_FILE")" 2>/dev/null || true
+        rm -f "$PY_PID_FILE"
+    fi
+
+    echo "idle" >"$STATUS_FILE"
+    pkill -RTMIN+8 waybar || true
+}
+
+if [ -f "$REC_PID_FILE" ] && kill -0 "$(cat "$REC_PID_FILE")" 2>/dev/null; then
+    stop_dictation
+else
+    stop_dictation
+
+    echo "listening" >"$STATUS_FILE"
+    pkill -RTMIN+8 waybar || true
+
+    "$VENV_PYTHON" "$(dirname "$(realpath "$0")")/dictate_backend.py" &
+    echo $! >"$PY_PID_FILE"
+
+    rm -f "$AUDIO_FILE"
+    pw-record --channels=1 --rate=16000 --format=s16 "$AUDIO_FILE" &>/dev/null &
+    echo $! >"$REC_PID_FILE"
+
+    notify-send -a "Speech to Text" -i "audio-input-microphone" -t 1000 "Listening..."
 fi
-
-echo "[dictate] Starting daemon..." >&2
-"$VENV_PYTHON" "$DIR/dictate_daemon.py" &
-
-for i in $(seq 1 30); do
-    if [ -f "$DAEMON_PID_FILE" ]; then
-        DAEMON_PID=$(cat "$DAEMON_PID_FILE")
-        if kill -0 "$DAEMON_PID" 2>/dev/null; then
-            kill -SIGUSR1 "$DAEMON_PID"
-            exit 0
-        fi
-    fi
-    sleep 0.3
-done
-
-echo "[dictate] Daemon failed to start" >&2
-exit 1
