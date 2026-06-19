@@ -1,3 +1,0 @@
--- Hyprland plugins
--- Managed via hyprpm; plugin loading is automatic at compositor start.
--- This file is for plugin-specific settings only.
