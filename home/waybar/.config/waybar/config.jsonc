@@ -11,16 +11,15 @@
     "privacy",
     "custom/dnd",
     "custom/caffeine",
+    "custom/theme",
     "custom/dictate",
     "pulseaudio",
     "pulseaudio#microphone",
-    "bluetooth",
     "custom/clipboard",
-    "cpu",
     "memory",
-    "battery",
+    "bluetooth",
     "network",
-    "custom/theme",
+    "battery",
     "custom/power",
   ],
 
@@ -132,14 +131,6 @@
 
   "hyprland/workspaces": {
     "format": "{icon}",
-  },
-
-  "cpu": {
-    "interval": 5,
-    "format": " {usage}%",
-    "on-click": "hyprctl dispatch \"hl.dsp.workspace.toggle_special('btop')\"",
-    "tooltip": true,
-    "tooltip-format": "Load: {load_percent:.1f}%\nFreq: {frequency} MHz",
   },
 
   "memory": {
