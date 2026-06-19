@@ -2,3 +2,8 @@
 --ignore=README.md
 --ignore=LICENSE
 --ignore=setup.sh
+--ignore=node_modules
+--ignore=.venv
+--ignore=.zcompdump*
+--ignore=.zsh_history
+--ignore=\.zwc$

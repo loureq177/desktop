@@ -7,8 +7,7 @@ OS-specific and common configs.
 
 - **Arch Linux specific:** Hyprland, Waybar, Rofi, Mako, Ly, Wireplumber,
   Systemd
-- **Common:** Neovim, Ghostty, Zsh, Starship, Yazi, Bat, Btop, Git, SSH,
-  Prettier
+- **Common:** Neovim, Ghostty, Zsh, Starship, Yazi, Bat, Btop, Git, SSH
 
 ## Prerequisites
 
@@ -25,11 +24,11 @@ cd ~/.files
 ## Manage packages
 
 ```bash
-# Add a new config
-mkdir -p ~/.files/common/starship/.config
-mv ~/.config/starship.toml ~/.files/common/starship/.config/
-cd ~/.files/common && stow --restow --target ~ starship
+# Add a new config (package structure: common/<pkg>/.config/<app>/)
+mkdir -p ~/.files/common/starship/.config/starship
+mv ~/.config/starship.toml ~/.files/common/starship/.config/starship/
+stow --restow --target ~ -d common starship
 
 # Remove a config
-cd ~/.files/common && stow -D -t ~ starship
+stow -D --target ~ -d common starship
 ```
