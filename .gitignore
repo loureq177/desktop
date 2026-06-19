@@ -3,3 +3,5 @@ todo.md
 .zcompdump.zwc
 .zsh_history
 node_modules/
+.venv/
+.ruff_cache/
