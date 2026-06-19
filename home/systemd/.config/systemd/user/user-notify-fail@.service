@@ -1,6 +1,0 @@
-[Unit]
-Description=Notify on service failure
-
-[Service]
-Type=oneshot
-ExecStart=%h/.local/bin/systemd-notify-fail %i

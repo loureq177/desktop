@@ -20,7 +20,7 @@ excludes=(
 )
 
 echo "Syncing: $source_root -> $remote_root"
-rclone sync \
+if rclone sync \
     "$source_root" \
     "$remote_root" \
     "${excludes[@]}" \
@@ -32,4 +32,10 @@ rclone sync \
     --fast-list \
     --track-renames \
     --drive-use-trash=false \
-    --verbose
+    --verbose; then
+    notify-send -a "Systemd" "Rclone Sync completed successfully"
+else
+    rc=$?
+    notify-send -u critical -a "Systemd" "Rclone Sync failed"
+    exit "$rc"
+fi

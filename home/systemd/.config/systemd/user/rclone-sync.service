@@ -1,8 +1,6 @@
 [Unit]
 Description=Rclone Sync Background Sync
 After=network-online.target
-OnFailure=user-notify-fail@%n.service
-OnSuccess=user-notify-success@%n.service
 
 [Service]
 Type=oneshot

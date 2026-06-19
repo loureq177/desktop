@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-notify-send -u critical "It's time to sleep" "Internet will turn off in 15 minutes."
+notify-send -u critical "Bedtime mode" "Network will turn off in 15 minutes."
 sleep 600
-notify-send -u critical "It's time to sleep" "Internet will turn off in 5 minutes."
+notify-send -u critical "Bedtime mode" "Network will turn off in 5 minutes."
 sleep 300
-notify-send -u critical "Good night." "Network has been turned off. It's time to sleep."
+notify-send -u critical "Good night." "Network has been turned off."
 nmcli networking off
