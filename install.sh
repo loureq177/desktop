@@ -17,7 +17,19 @@ if [ "$OS" = "Linux" ]; then
     if [ -d "archlinux/bin/.local/bin" ]; then
         chmod +x archlinux/bin/.local/bin/* 2>/dev/null || true
     fi
-    (cd archlinux && stow --verbose --restow --target ~ */)
+    if [ -d "archlinux/waybar/.config/waybar/scripts" ]; then
+        chmod +x archlinux/waybar/.config/waybar/scripts/* 2>/dev/null || true
+    fi
+    if [ -d "archlinux/hypr/.config/hypr/scripts" ]; then
+        chmod +x archlinux/hypr/.config/hypr/scripts/* 2>/dev/null || true
+    fi
+    if [ -d "archlinux/speech-to-text/.local/bin" ]; then
+        chmod +x archlinux/speech-to-text/.local/bin/*.sh 2>/dev/null || true
+    fi
+    if [ -d "archlinux/pwa/.local/bin" ]; then
+        chmod +x archlinux/pwa/.local/bin/* 2>/dev/null || true
+    fi
+    (cd archlinux && stow --verbose --restow --target ~ --ignore="\.venv" --ignore="node_modules" --ignore="__pycache__" --ignore="\.pyc$" --ignore="\.zwc$" */)
 
     if [ -f "archlinux/speech-to-text/.local/bin/dictate-setup" ]; then
         echo "Setting up Speech-to-Text (Dictate)..."
@@ -36,7 +48,7 @@ if [ "$OS" = "Darwin" ]; then
 fi
 
 echo "Applying common configs..."
-(cd common && stow --verbose --restow --target ~ */)
+(cd common && stow --verbose --restow --target ~ --ignore="node_modules" --ignore="__pycache__" --ignore="\.pyc$" --ignore="\.zwc$" */)
 
 if command -v bat &>/dev/null; then
     echo "Building bat cache for custom themes..."
