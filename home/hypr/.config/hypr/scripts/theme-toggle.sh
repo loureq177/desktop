@@ -40,7 +40,7 @@ apply_gsettings() {
 apply_mako() {
     local cfg="$HOME/.config/mako/config"
     if [[ ! -f "$cfg" ]]; then return; fi
-    sed -i "0,/^format=/s|^format=.*|format=<b>%a</b>\\\\n<span font_size=\"small\">%s</span>|" "$cfg"
+    sed -i "0,/^format=/s|^format=.*|format=<b>%a</b>\\\\n%s: %b|" "$cfg"
     if [[ "$mode" == "dark" ]]; then
         sed -i "s/^background-color=.*/background-color=#1e1e2e/" "$cfg"
         sed -i "s/^text-color=.*/text-color=#cdd6f4/" "$cfg"
