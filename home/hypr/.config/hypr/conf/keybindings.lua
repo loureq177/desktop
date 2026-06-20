@@ -86,10 +86,11 @@ hl.bind(mod .. " + CTRL + D", hl.dsp.exec_cmd("~/.config/hypr/scripts/dnd-toggle
 hl.bind(mod .. " + CTRL + C", hl.dsp.exec_cmd("~/.config/hypr/scripts/caffeine-toggle.sh"))
 hl.bind(mod .. " + CTRL + T", hl.dsp.exec_cmd("~/.config/hypr/scripts/theme-toggle.sh"))
 hl.bind(mod .. " + CTRL + R", hl.dsp.exec_cmd("~/.config/hypr/scripts/record.sh"))
-hl.bind(mod .. " + CTRL + B", hl.dsp.workspace.toggle_special("bluetui"))
-hl.bind(mod .. " + CTRL + N", hl.dsp.workspace.toggle_special("impala"))
+hl.bind(mod .. " + CTRL + B", hl.dsp.workspace.toggle_special(programs.special.bluetui.ws))
+hl.bind(mod .. " + CTRL + N", hl.dsp.workspace.toggle_special(programs.special.impala.ws))
+hl.bind(mod .. " + CTRL + M", hl.dsp.exec_cmd("wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle"))
 hl.bind(mod .. " + CTRL + S", hl.dsp.exec_cmd("~/.local/bin/dictate.sh"))
-hl.bind(mod .. " + CTRL + Escape", hl.dsp.workspace.toggle_special("btop"))
+hl.bind(mod .. " + CTRL + Escape", hl.dsp.workspace.toggle_special(programs.special.btop.ws))
 
 -- Volume and brightness
 hl.bind(
