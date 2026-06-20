@@ -82,29 +82,26 @@ hl.bind(mod .. " + SHIFT + slash", hl.dsp.exec_cmd("~/.config/hypr/scripts/keybi
 hl.bind(mod .. " + SHIFT + P", hl.dsp.exec_cmd("hyprpicker -a --notify"))
 
 -- System controls (SUPER + CTRL)
-hl.bind(mod .. " + CTRL + D", hl.dsp.exec_cmd("~/.config/hypr/scripts/dnd-toggle.sh"))
+hl.bind(mod .. " + CTRL + A", hl.dsp.exec_cmd("swaync-client -t"))
 hl.bind(mod .. " + CTRL + C", hl.dsp.exec_cmd("~/.config/hypr/scripts/caffeine-toggle.sh"))
 hl.bind(mod .. " + CTRL + T", hl.dsp.exec_cmd("~/.config/hypr/scripts/theme-toggle.sh"))
 hl.bind(mod .. " + CTRL + R", hl.dsp.exec_cmd("~/.config/hypr/scripts/record.sh"))
 hl.bind(mod .. " + CTRL + B", hl.dsp.workspace.toggle_special(programs.special.bluetui.ws))
-hl.bind(mod .. " + CTRL + N", hl.dsp.workspace.toggle_special(programs.special.impala.ws))
+hl.bind(mod .. " + CTRL + I", hl.dsp.workspace.toggle_special(programs.special.impala.ws))
 hl.bind(mod .. " + CTRL + M", hl.dsp.exec_cmd("wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle"))
 hl.bind(mod .. " + CTRL + S", hl.dsp.exec_cmd("~/.local/bin/dictate.sh"))
 hl.bind(mod .. " + CTRL + Escape", hl.dsp.workspace.toggle_special(programs.special.btop.ws))
 
 -- Volume and brightness
+local notification_sound = "/usr/share/sounds/freedesktop/stereo/audio-volume-change.oga"
 hl.bind(
 	"XF86AudioRaiseVolume",
-	hl.dsp.exec_cmd(
-		"wpctl set-volume -l 1.5 @DEFAULT_AUDIO_SINK@ 5%+ && pw-play /usr/share/sounds/freedesktop/stereo/audio-volume-change.oga"
-	),
+	hl.dsp.exec_cmd("wpctl set-volume -l 1.5 @DEFAULT_AUDIO_SINK@ 5%+ && pw-play " .. notification_sound),
 	{ locked = true, repeating = true }
 )
 hl.bind(
 	"XF86AudioLowerVolume",
-	hl.dsp.exec_cmd(
-		"wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%- && pw-play /usr/share/sounds/freedesktop/stereo/audio-volume-change.oga"
-	),
+	hl.dsp.exec_cmd("wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%- && pw-play " .. notification_sound),
 	{ locked = true, repeating = true }
 )
 hl.bind(

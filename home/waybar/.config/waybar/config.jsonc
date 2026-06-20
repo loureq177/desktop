@@ -5,11 +5,10 @@
 
   "modules-left": ["hyprland/workspaces", "hyprland/window"],
 
-  "modules-center": ["clock"],
+  "modules-center": ["clock", "custom/notification"],
 
   "modules-right": [
     "privacy",
-    "custom/dnd",
     "custom/caffeine",
     "custom/theme",
     "custom/dictate",
@@ -32,15 +31,6 @@
         "tooltip-icon-size": 24,
       },
     ],
-  },
-
-  "custom/dnd": {
-    "format": "{}",
-    "exec": "~/.config/hypr/scripts/dnd-toggle.sh --status",
-    "on-click": "~/.config/hypr/scripts/dnd-toggle.sh",
-    "return-type": "json",
-    "interval": 5,
-    "signal": 1,
   },
 
   "custom/caffeine": {
@@ -141,5 +131,19 @@
     "interval": 60,
     "format": "{:%d %B %H:%M}",
     "tooltip-format": "<big>{:%Y %B}</big>\n<tt><small>{calendar}</small></tt>",
+  },
+
+  "custom/notification": {
+    "format": "{icon}",
+    "format-icons": {
+      "notification": "󰂚",
+      "dnd-notification": "󰂛",
+      "dnd-none": "󰂛",
+    },
+    "return-type": "json",
+    "exec": "swaync-client -swb",
+    "on-click": "swaync-client -t -sw",
+    "on-click-right": "swaync-client -d -sw",
+    "escape": true,
   },
 }
