@@ -31,4 +31,7 @@ stow --restow --target ~ -d common starship
 
 # Remove a config
 stow -D --target ~ -d common starship
+
+> **Note:** Editing files inside an existing stow package takes effect **immediately** — they are symlinks.
+> `stow --restow` is only needed when **adding or removing** files in a package.
 ```
