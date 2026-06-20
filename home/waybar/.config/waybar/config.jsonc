@@ -15,12 +15,10 @@
     "custom/dictate",
     "pulseaudio",
     "pulseaudio#microphone",
-    "custom/clipboard",
     "memory",
     "bluetooth",
     "network",
     "battery",
-    "custom/power",
   ],
 
   "privacy": {
@@ -100,12 +98,6 @@
     "on-click": "hyprctl dispatch \"hl.dsp.workspace.toggle_special('bluetui')\"",
   },
 
-  "custom/clipboard": {
-    "format": "󰅌",
-    "on-click": "~/.config/hypr/scripts/cliphist-paste.sh",
-    "tooltip": false,
-  },
-
   "network": {
     "format-wifi": "",
     "format-ethernet": "󰈀",
@@ -114,15 +106,9 @@
     "on-click": "hyprctl dispatch \"hl.dsp.workspace.toggle_special('impala')\"",
   },
 
-  "custom/power": {
-    "format": "⏻",
-    "on-click": "~/.config/hypr/scripts/powermenu.sh",
-    "tooltip": false,
-  },
-
   "hyprland/window": {
     "format": "{title}",
-    "max-length": 50,
+    "max-length": 30,
     "tooltip": true,
     "tooltip-format": "{title}",
     "separate-outputs": true,
@@ -153,7 +139,7 @@
 
   "clock": {
     "interval": 60,
-    "format": "{:%d %B %Y, %H:%M}",
+    "format": "{:%d %B %H:%M}",
     "tooltip-format": "<big>{:%Y %B}</big>\n<tt><small>{calendar}</small></tt>",
   },
 }
