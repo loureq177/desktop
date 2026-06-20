@@ -1,34 +1,31 @@
-font=Adwaita Sans 14
-width=500
+font=Adwaita Sans 13
+width=420
 layer=overlay
 anchor=top-right
-outer-margin=6
-height=150
-max-icon-size=70
+outer-margin=10
+height=120
+max-icon-size=64
 markup=true
-format=<b>%a</b>\n<span font_size="small">%s</span>
+format=<b>%a</b>\n%s: %b
 background-color=#1e1e2e
 text-color=#cdd6f4
 border-color=#89b4fa
-progress-color=over #89b4fa
 border-size=2
 border-radius=12
-padding=12
+padding=14
 margin=8
+progress-color=over #89b4fa
 default-timeout=8000
 ignore-timeout=false
 icon-border-radius=10
+icon-location=left
+max-icon-size=64
 sort=-time
-
 max-visible=5
 max-history=50
-
-icon-location=left
-
 group-by=app-name
-
-on-button-left=invoke-default-action
-on-button-right=dismiss
+on-button-left=dismiss
+on-button-right=invoke-default-action
 on-notify=exec pw-play /usr/share/sounds/freedesktop/stereo/message.oga 2>/dev/null || true
 
 [urgency=critical]
@@ -36,7 +33,7 @@ border-color=#f38ba8
 default-timeout=0
 
 [grouped]
-format=(%g) <b>%a</b>\n<span font_size="small">%s</span>
+format=<span size="small" foreground="#6c7086">%a · %g</span>\n<b>%s</b>\n<span foreground="#bac2de">%b</span>
 
 [mode=dnd]
 invisible=1
