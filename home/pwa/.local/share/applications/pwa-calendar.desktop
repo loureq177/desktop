@@ -1,8 +1,7 @@
 [Desktop Entry]
-Version=1.5
 Name=Calendar
 Exec=pwa-calendar
-Icon=pwa-calendar
+Icon=pwa_calendar
 Terminal=false
 Type=Application
 StartupWMClass=chrome-calendar.google.com__-Default
