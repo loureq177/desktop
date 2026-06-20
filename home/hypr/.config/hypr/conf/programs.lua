@@ -10,7 +10,7 @@ return {
 
 	special = {
 		discord  = { exe = "discord",                              class = "discord",   ws = "discord" },
-		spotify  = { exe = "spotify-launcher",                     class = "Spotify",   ws = "spotify" },
+		spotify  = { exe = "flatpak run com.spotify.Client",       class = "spotify",   ws = "spotify" },
 		yazi     = { exe = "ghostty --class=yazi-special -e yazi", class = "yazi-special", ws = "yazi" },
 		tasks    = { exe = os.getenv("HOME") .. "/.local/bin/pwa-tasks",    class = "chrome-tasks.google.com__-Default",    ws = "tasks" },
 		calendar = { exe = os.getenv("HOME") .. "/.local/bin/pwa-calendar", class = "chrome-calendar.google.com__-Default", ws = "calendar" },
