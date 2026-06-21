@@ -16,13 +16,7 @@ hl.bind(mod .. " + M", hl.dsp.workspace.toggle_special(programs.special.mail.ws)
 hl.bind(mod .. " + D", hl.dsp.workspace.toggle_special(programs.special.discord.ws))
 hl.bind(mod .. " + S", hl.dsp.workspace.toggle_special(programs.special.spotify.ws))
 hl.bind(mod .. " + E", hl.dsp.workspace.toggle_special(programs.special.yazi.ws))
-
-hl.bind(mod .. " + Escape", function()
-	local special_ws = hl.get_active_special_workspace()
-	if special_ws then
-		hl.dispatch(hl.dsp.workspace.toggle_special(special_ws.name:match("^special:(.+)$") or special_ws.name))
-	end
-end)
+hl.bind(mod .. " + Escape", hl.dsp.workspace.toggle_special())
 
 hl.bind(mod .. " + B", function()
 	local zenWindows = hl.get_windows({ class = programs.browser.class })
@@ -63,10 +57,9 @@ end)
 
 -- Switch workspaces with mainMod + [1-6]
 -- Move active window to a workspace with mainMod + SHIFT + [1-6]
-for index_number = 1, 6 do
-	local key_mapped = index_number % 10
-	hl.bind(mod .. " + " .. key_mapped, hl.dsp.focus({ workspace = index_number }))
-	hl.bind(mod .. " + SHIFT + " .. key_mapped, hl.dsp.window.move({ workspace = index_number }))
+for i = 1, 6 do
+	hl.bind(mod .. " + " .. i, hl.dsp.focus({ workspace = i }))
+	hl.bind(mod .. " + SHIFT + " .. i, hl.dsp.window.move({ workspace = i }))
 end
 
 -- Move windows with mainMod + LMB/RMB and dragging
@@ -76,7 +69,6 @@ hl.bind(mod .. " + mouse:272", hl.dsp.window.drag(), { mouse = true })
 hl.bind("Print", hl.dsp.exec_cmd("~/.config/hypr/scripts/screenshot.sh region"))
 hl.bind("SHIFT + Print", hl.dsp.exec_cmd("~/.config/hypr/scripts/screenshot.sh full"))
 hl.bind(mod .. " + Period", hl.dsp.exec_cmd("rofi -show emoji -modi emoji"))
-hl.bind(mod .. " + SHIFT + slash", hl.dsp.exec_cmd("~/.config/hypr/scripts/keybinds.sh"))
 
 -- Color picker
 hl.bind(mod .. " + SHIFT + P", hl.dsp.exec_cmd("hyprpicker -a --notify"))
@@ -104,16 +96,8 @@ hl.bind(
 	hl.dsp.exec_cmd("wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%- && pw-play " .. notification_sound),
 	{ locked = true, repeating = true }
 )
-hl.bind(
-	"XF86AudioMute",
-	hl.dsp.exec_cmd("wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"),
-	{ locked = true, repeating = true }
-)
-hl.bind(
-	"XF86AudioMicMute",
-	hl.dsp.exec_cmd("wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle"),
-	{ locked = true, repeating = true }
-)
+hl.bind("XF86AudioMute", hl.dsp.exec_cmd("wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"), { locked = true })
+hl.bind("XF86AudioMicMute", hl.dsp.exec_cmd("wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle"), { locked = true })
 hl.bind("XF86MonBrightnessUp", hl.dsp.exec_cmd("brightnessctl set +5%"), { locked = true, repeating = true })
 hl.bind("XF86MonBrightnessDown", hl.dsp.exec_cmd("brightnessctl set 5%-"), { locked = true, repeating = true })
 
