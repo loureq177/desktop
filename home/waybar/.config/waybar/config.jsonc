@@ -8,10 +8,11 @@
   "modules-center": ["clock", "custom/notification"],
 
   "modules-right": [
+    "custom/record",
+    "custom/dictate",
     "privacy",
     "custom/caffeine",
     "custom/theme",
-    "custom/dictate",
     "pulseaudio",
     "pulseaudio#microphone",
     "memory",
@@ -42,6 +43,12 @@
 
   "custom/dictate": {
     "exec": "~/.config/waybar/scripts/dictate-status.sh",
+    "return-type": "json",
+    "interval": 1,
+  },
+
+  "custom/record": {
+    "exec": "~/.config/waybar/scripts/record-status.sh",
     "return-type": "json",
     "interval": 1,
   },

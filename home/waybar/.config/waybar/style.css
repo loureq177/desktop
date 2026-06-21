@@ -98,8 +98,22 @@ window#waybar {
 
 #custom-dictate.dictate-listening {
   color: #f38ba8;
-  animation: blink 1s infinite;
+  animation: breathe 2s ease-in-out infinite;
 }
 #custom-dictate.dictate-idle {
+  color: transparent;
+}
+
+@keyframes breathe {
+  0% { opacity: 0.3; }
+  50% { opacity: 1; }
+  100% { opacity: 0.3; }
+}
+
+#custom-record.recording {
+  color: #ff0000;
+  animation: breathe 2s ease-in-out infinite;
+}
+#custom-record.idle {
   color: transparent;
 }
