@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-entry=$(printf " lock\n logout\n suspend\n reboot\n poweroff" | rofi -dmenu -p 'Power' -format s -theme ~/.config/rofi/tokyonight.rasi)
+entry=$(printf " lock\n logout\n suspend\n reboot\n poweroff" | rofi -dmenu -p 'Power' -format s -theme ~/.config/rofi/tokyonight.rasi) || exit 0
 
 case "$entry" in
 " lock") hyprlock --immediate-render --no-fade-in ;;
