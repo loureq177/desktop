@@ -1,24 +1,25 @@
 #!/usr/bin/env zsh
 set -euo pipefail
 
-nvim --headless "+Lazy! sync" +qa
+export PATH="$HOME/.bun/bin:$PATH"
 
-zsh -ic "zinit update --all && zinit self-update"
+nvim --headless "+Lazy! sync" +qa || true
 
+zsh -ic "zinit update --all && zinit self-update" || true
 
 if command -v bun >/dev/null 2>&1; then
-    bun upgrade
+    bun upgrade || true
 fi
 
 if command -v rustup >/dev/null 2>&1; then
-    rustup update
+    rustup update || true
 fi
 
-fwupdmgr refresh
-fwupdmgr update -y
+fwupdmgr refresh || true
+fwupdmgr update -y || true
 
-tldr --update
+tldr --update || true
 
 paru -Syu --devel
 
-flatpak update
+flatpak update --noninteractive
