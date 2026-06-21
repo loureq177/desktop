@@ -1,24 +1,35 @@
 #!/usr/bin/env zsh
 set -euo pipefail
 
-orphans=$(paru -Qdtq)
+orphans=$(paru -Qdtq || true)
 
-if [ -n "$orphans" ]; then
+if [ -z "$orphans" ]; then
+    echo "There are no orphaned packages."
+else
     echo "Orphaned packages to be deleted:\n$orphans"
     paru -Rns --noconfirm ${=orphans}
 fi
 
-echo "\nCleaning cached packages..."
-paru -Scc --noconfirm
+printf '\nCleaning cached packages...\n'
+paru -Sc --noconfirm
 
-echo "\nCleaning ~/.cache older than 30 days..."
-find "$HOME/.cache" -type f -mtime +30 -delete 2>/dev/null || true
+printf '\nCleaning Flatpak leftovers...\n'
+flatpak uninstall --unused --noninteractive
 
-echo "\nVacuuming journal (2 weeks)..."
+printf '\nCleaning ~/.cache older than 30 days...\n'
+days=30
+if [ -n "$(find "$HOME/.cache" -type f -mtime +$days 2>/dev/null | head -n 1)" ]; then
+    find "$HOME/.cache" -type f -mtime +$days -delete 2>/dev/null || true
+    echo "Old cache files deleted."
+else
+    echo "There is no cache older than $days days to delete."
+fi
+
+printf '\nVacuuming journal (2 weeks)...\n'
 if sudo -n journalctl --vacuum-time=2weeks 2>/dev/null; then
     :
 else
     echo "Skipping journal vacuum (sudo requires password — set up NOPASSWD for journalctl in sudoers)"
 fi
 
-echo "\nYour system is clean."
+printf '\nYour system is clean.\n'
