@@ -5,6 +5,8 @@ import signal
 import subprocess
 from pathlib import Path
 from threading import Event
+
+import torch
 from faster_whisper import WhisperModel
 
 
@@ -13,8 +15,12 @@ def main():
     signal.signal(signal.SIGUSR1, lambda _signum, _frame: ready_event.set())
 
     audio_file = os.environ.get("DICTATE_AUDIO_FILE", "/tmp/dictate_recording.wav")
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    compute_type = "float16" if device == "cuda" else "int8"
     model = WhisperModel(
-        os.environ.get("DICTATE_MODEL", "base"), device="cuda", compute_type="float16"
+        os.environ.get("DICTATE_MODEL", "base"),
+        device=device,
+        compute_type=compute_type,
     )
 
     ready_event.wait()
