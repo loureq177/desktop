@@ -29,7 +29,10 @@ if [ "$OS" = "Linux" ]; then
     if [ -d "archlinux/pwa/.local/bin" ]; then
         chmod +x archlinux/pwa/.local/bin/* 2>/dev/null || true
     fi
-    (cd archlinux && stow --verbose --restow --target ~ --ignore="\.venv" --ignore="node_modules" --ignore="__pycache__" --ignore="\.pyc$" --ignore="\.zwc$" */)
+
+    ARCH_PKGS=(bin electron hypr ly pwa rofi speech-to-text systemd waybar wireplumber)
+    STOW_IGNORE='--ignore=\.venv --ignore=node_modules --ignore=__pycache__ --ignore=\.pyc$ --ignore=\.zwc$'
+    (cd archlinux && stow --verbose --restow --target ~ $STOW_IGNORE "${ARCH_PKGS[@]}")
 fi
 
 if [ "$OS" = "Darwin" ]; then
@@ -43,7 +46,9 @@ if [ "$OS" = "Darwin" ]; then
 fi
 
 echo "Applying common configs..."
-(cd common && stow --verbose --restow --target ~ --ignore="node_modules" --ignore="__pycache__" --ignore="\.pyc$" --ignore="\.zwc$" */)
+COMMON_PKGS=(bat btop ghostty git mimeapps nvim opencode ssh starship xdg yazi zsh)
+STOW_IGNORE='--ignore=node_modules --ignore=__pycache__ --ignore=\.pyc$ --ignore=\.zwc$'
+(cd common && stow --verbose --restow --target ~ $STOW_IGNORE "${COMMON_PKGS[@]}")
 
 if command -v bat &>/dev/null; then
     echo "Building bat cache for custom themes..."
