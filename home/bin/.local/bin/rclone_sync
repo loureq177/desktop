@@ -1,7 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-source_root="/home/mlorenc"
+LOCKFILE="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/rclone-sync.lock"
+exec 200>"$LOCKFILE"
+if ! flock -n 200; then
+    echo "Another rclone sync is already running. Exiting."
+    exit 0
+fi
+
+source_root="$HOME"
 remote_root="google-drive-backup:mlorenc-backup"
 
 excludes=(
@@ -31,11 +38,11 @@ if rclone sync \
     --buffer-size 32M \
     --fast-list \
     --track-renames \
-    --drive-use-trash=false \
+    --drive-use-trash=true \
     --verbose; then
-    notify-send -a "Systemd" "Rclone Sync completed successfully"
+    notify-send "Rclone" -i "cloud-upload" "Backup synced to Google Drive"
 else
     rc=$?
-    notify-send -u critical -a "Systemd" "Rclone Sync failed"
+    notify-send -u critical "Rclone" -i "cloud-upload" "Rclone Sync failed. Check the logs for details"
     exit "$rc"
 fi
