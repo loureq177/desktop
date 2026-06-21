@@ -43,6 +43,6 @@ if rclone sync \
     notify-send "Rclone" -i "cloud-upload" "Backup synced to Google Drive"
 else
     rc=$?
-    notify-send -u critical "Rclone" -i "cloud-upload" "Rclone Sync failed. Check the logs for details"
+    notify-send -u critical -t 5000 "Rclone" -i "cloud-upload" "Rclone Sync failed. Check the logs for details"
     exit "$rc"
 fi
