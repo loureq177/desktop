@@ -30,6 +30,15 @@ if [ "$OS" = "Linux" ]; then
         chmod +x archlinux/pwa/.local/bin/* 2>/dev/null || true
     fi
 
+    SPEECH_DIR="archlinux/speech-to-text"
+    if [ -d "$SPEECH_DIR" ]; then
+        echo "Setting up Python venv for speech-to-text..."
+        if [ ! -d "$SPEECH_DIR/.venv" ]; then
+            python3 -m venv "$SPEECH_DIR/.venv"
+        fi
+        "$SPEECH_DIR/.venv/bin/pip" install --quiet --upgrade faster-whisper
+    fi
+
     ARCH_PKGS=(bin electron hypr ly pwa rofi speech-to-text systemd waybar wireplumber)
     STOW_IGNORE='--ignore=\.venv --ignore=node_modules --ignore=__pycache__ --ignore=\.pyc$ --ignore=\.zwc$'
     (cd archlinux && stow --verbose --restow --target ~ $STOW_IGNORE "${ARCH_PKGS[@]}")
@@ -52,14 +61,12 @@ STOW_IGNORE='--ignore=node_modules --ignore=__pycache__ --ignore=\.pyc$ --ignore
 
 if command -v bat &>/dev/null; then
     echo "Building bat cache for custom themes..."
-    bat cache --build >/dev/null 2>&1
-    echo "Bat cache rebuilt."
+    bat cache --build 2>&1 || echo "Warning: bat cache rebuild failed"
 fi
 
 if command -v systemctl &>/dev/null; then
     echo "Enabling user services..."
     systemctl --user daemon-reload 2>/dev/null || true
-    systemctl --user enable --now dictate-daemon.service 2>/dev/null || true
 fi
 
 echo "Done."
