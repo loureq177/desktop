@@ -3,29 +3,39 @@ set -euo pipefail
 
 OUT_DIR="$HOME/Videos/Screencasts"
 mkdir -p "$OUT_DIR"
+STATUS_FILE="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/recording_status"
 
-pkill -x slurp && {
+LOCKFILE="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/record_slurp.lock"
+if [ -f "$LOCKFILE" ] && kill -0 "$(cat "$LOCKFILE")" 2>/dev/null; then
     exit 0
-}
+fi
 
 if pkill -x wf-recorder; then
-    sleep 0.5
-    FILE=$(ls -t "$OUT_DIR"/recording_*.mkv 2>/dev/null | head -1 || true)
+    FILE=""
+    if [[ -f "$STATUS_FILE" ]]; then
+        FILE=$(cat "$STATUS_FILE")
+        rm -f "$STATUS_FILE"
+    fi
+
+    sleep 0.3
 
     if [[ -f "$FILE" ]]; then
-        notify-send -t 3000 -a "Screen Record" -i "$FILE" "Recording saved." "$FILE"
+        notify-send -t 5000 "Screen Record" -i "camera-video" "Recording saved to:\n$FILE"
     else
-        notify-send -t 3000 -a "Screen Record" "Recording stopped." "No file found."
+        notify-send -t 5000 "Screen Record" -i "camera-video" "Recording stopped. No file found."
     fi
     exit 0
 fi
 
 GEOM=$(slurp -d -b "#00000080" -c "#ffffff" -w 2) || {
+    rm -f "$LOCKFILE"
     exit 0
 }
+echo $$ >"$LOCKFILE"
+trap 'rm -f "$LOCKFILE"' EXIT
 
-FILE="$OUT_DIR/recording_$(date +'%Y-%m-%d_%H-%M-%S').mkv"
+mkdir -p "$(dirname "$STATUS_FILE")"
+FILE="$OUT_DIR/$(date +'%Y-%m-%d_%H-%M-%S').mkv"
+echo "$FILE" >"$STATUS_FILE"
 
 wf-recorder -g "$GEOM" -f "$FILE" -a --audio=default &
-
-notify-send -t 3000 -a "Screen Record" "Recording started." "Press SUPER+CTRL+R to stop."
