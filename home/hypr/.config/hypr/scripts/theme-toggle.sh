@@ -21,8 +21,8 @@ notify() {
     else
         icon="weather-clear"
     fi
-    notify-send -a "Themes" -t 2000 -i "$icon" -h string:x-canonical-private-synchronous:theme \
-        "Theme Switched to $mode mode"
+    notify-send -t 2000 -i "$icon" -h string:x-canonical-private-synchronous:theme \
+        "Themes" "Switched to $mode"
 }
 
 apply_gsettings() {
@@ -135,14 +135,13 @@ apply_waybar() {
 signal_waybar() {
     local old_pids
     old_pids=$(pgrep -x waybar) || true
-    waybar >/dev/null 2>&1 &
-    disown
     if [[ -n "$old_pids" ]]; then
-        sleep 0.3
         for pid in $old_pids; do
             kill "$pid" 2>/dev/null || true
         done
     fi
+    waybar >/dev/null 2>&1 &
+    disown
 }
 
 echo "$mode" >"$STATE_FILE"
