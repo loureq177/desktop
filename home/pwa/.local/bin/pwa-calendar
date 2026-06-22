@@ -1,12 +1,4 @@
-#!/usr/bin/env bash
-set -euo pipefail
-
-if ! command -v chromium &>/dev/null; then
-    echo "chromium not found" >&2
-    exit 1
-fi
-
+#!/bin/bash
 chromium --ozone-platform-hint=auto \
-    --user-data-dir="$HOME/.local/share/pwa/chromium-profile-calendar" \
-    --app=https://calendar.google.com
-
+  --user-data-dir="$HOME/.local/share/pwa/chromium-profile" \
+  --app=https://calendar.google.com

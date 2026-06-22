@@ -1,8 +1,8 @@
 [Desktop Entry]
 Name=Tasks
 Exec=pwa-tasks
-Icon=pwa-tasks
+Icon=pwa_tasks
 Terminal=false
 Type=Application
 StartupWMClass=chrome-tasks.google.com__-Default
-Categories=Office;Utility;Google;
+Categories=Office;Utility;

@@ -5,4 +5,4 @@ Icon=pwa_calendar
 Terminal=false
 Type=Application
 StartupWMClass=chrome-calendar.google.com__-Default
-Categories=Network;Office;Google;
+Categories=Network;Office;

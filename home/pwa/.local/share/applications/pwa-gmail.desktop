@@ -5,4 +5,4 @@ Icon=pwa_gmail
 Terminal=false
 Type=Application
 StartupWMClass=chrome-mail.google.com__-Default
-Categories=Network;Email;Google;
+Categories=Network;Email;
