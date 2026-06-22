@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+BAT="BAT0"
+POWER_SUPPLY="/sys/class/power_supply/$BAT"
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/battery-low-notify"
+STATE_FILE="$STATE_DIR/notified"
+
+THRESHOLDS=(20 10 5)
+
+if [[ ! -d "$STATE_DIR" ]]; then
+    mkdir -p "$STATE_DIR"
+fi
+
+if [[ ! -f "$STATE_FILE" ]]; then
+    printf '%s\n' "${THRESHOLDS[@]}" >"$STATE_FILE"
+fi
+
+notify_if_needed() {
+    local capacity status t urgency icon
+    capacity=$(cat "$POWER_SUPPLY/capacity")
+    status=$(cat "$POWER_SUPPLY/status")
+
+    if [[ "$status" == "Charging" ]] || [[ "$status" == "Full" ]]; then
+        printf '%s\n' "${THRESHOLDS[@]}" >"$STATE_FILE"
+        return
+    fi
+
+    local thresholds_left=()
+    mapfile -t thresholds_left <"$STATE_FILE"
+
+    local new_thresholds=()
+    for t in "${thresholds_left[@]}"; do
+        if ((capacity <= t)); then
+            case "$t" in
+            20) urgency="normal" icon="battery-low" ;;
+            10) urgency="critical" icon="battery-caution" ;;
+            5) urgency="critical" icon="battery-caution" ;;
+            esac
+            notify-send --app-name "Battery" -u "$urgency" -i "$icon" -t 10000 "Battery Low" \
+                "Battery at ${capacity}% — plug in the charger."
+        else
+            new_thresholds+=("$t")
+        fi
+    done
+
+    if [[ ${#new_thresholds[@]} -gt 0 ]]; then
+        printf '%s\n' "${new_thresholds[@]}" >"$STATE_FILE"
+    else
+        : >"$STATE_FILE"
+    fi
+}
+
+notify_if_needed
+
+upower --monitor-detail | while IFS= read -r line; do
+    if [[ "$line" =~ ^[[:space:]]*percentage:[[:space:]]*([0-9]+)% ]]; then
+        if ((${BASH_REMATCH[1]} <= 20)); then
+            notify_if_needed
+        fi
+    elif [[ "$line" =~ ^[[:space:]]*state:[[:space:]]*(.+) ]]; then
+        state="${BASH_REMATCH[1]}"
+        if [[ "$state" == "charging" ]] || [[ "$state" == "fully-charged" ]]; then
+            notify_if_needed
+        fi
+    fi
+done
