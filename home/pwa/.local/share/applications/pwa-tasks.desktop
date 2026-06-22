@@ -5,4 +5,4 @@ Icon=pwa-tasks
 Terminal=false
 Type=Application
 StartupWMClass=chrome-tasks.google.com__-Default
-Categories=Office;Utility;
+Categories=Office;Utility;Google;
