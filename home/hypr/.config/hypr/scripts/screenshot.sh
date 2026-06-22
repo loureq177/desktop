@@ -30,7 +30,7 @@ fi
 
 wl-copy <"$FILE"
 
-ACTION=$(notify-send "Screenshot" -i "$FILE" -A "default=Edit" -A "edit=Edit with Satty" "Screenshot saved and copied to clipboard.")
+ACTION=$(notify-send -t 5000 "Screenshot" -i "$FILE" -A "default=Edit" -A "edit=Edit with Satty" "Screenshot saved and copied to clipboard.")
 
 if [ "$ACTION" = "default" ] || [ "$ACTION" = "edit" ]; then
     satty --filename "$FILE" --fullscreen --output-filename "$FILE"
