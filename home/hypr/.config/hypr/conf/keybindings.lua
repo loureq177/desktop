@@ -15,6 +15,7 @@ hl.bind(mod .. " + W", hl.dsp.workspace.toggle_special(programs.special.whatsapp
 hl.bind(mod .. " + M", hl.dsp.workspace.toggle_special(programs.special.mail.ws))
 hl.bind(mod .. " + D", hl.dsp.workspace.toggle_special(programs.special.discord.ws))
 hl.bind(mod .. " + S", hl.dsp.workspace.toggle_special(programs.special.spotify.ws))
+hl.bind(mod .. " + A", hl.dsp.workspace.toggle_special(programs.special.gemini.ws))
 hl.bind(mod .. " + E", hl.dsp.workspace.toggle_special(programs.special.yazi.ws))
 hl.bind(mod .. " + Escape", hl.dsp.workspace.toggle_special())
 

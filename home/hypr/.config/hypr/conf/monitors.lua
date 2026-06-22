@@ -16,11 +16,12 @@ end
 
 local function restart_swaybg()
 	hl.exec_cmd("pkill -x swaybg || true")
-	hl.exec_cmd("swaybg -i ~/Pictures/Wallpapers/hyprland-dark.png -m fill")
+	hl.exec_cmd("bash -c 'swaybg -i ~/Pictures/Wallpapers/hyprland-dark.png -m fill >/dev/null 2>&1 & disown'")
 end
 
 hl.on("monitor.added", function()
 	update_laptop_scale()
+	restart_swaybg()
 	restart_waybar()
 end)
 

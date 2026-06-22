@@ -9,7 +9,7 @@ hl.config({
 		},
 		resize_on_border = true,
 		allow_tearing = false,
-		layout = "dwindle",
+		layout = "scrolling",
 	},
 	decoration = {
 		rounding = 10,

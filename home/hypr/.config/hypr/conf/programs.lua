@@ -16,6 +16,7 @@ return {
 		calendar = { exe = os.getenv("HOME") .. "/.local/bin/pwa-calendar", class = "chrome-calendar.google.com__-Default", ws = "calendar" },
 		mail     = { exe = os.getenv("HOME") .. "/.local/bin/pwa-gmail",    class = "chrome-mail.google.com__-Default",     ws = "mail" },
 		whatsapp = { exe = os.getenv("HOME") .. "/.local/bin/pwa-whatsapp", class = "chrome-web.whatsapp.com__-Default",    ws = "whatsapp" },
+		gemini   = { exe = os.getenv("HOME") .. "/.local/bin/pwa-gemini",   class = "chrome-gemini.google.com__-Default", ws = "gemini" },
 		bluetui  = { exe = "ghostty --class=bluetui -e bluetui",   class = "bluetui",   ws = "bluetui" },
 		impala   = { exe = "ghostty --class=impala -e impala",     class = "impala",    ws = "impala" },
 		btop     = { exe = "ghostty --class=btop -e btop",         class = "btop",      ws = "btop" },
