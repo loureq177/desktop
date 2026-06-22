@@ -10,7 +10,18 @@ from threading import Event
 def notify(msg, critical=True):
     level = "critical" if critical else "normal"
     subprocess.run(
-        ["notify-send", "-t", "5000", "-u", level, "Dictate", msg], check=False
+        [
+            "notify-send",
+            "--app-name",
+            "Dictate",
+            "-t",
+            "5000",
+            "-u",
+            level,
+            "Dictate",
+            msg,
+        ],
+        check=False,
     )
 
 
