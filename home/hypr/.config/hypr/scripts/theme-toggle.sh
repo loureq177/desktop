@@ -21,7 +21,7 @@ notify() {
     else
         icon="weather-clear"
     fi
-    notify-send -t 2000 -i "$icon" -h string:x-canonical-private-synchronous:theme \
+    notify-send --app-name "Theme" -t 2000 -i "$icon" -h string:x-canonical-private-synchronous:theme \
         "Themes" "Switched to $mode"
 }
 
