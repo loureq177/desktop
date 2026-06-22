@@ -1,35 +1,35 @@
 #!/usr/bin/env zsh
 set -euo pipefail
 
-orphans=$(paru -Qdtq || true)
+get_space() {
+    df -m / "$HOME" | awk '!/Filesystem/ {sum+=$3} END {print sum}'
+}
 
-if [ -z "$orphans" ]; then
-    echo "There are no orphaned packages."
-else
-    echo "Orphaned packages to be deleted:\n$orphans"
+used_before=$(get_space)
+
+echo "Cleaning orphaned packages..."
+orphans=$(paru -Qdtq || true)
+if [ -n "$orphans" ]; then
     paru -Rns --noconfirm ${=orphans}
+else
+    echo "There are no orphaned packages."
 fi
 
-printf '\nCleaning cached packages...\n'
-paru -Sc --noconfirm
+echo "\nCleaning cached packages..."
+paru -Scc --noconfirm
 
-printf '\nCleaning Flatpak leftovers...\n'
+echo "\nCleaning Flatpak leftovers..."
 flatpak uninstall --unused --noninteractive
 
-printf '\nCleaning ~/.cache older than 30 days...\n'
-days=30
-if [ -n "$(find "$HOME/.cache" -type f -mtime +$days 2>/dev/null | head -n 1)" ]; then
-    find "$HOME/.cache" -type f -mtime +$days -delete 2>/dev/null || true
-    echo "Old cache files deleted."
-else
-    echo "There is no cache older than $days days to delete."
-fi
+echo "\nCleaning ~/.cache older than 30 days..."
+find "$HOME/.cache" -type f -mtime +30 -delete 2>/dev/null || true
 
-printf '\nVacuuming journal (2 weeks)...\n'
-if sudo -n journalctl --vacuum-time=2weeks 2>/dev/null; then
-    :
-else
-    echo "Skipping journal vacuum (sudo requires password — set up NOPASSWD for journalctl in sudoers)"
-fi
+echo "\nVacuuming journal..."
+sudo journalctl --vacuum-time=2weeks --quiet
 
-printf '\nYour system is clean.\n'
+freed=$(( used_before - $(get_space) ))
+
+echo "\nYour system is clean."
+if [ "$freed" -gt 0 ]; then
+    echo "Successfully freed $freed MB of disk space."
+fi
