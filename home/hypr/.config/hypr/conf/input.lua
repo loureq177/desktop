@@ -33,10 +33,3 @@ hl.gesture({
 	zoom_level = 0.5,
 	mode = "mult",
 })
-
--- Example per-device config
--- See https://wiki.hypr.land/Configuring/Advanced-and-Cool/Devices/ for more
--- hl.device({
--- 	name = "epic-mouse-v1",
--- 	sensitivity = -0.5,
--- })
