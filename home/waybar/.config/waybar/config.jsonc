@@ -1,7 +1,10 @@
 {
   "layer": "top",
   "height": 25,
-  "spacing": 4,
+  "spacing": 2,
+  "margin-top": 4,
+  "margin-left": 6,
+  "margin-right": 6,
 
   "modules-left": ["hyprland/workspaces", "hyprland/window"],
 
@@ -31,32 +34,43 @@
         "tooltip": true,
         "tooltip-icon-size": 24,
       },
+      {
+        "type": "audio-in",
+        "tooltip": true,
+        "tooltip-icon-size": 24,
+      },
     ],
   },
 
+  // signal 2 — dodaj pkill -RTMIN+2 waybar do record-toggle.sh przy start/stop
+  "custom/record": {
+    "exec": "~/.config/waybar/scripts/record-status.sh",
+    "return-type": "json",
+    "interval": "once",
+    "signal": 2,
+  },
+
+  // signal 8 — update_waybar() w dictate.sh już to wysyła
+  "custom/dictate": {
+    "exec": "~/.config/waybar/scripts/dictate-status.sh",
+    "return-type": "json",
+    "interval": "once",
+    "signal": 8,
+  },
+
+  // signal 1 — caffeine-toggle.sh już wysyła RTMIN+1
   "custom/caffeine": {
     "exec": "~/.config/hypr/scripts/caffeine-toggle.sh --status",
     "on-click": "~/.config/hypr/scripts/caffeine-toggle.sh",
     "return-type": "json",
-    "interval": 1,
-  },
-
-  "custom/dictate": {
-    "exec": "~/.config/waybar/scripts/dictate-status.sh",
-    "return-type": "json",
-    "interval": 1,
-  },
-
-  "custom/record": {
-    "exec": "~/.config/waybar/scripts/record-status.sh",
-    "return-type": "json",
-    "interval": 1,
+    "interval": "once",
+    "signal": 1,
   },
 
   "custom/theme": {
     "format": "{}",
     "exec": "~/.config/waybar/scripts/theme-status.sh",
-    "on-click": "~/.config/hypr/scripts/theme-toggle.sh",
+    "on-click": "hyprctl dispatch 'hl.dsp.exec_cmd(\"~/.config/hypr/scripts/theme-toggle.sh\")'",
     "return-type": "json",
     "signal": 1,
   },
@@ -65,21 +79,21 @@
     "format": "{icon} {volume}%",
     "format-muted": "󰖁 {volume}%",
     "format-icons": {
-      "headphone": "",
-      "hands-free": "",
-      "headset": "",
-      "phone": "",
-      "portable": "",
-      "car": "",
-      "default": ["", "", ""],
+      "headphone": "",
+      "hands-free": "",
+      "headset": "",
+      "phone": "",
+      "portable": "",
+      "car": "",
+      "default": ["󰕿", "󰖀", "󰕾"],
     },
     "on-click": "pwvucontrol --tab 4",
   },
 
   "pulseaudio#microphone": {
     "format": "{format_source}",
-    "format-source": "",
-    "format-source-muted": "",
+    "format-source": "󰍬",
+    "format-source-muted": "󰍭",
     "on-click": "wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle",
     "on-click-right": "pwvucontrol --tab 3",
   },
@@ -96,7 +110,7 @@
   },
 
   "network": {
-    "format-wifi": "",
+    "format-wifi": "󰖩",
     "format-ethernet": "󰈀",
     "format-disconnected": "󰖪",
     "tooltip-format": "{essid}\nIP: {ipaddr}\nSignal: {signalStrength}%",
@@ -113,12 +127,12 @@
   },
 
   "hyprland/workspaces": {
-    "format": "{icon}",
+    "format": "{name}",
   },
 
   "memory": {
     "interval": 5,
-    "format": "󰍛 {}%",
+    "format": "󰍛 {}%",
     "on-click": "hyprctl dispatch \"hl.dsp.workspace.toggle_special('btop')\"",
     "tooltip": true,
     "tooltip-format": "Used: {used}/{total}\nAvail: {avail}",
@@ -127,8 +141,8 @@
   "battery": {
     "interval": 60,
     "format": "{icon} {capacity}%",
-    "format-charging": " {capacity}%",
-    "format-plugged": " {capacity}%",
+    "format-charging": " {capacity}%",
+    "format-plugged": " {capacity}%",
     "format-icons": ["󰂎", "󰁺", "󰁻", "󰁼", "󰁽", "󰁾", "󰁿", "󰂀", "󰂁", "󰂂", "󰁹"],
     "tooltip": true,
     "tooltip-format": "{capacity}%\nRemaining time: {time}",
