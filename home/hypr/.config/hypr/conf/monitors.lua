@@ -5,7 +5,7 @@ local function update_laptop_scale()
 		output = "desc:BOE 0x0998",
 		mode = "1920x1080@165",
 		position = "0x0",
-		scale = (#monitors > 1) and 1.1 or 1,
+		scale = (#monitors > 1) and 1.05 or 1,
 	})
 end
 
