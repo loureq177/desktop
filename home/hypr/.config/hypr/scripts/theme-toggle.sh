@@ -42,17 +42,21 @@ apply_mako() {
     if [[ ! -f "$cfg" ]]; then return; fi
     sed -i "0,/^format=/s|^format=.*|format=<b>%a</b>\\\\n%s: %b|" "$cfg"
     if [[ "$mode" == "dark" ]]; then
-        sed -i "s/^background-color=.*/background-color=#1e1e2e/" "$cfg"
-        sed -i "s/^text-color=.*/text-color=#cdd6f4/" "$cfg"
-        sed -i "0,/^border-color=#/s/^border-color=#.*/border-color=#89b4fa/" "$cfg"
-        sed -i "s/^progress-color=.*/progress-color=over #89b4fa/" "$cfg"
-        sed -i "/^\[urgency=critical\]/,/^\[/s/^border-color=.*/border-color=#f38ba8/" "$cfg"
+        sed -i \
+            -e "s/^background-color=.*/background-color=#1e1e2e/" \
+            -e "s/^text-color=.*/text-color=#cdd6f4/" \
+            -e "0,/^border-color=#/s/^border-color=#.*/border-color=#89b4fa/" \
+            -e "s/^progress-color=.*/progress-color=over #89b4fa/" \
+            -e "/^\[urgency=critical\]/,/^\[/s/^border-color=.*/border-color=#f38ba8/" \
+            "$cfg"
     else
-        sed -i "s/^background-color=.*/background-color=#e1e2e7/" "$cfg"
-        sed -i "s/^text-color=.*/text-color=#3760bf/" "$cfg"
-        sed -i "0,/^border-color=#/s/^border-color=#.*/border-color=#2e7de9/" "$cfg"
-        sed -i "s/^progress-color=.*/progress-color=over #2e7de9/" "$cfg"
-        sed -i "/^\[urgency=critical\]/,/^\[/s/^border-color=.*/border-color=#e64553/" "$cfg"
+        sed -i \
+            -e "s/^background-color=.*/background-color=#e1e2e7/" \
+            -e "s/^text-color=.*/text-color=#3760bf/" \
+            -e "0,/^border-color=#/s/^border-color=#.*/border-color=#2e7de9/" \
+            -e "s/^progress-color=.*/progress-color=over #2e7de9/" \
+            -e "/^\[urgency=critical\]/,/^\[/s/^border-color=.*/border-color=#e64553/" \
+            "$cfg"
     fi
     makoctl reload || true
 }
@@ -61,19 +65,23 @@ apply_rofi() {
     local rasi="$HOME/.config/rofi/tokyonight.rasi"
     if [[ ! -f "$rasi" ]]; then return; fi
     if [[ "$mode" == "dark" ]]; then
-        sed -i "s/^    fg0: .*/    fg0: #c8d3f5;/" "$rasi"
-        sed -i "s/^    accent: .*/    accent: #2ccade;/" "$rasi"
-        sed -i "/^window {/,/^}/s/background-color:.*/background-color: rgba(34, 36, 54, 0.95);/" "$rasi"
-        sed -i "/^inputbar {/,/^}/s/background-color:.*/background-color: rgba(47, 51, 77, 0.4);/" "$rasi"
-        sed -i "/^element selected {/,/^}/s/background-color:.*/background-color: rgba(47, 51, 77, 0.4);/" "$rasi"
-        sed -i "s/placeholder-color: .*/placeholder-color: #565f89;/" "$rasi"
+        sed -i \
+            -e "s/^    fg0: .*/    fg0: #c8d3f5;/" \
+            -e "s/^    accent: .*/    accent: #2ccade;/" \
+            -e "/^window {/,/^}/s/background-color:.*/background-color: rgba(34, 36, 54, 0.95);/" \
+            -e "/^inputbar {/,/^}/s/background-color:.*/background-color: rgba(47, 51, 77, 0.4);/" \
+            -e "/^element selected {/,/^}/s/background-color:.*/background-color: rgba(47, 51, 77, 0.4);/" \
+            -e "s/placeholder-color: .*/placeholder-color: #565f89;/" \
+            "$rasi"
     else
-        sed -i "s/^    fg0: .*/    fg0: #3760bf;/" "$rasi"
-        sed -i "s/^    accent: .*/    accent: #2e7de9;/" "$rasi"
-        sed -i "/^window {/,/^}/s/background-color:.*/background-color: rgba(225, 226, 231, 0.95);/" "$rasi"
-        sed -i "/^inputbar {/,/^}/s/background-color:.*/background-color: rgba(196, 200, 218, 0.4);/" "$rasi"
-        sed -i "/^element selected {/,/^}/s/background-color:.*/background-color: rgba(196, 200, 218, 0.4);/" "$rasi"
-        sed -i "s/placeholder-color: .*/placeholder-color: #888888;/" "$rasi"
+        sed -i \
+            -e "s/^    fg0: .*/    fg0: #3760bf;/" \
+            -e "s/^    accent: .*/    accent: #2e7de9;/" \
+            -e "/^window {/,/^}/s/background-color:.*/background-color: rgba(225, 226, 231, 0.95);/" \
+            -e "/^inputbar {/,/^}/s/background-color:.*/background-color: rgba(196, 200, 218, 0.4);/" \
+            -e "/^element selected {/,/^}/s/background-color:.*/background-color: rgba(196, 200, 218, 0.4);/" \
+            -e "s/placeholder-color: .*/placeholder-color: #888888;/" \
+            "$rasi"
     fi
 }
 
@@ -120,28 +128,34 @@ apply_waybar() {
     local css="$HOME/.config/waybar/style.css"
     if [[ ! -f "$css" ]]; then return; fi
     if [[ "$mode" == "dark" ]]; then
-        sed -i "s/^@define-color text .*/@define-color text #ffffff;/" "$css"
-        sed -i "s/^@define-color text-inactive .*/@define-color text-inactive #aaaaaa;/" "$css"
-        sed -i "s/^@define-color hover-bg .*/@define-color hover-bg rgba(255, 255, 255, 0.1);/" "$css"
-        sed -i "s/^@define-color dnd-off .*/@define-color dnd-off #a6adc8;/" "$css"
+        sed -i \
+            -e "s/^@define-color text .*/@define-color text #ffffff;/" \
+            -e "s/^@define-color text-inactive .*/@define-color text-inactive #aaaaaa;/" \
+            -e "s/^@define-color hover-bg .*/@define-color hover-bg rgba(255, 255, 255, 0.1);/" \
+            -e "s/^@define-color dnd-off .*/@define-color dnd-off #a6adc8;/" \
+            -e "s/^@define-color module-bg .*/@define-color module-bg rgba(255, 255, 255, 0.08);/" \
+            -e "s/^@define-color module-hover .*/@define-color module-hover rgba(255, 255, 255, 0.15);/" \
+            -e "s/^@define-color tooltip-bg .*/@define-color tooltip-bg rgba(30, 30, 46, 0.95);/" \
+            -e "s/^@define-color tooltip-border .*/@define-color tooltip-border rgba(255, 255, 255, 0.08);/" \
+            -e "s/^@define-color tooltip-text .*/@define-color tooltip-text #ffffff;/" \
+            "$css"
     else
-        sed -i "s/^@define-color text .*/@define-color text #1e1e2e;/" "$css"
-        sed -i "s/^@define-color text-inactive .*/@define-color text-inactive #888888;/" "$css"
-        sed -i "s/^@define-color hover-bg .*/@define-color hover-bg rgba(0, 0, 0, 0.1);/" "$css"
-        sed -i "s/^@define-color dnd-off .*/@define-color dnd-off #6c7086;/" "$css"
+        sed -i \
+            -e "s/^@define-color text .*/@define-color text #1e1e2e;/" \
+            -e "s/^@define-color text-inactive .*/@define-color text-inactive #888888;/" \
+            -e "s/^@define-color hover-bg .*/@define-color hover-bg rgba(0, 0, 0, 0.1);/" \
+            -e "s/^@define-color dnd-off .*/@define-color dnd-off #6c7086;/" \
+            -e "s/^@define-color module-bg .*/@define-color module-bg rgba(0, 0, 0, 0.06);/" \
+            -e "s/^@define-color module-hover .*/@define-color module-hover rgba(0, 0, 0, 0.1);/" \
+            -e "s/^@define-color tooltip-bg .*/@define-color tooltip-bg rgba(255, 255, 255, 0.95);/" \
+            -e "s/^@define-color tooltip-border .*/@define-color tooltip-border rgba(0, 0, 0, 0.1);/" \
+            -e "s/^@define-color tooltip-text .*/@define-color tooltip-text #000000;/" \
+            "$css"
     fi
 }
 
 signal_waybar() {
-    local old_pids
-    old_pids=$(pgrep -x waybar) || true
-    if [[ -n "$old_pids" ]]; then
-        for pid in $old_pids; do
-            kill "$pid" 2>/dev/null || true
-        done
-    fi
-    waybar >/dev/null 2>&1 &
-    disown
+    pkill -USR2 waybar || true
 }
 
 echo "$mode" >"$STATE_FILE"
