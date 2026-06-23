@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+PW_PLAY="/usr/sbin/pw-play"
+NOTIFY_SEND="/usr/bin/notify-send"
+BLUETOOTHCTL="/usr/bin/bluetoothctl"
+NMCLI="/usr/bin/nmcli"
+UDEVADM="/usr/sbin/udevadm"
+
+SOUND_BT_CON="/usr/share/sounds/freedesktop/stereo/device-added.oga"
+SOUND_BT_DIS="/usr/share/sounds/freedesktop/stereo/device-removed.oga"
+SOUND_WIFI_CON="/usr/share/sounds/freedesktop/stereo/network-connectivity-established.oga"
+SOUND_WIFI_DIS="/usr/share/sounds/freedesktop/stereo/network-connectivity-lost.oga"
+SOUND_USB_ADD="/usr/share/sounds/freedesktop/stereo/device-added.oga"
+SOUND_USB_REM="/usr/share/sounds/freedesktop/stereo/device-removed.oga"
+
+LAST_SOUND=0
+DEBOUNCE=1
+
+debounce_play() {
+    local now
+    now=$(date +%s)
+    if (( now - LAST_SOUND >= DEBOUNCE )); then
+        LAST_SOUND=$now
+        "$PW_PLAY" "$1" &
+    fi
+}
+
+notify() {
+    "$NOTIFY_SEND" --app-name="connect-sound" "$1" "$2" &
+}
+
+cleanup() {
+    kill 0 2>/dev/null
+}
+trap cleanup EXIT
+
+# Bluetooth (uses process substitution to keep stdin open)
+while true; do
+    "$BLUETOOTHCTL" --monitor < <(exec /usr/bin/sleep infinity) 2>/dev/null \
+        | perl -pe 'BEGIN{$|=1} s/\e\[[0-9;]*[a-zA-Z]//g' \
+        | while IFS= read -r line; do
+            if [[ "$line" == *"[CHG] Device"*"Connected: yes"* ]]; then
+                debounce_play "$SOUND_BT_CON"
+                notify "Bluetooth" "Urządzenie połączone"
+            elif [[ "$line" == *"[CHG] Device"*"Connected: no"* ]]; then
+                debounce_play "$SOUND_BT_DIS"
+                notify "Bluetooth" "Urządzenie rozłączone"
+            fi
+        done
+    sleep 2
+done &
+
+# Network (WiFi)
+while true; do
+    "$NMCLI" monitor 2>/dev/null \
+        | while IFS= read -r line; do
+            if [[ "$line" == wl*": connected" ]]; then
+                sleep 0.3
+                debounce_play "$SOUND_WIFI_CON"
+                ssid=$("$NMCLI" -t -f ACTIVE,SSID device wifi list 2>/dev/null | grep '^yes' | cut -d: -f2-)
+                notify "Wi-Fi" "Połączono z ${ssid:-siecią Wi-Fi}"
+            elif [[ "$line" == wl*": disconnected" ]]; then
+                debounce_play "$SOUND_WIFI_DIS"
+                notify "Wi-Fi" "Rozłączono"
+            fi
+        done
+    sleep 2
+done &
+
+# USB
+while true; do
+    "$UDEVADM" monitor --udev --subsystem-match=usb 2>/dev/null \
+        | while IFS= read -r line; do
+            if [[ "$line" == *" add "* ]]; then
+                debounce_play "$SOUND_USB_ADD"
+                notify "USB" "Urządzenie podłączone"
+            elif [[ "$line" == *" remove "* ]]; then
+                debounce_play "$SOUND_USB_REM"
+                notify "USB" "Urządzenie odłączone"
+            fi
+        done
+    sleep 2
+done &
+
+wait
