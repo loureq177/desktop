@@ -40,9 +40,9 @@ if rclone sync \
     --track-renames \
     --drive-use-trash=true \
     --verbose; then
-    notify-send --app-name "Rclone" -t 5000 "Rclone" -i "folder-remote" "Backup synced to Google Drive"
+    notify-send --app-name "Rclone" -t 5000 "Rclone" -i "emblem-synchronizing" "Backup synced to Google Drive"
 else
     rc=$?
-    notify-send --app-name "Rclone" -u critical -t 5000 "Rclone" -i "folder-remote" "Rclone Sync failed. Check the logs for details"
+    notify-send --app-name "Rclone" -u critical -t 5000 "Rclone" -i "dialog-error" "Rclone Sync failed. Check the logs for details"
     exit "$rc"
 fi
