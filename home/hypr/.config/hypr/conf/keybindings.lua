@@ -63,6 +63,10 @@ for i = 1, 6 do
 	hl.bind(mod .. " + SHIFT + " .. i, hl.dsp.window.move({ workspace = i }))
 end
 
+-- Scroll windows in scrolling layout
+hl.bind(mod .. " + mouse_down", hl.dsp.layout("scrolldown"))
+hl.bind(mod .. " + mouse_up", hl.dsp.layout("scrollup"))
+
 -- Move windows with mainMod + LMB/RMB and dragging
 hl.bind(mod .. " + mouse:272", hl.dsp.window.drag(), { mouse = true })
 
