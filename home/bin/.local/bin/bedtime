@@ -1,6 +1,23 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+current_time=$((10#$(date +%H) * 60 + 10#$(date +%M)))
+
+day_end=$((21 * 60 + 45))
+night_start=$((22 * 60))
+night_end=$((2 * 60))
+
+if [ "$current_time" -lt "$day_end" ] && [ "$current_time" -ge "$night_end" ]; then
+    nmcli radio wifi on
+    exit 0
+fi
+
+if [ "$current_time" -ge "$night_start" ] || [ "$current_time" -lt "$night_end" ]; then
+    notify-send --app-name "Bedtime" -t 5000 -u critical "Bedtime" -i "weather-clear-night" "WiFi has been turned off."
+    nmcli radio wifi off
+    exit 0
+fi
+
 notify-send --app-name "Bedtime" -t 5000 -u critical "Bedtime" -i "weather-clear-night" "WiFi will turn off in 15 minutes."
 sleep 600
 notify-send --app-name "Bedtime" -t 5000 -u critical "Bedtime" -i "weather-clear-night" "WiFi will turn off in 5 minutes."
