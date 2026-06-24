@@ -1,6 +1,7 @@
 [Unit]
 Description=Rclone Sync Background Sync
 After=network-online.target
+Wants=network-online.target
 
 [Service]
 Type=oneshot
