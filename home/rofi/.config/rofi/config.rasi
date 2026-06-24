@@ -9,8 +9,9 @@ configuration {
     display-run: " Commands";
     display-window: " Windows";
     scroll-method: 1;
+    disable-history: true;
     sort: true;
-    sorting-method: "fzf";
+    sorting-method: "normal";
     location: 5;
     anchor: center;
     yoffset: -150;
