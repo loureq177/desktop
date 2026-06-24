@@ -12,13 +12,13 @@
 
   "modules-right": [
     "custom/record",
-    "custom/dictate",
     "privacy",
     "custom/caffeine",
     "custom/theme",
+    "custom/dictate",
     "pulseaudio",
-    "pulseaudio#microphone",
     "memory",
+    "temperature",
     "bluetooth",
     "network",
     "battery",
@@ -34,11 +34,7 @@
         "tooltip": true,
         "tooltip-icon-size": 24,
       },
-      {
-        "type": "audio-in",
-        "tooltip": true,
-        "tooltip-icon-size": 24,
-      },
+
     ],
   },
 
@@ -48,14 +44,6 @@
     "return-type": "json",
     "interval": "once",
     "signal": 2,
-  },
-
-  // signal 8 — update_waybar() w dictate.sh już to wysyła
-  "custom/dictate": {
-    "exec": "~/.config/waybar/scripts/dictate-status.sh",
-    "return-type": "json",
-    "interval": "once",
-    "signal": 8,
   },
 
   // signal 1 — caffeine-toggle.sh już wysyła RTMIN+1
@@ -72,7 +60,17 @@
     "exec": "~/.config/waybar/scripts/theme-status.sh",
     "on-click": "hyprctl dispatch 'hl.dsp.exec_cmd(\"~/.config/hypr/scripts/theme-toggle.sh\")'",
     "return-type": "json",
-    "signal": 1,
+    "signal": 10,
+  },
+
+  // signal 8 — dictate.sh / mute toggle
+  "custom/dictate": {
+    "exec": "~/.config/waybar/scripts/dictate-status.sh",
+    "return-type": "json",
+    "interval": "once",
+    "signal": 8,
+    "on-click": "wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle && pkill -RTMIN+8 waybar",
+    "on-click-right": "pwvucontrol --tab 3",
   },
 
   "pulseaudio": {
@@ -88,14 +86,6 @@
       "default": ["󰕿", "󰖀", "󰕾"],
     },
     "on-click": "pwvucontrol --tab 4",
-  },
-
-  "pulseaudio#microphone": {
-    "format": "{format_source}",
-    "format-source": "󰍬",
-    "format-source-muted": "󰍭",
-    "on-click": "wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle",
-    "on-click-right": "pwvucontrol --tab 3",
   },
 
   "bluetooth": {
@@ -138,11 +128,20 @@
     "tooltip-format": "Used: {used}/{total}\nAvail: {avail}",
   },
 
+  "temperature": {
+    "hwmon-path-abs": "/sys/class/hwmon/hwmon4/temp1_input",
+    "interval": 5,
+    "format": "{icon} {temperatureC}°C",
+    "format-icons": ["", "", ""],
+    "critical-threshold": 85,
+    "tooltip": true,
+  },
+
   "battery": {
     "interval": 60,
     "format": "{icon} {capacity}%",
-    "format-charging": " {capacity}%",
-    "format-plugged": " {capacity}%",
+    "format-charging": "{icon} {capacity}%",
+    "format-plugged": "{icon} {capacity}%",
     "format-icons": ["󰂎", "󰁺", "󰁻", "󰁼", "󰁽", "󰁾", "󰁿", "󰂀", "󰂁", "󰂂", "󰁹"],
     "tooltip": true,
     "tooltip-format": "{capacity}%\nRemaining time: {time}",

@@ -1,12 +1,33 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-STATUS_FILE="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/dictate_status"
+ACTIVE=false
+APPS=""
 
-if [ -f "$STATUS_FILE" ] && [ "$(cat "$STATUS_FILE")" = "listening" ]; then
-    echo '{"text": "", "class": "dictate-listening", "tooltip": "Dyktowanie: Nagrywanie (Puszczono klawisz = transkrypcja)"}'
-    exit 0
+if command -v pactl &>/dev/null; then
+    APPS=$(pactl list source-outputs 2>/dev/null | awk -F'"' '/application\.name/ {print $2}' | sort -u | paste -s -d, - || true)
+    if [ -n "$APPS" ]; then
+        ACTIVE=true
+    fi
 fi
 
-echo '{"text": "", "class": "dictate-idle", "tooltip": "Dyktowanie: Bezczynny (SUPER+CTRL+S by zacząć)"}'
+MUTED=false
+if wpctl get-volume @DEFAULT_AUDIO_SOURCE@ | grep -q MUTED; then
+    MUTED=true
+fi
 
+if [ "$MUTED" = true ]; then
+    ICON="󰍭"
+else
+    ICON="󰍬"
+fi
+
+if [ "$ACTIVE" = true ]; then
+    CLASS="active"
+    TOOLTIP="Microphone in use by: $APPS"
+else
+    CLASS="idle"
+    TOOLTIP="Microphone: $([ "$MUTED" = true ] && echo 'muted' || echo 'unmuted')"
+fi
+
+echo "{\"text\": \"$ICON\", \"class\": \"$CLASS\", \"tooltip\": \"$TOOLTIP\"}"
