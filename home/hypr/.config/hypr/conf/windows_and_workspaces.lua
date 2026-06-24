@@ -38,8 +38,8 @@ for _, app in pairs(programs.scratchpad) do
 end
 
 local function applyFocusGaps(monitor)
-	local gH = math.floor(monitor.height * 0.05)
-	local gW = math.floor(monitor.width * 0.05)
+	local gH = math.floor(monitor.height * 0.04)
+	local gW = math.floor(monitor.width * 0.04)
 	local gaps = { top = gH, right = gW, bottom = gH, left = gW }
 
 	for _, app in pairs(programs.special) do
