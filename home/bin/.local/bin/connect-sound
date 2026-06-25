@@ -44,12 +44,10 @@ while true; do
                 mac=$(echo "$line" | sed -n 's/.*Device \([0-9A-F:]\{17\}\).*/\1/p')
                 devname=$(bluetoothctl devices 2>/dev/null | grep "$mac" | cut -d' ' -f3-)
                 debounce_play "$SOUND_BT_CON"
-                notify "bluetooth-active" "Bluetooth" "${devname:-Device} connected"
             elif [[ "$line" == *"[CHG] Device"*"Connected: no"* ]]; then
                 mac=$(echo "$line" | sed -n 's/.*Device \([0-9A-F:]\{17\}\).*/\1/p')
                 devname=$(bluetoothctl devices 2>/dev/null | grep "$mac" | cut -d' ' -f3-)
                 debounce_play "$SOUND_BT_DIS"
-                notify "bluetooth-active" "Bluetooth" "${devname:-Device} disconnected"
             fi
         done
     sleep 2
