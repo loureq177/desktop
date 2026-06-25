@@ -2,10 +2,22 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(dirname "$(realpath "$0")")"
-VENV_PYTHON="$SCRIPT_DIR/../../.venv/bin/python"
+SPEECH_DIR="$(realpath "$SCRIPT_DIR/../..")"
+VENV_PYTHON="$SPEECH_DIR/.venv/bin/python"
 RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
 AUDIO_FILE="$RUNTIME_DIR/dictate_recording.wav"
 STATUS_FILE="$RUNTIME_DIR/dictate_status"
+
+ensure_venv() {
+    if [ ! -f "$VENV_PYTHON" ]; then
+        notify-send --app-name "Dictate" -t 5000 -u critical "Dictate" "Recreating Python venv..."
+        python3 -m venv "$SPEECH_DIR/.venv"
+        "$SPEECH_DIR/.venv/bin/pip" install --quiet --upgrade \
+            faster-whisper \
+            nvidia-cublas-cu12 \
+            nvidia-cudnn-cu12
+    fi
+}
 
 update_waybar() {
     echo "$1" >"$STATUS_FILE"
@@ -16,9 +28,13 @@ start_recording() {
     pkill -f "dictate_backend.py" || true
     rm -f "$AUDIO_FILE"
 
+    ensure_venv
+
     export DICTATE_AUDIO_FILE="$AUDIO_FILE"
     SITE_PACKAGES=$("$VENV_PYTHON" -c "import sysconfig; print(sysconfig.get_path('purelib'))")
-    export LD_LIBRARY_PATH="${SITE_PACKAGES}/nvidia/cublas/lib:${SITE_PACKAGES}/nvidia/cudnn/lib:${LD_LIBRARY_PATH:-}"
+    if [ -d "${SITE_PACKAGES}/nvidia/cublas/lib" ] && [ -d "${SITE_PACKAGES}/nvidia/cudnn/lib" ]; then
+        export LD_LIBRARY_PATH="${SITE_PACKAGES}/nvidia/cublas/lib:${SITE_PACKAGES}/nvidia/cudnn/lib:${LD_LIBRARY_PATH:-}"
+    fi
 
     update_waybar "listening"
 

@@ -34,16 +34,28 @@ def main():
     signal.signal(signal.SIGUSR1, lambda _s, _f: ready_event.set())
 
     try:
-        from faster_whisper import WhisperModel
-
-        model = WhisperModel(
-            os.environ.get("DICTATE_MODEL", "base"),
-            device=os.environ.get("DICTATE_DEVICE", "auto"),
-            compute_type=os.environ.get("DICTATE_COMPUTE_TYPE", "default"),
-        )
-    except Exception as e:
-        notify(f"Failed to load model: {e}")
+        from faster_whisper import WhisperModel as Model
+    except ImportError:
+        notify("faster_whisper not installed — run the install script")
         return sys.exit(1)
+
+    device = os.environ.get("DICTATE_DEVICE", "auto")
+    compute = os.environ.get("DICTATE_COMPUTE_TYPE", "default")
+    model_id = os.environ.get("DICTATE_MODEL", "base")
+
+    try:
+        model = Model(model_id, device=device, compute_type=compute)
+    except Exception as e:
+        if device == "auto":
+            notify(f"GPU unavailable ({e}), falling back to CPU", critical=False)
+            try:
+                model = Model(model_id, device="cpu", compute_type="default")
+            except Exception as e2:
+                notify(f"Failed to load model (CPU fallback): {e2}")
+                return sys.exit(1)
+        else:
+            notify(f"Failed to load model: {e}")
+            return sys.exit(1)
 
     max_wait = float(os.environ.get("DICTATE_MAX_WAIT", "60"))
     if not ready_event.wait(timeout=max_wait):
