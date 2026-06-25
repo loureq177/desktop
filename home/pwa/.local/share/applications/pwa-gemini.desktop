@@ -1,8 +1,0 @@
-[Desktop Entry]
-Name=Gemini
-Exec=pwa-gemini
-Icon=pwa_gemini
-Terminal=false
-Type=Application
-StartupWMClass=chrome-gemini.google.com__-Default
-Categories=Network;AI;Google;

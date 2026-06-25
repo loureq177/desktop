@@ -1,8 +1,0 @@
-[Desktop Entry]
-Name=WhatsApp
-Exec=pwa-whatsapp
-Icon=whatsapp-desktop
-Terminal=false
-Type=Application
-StartupWMClass=chrome-web.whatsapp.com__-Default
-Categories=Network;InstantMessaging;

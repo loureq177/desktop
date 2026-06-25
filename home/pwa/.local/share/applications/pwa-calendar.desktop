@@ -1,8 +1,0 @@
-[Desktop Entry]
-Name=Calendar
-Exec=pwa-calendar
-Icon=pwa_calendar
-Terminal=false
-Type=Application
-StartupWMClass=chrome-calendar.google.com__-Default
-Categories=Network;Office;
