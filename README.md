@@ -1,13 +1,7 @@
 # .files
 
-Dotfiles managed with [GNU Stow](https://www.gnu.org/software/stow/). Split into
-OS-specific and common configs.
-
-## Features
-
-- **Arch Linux specific:** Hyprland, Waybar, Rofi, Mako, Ly, Wireplumber,
-  Systemd
-- **Common:** Neovim, Ghostty, Zsh, Starship, Yazi, Bat, Btop, Git, SSH
+My own dotfiles managed with [GNU Stow](https://www.gnu.org/software/stow/).
+Split into OS-specific and common configs.
 
 ## Prerequisites
 
@@ -32,6 +26,7 @@ stow --restow --target ~ -d common starship
 # Remove a config
 stow -D --target ~ -d common starship
 
-> **Note:** Editing files inside an existing stow package takes effect **immediately** — they are symlinks.
-> `stow --restow` is only needed when **adding or removing** files in a package.
+# Edit a config
+# This is only needed when **adding or removing** files in a package.
+stow --restow <folder>
 ```
