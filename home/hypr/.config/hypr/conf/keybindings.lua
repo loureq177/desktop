@@ -1,125 +1,87 @@
 local programs = require("conf.programs")
 
-local mod = "SUPER"
+-- --- Apps -------------------------------------------------------------------
+local cmds = {
+	["SUPER + RETURN"] = programs.terminal,
+	["SUPER + B"] = programs.browser,
+	["SUPER + space"] = programs.launcher,
+	["SUPER + Escape"] = "~/.config/hypr/scripts/powermenu.sh",
+	["SUPER + SHIFT + M"] = "hyprlock --immediate-render --no-fade-in",
+	["Print"] = "~/.config/hypr/scripts/screenshot.sh region",
+	["SUPER + Period"] = "rofi -show emoji -modi emoji",
+	["SUPER + CTRL + A"] = "swaync-client -t",
+	["SUPER + CTRL + R"] = "~/.config/hypr/scripts/record-screen.sh",
+	["SUPER + CTRL + M"] = "wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle",
+	["SUPER + CTRL + P"] = "hyprpicker -a --notify",
+	["SUPER + CTRL + Print"] = "~/.config/hypr/scripts/screenshot.sh full",
+}
 
--- Example binds, see https://wiki.hypr.land/Configuring/Basics/Binds/ for more
-hl.bind(mod .. " + RETURN", hl.dsp.exec_cmd(programs.terminal))
-hl.bind(mod .. " + space", hl.dsp.exec_cmd(programs.launcher))
-hl.bind(mod .. " + SHIFT + space", hl.dsp.exec_cmd(programs.runner))
-
-hl.bind(mod .. " + SHIFT + S", hl.dsp.workspace.toggle_special("scratchpad"))
-
-hl.bind(mod .. " + C", hl.dsp.workspace.toggle_special(programs.special.calendar.ws))
-hl.bind(mod .. " + T", hl.dsp.workspace.toggle_special(programs.special.tasks.ws))
-hl.bind(mod .. " + W", hl.dsp.workspace.toggle_special(programs.special.whatsapp.ws))
-hl.bind(mod .. " + M", hl.dsp.workspace.toggle_special(programs.special.mail.ws))
-hl.bind(mod .. " + D", hl.dsp.workspace.toggle_special(programs.special.discord.ws))
-hl.bind(mod .. " + S", hl.dsp.workspace.toggle_special(programs.special.spotify.ws))
-hl.bind(mod .. " + A", hl.dsp.workspace.toggle_special(programs.special.gemini.ws))
-hl.bind(mod .. " + E", hl.dsp.workspace.toggle_special(programs.special.yazi.ws))
-hl.bind(mod .. " + Escape", hl.dsp.workspace.toggle_special())
-
-hl.bind(mod .. " + B", function()
-	local zenWindows = hl.get_windows({ class = programs.browser.class })
-
-	if #zenWindows > 0 then
-		hl.dispatch(hl.dsp.focus({ window = "address:" .. zenWindows[1].address }))
-	else
-		hl.dispatch(hl.dsp.exec_cmd(programs.browser.exe))
-	end
-end)
-
-hl.bind(mod .. " + Q", hl.dsp.window.close())
-hl.bind(mod .. " + SHIFT + Escape", hl.dsp.exec_cmd("~/.config/hypr/scripts/powermenu.sh"))
-hl.bind(mod .. " + SHIFT + M", hl.dsp.exec_cmd("hyprlock --immediate-render --no-fade-in"))
-hl.bind(mod .. " + SHIFT + V", hl.dsp.window.float({ action = "toggle" }))
-hl.bind(mod .. " + V", hl.dsp.exec_cmd("~/.config/hypr/scripts/cliphist-paste.sh"))
-hl.bind(mod .. " + F", hl.dsp.window.fullscreen())
-hl.bind(mod .. " + P", hl.dsp.window.pseudo())
-hl.bind(mod .. " + SHIFT + T", hl.dsp.layout("togglesplit"))
-
--- Move focus with mainMod + hjkl
-hl.bind(mod .. " + H", hl.dsp.focus({ direction = "left" }))
-hl.bind(mod .. " + L", hl.dsp.focus({ direction = "right" }))
-hl.bind(mod .. " + K", hl.dsp.focus({ direction = "up" }))
-hl.bind(mod .. " + J", hl.dsp.focus({ direction = "down" }))
-
--- Swap windows with mainMod + SHIFT + hjkl
-hl.bind(mod .. " + SHIFT + H", hl.dsp.window.swap({ direction = "left" }))
-hl.bind(mod .. " + SHIFT + L", hl.dsp.window.swap({ direction = "right" }))
-hl.bind(mod .. " + SHIFT + K", hl.dsp.window.swap({ direction = "up" }))
-hl.bind(mod .. " + SHIFT + J", hl.dsp.window.swap({ direction = "down" }))
-
--- Cycle windows
-hl.bind(mod .. " + Tab", function()
-	hl.dispatch(hl.dsp.window.cycle_next())
-	hl.dispatch(hl.dsp.window.bring_to_top())
-end)
-
--- Switch workspaces with mainMod + [1-6]
--- Move active window to a workspace with mainMod + SHIFT + [1-6]
-for i = 1, 6 do
-	hl.bind(mod .. " + " .. i, hl.dsp.focus({ workspace = i }))
-	hl.bind(mod .. " + SHIFT + " .. i, hl.dsp.window.move({ workspace = i }))
+for bind, cmd in pairs(cmds) do
+	hl.bind(bind, hl.dsp.exec_cmd(cmd))
 end
 
--- Scroll windows in scrolling layout
-hl.bind(mod .. " + mouse_down", hl.dsp.layout("scrolldown"))
-hl.bind(mod .. " + mouse_up", hl.dsp.layout("scrollup"))
+-- --- Special workspace apps -------------------------------------------------
+local special_apps = {
+	["SUPER + C"] = "calendar",
+	["SUPER + T"] = "tasks",
+	["SUPER + W"] = "whatsapp",
+	["SUPER + M"] = "mail",
+	["SUPER + D"] = "discord",
+	["SUPER + S"] = "spotify",
+	["SUPER + A"] = "gemini",
+	["SUPER + E"] = "yazi",
+	["SUPER + V"] = "clipboard",
+	["SUPER + CTRL + B"] = "bluetui",
+	["SUPER + CTRL + I"] = "impala",
+	["SUPER + CTRL + Escape"] = "btop",
+}
 
--- Move windows with mainMod + LMB/RMB and dragging
-hl.bind(mod .. " + mouse:272", hl.dsp.window.drag(), { mouse = true })
+for bind, app in pairs(special_apps) do
+	hl.bind(bind, hl.dsp.workspace.toggle_special(programs.special[app].ws))
+end
 
--- Screenshots
-hl.bind("Print", hl.dsp.exec_cmd("~/.config/hypr/scripts/screenshot.sh region"))
-hl.bind("SHIFT + Print", hl.dsp.exec_cmd("~/.config/hypr/scripts/screenshot.sh full"))
-hl.bind(mod .. " + Period", hl.dsp.exec_cmd("rofi -show emoji -modi emoji"))
+hl.bind("SUPER + Q", hl.dsp.window.close())
+hl.bind("SUPER + F", hl.dsp.window.fullscreen())
+hl.bind("SUPER + P", hl.dsp.window.pseudo())
+hl.bind("SUPER + SHIFT + T", hl.dsp.layout("togglesplit"))
 
--- Color picker
-hl.bind(mod .. " + SHIFT + P", hl.dsp.exec_cmd("hyprpicker -a --notify"))
+-- Move focus and swap windows ------------------------------------------------
+local directions = { H = "left", L = "right", K = "up", J = "down" }
 
--- System controls (SUPER + CTRL)
-hl.bind(mod .. " + CTRL + A", hl.dsp.exec_cmd("swaync-client -t"))
-hl.bind(mod .. " + CTRL + C", hl.dsp.exec_cmd("~/.config/hypr/scripts/caffeine-toggle.sh"))
-hl.bind(mod .. " + CTRL + T", hl.dsp.exec_cmd("~/.config/hypr/scripts/theme-toggle.sh"))
-hl.bind(mod .. " + CTRL + R", hl.dsp.exec_cmd("~/.config/hypr/scripts/record.sh"))
-hl.bind(mod .. " + CTRL + B", hl.dsp.workspace.toggle_special(programs.special.bluetui.ws))
-hl.bind(mod .. " + CTRL + I", hl.dsp.workspace.toggle_special(programs.special.impala.ws))
-hl.bind(mod .. " + CTRL + M", hl.dsp.exec_cmd("wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle"))
-hl.bind(mod .. " + CTRL + S", hl.dsp.exec_cmd("~/.local/bin/dictate.sh"))
-hl.bind(mod .. " + CTRL + Escape", hl.dsp.workspace.toggle_special(programs.special.btop.ws))
+for key, dir in pairs(directions) do
+	hl.bind("SUPER + " .. key, hl.dsp.focus({ direction = dir }))
+	hl.bind("SUPER + SHIFT + " .. key, hl.dsp.window.swap({ direction = dir }))
+end
 
--- Volume and brightness
-local notification_sound = "/usr/share/sounds/freedesktop/stereo/audio-volume-change.oga"
-hl.bind(
-	"XF86AudioRaiseVolume",
-	hl.dsp.exec_cmd("wpctl set-volume -l 1.5 @DEFAULT_AUDIO_SINK@ 2%+ && pw-play " .. notification_sound),
-	{ locked = true, repeating = true }
-)
-hl.bind(
-	"XF86AudioLowerVolume",
-	hl.dsp.exec_cmd("wpctl set-volume @DEFAULT_AUDIO_SINK@ 2%- && pw-play " .. notification_sound),
-	{ locked = true, repeating = true }
-)
-hl.bind("XF86AudioMute", hl.dsp.exec_cmd("wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"), { locked = true })
-hl.bind("XF86AudioMicMute", hl.dsp.exec_cmd("wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle"), { locked = true })
-hl.bind("XF86MonBrightnessUp", hl.dsp.exec_cmd("brightnessctl set +10%"), { locked = true, repeating = true })
-hl.bind("XF86MonBrightnessDown", hl.dsp.exec_cmd("brightnessctl set 10%-"), { locked = true, repeating = true })
+-- Switch workspaces / Move active window to a workspace ----------------------
+for i = 1, 9 do
+	hl.bind("SUPER + " .. i, hl.dsp.focus({ workspace = i }))
+	hl.bind("SUPER + SHIFT + " .. i, hl.dsp.window.move({ workspace = i }))
+end
 
--- Requires playerctl
-hl.bind("XF86AudioNext", hl.dsp.exec_cmd("playerctl next"), { locked = true })
-hl.bind("XF86AudioPause", hl.dsp.exec_cmd("playerctl play-pause"), { locked = true })
-hl.bind("XF86AudioPlay", hl.dsp.exec_cmd("playerctl play-pause"), { locked = true })
-hl.bind("XF86AudioPrev", hl.dsp.exec_cmd("playerctl previous"), { locked = true })
+-- Move windows with mouse ----------------------------------------------------
+hl.bind("SUPER + mouse:272", hl.dsp.window.drag(), { mouse = true })
 
--- For multi-monitor management
-hl.bind(
-	"switch:on:Lid Switch",
-	hl.dsp.exec_cmd([=[hyprctl eval 'hl.monitor({output = "desc:BOE 0x0998", disabled = true})']=]),
-	{ locked = true }
-)
-hl.bind(
-	"switch:off:Lid Switch",
-	hl.dsp.exec_cmd([=[hyprctl eval 'hl.monitor({output = "desc:BOE 0x0998", disabled = false})']=]),
-	{ locked = true }
-)
+-- System controls ------------------------------------------------------------
+hl.bind("SUPER + CTRL + S", hl.dsp.exec_cmd("~/.local/bin/dictate.sh start"))
+hl.bind("SUPER + CTRL + S", hl.dsp.exec_cmd("~/.local/bin/dictate.sh stop"), { release = true })
+
+-- Audio and brightness ------------------------------------------------------
+local snd = "/usr/share/sounds/freedesktop/stereo/audio-volume-change.oga"
+local vol_base = "wpctl set-volume "
+
+local media = {
+	XF86AudioRaiseVolume = {
+		vol_base .. "-l 1.5 @DEFAULT_AUDIO_SINK@ 2%+ && pw-play " .. snd,
+		true,
+	},
+	XF86AudioLowerVolume = { vol_base .. "@DEFAULT_AUDIO_SINK@ 2%- && pw-play " .. snd, true },
+	XF86AudioMute = { "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle", false },
+	XF86AudioMicMute = { "wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle", false },
+	XF86MonBrightnessUp = { "brightnessctl set +10%", true },
+	XF86MonBrightnessDown = { "brightnessctl set 10%-", true },
+}
+
+for key, conf in pairs(media) do
+	hl.bind(key, hl.dsp.exec_cmd(conf[1]), { locked = true, repeating = conf[2] })
+end
