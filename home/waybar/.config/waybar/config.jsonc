@@ -15,7 +15,7 @@
     "privacy",
     "custom/caffeine",
     "custom/theme",
-    "custom/dictate",
+    "custom/microphone",
     "pulseaudio",
     "memory",
     "temperature",
@@ -34,11 +34,9 @@
         "tooltip": true,
         "tooltip-icon-size": 24,
       },
-
     ],
   },
 
-  // signal 2 — dodaj pkill -RTMIN+2 waybar do record-toggle.sh przy start/stop
   "custom/record": {
     "exec": "~/.config/waybar/scripts/record-status.sh",
     "return-type": "json",
@@ -46,7 +44,6 @@
     "signal": 2,
   },
 
-  // signal 1 — caffeine-toggle.sh już wysyła RTMIN+1
   "custom/caffeine": {
     "exec": "~/.config/hypr/scripts/caffeine-toggle.sh --status",
     "on-click": "~/.config/hypr/scripts/caffeine-toggle.sh",
@@ -63,9 +60,8 @@
     "signal": 10,
   },
 
-  // signal 8 — dictate.sh / mute toggle
-  "custom/dictate": {
-    "exec": "~/.config/waybar/scripts/dictate-status.sh",
+  "custom/microphone": {
+    "exec": "~/.config/waybar/scripts/microphone-status.sh",
     "return-type": "json",
     "interval": "once",
     "signal": 8,
