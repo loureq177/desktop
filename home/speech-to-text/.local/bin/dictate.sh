@@ -10,7 +10,7 @@ STATUS_FILE="$RUNTIME_DIR/dictate_status"
 
 ensure_venv() {
     if [ ! -f "$VENV_PYTHON" ]; then
-        notify-send --app-name "Dictate" -t 5000 -u critical "Dictate" "Recreating Python venv..."
+        notify-send --app-name "Dictate" -t 5000 "Dictate" "Recreating Python venv..."
         python3 -m venv "$SPEECH_DIR/.venv"
         "$SPEECH_DIR/.venv/bin/pip" install --quiet --upgrade \
             faster-whisper \
@@ -53,7 +53,10 @@ stop_recording() {
 }
 
 case "${1:-}" in
-    start) start_recording ;;
-    stop) stop_recording ;;
-    *) echo "Usage: $0 {start|stop}" >&2; exit 1 ;;
+start) start_recording ;;
+stop) stop_recording ;;
+*)
+    echo "Usage: $0 {start|stop}" >&2
+    exit 1
+    ;;
 esac
