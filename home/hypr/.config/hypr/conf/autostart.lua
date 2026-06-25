@@ -1,24 +1,39 @@
+local gsettings = "gsettings set org.gnome.desktop.interface"
+local env_vars = table.concat({
+	"DISPLAY",
+	"WAYLAND_DISPLAY",
+	"XDG_CURRENT_DESKTOP",
+	"XDG_SESSION_TYPE",
+	"XDG_SESSION_DESKTOP",
+	"GTK_THEME",
+	"GTK_USE_PORTAL",
+	"ELECTRON_OZONE_PLATFORM_HINT",
+}, " ")
+
 hl.on("hyprland.start", function()
-	hl.exec_cmd(
-		"dbus-update-activation-environment --systemd DISPLAY WAYLAND_DISPLAY XDG_CURRENT_DESKTOP XDG_SESSION_TYPE XDG_SESSION_DESKTOP GTK_THEME GTK_USE_PORTAL ELECTRON_OZONE_PLATFORM_HINT"
-	)
-	hl.exec_cmd(
-		"systemctl --user import-environment DISPLAY WAYLAND_DISPLAY XDG_CURRENT_DESKTOP XDG_SESSION_TYPE XDG_SESSION_DESKTOP GTK_THEME GTK_USE_PORTAL ELECTRON_OZONE_PLATFORM_HINT"
-	)
-	hl.exec_cmd("gsettings set org.gnome.desktop.interface cursor-theme 'Bibata-Modern-Classic'")
-	hl.exec_cmd("gsettings set org.gnome.desktop.interface icon-theme 'Papirus-Dark'")
-	hl.exec_cmd("gsettings set org.gnome.desktop.interface font-name 'Adwaita Sans 12'")
-	hl.exec_cmd("gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark'")
-	hl.exec_cmd("gsettings set org.gnome.desktop.interface gtk-theme 'Adwaita-dark'")
-	hl.exec_cmd("gsettings set org.gnome.desktop.interface monospace-font-name 'JetBrainsMono Nerd Font Mono 13'")
-	hl.exec_cmd("systemctl --user start graphical-session.target")
-	hl.exec_cmd("systemctl --user start xdg-desktop-portal-hyprland xdg-desktop-portal-gtk xdg-desktop-portal")
-	hl.exec_cmd("wl-paste --type text --watch cliphist -max-items 50 store &")
-	hl.exec_cmd("wl-paste --type image/png --watch cliphist -max-items 10 store &")
-	-- hl.exec_cmd("swaybg -i ~/Pictures/Wallpapers/hyprland-dark.png -m fill")
-	hl.exec_cmd("wpctl set-volume @DEFAULT_AUDIO_SOURCE@ 0.4")
-	hl.exec_cmd("hyprsunset &")
-	-- hl.exec_cmd("waybar &")
-	hl.exec_cmd("hypridle &")
-	hl.exec_cmd("swaync &")
+	local cmds = {
+		"dbus-update-activation-environment --systemd " .. env_vars,
+		"systemctl --user import-environment " .. env_vars,
+		gsettings .. " cursor-theme 'Bibata-Modern-Classic'",
+		gsettings .. " icon-theme 'Papirus-Dark'",
+		gsettings .. " font-name 'Adwaita Sans 13'",
+		gsettings .. " color-scheme 'prefer-dark'",
+		gsettings .. " gtk-theme 'Adwaita-dark'",
+		gsettings .. " monospace-font-name 'JetBrainsMono Nerd Font Mono 13'",
+		"systemctl --user start graphical-session.target",
+		"systemctl --user start xdg-desktop-portal-hyprland "
+			.. "xdg-desktop-portal-gtk xdg-desktop-portal",
+		"wl-paste --type text --watch cliphist -max-items 50 store &",
+		"wl-paste --type image/png --watch cliphist -max-items 10 store &",
+		"wpctl set-volume @DEFAULT_AUDIO_SOURCE@ 0.4",
+		"waybar &",
+		"swaybg -i ~/Pictures/Wallpapers/hyprland-dark.png &",
+		"swaync &",
+		"hypridle &",
+		"hyprsunset &",
+	}
+
+	for _, cmd in ipairs(cmds) do
+		hl.exec_cmd(cmd)
+	end
 end)
