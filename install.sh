@@ -26,8 +26,8 @@ if [ "$OS" = "Linux" ]; then
     if [ -d "archlinux/speech-to-text/.local/bin" ]; then
         chmod +x archlinux/speech-to-text/.local/bin/*.sh 2>/dev/null || true
     fi
-    if [ -d "archlinux/pwa/.local/bin" ]; then
-        chmod +x archlinux/pwa/.local/bin/* 2>/dev/null || true
+    if [ -d "archlinux/webapps/.local/bin" ]; then
+        chmod +x archlinux/webapps/.local/bin/* 2>/dev/null || true
     fi
 
     SPEECH_DIR="archlinux/speech-to-text"
@@ -39,7 +39,7 @@ if [ "$OS" = "Linux" ]; then
         "$SPEECH_DIR/.venv/bin/pip" install --quiet --upgrade faster-whisper
     fi
 
-    ARCH_PKGS=(bin electron hypr ly pwa rofi speech-to-text systemd waybar wireplumber)
+    ARCH_PKGS=(bin electron hypr ly webapps rofi speech-to-text systemd waybar wireplumber)
     STOW_IGNORE='--ignore=\.venv --ignore=node_modules --ignore=__pycache__ --ignore=\.pyc$ --ignore=\.zwc$'
     (cd archlinux && stow --verbose --restow --target ~ $STOW_IGNORE "${ARCH_PKGS[@]}")
 fi
