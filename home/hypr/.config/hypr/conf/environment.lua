@@ -1,4 +1,3 @@
--- See https://wiki.hypr.land/Configuring/Advanced-and-Cool/Environment-variables/
 hl.env("AQ_DRM_DEVICES", "/dev/dri/amd-igpu:/dev/dri/nvidia-dgpu")
 hl.env("LIBVA_DRIVER_NAME", "radeonsi")
 hl.env("__GLX_VENDOR_LIBRARY_NAME", "mesa")
@@ -15,7 +14,5 @@ hl.env("XCURSOR_SIZE", "24")
 hl.env("HYPRCURSOR_THEME", "Bibata-Modern-Classic")
 hl.env("HYPRCURSOR_SIZE", "24")
 hl.env("QT_QPA_PLATFORMTHEME", "qt6ct")
-
--- Wayland optimizations for Electron/Chromium and LibreOffice
 hl.env("ELECTRON_OZONE_PLATFORM_HINT", "auto")
 hl.env("SAL_USE_VCLPLUGIN", "gtk3")
