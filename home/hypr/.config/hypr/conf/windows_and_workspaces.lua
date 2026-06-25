@@ -9,7 +9,14 @@ hl.window_rule({
 })
 hl.window_rule({
 	name = "fix-xwayland-drags",
-	match = { class = "^$", title = "^$", xwayland = true, float = true, fullscreen = false, pin = false },
+	match = {
+		class = "^$",
+		title = "^$",
+		xwayland = true,
+		float = true,
+		fullscreen = false,
+		pin = false,
+	},
 	no_focus = true,
 })
 hl.layer_rule({
@@ -25,7 +32,7 @@ hl.window_rule({
 	float = true,
 })
 
--- ─── Special Workspaces ──────────────────────────────────────────────────────
+-- ─── Special Workspaces ─────────────────────────────────────────────────────
 
 for _, app in pairs(programs.special) do
 	local ws = "special:" .. app.ws
@@ -33,19 +40,18 @@ for _, app in pairs(programs.special) do
 	hl.window_rule({ match = { class = app.class }, workspace = ws })
 end
 
-for _, app in pairs(programs.scratchpad) do
-	hl.window_rule({ match = { class = app.class }, workspace = "special:scratchpad" })
-end
-
 local function applyFocusGaps(monitor)
-	local gH = math.floor(monitor.height * 0.04)
-	local gW = math.floor(monitor.width * 0.04)
+	local gH = math.floor(monitor.height * 0.075)
+	local gW = math.floor(monitor.width * 0.075)
 	local gaps = { top = gH, right = gW, bottom = gH, left = gW }
 
 	for _, app in pairs(programs.special) do
-		hl.workspace_rule({ workspace = "special:" .. app.ws, gaps_out = gaps, gaps_in = 0 })
+		hl.workspace_rule({
+			workspace = "special:" .. app.ws,
+			gaps_out = gaps,
+			gaps_in = 0,
+		})
 	end
-	hl.workspace_rule({ workspace = "special:scratchpad", gaps_out = gaps, gaps_in = 0 })
 end
 
 for _, monitor in ipairs(hl.get_monitors()) do
@@ -62,24 +68,8 @@ end)
 
 hl.window_rule({
 	match = {
-		class = "^(org.gnome.Calculator|com.saivert.pwvucontrol|org.gnome.clocks|org.gnome.Loupe|org.gnome.Showtime|org.gnome.Snapshot)$",
+		class = "^(org.gnome.*|com.saivert.pwvucontrol)$",
 	},
 	float = true,
 	center = true,
-})
-hl.window_rule({
-	match = { class = "^(bluetui|impala|btop)$" },
-})
-hl.window_rule({
-	name = "clipboard-float",
-	match = { initial_title = "^Clipboard$" },
-	float = true,
-	center = true,
-	size = "monitor_w*0.45 monitor_h*0.4",
-})
-hl.layer_rule({
-	name = "clipboard-blur",
-	match = { initial_title = "^Clipboard$" },
-	blur = true,
-	ignore_alpha = 0.2,
 })
