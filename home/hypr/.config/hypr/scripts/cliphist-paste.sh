@@ -33,4 +33,4 @@ fi
 SCRIPT
 
 chmod +x "$runner"
-ghostty --title=Clipboard -e "$runner"
+ghostty --class=clipboard-special --title=Clipboard -e "$runner"
