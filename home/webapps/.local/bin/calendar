@@ -1,0 +1,4 @@
+#!/bin/bash
+chromium --ozone-platform-hint=auto --enable-extensions \
+  --user-data-dir="$HOME/.config/chromium" \
+  --class=calendar --app=https://calendar.google.com

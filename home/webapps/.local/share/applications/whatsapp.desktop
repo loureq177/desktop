@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=WhatsApp
+Exec=whatsapp
+Icon=whatsapp-desktop
+Terminal=false
+Type=Application
+StartupWMClass=whatsapp
+Categories=Network;InstantMessaging;

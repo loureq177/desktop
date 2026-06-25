@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Gemini
+Exec=gemini
+Icon=google-gemini
+Terminal=false
+Type=Application
+StartupWMClass=gemini
+Categories=Network;AI;Google;

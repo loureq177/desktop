@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Calendar
+Exec=calendar
+Icon=google-calendar
+Terminal=false
+Type=Application
+StartupWMClass=calendar
+Categories=Network;Office;

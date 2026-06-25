@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Tasks
+Exec=tasks
+Icon=tasks
+Terminal=false
+Type=Application
+StartupWMClass=tasks
+Categories=Office;Utility;

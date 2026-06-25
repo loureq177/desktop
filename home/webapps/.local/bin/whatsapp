@@ -1,0 +1,4 @@
+#!/bin/bash
+chromium --ozone-platform-hint=auto --enable-extensions \
+  --user-data-dir="$HOME/.config/chromium" \
+  --class=whatsapp --app=https://web.whatsapp.com

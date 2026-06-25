@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if ! command -v chromium &>/dev/null; then
+    echo "chromium not found" >&2
+    exit 1
+fi
+
+chromium --ozone-platform-hint=auto --enable-extensions \
+    --user-data-dir="$HOME/.config/chromium" \
+    --class=gemini --app=https://gemini.google.com
