@@ -1,0 +1,245 @@
+@define-color text #ffffff;
+@define-color text-inactive #aaaaaa;
+@define-color hover-bg rgba(255, 255, 255, 0.1);
+@define-color dnd-off #a6adc8;
+@define-color theme-dark #f9c74f;
+@define-color theme-light #3760bf;
+@define-color module-bg rgba(255, 255, 255, 0.08);
+@define-color module-hover rgba(255, 255, 255, 0.15);
+@define-color tooltip-bg rgba(30, 30, 46, 0.95);
+@define-color tooltip-border rgba(255, 255, 255, 0.08);
+@define-color tooltip-text #ffffff;
+
+* {
+  font-family: "JetBrainsMono Nerd Font Propo", sans-serif;
+  font-size: 16px;
+  font-weight: 800;
+  border: none;
+  border-radius: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+}
+
+window#waybar {
+  background-color: rgba(0, 0, 0, 0);
+  color: @text;
+}
+
+tooltip {
+  background: @tooltip-bg;
+  border: 1px solid @tooltip-border;
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+tooltip label {
+  color: @tooltip-text;
+  font-size: 16px;
+}
+.modules-left > widget > *,
+.modules-center > widget > *,
+.modules-right > widget > * {
+  background: @module-bg;
+  color: @text;
+  padding: 0 8px;
+  margin: 1px;
+  border-radius: 8px;
+  transition: all 0.25s ease;
+}
+
+/* --- window title (no pill) --- */
+#window {
+  background: transparent;
+  margin: 0;
+  padding: 0 10px;
+  border-radius: 0;
+  font-weight: 700;
+}
+
+/* --- workspaces --- */
+#workspaces {
+  background: transparent;
+  padding: 0;
+  margin: 0;
+}
+#workspaces button {
+  padding: 0 8px;
+  margin: 0 1px;
+  color: @text-inactive;
+  border-radius: 8px;
+  transition: all 0.25s ease;
+}
+#workspaces button.active {
+  color: @text;
+  background: @module-bg;
+}
+#workspaces button:hover {
+  background: @module-hover;
+  box-shadow: inherit;
+  text-shadow: inherit;
+}
+
+/* --- hover on interactive modules --- */
+#custom-notification:hover,
+#custom-caffeine:hover,
+#custom-theme:hover,
+#pulseaudio:hover,
+#custom-microphone:hover,
+#memory:hover,
+#temperature:hover,
+#bluetooth:hover,
+#network:hover,
+#battery:hover,
+#clock:hover {
+  background: @module-hover;
+}
+
+/* === battery === */
+#battery.charging,
+#battery.plugged {
+  color: #26a65b;
+}
+
+@keyframes blink-critical {
+  from {
+    background-color: rgba(245, 60, 60, 0.35);
+    color: #ffffff;
+  }
+  to {
+    background-color: rgba(245, 60, 60, 0.8);
+    color: #ffffff;
+  }
+}
+
+#battery.warning:not(.charging) {
+  color: #f9c74f;
+  background-color: rgba(249, 199, 79, 0.15);
+}
+
+#battery.critical:not(.charging) {
+  background-color: rgba(245, 60, 60, 0.35);
+  color: #ffffff;
+  animation-name: blink-critical;
+  animation-duration: 0.5s;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+}
+
+/* === privacy indicators === */
+#privacy-item.screenshare {
+  color: #9b59b6;
+  background-color: rgba(155, 89, 182, 0.15);
+}
+
+/* === custom/notification (swaync) === */
+@keyframes notif-pulse {
+  0% {
+    background-color: rgba(243, 139, 168, 0.7);
+  }
+  50% {
+    background-color: rgba(243, 139, 168, 1);
+  }
+  100% {
+    background-color: rgba(243, 139, 168, 0.7);
+  }
+}
+
+#custom-notification.notification {
+  background-color: rgba(243, 139, 168, 0.85);
+  border-radius: 8px;
+  animation: notif-pulse 2s ease-in-out infinite;
+}
+#custom-notification.dnd-notification,
+#custom-notification.dnd-none {
+  color: @dnd-off;
+  background-color: rgba(166, 173, 200, 0.12);
+}
+
+/* === custom/theme === */
+#custom-theme {
+  padding: 0 10px;
+}
+#custom-theme.light {
+  color: @theme-light;
+  background-color: rgba(55, 96, 191, 0.15);
+}
+#custom-theme.dark {
+  color: @theme-dark;
+  background-color: rgba(249, 199, 79, 0.12);
+}
+
+/* === custom/caffeine === */
+#custom-caffeine.caffeine-on {
+  color: @text;
+}
+#custom-caffeine.caffeine-off {
+  color: #f9c74f;
+  background-color: rgba(249, 199, 79, 0.12);
+}
+
+/* === custom/record === */
+#custom-record.recording {
+  color: #ff0000;
+  background-color: rgba(255, 0, 0, 0.18);
+  animation: breathe 2s ease-in-out infinite;
+}
+#custom-record.idle {
+  background: transparent;
+  min-width: 0;
+  padding: 0;
+  margin: 0;
+}
+
+@keyframes breathe {
+  0% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.3;
+  }
+}
+
+/* === bluetooth === */
+@keyframes bt-flash {
+  0% {
+    background-color: rgba(53, 132, 228, 0.45);
+  }
+  100% {
+    background-color: rgba(53, 132, 228, 0.12);
+  }
+}
+
+#bluetooth.connected {
+  color: #3584e4;
+  background-color: rgba(53, 132, 228, 0.12);
+  animation: bt-flash 0.8s ease-out 1;
+}
+#bluetooth.on {
+  background-color: rgba(53, 132, 228, 0.07);
+}
+#bluetooth.discoverable {
+  color: #3584e4;
+  background-color: rgba(53, 132, 228, 0.18);
+  animation: bt-flash 0.8s ease-out infinite;
+}
+#bluetooth.discovering {
+  background-color: rgba(53, 132, 228, 0.25);
+  animation: bt-flash 0.6s ease-out infinite alternate;
+}
+
+/* === microphone (custom/microphone) === */
+#custom-microphone {
+  padding: 0 8px;
+}
+#custom-microphone.idle {
+  background: @module-bg;
+  color: #ffffff;
+}
+#custom-microphone.active {
+  background-color: rgba(245, 60, 60, 0.85);
+  color: #ffffff;
+}
