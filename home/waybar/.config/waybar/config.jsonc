@@ -18,6 +18,7 @@
     "pulseaudio",
     "memory",
     "temperature",
+    "custom/dgpu",
     "bluetooth",
     "network",
     "battery",
@@ -121,6 +122,13 @@
     "format": "{icon} {temperatureC}°C",
     "format-icons": ["", "", ""],
     "critical-threshold": 85,
+    "tooltip": true,
+  },
+
+  "custom/dgpu": {
+    "exec": "~/.config/waybar/scripts/nvidia-status.sh",
+    "return-type": "json",
+    "interval": 1,
     "tooltip": true,
   },
 
