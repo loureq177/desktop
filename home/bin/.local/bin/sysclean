@@ -7,29 +7,79 @@ get_space() {
 
 used_before=$(get_space)
 
-echo "Cleaning orphaned packages..."
+echo "Checking for orphaned packages..."
 orphans=$(paru -Qdtq || true)
 if [ -n "$orphans" ]; then
+    echo "Removing: ${orphans}"
     paru -Rns --noconfirm ${=orphans}
 else
-    echo "There are no orphaned packages."
+    echo "No orphaned packages."
 fi
 
 echo "\nCleaning cached packages..."
 paru -Scc --noconfirm
 
 echo "\nCleaning Flatpak leftovers..."
-flatpak uninstall --unused --noninteractive
+flatpak uninstall --unused --noninteractive --verbose
 
-echo "\nCleaning ~/.cache older than 30 days..."
-find "$HOME/.cache" -type f -mtime +30 -delete 2>/dev/null || true
+echo "\nCleaning miscellaneous caches..."
+rm -rfv "$HOME/.cache/thumbnails/"*(N) /tmp/paru/*(N) 2>/dev/null || true
+
+echo "\nEmptying trash..."
+if command -v gio >/dev/null 2>&1; then
+    command gio trash --empty 2>/dev/null || true
+fi
+
+echo "\nCleaning pip cache..."
+if command -v pip >/dev/null 2>&1; then
+    pip cache purge --verbose 2>/dev/null || true
+fi
+
+echo "\nCleaning bun cache..."
+if command -v bun >/dev/null 2>&1; then
+    bun pm cache rm 2>/dev/null || true
+fi
+
+echo "\nCleaning npm cache..."
+if command -v npm >/dev/null 2>&1; then
+    npm cache clean --force --verbose 2>/dev/null || true
+fi
+
+echo "\nPruning podman..."
+if command -v podman >/dev/null 2>&1; then
+    podman system prune --force 2>/dev/null || true
+fi
+
+echo "\nPruning docker..."
+if command -v docker >/dev/null 2>&1; then
+    docker system prune -af --volumes 2>/dev/null || true
+fi
+
+echo "\nRemoving old kernels..."
+for dir in /usr/lib/modules/*/(N); do
+    if pacman -Qo "$dir" &>/dev/null; then
+        pkg=$(pacman -Qo "$dir" | awk -F' is owned by ' '{print $2}' | awk '{print $1}')
+        ver=$(basename "$dir")
+        if [ -n "$pkg" ] && [ "$ver" != "$(uname -r)" ] && [[ "$pkg" == linux* ]]; then
+            paru -Rns --noconfirm "$pkg" 2>/dev/null || true
+        fi
+    fi
+done
+
+echo "\nNuking all caches..."
+rm -rfv "$HOME/.cache" 2>/dev/null || true
+mkdir -p "$HOME/.cache" 2>/dev/null || true
 
 echo "\nVacuuming journal..."
 sudo journalctl --vacuum-time=2weeks --quiet
 
-freed=$(( used_before - $(get_space) ))
+used_after=$(get_space)
+freed=$(( used_before - used_after ))
 
-echo "\nYour system is clean."
-if [ "$freed" -gt 0 ]; then
-    echo "Successfully freed $freed MB of disk space."
+echo "\nSystem is clean."
+echo "Freed: ${freed} MB"
+
+if command -v duf >/dev/null 2>&1; then
+    echo "\nCurrent disk usage:"
+    duf / /home /boot
 fi
