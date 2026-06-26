@@ -1,6 +1,7 @@
 hl.env("AQ_DRM_DEVICES", "/dev/dri/amd-igpu:/dev/dri/nvidia-dgpu")
 hl.env("LIBVA_DRIVER_NAME", "radeonsi")
 hl.env("__GLX_VENDOR_LIBRARY_NAME", "mesa")
+hl.env("GBM_BACKEND", "amdgpu")
 hl.env("XDG_SESSION_TYPE", "wayland")
 hl.env("XDG_CURRENT_DESKTOP", "Hyprland")
 hl.env("XDG_SESSION_DESKTOP", "Hyprland")

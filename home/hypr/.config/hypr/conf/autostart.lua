@@ -8,6 +8,10 @@ local env_vars = table.concat({
 	"GTK_THEME",
 	"GTK_USE_PORTAL",
 	"ELECTRON_OZONE_PLATFORM_HINT",
+	"__GLX_VENDOR_LIBRARY_NAME",
+	"LIBVA_DRIVER_NAME",
+	"GBM_BACKEND",
+	"GDK_BACKEND",
 }, " ")
 
 hl.on("hyprland.start", function()
