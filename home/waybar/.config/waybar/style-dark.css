@@ -83,6 +83,7 @@ tooltip label {
 #custom-notification:hover,
 #custom-caffeine:hover,
 #custom-theme:hover,
+#custom-dgpu:hover,
 #pulseaudio:hover,
 #custom-microphone:hover,
 #memory:hover,
@@ -124,6 +125,17 @@ tooltip label {
   animation-timing-function: linear;
   animation-iteration-count: infinite;
   animation-direction: alternate;
+}
+
+/* === custom/dgpu === */
+#custom-dgpu {
+  font-size: 18px;
+}
+#custom-dgpu.off {
+  color: #ccc;
+}
+#custom-dgpu.on {
+  color: #76b900;
 }
 
 /* === privacy indicators === */
@@ -217,9 +229,6 @@ tooltip label {
   color: #3584e4;
   background-color: rgba(53, 132, 228, 0.12);
   animation: bt-flash 0.8s ease-out 1;
-}
-#bluetooth.on {
-  background-color: rgba(53, 132, 228, 0.07);
 }
 #bluetooth.discoverable {
   color: #3584e4;
