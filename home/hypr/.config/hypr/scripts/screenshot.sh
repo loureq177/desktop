@@ -2,11 +2,8 @@
 set -euo pipefail
 
 LOCKFILE="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/screenshot_slurp.lock"
-if [ -f "$LOCKFILE" ] && kill -0 "$(cat "$LOCKFILE")" 2>/dev/null; then
-    exit 0
-fi
-echo $$ >"$LOCKFILE"
-trap 'rm -f "$LOCKFILE"' EXIT
+exec 200>"$LOCKFILE"
+flock -n 200 || exit 0
 
 DIR="$HOME/Pictures/Screenshots"
 mkdir -p "$DIR"

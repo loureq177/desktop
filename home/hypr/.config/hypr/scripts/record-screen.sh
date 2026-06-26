@@ -6,9 +6,8 @@ mkdir -p "$OUT_DIR"
 STATUS_FILE="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/recording_status"
 
 LOCKFILE="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/record_slurp.lock"
-if [ -f "$LOCKFILE" ] && kill -0 "$(cat "$LOCKFILE")" 2>/dev/null; then
-    exit 0
-fi
+exec 200>"$LOCKFILE"
+flock -n 200 || exit 0
 
 if pkill -x wf-recorder; then
     pkill -RTMIN+2 waybar || true
@@ -30,11 +29,8 @@ if pkill -x wf-recorder; then
 fi
 
 GEOM=$(slurp -d -b "#00000080" -c "#ffffff" -w 2) || {
-    rm -f "$LOCKFILE"
     exit 0
 }
-echo $$ >"$LOCKFILE"
-trap 'rm -f "$LOCKFILE"' EXIT
 
 mkdir -p "$(dirname "$STATUS_FILE")"
 FILE="$OUT_DIR/$(date +'%Y-%m-%d_%H-%M-%S').mkv"
