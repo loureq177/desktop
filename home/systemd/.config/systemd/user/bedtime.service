@@ -1,6 +1,5 @@
 [Unit]
 Description=Bedtime routine script
-After=graphical-session.target
 
 [Service]
 Type=oneshot
@@ -9,4 +8,4 @@ Environment=WAYLAND_DISPLAY=wayland-1
 ExecStart=%h/.local/bin/bedtime
 
 [Install]
-WantedBy=default.target
+WantedBy=timers.target
