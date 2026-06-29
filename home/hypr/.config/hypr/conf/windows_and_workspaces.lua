@@ -25,6 +25,12 @@ hl.layer_rule({
 	blur = true,
 	ignore_alpha = 0.2,
 })
+hl.layer_rule({
+	name = "swaync-blur",
+	match = { namespace = "^swaync-control-center$" },
+	blur = true,
+	ignore_alpha = 0.2,
+})
 hl.window_rule({
 	name = "move-hyprland-run",
 	match = { class = "hyprland-run" },
