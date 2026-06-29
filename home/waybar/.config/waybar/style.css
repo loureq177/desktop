@@ -1,12 +1,13 @@
-@define-color text #fefefe;
-@define-color text-inactive #aaaaaa;
-@define-color hover-bg rgba(255, 255, 255, 0.2);
+@define-color text #c0caf5;
+@define-color text-inactive #565f89;
+@define-color accent-alt #00ff99;
+@define-color hover-bg rgba(255, 255, 255, 0.15);
 @define-color dnd-off #a6adc8;
-@define-color module-bg rgba(255, 255, 255, 0.08);
-@define-color module-hover rgba(255, 255, 255, 0.15);
-@define-color tooltip-bg rgba(30, 30, 46, 0.95);
-@define-color tooltip-border rgba(255, 255, 255, 0.08);
-@define-color tooltip-text #ffffff;
+@define-color module-bg rgba(41, 46, 66, 0.6);
+@define-color module-hover rgba(36, 40, 59, 0.8);
+@define-color tooltip-bg rgba(26, 27, 38, 0.95);
+@define-color tooltip-border rgba(41, 46, 66, 0.8);
+@define-color tooltip-text #c0caf5;
 
 * {
   font-family: "JetBrainsMono Nerd Font Propo", sans-serif;
@@ -94,7 +95,7 @@ tooltip label {
 /* === battery === */
 #battery.charging,
 #battery.plugged {
-  color: #26a65b;
+  color: @accent-alt;
 }
 
 @keyframes blink-critical {
@@ -182,32 +183,32 @@ tooltip label {
 /* === bluetooth === */
 @keyframes bt-flash {
   0% {
-    background-color: rgba(53, 132, 228, 0.45);
+    background-color: rgba(51, 204, 255, 0.45);
   }
   100% {
-    background-color: rgba(53, 132, 228, 0.12);
+    background-color: rgba(51, 204, 255, 0.12);
   }
 }
 
 #bluetooth.connected {
-  color: #3584e4;
-  background-color: rgba(53, 132, 228, 0.12);
+  color: #33ccff;
+  background-color: rgba(51, 204, 255, 0.12);
   animation: bt-flash 0.8s ease-out 1;
 }
 #bluetooth.discoverable {
-  color: #3584e4;
-  background-color: rgba(53, 132, 228, 0.18);
+  color: #33ccff;
+  background-color: rgba(51, 204, 255, 0.18);
   animation: bt-flash 0.8s ease-out infinite;
 }
 #bluetooth.discovering {
-  background-color: rgba(53, 132, 228, 0.25);
+  background-color: rgba(51, 204, 255, 0.25);
   animation: bt-flash 0.6s ease-out infinite alternate;
 }
 
 /* === microphone (custom/microphone) === */
 #custom-microphone.idle {
   background: @module-bg;
-  color: #ffffff;
+  color: @text;
 }
 #custom-microphone.active {
   background-color: rgba(245, 60, 60, 0.85);
