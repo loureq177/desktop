@@ -16,8 +16,13 @@ return {
 		whatsapp = { exe = bin .. "/whatsapp", class = "whatsapp", ws = "whatsapp" },
 		yazi = { exe = "ghostty --class=yazi -e yazi", class = "yazi", ws = "yazi" },
 		bluetui = { exe = "ghostty --class=bluetui -e bluetui", class = "bluetui", ws = "bluetui" },
+		jolt = { exe = "ghostty --class=jolt -e jolt", class = "jolt", ws = "jolt" },
 		impala = { exe = "ghostty --class=impala -e impala", class = "impala", ws = "impala" },
 		btop = { exe = "ghostty --class=btop -e btop", class = "btop", ws = "btop" },
-		clipboard = { exe = hypr .. "/scripts/cliphist-paste.sh", class = "clipboard-special", ws = "clipboard" },
+		clipboard = {
+			exe = hypr .. "/scripts/cliphist-paste.sh",
+			class = "clipboard-special",
+			ws = "clipboard",
+		},
 	},
 }
