@@ -18,9 +18,16 @@ if [ "$current_time" -ge "$night_start" ] || [ "$current_time" -lt "$night_end" 
     exit 0
 fi
 
-notify-send --app-name "Bedtime" -t 5000 "Bedtime" -i "weather-clear-night" "WiFi will turn off in 15 minutes."
+notify_bed() {
+    notify-send \
+        --app-name "Bedtime" \
+        -t 5000 "Bedtime" \
+        -i "weather-clear-night"
+}
+
+notify_bed "WiFi will turn off in 15 minutes."
 sleep 600
-notify-send --app-name "Bedtime" -t 5000 "Bedtime" -i "weather-clear-night" "WiFi will turn off in 5 minutes."
+notify_bed "WiFi will turn off in 5 minutes."
 sleep 300
-notify-send --app-name "Bedtime" -t 5000 "Bedtime" -i "weather-clear-night" "WiFi has been turned off."
+notify_bed "WiFi has been turned off."
 nmcli radio wifi off
