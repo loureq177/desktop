@@ -1,4 +1,2 @@
 #!/bin/bash
-chromium --ozone-platform-hint=auto --enable-extensions \
-  --user-data-dir="$HOME/.config/chromium" \
-  --class=gmail --app=https://mail.google.com
+chromium --ozone-platform-hint=auto   --user-data-dir="$HOME/.local/share/pwa/chromium-profile"   --class=gmail   --app=https://mail.google.com

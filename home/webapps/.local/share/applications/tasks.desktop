@@ -1,7 +1,7 @@
 [Desktop Entry]
 Name=Tasks
 Exec=tasks
-Icon=tasks
+Icon=google-tasks
 Terminal=false
 Type=Application
 StartupWMClass=tasks
