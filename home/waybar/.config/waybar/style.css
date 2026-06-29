@@ -1,9 +1,7 @@
-@define-color text #ffffff;
+@define-color text #fefefe;
 @define-color text-inactive #aaaaaa;
-@define-color hover-bg rgba(255, 255, 255, 0.1);
+@define-color hover-bg rgba(255, 255, 255, 0.2);
 @define-color dnd-off #a6adc8;
-@define-color theme-dark #f9c74f;
-@define-color theme-light #3760bf;
 @define-color module-bg rgba(255, 255, 255, 0.08);
 @define-color module-hover rgba(255, 255, 255, 0.15);
 @define-color tooltip-bg rgba(30, 30, 46, 0.95);
@@ -41,8 +39,8 @@ tooltip label {
 .modules-right > widget > * {
   background: @module-bg;
   color: @text;
-  padding: 0 8px;
-  margin: 1px;
+  padding: 0 10px;
+  margin: 0 1px;
   border-radius: 8px;
   transition: all 0.25s ease;
 }
@@ -58,7 +56,7 @@ tooltip label {
 
 /* --- workspaces --- */
 #workspaces {
-  background: transparent;
+  background: @module-bg;
   padding: 0;
   margin: 0;
 }
@@ -89,9 +87,7 @@ tooltip label {
 #memory:hover,
 #temperature:hover,
 #bluetooth:hover,
-#network:hover,
-#battery:hover,
-#clock:hover {
+#network:hover {
   background: @module-hover;
 }
 
@@ -128,9 +124,6 @@ tooltip label {
 }
 
 /* === custom/dgpu === */
-#custom-dgpu {
-  font-size: 18px;
-}
 #custom-dgpu.off {
   color: #ccc;
 }
@@ -153,41 +146,12 @@ tooltip label {
     background-color: rgba(243, 139, 168, 1);
   }
   100% {
-    background-color: rgba(243, 139, 168, 0.7);
+    background-color: rgba(166, 173, 200, 0.12);
   }
 }
-
-#custom-notification.notification {
-  background-color: rgba(243, 139, 168, 0.85);
-  border-radius: 8px;
-  animation: notif-pulse 2s ease-in-out infinite;
-}
-#custom-notification.dnd-notification,
-#custom-notification.dnd-none {
-  color: @dnd-off;
-  background-color: rgba(166, 173, 200, 0.12);
-}
-
-/* === custom/theme === */
-#custom-theme {
-  padding: 0 10px;
-}
-#custom-theme.light {
-  color: @theme-light;
-  background-color: rgba(55, 96, 191, 0.15);
-}
-#custom-theme.dark {
-  color: @theme-dark;
-  background-color: rgba(249, 199, 79, 0.12);
-}
-
-/* === custom/caffeine === */
-#custom-caffeine.caffeine-on {
-  color: @text;
-}
-#custom-caffeine.caffeine-off {
-  color: #f9c74f;
-  background-color: rgba(249, 199, 79, 0.12);
+#custom-notification.none {
+  color: @text-inactive;
+  background: @module-bg;
 }
 
 /* === custom/record === */
@@ -241,9 +205,6 @@ tooltip label {
 }
 
 /* === microphone (custom/microphone) === */
-#custom-microphone {
-  padding: 0 8px;
-}
 #custom-microphone.idle {
   background: @module-bg;
   color: #ffffff;

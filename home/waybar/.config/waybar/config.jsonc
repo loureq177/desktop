@@ -1,7 +1,7 @@
 {
   "layer": "top",
-  "height": 25,
-  "spacing": 2,
+  "height": 30,
+  "spacing": 8,
   "margin-top": 4,
   "margin-left": 6,
   "margin-right": 6,
@@ -25,8 +25,8 @@
   ],
 
   "privacy": {
-    "icon-spacing": 4,
-    "icon-size": 14,
+    "icon-spacing": 3,
+    "icon-size": 16,
     "transition-duration": 250,
     "modules": [
       {
@@ -53,6 +53,7 @@
   },
 
   "custom/microphone": {
+    "format": "<span size='120%'>{}</span>",
     "exec": "~/.config/waybar/scripts/microphone-status.sh",
     "return-type": "json",
     "interval": "once",
@@ -62,24 +63,22 @@
   },
 
   "pulseaudio": {
-    "format": "{icon} {volume}%",
-    "format-muted": "󰖁 {volume}%",
+    "format": "<span size='120%'>{icon}</span> {volume}%",
+    "format-muted": "<span size='120%'>󰖁</span> {volume}%",
     "format-icons": {
-      "headphone": "",
-      "hands-free": "",
-      "headset": "",
-      "phone": "",
-      "portable": "",
-      "car": "",
+      "headphone": "󰋋",
+      "hands-free": "󰋎",
+      "headset": "󰋎",
+      "phone": "󰏲",
+      "portable": "󰏲",
+      "car": "󰄋",
       "default": ["󰕿", "󰖀", "󰕾"],
     },
     "on-click": "pwvucontrol --tab 4",
   },
 
   "bluetooth": {
-    "format": "",
-    "format-connected": " {num_connections}",
-    "format-connected-battery": " {num_connections}",
+    "format": "<span size='110%'></span>",
     "tooltip-format": "{controller_alias}\t{controller_address}\n\n{num_connections} connected",
     "tooltip-format-connected": "{controller_alias}\t{controller_address}\n\n{num_connections} connected\n\n{device_enumerate}",
     "tooltip-format-enumerate-connected": "{device_alias}\t{device_address}",
@@ -97,7 +96,7 @@
 
   "hyprland/window": {
     "format": "{title}",
-    "max-length": 30,
+    "max-length": 40,
     "tooltip": true,
     "tooltip-format": "{title}",
     "separate-outputs": true,
@@ -109,8 +108,8 @@
   },
 
   "memory": {
+    "format": "<span size='120%'>󰍛</span> {}%",
     "interval": 5,
-    "format": "󰍛 {}%",
     "on-click": "hyprctl dispatch \"hl.dsp.workspace.toggle_special('btop')\"",
     "tooltip": true,
     "tooltip-format": "Used: {used}/{total}\nAvail: {avail}",
@@ -126,6 +125,7 @@
   },
 
   "custom/dgpu": {
+    "format": "<span size='125%'>{}</span>",
     "exec": "~/.config/waybar/scripts/nvidia-status.sh",
     "return-type": "json",
     "interval": 1,
@@ -144,11 +144,12 @@
       "warning": 20,
       "critical": 10,
     },
+    "on-click": "hyprctl dispatch \"hl.dsp.workspace.toggle_special('jolt')\"",
   },
 
   "clock": {
     "interval": 60,
-    "format": "{:%d %B %H:%M}",
+    "format": "{:%d %B  %H:%M}",
     "tooltip-format": "<big>{:%Y %B}</big>\n<tt><small>{calendar}</small></tt>",
   },
 
@@ -158,6 +159,7 @@
       "notification": "󰂚",
       "dnd-notification": "󰂛",
       "dnd-none": "󰂛",
+      "none": "󰂜",
     },
     "return-type": "json",
     "exec": "swaync-client -swb",
