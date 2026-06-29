@@ -1,0 +1,155 @@
+@define-color bg-main #16161e;
+@define-color bg-card #1a1b26;
+@define-color bg-hover #24283b;
+@define-color accent #33ccff;
+@define-color accent-alt #00ff99;
+@define-color text-main #c0caf5;
+@define-color text-dim #a9b1d6;
+@define-color text-muted #565f89;
+@define-color border-color #292e42;
+@define-color shadow-color #0f0f14;
+
+* {
+  font-family: "JetBrainsMono Nerd Font Propo", sans-serif;
+  font-size: 18px;
+}
+
+.control-center .notification-row:focus,
+.notification-row:focus {
+  outline: none;
+}
+
+.control-center {
+  background: @bg-main;
+  border-radius: 16px;
+  border: 2px solid @border-color;
+  padding: 16px;
+}
+
+.control-center-list {
+  background: transparent;
+}
+
+.control-center-list-placeholder {
+  opacity: 0.4;
+  color: @text-muted;
+}
+
+.floating-notifications {
+  background: transparent;
+}
+
+.notification-row {
+  margin: 4px 0;
+  background: transparent;
+}
+
+.notification {
+  background: @bg-card;
+  border-radius: 16px;
+  padding: 8px 12px;
+  margin-bottom: 2px;
+  border: 1px solid @border-color;
+  box-shadow:
+    0px 4px 0px 0px @border-color,
+    0px 7px 0px 0px @shadow-color;
+}
+
+.notification-content {
+  background: transparent;
+  padding: 0;
+}
+
+.notification-action {
+  background: @bg-hover;
+  color: @text-main;
+  border: 1px solid @border-color;
+  border-radius: 8px;
+  padding: 4px 8px;
+  margin-top: 8px;
+}
+
+.close-button {
+  background: transparent;
+  color: @text-muted;
+  border-radius: 8px;
+  padding: 4px;
+}
+
+.close-button:hover {
+  background: @bg-hover;
+  color: @text-main;
+}
+
+.image {
+  border-radius: 8px;
+  margin-right: 10px;
+}
+
+.summary {
+  font-weight: bold;
+  font-size: 20px;
+  color: @text-main;
+  margin: 0;
+}
+
+.body {
+  color: @text-muted;
+  font-size: 17px;
+  line-height: 1.2;
+  margin: 4px 0 0 0;
+}
+
+.app-name {
+  color: @text-dim;
+  font-size: 16px;
+  font-weight: bold;
+  margin: 0;
+}
+
+.widget-title {
+  color: @accent;
+  font-weight: bold;
+  font-size: 28px;
+  padding: 4px 8px 12px 8px;
+  margin: 0;
+}
+
+.widget-title > button {
+  font-family: "JetBrainsMono Nerd Font Propo", sans-serif;
+  font-size: 16px;
+  color: @text-muted;
+  background: @bg-card;
+  border-radius: 8px;
+  padding: 4px 14px;
+  border: 1px solid @border-color;
+}
+
+.widget-title > button:hover {
+  background: @bg-hover;
+  color: @text-main;
+}
+
+.widget-dnd {
+  color: @accent;
+  font-size: 18px;
+  font-weight: bold;
+  padding: 0 8px 12px 8px;
+  margin: 0;
+}
+
+.widget-dnd > switch {
+  background: @bg-card;
+  border-radius: 12px;
+  border: 1px solid @border-color;
+}
+
+.widget-dnd > switch:checked {
+  background: @accent-alt;
+  border-color: @accent-alt;
+}
+
+.widget-dnd > switch slider {
+  background: @text-main;
+  border-radius: 10px;
+}
