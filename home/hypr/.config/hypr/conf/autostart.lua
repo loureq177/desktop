@@ -31,7 +31,7 @@ hl.on("hyprland.start", function()
 		"wl-paste --type image/png --watch cliphist -max-items 10 store &",
 		"wpctl set-volume @DEFAULT_AUDIO_SOURCE@ 0.4",
 		"waybar &",
-		"swaybg -i ~/Pictures/Wallpapers/hyprland-dark.png &",
+		"swaybg -i ~/.config/hypr/wallpapers/hyprland-dark.png &",
 		"swaync &",
 		"hypridle &",
 		"hyprsunset &",
