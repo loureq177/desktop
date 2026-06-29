@@ -25,6 +25,7 @@ if [ ! -f "$FILE" ]; then
     exit 0
 fi
 
+exec 200>&-
 wl-copy <"$FILE"
 
 ACTION=$(notify-send --app-name "Screenshot" -t 5000 "Screenshot" -i "$FILE" -A "default=Edit" -A "edit=Edit with Satty" "Screenshot saved and copied to clipboard.")
