@@ -56,7 +56,7 @@
     "format": "<span size='120%'>{}</span>",
     "exec": "~/.config/waybar/scripts/microphone-status.sh",
     "return-type": "json",
-    "interval": "once",
+    "interval": 1,
     "signal": 8,
     "on-click": "wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle && pkill -RTMIN+8 waybar",
     "on-click-right": "pwvucontrol --tab 3",
