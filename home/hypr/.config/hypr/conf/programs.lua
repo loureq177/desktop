@@ -19,6 +19,7 @@ return {
 		jolt = { exe = "ghostty --class=jolt -e jolt", class = "jolt", ws = "jolt" },
 		impala = { exe = "ghostty --class=impala -e impala", class = "impala", ws = "impala" },
 		btop = { exe = "ghostty --class=btop -e btop", class = "btop", ws = "btop" },
+		nvtop = { exe = "ghostty --class=nvtop -e nvtop", class = "nvtop", ws = "nvtop" },
 		clipboard = {
 			exe = hypr .. "/scripts/cliphist-paste.sh",
 			class = "clipboard-special",
