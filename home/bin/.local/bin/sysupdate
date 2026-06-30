@@ -3,9 +3,12 @@ set -euo pipefail
 
 export PATH="$HOME/.bun/bin:$PATH"
 
-nvim --headless "+Lazy! sync" +qa || true
+paru -Syu --devel
 
-zsh -ic "zinit update --all && zinit self-update" || true
+if command -v nvim >/dev/null 2>&1; then
+    nvim --headless "+Lazy! sync" +qa
+    nvim --headless "+MasonUpdate" +qa
+fi
 
 if command -v bun >/dev/null 2>&1; then
     bun upgrade || true
@@ -15,11 +18,11 @@ if command -v rustup >/dev/null 2>&1; then
     rustup update || true
 fi
 
+zsh -ic "zinit update --all && zinit self-update" || true
+
 fwupdmgr refresh || true
 fwupdmgr update -y || true
 
 tldr --update || true
-
-paru -Syu --devel
 
 flatpak update --noninteractive
