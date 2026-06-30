@@ -6,7 +6,7 @@ hl.config({
 		kb_options = "caps:escape,altwin:swap_lalt_lwin",
 		kb_rules = "",
 		repeat_delay = 200,
-		repeat_rate = 25,
+		repeat_rate = 20,
 		follow_mouse = 1,
 		sensitivity = 0, -- -1.0 - 1.0, 0 means no modification.
 		touchpad = {
