@@ -8,7 +8,6 @@ from threading import Event
 
 
 def notify(msg, critical=True):
-    level = "critical" if critical else "normal"
     subprocess.run(
         [
             "notify-send",
@@ -17,7 +16,7 @@ def notify(msg, critical=True):
             "-t",
             "5000",
             "-u",
-            level,
+            "critical" if critical else "normal",
             "Dictate",
             msg,
         ],
@@ -46,16 +45,8 @@ def main():
     try:
         model = Model(model_id, device=device, compute_type=compute)
     except Exception as e:
-        if device == "auto":
-            notify(f"GPU unavailable ({e}), falling back to CPU", critical=False)
-            try:
-                model = Model(model_id, device="cpu", compute_type="default")
-            except Exception as e2:
-                notify(f"Failed to load model (CPU fallback): {e2}")
-                return sys.exit(1)
-        else:
-            notify(f"Failed to load model: {e}")
-            return sys.exit(1)
+        notify(f"Failed to load model: {e}")
+        return sys.exit(1)
 
     max_wait = float(os.environ.get("DICTATE_MAX_WAIT", "60"))
     if not ready_event.wait(timeout=max_wait):

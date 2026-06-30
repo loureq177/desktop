@@ -8,17 +8,6 @@ RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
 AUDIO_FILE="$RUNTIME_DIR/dictate_recording.wav"
 STATUS_FILE="$RUNTIME_DIR/dictate_status"
 
-ensure_venv() {
-    if [ ! -f "$VENV_PYTHON" ]; then
-        notify-send --app-name "Dictate" -t 5000 "Dictate" "Recreating Python venv..."
-        python3 -m venv "$SPEECH_DIR/.venv"
-        "$SPEECH_DIR/.venv/bin/pip" install --quiet --upgrade \
-            faster-whisper \
-            nvidia-cublas-cu12 \
-            nvidia-cudnn-cu12
-    fi
-}
-
 update_waybar() {
     echo "$1" >"$STATUS_FILE"
     pkill -RTMIN+8 waybar || true
@@ -27,17 +16,8 @@ update_waybar() {
 start_recording() {
     pkill -f "dictate_backend.py" || true
     rm -f "$AUDIO_FILE"
-
-    ensure_venv
-
     export DICTATE_AUDIO_FILE="$AUDIO_FILE"
-    SITE_PACKAGES=$("$VENV_PYTHON" -c "import sysconfig; print(sysconfig.get_path('purelib'))")
-    if [ -d "${SITE_PACKAGES}/nvidia/cublas/lib" ] && [ -d "${SITE_PACKAGES}/nvidia/cudnn/lib" ]; then
-        export LD_LIBRARY_PATH="${SITE_PACKAGES}/nvidia/cublas/lib:${SITE_PACKAGES}/nvidia/cudnn/lib:${LD_LIBRARY_PATH:-}"
-    fi
-
     update_waybar "listening"
-
     nohup pw-record --channels=1 --rate=16000 --format=s16 "$AUDIO_FILE" >/dev/null 2>&1 &
     "$VENV_PYTHON" "$SCRIPT_DIR/dictate_backend.py" &
 }
