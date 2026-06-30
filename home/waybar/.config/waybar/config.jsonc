@@ -17,7 +17,6 @@
     "custom/microphone",
     "pulseaudio",
     "memory",
-    "temperature",
     "custom/dgpu",
     "bluetooth",
     "network",
@@ -113,15 +112,6 @@
     "on-click": "hyprctl dispatch \"hl.dsp.workspace.toggle_special('btop')\"",
     "tooltip": true,
     "tooltip-format": "Used: {used}/{total}\nAvail: {avail}",
-  },
-
-  "temperature": {
-    "hwmon-path-abs": "/sys/class/hwmon/hwmon4/temp1_input",
-    "interval": 5,
-    "format": "{icon} {temperatureC}°C",
-    "format-icons": ["", "", ""],
-    "critical-threshold": 85,
-    "tooltip": true,
   },
 
   "custom/dgpu": {
