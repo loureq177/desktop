@@ -43,7 +43,8 @@ if [ "$OS" = "Linux" ]; then
     fi
 
     ARCH_PKGS=(bin electron hypr ly paru swaync webapps rofi speech-to-text systemd waybar wireplumber)
-    STOW_IGNORE='--ignore=\.venv --ignore=node_modules --ignore=__pycache__ --ignore=\.pyc$ --ignore=\.zwc$'
+    STOW_IGNORE_BASE='--ignore=node_modules --ignore=__pycache__ --ignore=\.pyc$ --ignore=\.zwc$'
+    STOW_IGNORE="$STOW_IGNORE_BASE --ignore=\.venv"
     (cd archlinux && stow --verbose --restow --target ~ $STOW_IGNORE "${ARCH_PKGS[@]}")
 fi
 
@@ -59,7 +60,7 @@ fi
 
 echo "Applying common configs..."
 COMMON_PKGS=(bat btop ghostty git mimeapps nvim opencode ssh xdg yazi zsh)
-STOW_IGNORE='--ignore=node_modules --ignore=__pycache__ --ignore=\.pyc$ --ignore=\.zwc$'
+STOW_IGNORE="$STOW_IGNORE_BASE"
 (cd common && stow --verbose --restow --target ~ $STOW_IGNORE "${COMMON_PKGS[@]}")
 
 if command -v bat &>/dev/null; then
