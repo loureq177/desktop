@@ -1,8 +1,9 @@
-@define-color bg-main #16161e;
+@define-color bg-main #181820;
 @define-color bg-card #1a1b26;
 @define-color bg-hover #24283b;
-@define-color accent #33ccff;
-@define-color accent-alt #00ff99;
+@define-color accent #2ac3de;
+@define-color accent-alt #09ed95;
+@define-color critical #f7768e;
 @define-color text-main #c0caf5;
 @define-color text-dim #a9b1d6;
 @define-color text-muted #565f89;
@@ -11,7 +12,7 @@
 
 * {
   font-family: "JetBrainsMono Nerd Font Propo", sans-serif;
-  font-size: 18px;
+  font-size: 20px;
 }
 
 .control-center .notification-row:focus,
@@ -24,6 +25,7 @@
   border-radius: 16px;
   border: 2px solid @border-color;
   padding: 16px;
+  /* min-height: 800px; */
 }
 
 .control-center-list {
@@ -35,24 +37,61 @@
   color: @text-muted;
 }
 
+.control-center-list scrollbar {
+  background: transparent;
+}
+.control-center-list scrollbar slider {
+  background: @border-color;
+  border-radius: 8px;
+  min-width: 6px;
+}
+.control-center-list scrollbar slider:hover {
+  background: @text-muted;
+}
+
 .floating-notifications {
   background: transparent;
 }
 
+@keyframes notif-in {
+  from {
+    opacity: 0;
+    margin-top: -10px;
+  }
+  to {
+    opacity: 1;
+    margin-top: 0;
+  }
+}
+
 .notification-row {
-  margin: 4px 0;
+  margin: 2px 0;
   background: transparent;
+  animation: notif-in 200ms ease-out;
 }
 
 .notification {
   background: @bg-card;
   border-radius: 16px;
-  padding: 8px 12px;
+  padding: 6px 10px;
   margin-bottom: 2px;
   border: 1px solid @border-color;
   box-shadow:
     0px 4px 0px 0px @border-color,
     0px 7px 0px 0px @shadow-color;
+  transition: border-color 150ms ease;
+}
+
+.notification:hover {
+  border-color: @accent;
+}
+
+.notification.critical {
+  border-left: 3px solid @critical;
+}
+
+.notification.low {
+  opacity: 0.85;
 }
 
 .notification-content {
@@ -67,6 +106,16 @@
   border-radius: 8px;
   padding: 4px 8px;
   margin-top: 8px;
+  transition:
+    background 150ms ease,
+    color 150ms ease,
+    border-color 150ms ease;
+}
+
+.notification-action:hover {
+  background: @accent;
+  color: @bg-main;
+  border-color: @accent;
 }
 
 .close-button {
@@ -74,6 +123,9 @@
   color: @text-muted;
   border-radius: 8px;
   padding: 4px;
+  transition:
+    background 150ms ease,
+    color 150ms ease;
 }
 
 .close-button:hover {
@@ -82,7 +134,7 @@
 }
 
 .image {
-  border-radius: 8px;
+  border-radius: 16px;
   margin-right: 10px;
 }
 
@@ -96,8 +148,8 @@
 .body {
   color: @text-muted;
   font-size: 17px;
-  line-height: 1.2;
-  margin: 4px 0 0 0;
+  line-height: 1.15;
+  margin: 2px 0 0 0;
 }
 
 .app-name {
@@ -110,9 +162,12 @@
 .widget-title {
   color: @accent;
   font-weight: bold;
-  font-size: 28px;
   padding: 4px 8px 12px 8px;
   margin: 0;
+}
+
+.widget-title > label {
+  font-size: 24px;
 }
 
 .widget-title > button {
@@ -123,6 +178,9 @@
   border-radius: 8px;
   padding: 4px 14px;
   border: 1px solid @border-color;
+  transition:
+    background 150ms ease,
+    color 150ms ease;
 }
 
 .widget-title > button:hover {
@@ -132,16 +190,22 @@
 
 .widget-dnd {
   color: @accent;
-  font-size: 18px;
   font-weight: bold;
   padding: 0 8px 12px 8px;
   margin: 0;
+}
+
+.widget-dnd label {
+  font-size: 18px;
 }
 
 .widget-dnd > switch {
   background: @bg-card;
   border-radius: 12px;
   border: 1px solid @border-color;
+  transition:
+    background 200ms ease,
+    border-color 200ms ease;
 }
 
 .widget-dnd > switch:checked {
@@ -152,4 +216,47 @@
 .widget-dnd > switch slider {
   background: @text-main;
   border-radius: 10px;
+  transition: margin 200ms ease;
+}
+
+.notification-group {
+  background: transparent;
+  border: none;
+  margin-bottom: 4px;
+}
+
+.notification-group-headline {
+  background: @bg-card;
+  border: 1px solid @border-color;
+  border-radius: 16px;
+  padding: 6px 10px;
+}
+
+.notification-group-icon {
+  color: @accent;
+}
+
+.notification-group-headline > button,
+.notification-group-collapse-button,
+.notification-group-close-all-button {
+  background: @bg-hover;
+  color: @text-muted;
+  border: 1px solid @border-color;
+  border-radius: 8px;
+  padding: 4px 8px;
+  transition:
+    background 150ms ease,
+    color 150ms ease;
+}
+
+.notification-group-headline > button:hover,
+.notification-group-collapse-button:hover,
+.notification-group-close-all-button:hover {
+  background: @accent;
+  color: @bg-main;
+}
+
+.notification-group-headline > label {
+  color: @text-main;
+  font-weight: bold;
 }
