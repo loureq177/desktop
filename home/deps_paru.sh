@@ -37,7 +37,6 @@ export AUDIO_PKGS=(
     gst-plugins-good
     gst-plugins-bad
     gst-plugins-ugly
-    sox
 )
 
 export GUI_PKGS=(
@@ -74,7 +73,6 @@ export CLI_PKGS=(
     jq
     nodejs
     python-pynvim
-    python-jupyter-client
     ripgrep
     rclone
     stow
