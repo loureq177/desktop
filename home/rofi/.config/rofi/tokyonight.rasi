@@ -1,6 +1,6 @@
 * {
     fg0: #c0caf5;
-    accent: #33ccff;
+    accent: #2ac3de;
     urgent: #ff757f;
     accent-alt: #00ff99;
     background-color: transparent;
@@ -8,12 +8,13 @@
     margin: 0;
     padding: 0;
     spacing: 0;
+    font: "JetBrainsMono Nerd Font Mono 14";
 }
 window {
     background-color: rgba(26, 27, 38, 0.95);
     border: 2px;
     border-color: @accent;
-    border-radius: 12px;
+    border-radius: 20px;
     width: 720px;
     location: center;
     anchor: center;
@@ -28,13 +29,13 @@ inputbar {
 prompt {
     text-color: @accent;
     padding: 8px 12px 8px 0;
-    font: "JetBrainsMono Nerd Font Mono 15";
+    font: "JetBrainsMono Nerd Font Mono Bold 14";
 }
 entry {
     placeholder: "Search...";
     placeholder-color: #565f89;
     text-color: @fg0;
-    font: "JetBrainsMono Nerd Font Mono 15";
+    font: "JetBrainsMono Nerd Font Mono Bold 14";
     padding: 8px 12px;
     background-color: rgba(47, 51, 77, 0.3);
     border-radius: 8px;
