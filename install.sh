@@ -1,19 +1,78 @@
 #!/usr/bin/env bash
 
+# TODO: sprawdzić czy mogę coś wywalić z deps (np czy gnome packages mają się ludziom instalować?)
+# TODO: zaktualizować ./README.md
+
+BLUE='\033[0;34m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+RED='\033[0;31m'
+NC='\033[0m'
+
+_log_info() { echo -e "${BLUE}\n[INFO]${NC} $*"; }
+_log_ok() { echo -e "${GREEN}[OK]${NC} $*"; }
+_log_warn() { echo -e "${YELLOW}[WARN]${NC} $*"; }
+_log_error() { echo -e "${RED}[ERROR]${NC} $*"; }
+
 set -euo pipefail
 cd "$(dirname "$0")"
-
 if ! command -v stow &>/dev/null; then
-    echo "Error: GNU Stow is not installed."
+    _log_error "GNU Stow is not installed."
     exit 1
 fi
 
 mkdir -p ~/.config ~/.local/share ~/.local/state ~/.local/bin ~/.cache
 
 OS="$(uname -s)"
+STOW_IGNORE_BASE='--ignore=node_modules --ignore=__pycache__ --ignore=\.pyc$ --ignore=\.zwc$'
 
 if [ "$OS" = "Linux" ]; then
-    echo "Detected Linux. Applying Archlinux configs..."
+    _log_info "Detected Linux. Applying Archlinux configs..."
+    source archlinux/deps_paru.sh
+
+    check_sudo() {
+        if ! command -v sudo &>/dev/null; then
+            _log_error "sudo is not installed."
+            exit 1
+        fi
+        sudo -n &>/dev/null || sudo -v
+    }
+    check_sudo
+
+    install_packages() {
+        _log_info "Installing packages via pacman..."
+        for label in "${PKG_GROUPS[@]}"; do
+            [ "$label" = "AUR" ] && continue
+            declare -n arr="${label}_PKGS"
+            _log_info "Installing [$label]_PKGS..."
+            sudo pacman -S --noconfirm --needed "${arr[@]}"
+            _log_ok "[$label] done."
+        done
+    }
+
+    install_flatpaks() {
+        source archlinux/deps_flatpak.sh
+        if ! command -v flatpak &>/dev/null; then
+            _log_warn "flatpak not found, skipping Flatpak apps"
+            return
+        fi
+        _log_info "Configuring Flatpak and installing applications for user..."
+        flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+        flatpak install --user -y --or-update flathub "${FLATPAK_APPS[@]}"
+        _log_ok "Flatpaks installed for $USER."
+    }
+
+    install_aur_packages() {
+        if ! command -v paru &>/dev/null; then
+            _log_warn "paru not found, skipping AUR packages"
+            return
+        fi
+        declare -n arr="AUR_PKGS"
+        _log_info "Installing [AUR]_PKGS..."
+        paru -S --noconfirm --needed "${arr[@]}"
+        _log_ok "AUR packages done."
+    }
+
     if [ -d "archlinux/bin/.local/bin" ]; then
         chmod +x archlinux/bin/.local/bin/* 2>/dev/null || true
     fi
@@ -32,7 +91,7 @@ if [ "$OS" = "Linux" ]; then
 
     SPEECH_DIR="archlinux/speech-to-text"
     if [ -d "$SPEECH_DIR" ]; then
-        echo "Setting up Python venv for speech-to-text..."
+        _log_info "Setting up Python venv for speech-to-text..."
         if [ ! -d "$SPEECH_DIR/.venv" ]; then
             python3 -m venv "$SPEECH_DIR/.venv"
         fi
@@ -42,14 +101,18 @@ if [ "$OS" = "Linux" ]; then
             nvidia-cudnn-cu12
     fi
 
-    ARCH_PKGS=(bin electron hypr ly paru swaync webapps rofi speech-to-text systemd waybar wireplumber)
-    STOW_IGNORE_BASE='--ignore=node_modules --ignore=__pycache__ --ignore=\.pyc$ --ignore=\.zwc$'
+    install_packages
+    install_flatpaks
+    install_aur_packages
+
+    STOW_ARCH_PKGS=(bin electron hypr ly paru swaync webapps rofi speech-to-text systemd waybar wireplumber)
     STOW_IGNORE="$STOW_IGNORE_BASE --ignore=\.venv"
-    (cd archlinux && stow --verbose --restow --target ~ $STOW_IGNORE "${ARCH_PKGS[@]}")
+    (cd archlinux && stow --verbose --restow --target ~ $STOW_IGNORE "${STOW_ARCH_PKGS[@]}")
+
 fi
 
 if [ "$OS" = "Darwin" ]; then
-    echo "Detected macOS. Applying macOS configs..."
+    _log_info "Detected macOS. Applying macOS configs..."
     if [ -d "macos/bin/.local/bin" ]; then
         chmod +x macos/bin/.local/bin/* 2>/dev/null || true
     fi
@@ -59,9 +122,9 @@ if [ "$OS" = "Darwin" ]; then
 fi
 
 echo "Applying common configs..."
-COMMON_PKGS=(bat btop ghostty git mimeapps nvim opencode ssh xdg yazi zsh)
+STOW_COMMON_PKGS=(bat btop ghostty git mimeapps nvim opencode ssh xdg yazi zsh)
 STOW_IGNORE="$STOW_IGNORE_BASE"
-(cd common && stow --verbose --restow --target ~ $STOW_IGNORE "${COMMON_PKGS[@]}")
+(cd common && stow --verbose --restow --target ~ $STOW_IGNORE "${STOW_COMMON_PKGS[@]}")
 
 if command -v bat &>/dev/null; then
     echo "Building bat cache for custom themes..."
