@@ -1,6 +1,7 @@
 .zcompdump
 .zcompdump.zwc
 .zsh_history
+.fzf.zsh
 node_modules/
 .venv/
 .ruff_cache/
