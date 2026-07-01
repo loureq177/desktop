@@ -13,10 +13,6 @@ if [ "${1:-region}" = "region" ]; then
     GEOM=$(slurp -d -b "#00000080" -c "#ffffff" -w 2) || exit 0
     grim -g "$GEOM" "$FILE"
 else
-    if ! command -v jq &>/dev/null; then
-        echo "Error: jq is required for fullscreen screenshots. Install it with: paru -S jq" >&2
-        exit 1
-    fi
     FOCUSED_OUTPUT=$(hyprctl monitors -j | jq -r '.[] | select(.focused) | .name')
     grim -o "$FOCUSED_OUTPUT" "$FILE"
 fi
