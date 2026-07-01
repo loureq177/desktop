@@ -5,6 +5,8 @@ SCRIPT_DIR="$(dirname "$(realpath "$0")")"
 SPEECH_DIR="$(realpath "$SCRIPT_DIR/../..")"
 VENV_PYTHON="$SPEECH_DIR/.venv/bin/python"
 RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+CUBLAS_LIB="$SPEECH_DIR/.venv/lib/python3.14/site-packages/nvidia/cublas/lib"
+export LD_LIBRARY_PATH="${CUBLAS_LIB}:${LD_LIBRARY_PATH-}"
 AUDIO_FILE="$RUNTIME_DIR/dictate_recording.wav"
 STATUS_FILE="$RUNTIME_DIR/dictate_status"
 
