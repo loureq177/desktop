@@ -12,7 +12,7 @@
 
 * {
   font-family: "JetBrainsMono Nerd Font Propo", sans-serif;
-  font-size: 20px;
+  font-size: 18px;
 }
 
 .control-center .notification-row:focus,
@@ -22,10 +22,9 @@
 
 .control-center {
   background: @bg-main;
-  border-radius: 16px;
-  border: 2px solid @border-color;
-  padding: 16px;
-  /* min-height: 800px; */
+  border-radius: 20px;
+  border: 1px solid @border-color;
+  padding: 12px;
 }
 
 .control-center-list {
@@ -72,13 +71,11 @@
 
 .notification {
   background: @bg-card;
-  border-radius: 16px;
-  padding: 6px 10px;
+  border-radius: 12px;
+  padding: 8px 12px;
   margin-bottom: 2px;
   border: 1px solid @border-color;
-  box-shadow:
-    0px 4px 0px 0px @border-color,
-    0px 7px 0px 0px @shadow-color;
+  box-shadow: 0px 2px 6px 0px @shadow-color;
   transition: border-color 150ms ease;
 }
 
@@ -103,9 +100,9 @@
   background: @bg-hover;
   color: @text-main;
   border: 1px solid @border-color;
-  border-radius: 8px;
-  padding: 4px 8px;
-  margin-top: 8px;
+  border-radius: 6px;
+  padding: 4px 10px;
+  margin-top: 6px;
   transition:
     background 150ms ease,
     color 150ms ease,
@@ -121,7 +118,7 @@
 .close-button {
   background: transparent;
   color: @text-muted;
-  border-radius: 8px;
+  border-radius: 6px;
   padding: 4px;
   transition:
     background 150ms ease,
@@ -134,13 +131,13 @@
 }
 
 .image {
-  border-radius: 16px;
+  border-radius: 10px;
   margin-right: 10px;
 }
 
 .summary {
   font-weight: bold;
-  font-size: 20px;
+  font-size: 18px;
   color: @text-main;
   margin: 0;
 }
@@ -148,13 +145,13 @@
 .body {
   color: @text-muted;
   font-size: 17px;
-  line-height: 1.15;
+  line-height: 1.2;
   margin: 2px 0 0 0;
 }
 
 .app-name {
   color: @text-dim;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: bold;
   margin: 0;
 }
@@ -162,12 +159,12 @@
 .widget-title {
   color: @accent;
   font-weight: bold;
-  padding: 4px 8px 12px 8px;
+  padding: 4px 6px 10px 6px;
   margin: 0;
 }
 
 .widget-title > label {
-  font-size: 24px;
+  font-size: 20px;
 }
 
 .widget-title > button {
@@ -175,8 +172,8 @@
   font-size: 16px;
   color: @text-muted;
   background: @bg-card;
-  border-radius: 8px;
-  padding: 4px 14px;
+  border-radius: 6px;
+  padding: 4px 12px;
   border: 1px solid @border-color;
   transition:
     background 150ms ease,
@@ -191,12 +188,12 @@
 .widget-dnd {
   color: @accent;
   font-weight: bold;
-  padding: 0 8px 12px 8px;
+  padding: 0 6px 10px 6px;
   margin: 0;
 }
 
 .widget-dnd label {
-  font-size: 18px;
+  font-size: 17px;
 }
 
 .widget-dnd > switch {
@@ -228,7 +225,7 @@
 .notification-group-headline {
   background: @bg-card;
   border: 1px solid @border-color;
-  border-radius: 16px;
+  border-radius: 12px;
   padding: 6px 10px;
 }
 
@@ -242,7 +239,7 @@
   background: @bg-hover;
   color: @text-muted;
   border: 1px solid @border-color;
-  border-radius: 8px;
+  border-radius: 6px;
   padding: 4px 8px;
   transition:
     background 150ms ease,
