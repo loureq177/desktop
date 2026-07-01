@@ -6,15 +6,17 @@ local cmds = {
 	["SUPER + B"] = programs.browser,
 	["SUPER + space"] = programs.launcher,
 	["SUPER + Escape"] = "~/.config/hypr/scripts/powermenu.sh",
-	["SUPER + SHIFT + M"] = "hyprlock --immediate-render --no-fade-in",
-	["Print"] = "~/.config/hypr/scripts/screenshot.sh region",
 	["SUPER + Period"] = "rofi -show emoji -modi emoji -emoji-mode copy",
+
+	["SUPER + CTRL + L"] = "hyprlock --immediate-render --no-fade-in",
 	["SUPER + CTRL + A"] = "swaync-client -t",
 	["SUPER + CTRL + R"] = "~/.config/hypr/scripts/record-screen.sh",
 	["SUPER + CTRL + M"] = "wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle",
 	["SUPER + CTRL + P"] = "hyprpicker -a --notify",
 	["SUPER + CTRL + space"] = "rofi -show run -replace",
-	["SUPER + CTRL + Print"] = "~/.config/hypr/scripts/screenshot.sh full",
+
+	["Print"] = "~/.config/hypr/scripts/screenshot.sh region",
+	["SHIFT + Print"] = "~/.config/hypr/scripts/screenshot.sh fullscreen",
 }
 
 for bind, cmd in pairs(cmds) do
@@ -68,15 +70,15 @@ hl.bind("SUPER + CTRL + S", hl.dsp.exec_cmd("~/.local/bin/dictate.sh start"))
 hl.bind("SUPER + CTRL + S", hl.dsp.exec_cmd("~/.local/bin/dictate.sh stop"), { release = true })
 
 -- Audio and brightness ------------------------------------------------------
-local snd = "/usr/share/sounds/freedesktop/stereo/audio-volume-change.oga"
+local volume = "/usr/share/sounds/freedesktop/stereo/audio-volume-change.oga"
 local vol_base = "wpctl set-volume "
 
 local media = {
 	XF86AudioRaiseVolume = {
-		vol_base .. "-l 1.5 @DEFAULT_AUDIO_SINK@ 2%+ && pw-play " .. snd,
+		vol_base .. "-l 1.5 @DEFAULT_AUDIO_SINK@ 2%+ && pw-play " .. volume,
 		true,
 	},
-	XF86AudioLowerVolume = { vol_base .. "@DEFAULT_AUDIO_SINK@ 2%- && pw-play " .. snd, true },
+	XF86AudioLowerVolume = { vol_base .. "@DEFAULT_AUDIO_SINK@ 2%- && pw-play " .. volume, true },
 	XF86AudioMute = { "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle", false },
 	XF86AudioMicMute = { "wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle", false },
 	XF86MonBrightnessUp = { "brightnessctl set +10%", true },
