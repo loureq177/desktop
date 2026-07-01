@@ -42,7 +42,7 @@ tooltip label {
   color: @text;
   padding: 0 10px;
   margin: 0 1px;
-  border-radius: 8px;
+  border-radius: 20px;
   transition: all 0.25s ease;
 }
 
