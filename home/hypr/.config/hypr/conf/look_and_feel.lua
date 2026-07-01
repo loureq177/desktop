@@ -70,8 +70,17 @@ hl.animation({ leaf = "fadeIn", enabled = true, speed = 1.73, bezier = "almostLi
 hl.animation({ leaf = "fadeOut", enabled = true, speed = 1.46, bezier = "almostLinear" })
 hl.animation({ leaf = "fade", enabled = true, speed = 4, bezier = "default" })
 hl.animation({ leaf = "layers", enabled = true, speed = 3.81, bezier = "easeOutQuint" })
-hl.animation({ leaf = "layersIn", enabled = false })
-hl.animation({ leaf = "layersOut", enabled = false })
+-- hl.animation({ leaf = "layersIn", enabled = false })
+-- hl.animation({ leaf = "layersOut", enabled = false })
+hl.animation({
+	leaf = "layersIn",
+	enabled = true,
+	speed = 4,
+	bezier = "myBezier",
+	style = "popin 90%",
+})
+hl.animation({ leaf = "layersOut", enabled = true, speed = 3, bezier = "almostLinear" })
+
 hl.animation({
 	leaf = "fadeLayersIn",
 	enabled = true,
