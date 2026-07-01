@@ -73,7 +73,8 @@
       "car": "󰄋",
       "default": ["󰕿", "󰖀", "󰕾"],
     },
-    "on-click": "pwvucontrol --tab 4",
+    "on-click": "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle",
+    "on-click-right": "pwvucontrol --tab 4",
   },
 
   "bluetooth": {
