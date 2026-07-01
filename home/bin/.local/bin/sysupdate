@@ -6,11 +6,15 @@ export PATH="$HOME/.bun/bin:$PATH"
 paru -Syu --devel
 
 if command -v nvim >/dev/null 2>&1; then
-    nvim --headless "+Lazy! sync" +qa
-    nvim --headless "+MasonUpdate" +qa
+    nvim --headless "+Lazy! sync" "+lua require('mason')" \
+        "+MasonUpdate" \
+        "+lua P=require('mason-registry').get_installed_package_names()" \
+        "+lua if #P>0 then pcall(vim.cmd, 'MasonInstall '..table.concat(P,' ')) end" \
+        +qa
 fi
 
 if command -v bun >/dev/null 2>&1; then
+    echo "\n"
     bun upgrade || true
 fi
 
