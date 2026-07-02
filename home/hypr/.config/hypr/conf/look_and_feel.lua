@@ -77,7 +77,7 @@ hl.animation({
 	enabled = true,
 	speed = 4,
 	bezier = "myBezier",
-	style = "popin 90%",
+	--style = "popin 90%",
 })
 hl.animation({ leaf = "layersOut", enabled = true, speed = 3, bezier = "almostLinear" })
 

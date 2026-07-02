@@ -4,6 +4,7 @@
     urgent: #ff757f;
     accent-alt: #00ff99;
     background-color: transparent;
+    border-color: #292e42;
     text-color: @fg0;
     margin: 0;
     padding: 0;
@@ -14,22 +15,20 @@ window {
     background-color: rgba(26, 27, 38, 0.95);
     border: 2px;
     border-color: @accent;
-    border-radius: 20px;
+    border-radius: 16px;
     width: 720px;
     location: center;
     anchor: center;
     yoffset: -150;
     fullscreen: false;
 }
+
 inputbar {
     padding: 20px;
     background-color: rgba(47, 51, 77, 0.4);
     children: [prompt, entry];
-}
-prompt {
-    text-color: @accent;
-    padding: 8px 12px 8px 0;
-    font: "JetBrainsMono Nerd Font Mono Bold 14";
+    border: 1px;
+    border-color: rgba(42, 195, 222, 0);
 }
 entry {
     placeholder: "Search...";
@@ -39,6 +38,11 @@ entry {
     padding: 8px 12px;
     background-color: rgba(47, 51, 77, 0.3);
     border-radius: 8px;
+}
+prompt {
+    text-color: @accent;
+    padding: 8px 12px 8px 0;
+    font: "JetBrainsMono Nerd Font Mono Bold 14";
 }
 listview {
     padding: 12px 20px 20px 20px;
@@ -50,25 +54,27 @@ listview {
 }
 element {
     padding: 10px 14px;
-    border-radius: 6px;
+    border-radius: 8px;
     background-color: transparent;
 }
 element selected {
-    background-color: rgba(47, 51, 77, 0.4);
+    background-color: rgba(47, 51, 77, 0.2);
     text-color: @accent;
+    border: 1px 1px 1px 1px;
+    border-color: @border-color;
 }
 element-text {
     vertical-align: 0.5;
     font: "JetBrainsMono Nerd Font Mono 14";
 }
 element-icon {
-    size: 1.6em;
-    padding: 0 10px 0 0;
+    size: 1.8em;
+    padding: 0 18px 0 0;
 }
 scrollbar {
-    width: 4px;
+    width: 2px;
     handle-color: @accent-alt;
-    handle-width: 4px;
+    handle-width: 2px;
     border: 0;
     padding: 0;
 }
