@@ -3,6 +3,7 @@
   "height": 30,
   "spacing": 8,
   "margin-top": 4,
+  "margin-bottom": -10,
   "margin-left": 6,
   "margin-right": 6,
 
@@ -116,7 +117,7 @@
   },
 
   "custom/dgpu": {
-    "format": "<span size='125%'>{}</span>",
+    "format": "<span size='130%'>{}</span>",
     "exec": "~/.config/waybar/scripts/nvidia-status.sh",
     "return-type": "json",
     "interval": 1,
@@ -140,8 +141,7 @@
 
   "clock": {
     "interval": 60,
-    "format": "{:%d %B  %H:%M}",
-    "tooltip-format": "<big>{:%Y %B}</big>\n<tt><small>{calendar}</small></tt>",
+    "format": "{:%H:%M}",
   },
 
   "custom/notification": {
