@@ -15,14 +15,34 @@
   font-size: 18px;
 }
 
-.control-center .notification-row:focus,
-.notification-row:focus {
+.notification-row {
+  all: unset;
+}
+
+.notification-background {
+  all: unset;
+}
+
+.notification-row,
+.notification-row:hover,
+.notification-row:focus,
+.notification-row:selected,
+.notification-row:active,
+.notification-background,
+.notification-background:hover,
+.notification-background:focus,
+.notification-background:selected,
+.notification-background:active {
+  background: transparent;
+  border: none;
   outline: none;
+  box-shadow: none;
+  padding: 0;
 }
 
 .control-center {
   background: @bg-main;
-  border-radius: 20px;
+  border-radius: 16px;
   border: 1px solid @border-color;
   padding: 12px;
 }
@@ -41,7 +61,7 @@
 }
 .control-center-list scrollbar slider {
   background: @border-color;
-  border-radius: 8px;
+  border-radius: 999px;
   min-width: 6px;
 }
 .control-center-list scrollbar slider:hover {
@@ -65,22 +85,24 @@
 
 .notification-row {
   margin: 2px 0;
-  background: transparent;
   animation: notif-in 200ms ease-out;
 }
 
 .notification {
   background: @bg-card;
-  border-radius: 12px;
+  border-radius: 16px;
   padding: 8px 12px;
   margin-bottom: 2px;
   border: 1px solid @border-color;
   box-shadow: 0px 2px 6px 0px @shadow-color;
-  transition: border-color 150ms ease;
+  transition:
+    border-color 150ms ease,
+    background 150ms ease;
 }
 
 .notification:hover {
   border-color: @accent;
+  background: mix(@bg-card, @accent, 0.08);
 }
 
 .notification.critical {
@@ -100,7 +122,7 @@
   background: @bg-hover;
   color: @text-main;
   border: 1px solid @border-color;
-  border-radius: 6px;
+  border-radius: 8px;
   padding: 4px 10px;
   margin-top: 6px;
   transition:
@@ -118,20 +140,23 @@
 .close-button {
   background: transparent;
   color: @text-muted;
-  border-radius: 6px;
+  border: 1px solid transparent;
+  border-radius: 8px;
   padding: 4px;
   transition:
     background 150ms ease,
-    color 150ms ease;
+    color 150ms ease,
+    border-color 150ms ease;
 }
 
 .close-button:hover {
   background: @bg-hover;
   color: @text-main;
+  border-color: @border-color;
 }
 
 .image {
-  border-radius: 10px;
+  border-radius: 16px;
   margin-right: 10px;
 }
 
@@ -172,8 +197,8 @@
   font-size: 16px;
   color: @text-muted;
   background: @bg-card;
-  border-radius: 6px;
-  padding: 4px 12px;
+  border-radius: 8px;
+  padding: 4px 10px;
   border: 1px solid @border-color;
   transition:
     background 150ms ease,
@@ -198,7 +223,7 @@
 
 .widget-dnd > switch {
   background: @bg-card;
-  border-radius: 12px;
+  border-radius: 16px;
   border: 1px solid @border-color;
   transition:
     background 200ms ease,
@@ -212,7 +237,7 @@
 
 .widget-dnd > switch slider {
   background: @text-main;
-  border-radius: 10px;
+  border-radius: 8px;
   transition: margin 200ms ease;
 }
 
@@ -225,7 +250,7 @@
 .notification-group-headline {
   background: @bg-card;
   border: 1px solid @border-color;
-  border-radius: 12px;
+  border-radius: 16px;
   padding: 6px 10px;
 }
 
@@ -239,8 +264,8 @@
   background: @bg-hover;
   color: @text-muted;
   border: 1px solid @border-color;
-  border-radius: 6px;
-  padding: 4px 8px;
+  border-radius: 8px;
+  padding: 4px 10px;
   transition:
     background 150ms ease,
     color 150ms ease;
