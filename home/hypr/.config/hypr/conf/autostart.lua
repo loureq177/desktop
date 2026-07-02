@@ -24,6 +24,7 @@ hl.on("hyprland.start", function()
 		gsettings .. " color-scheme 'prefer-dark'",
 		gsettings .. " gtk-theme 'Adwaita-dark'",
 		gsettings .. " monospace-font-name 'JetBrainsMono Nerd Font Mono 13'",
+		gsettings .. " text-scaling-factor 1.1",
 		"systemctl --user start graphical-session.target",
 		"systemctl --user start xdg-desktop-portal-hyprland "
 			.. "xdg-desktop-portal-gtk xdg-desktop-portal",
