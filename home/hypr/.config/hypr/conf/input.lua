@@ -14,9 +14,13 @@ hl.config({
 			tap_to_click = true,
 		},
 	},
+	gestures = {
+		workspace_swipe_touch = true,
+		workspace_swipe_cancel_ratio = 0.05,
+	},
 })
 
-hl.gesture({ fingers = 3, direction = "horizontal", scale = 2.0, action = "workspace" })
+hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })
 hl.gesture({
 	fingers = 2,
 	direction = "pinchin",
