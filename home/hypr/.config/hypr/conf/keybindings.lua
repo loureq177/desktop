@@ -6,8 +6,7 @@ local cmds = {
 	["SUPER + B"] = programs.browser,
 	["SUPER + space"] = programs.launcher,
 	["SUPER + Escape"] = "~/.config/hypr/scripts/powermenu.sh",
-	-- ["SUPER + Period"] = "rofi -show emoji -modi emoji -emoji-mode copy",
-	["SUPER + Period"] = 'rofi -show emoji -modi emoji -emoji-format "{emoji} {name}"',
+	["SUPER + Period"] = "rofi -show emoji -modi emoji -emoji-mode copy",
 
 	["SUPER + CTRL + L"] = "hyprlock --immediate-render --no-fade-in",
 	["SUPER + CTRL + A"] = "swaync-client -t",
