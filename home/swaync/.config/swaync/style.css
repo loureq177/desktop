@@ -12,7 +12,7 @@
 
 * {
   font-family: "JetBrainsMono Nerd Font Propo", sans-serif;
-  font-size: 18px;
+  font-size: 17px;
 }
 
 .notification-row {
@@ -162,21 +162,21 @@
 
 .summary {
   font-weight: bold;
-  font-size: 18px;
+  font-size: 17px;
   color: @text-main;
   margin: 0;
 }
 
 .body {
   color: @text-muted;
-  font-size: 17px;
+  font-size: 15px;
   line-height: 1.2;
   margin: 2px 0 0 0;
 }
 
 .app-name {
   color: @text-dim;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: bold;
   margin: 0;
 }
@@ -189,12 +189,12 @@
 }
 
 .widget-title > label {
-  font-size: 20px;
+  font-size: 18px;
 }
 
 .widget-title > button {
   font-family: "JetBrainsMono Nerd Font Propo", sans-serif;
-  font-size: 16px;
+  font-size: 15px;
   color: @text-muted;
   background: @bg-card;
   border-radius: 8px;
@@ -218,7 +218,7 @@
 }
 
 .widget-dnd label {
-  font-size: 17px;
+  font-size: 15px;
 }
 
 .widget-dnd > switch {

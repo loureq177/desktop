@@ -20,11 +20,10 @@ hl.on("hyprland.start", function()
 		"systemctl --user import-environment " .. env_vars,
 		gsettings .. " cursor-theme 'Bibata-Modern-Classic'",
 		gsettings .. " icon-theme 'Papirus-Dark'",
-		gsettings .. " font-name 'Adwaita Sans 12'",
+		gsettings .. " font-name 'Adwaita Sans 13'",
 		gsettings .. " color-scheme 'prefer-dark'",
 		gsettings .. " gtk-theme 'Adwaita-dark'",
-		gsettings .. " monospace-font-name 'JetBrainsMono Nerd Font Mono 12'",
-		gsettings .. " text-scaling-factor 1.1",
+		gsettings .. " monospace-font-name 'JetBrainsMono Nerd Font Mono 13'",
 		"systemctl --user start graphical-session.target",
 		"systemctl --user start xdg-desktop-portal-hyprland "
 			.. "xdg-desktop-portal-gtk xdg-desktop-portal",

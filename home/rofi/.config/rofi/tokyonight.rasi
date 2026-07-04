@@ -9,7 +9,7 @@
     margin: 0;
     padding: 0;
     spacing: 0;
-    font: "JetBrainsMono Nerd Font Mono 12";
+    font: "JetBrainsMono Nerd Font Mono 13";
 }
 window {
     background-color: rgba(26, 27, 38, 0.95);
@@ -65,7 +65,7 @@ element selected {
 }
 element-text {
     vertical-align: 0.5;
-    font: "JetBrainsMono Nerd Font Mono 14";
+    font: "JetBrainsMono Nerd Font Mono 13";
 }
 element-icon {
     size: 1.8em;
