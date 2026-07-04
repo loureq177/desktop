@@ -122,7 +122,7 @@ if [ "$OS" = "Darwin" ]; then
 fi
 
 echo "Applying common configs..."
-STOW_COMMON_PKGS=(bat btop ghostty git mimeapps nvim opencode ssh xdg yazi zsh)
+STOW_COMMON_PKGS=(bat btop ghostty git mimeapps nvim opencode xdg yazi zsh)
 STOW_IGNORE="$STOW_IGNORE_BASE"
 (cd common && stow --verbose --restow --target ~ $STOW_IGNORE "${STOW_COMMON_PKGS[@]}")
 
