@@ -9,7 +9,7 @@
     margin: 0;
     padding: 0;
     spacing: 0;
-    font: "JetBrainsMono Nerd Font Mono 14";
+    font: "JetBrainsMono Nerd Font Mono 12";
 }
 window {
     background-color: rgba(26, 27, 38, 0.95);
