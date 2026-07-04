@@ -11,7 +11,7 @@ local cmds = {
 	["SUPER + CTRL + L"] = "hyprlock --immediate-render --no-fade-in",
 	["SUPER + CTRL + A"] = "swaync-client -t",
 	["SUPER + CTRL + R"] = "~/.config/hypr/scripts/record-screen.sh",
-	["SUPER + CTRL + M"] = "wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle",
+	["SUPER + CTRL + M"] = "wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle && pkill -RTMIN+8 waybar",
 	["SUPER + CTRL + P"] = "hyprpicker -a --notify",
 	["SUPER + CTRL + space"] = "rofi -show run -replace",
 
