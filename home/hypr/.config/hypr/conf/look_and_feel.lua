@@ -105,20 +105,20 @@ hl.animation({
 	bezier = "quick",
 	style = "slidevert",
 })
-hl.animation({ leaf = "workspacesIn", enabled = true, speed = 5, bezier = "quick" })
-hl.animation({ leaf = "workspacesOut", enabled = true, speed = 5, bezier = "quick" })
+hl.animation({ leaf = "workspacesIn", enabled = true, speed = 3, bezier = "quick" })
+hl.animation({ leaf = "workspacesOut", enabled = true, speed = 3, bezier = "quick" })
 hl.animation({ leaf = "zoomFactor", enabled = true, speed = 7, bezier = "quick" })
 hl.animation({
 	leaf = "specialWorkspaceIn",
 	enabled = true,
-	speed = 5,
+	speed = 4,
 	bezier = "default",
 	style = "slide bottom",
 })
 hl.animation({
 	leaf = "specialWorkspaceOut",
 	enabled = true,
-	speed = 5,
+	speed = 4,
 	bezier = "default",
 	style = "slide top",
 })
