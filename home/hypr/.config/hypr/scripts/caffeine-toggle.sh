@@ -3,9 +3,9 @@ set -euo pipefail
 
 _status() {
     if pgrep -x hypridle >/dev/null 2>&1; then
-        echo '{"text": "", "alt": "on", "class": "caffeine-off", "tooltip": "Idle on"}'
+        echo '{"text": "", "alt": "on", "class": "on", "tooltip": "Stay awake"}'
     else
-        echo '{"text": "", "alt": "off", "class": "caffeine-on", "tooltip": "Stay awake"}'
+        echo '{"text": "", "alt": "off", "class": "off", "tooltip": "Idle"}'
     fi
 }
 
