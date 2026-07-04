@@ -3,10 +3,6 @@
 My own dotfiles managed with [GNU Stow](https://www.gnu.org/software/stow/).
 Split into OS-specific and common configs.
 
-## Prerequisites
-
-- `stow`
-
 ## Installation
 
 ```bash
@@ -21,7 +17,7 @@ cd ~/.files
 # Add a new config (package structure: common/<pkg>/.config/<app>/)
 mkdir -p ~/.files/common/starship/.config/starship
 mv ~/.config/starship.toml ~/.files/common/starship/.config/starship/
-stow --restow --target ~ -d common starship
+stow --restow --target ~ -d common
 
 # Remove a config
 stow -D --target ~ -d common starship

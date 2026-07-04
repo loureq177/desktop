@@ -1,8 +1,5 @@
 #!/usr/bin/env bash
 
-# TODO: sprawdzić czy mogę coś wywalić z deps (np czy gnome packages mają się ludziom instalować?)
-# TODO: zaktualizować ./README.md
-
 BLUE='\033[0;34m'
 GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
@@ -16,10 +13,6 @@ _log_error() { echo -e "${RED}[ERROR]${NC} $*"; }
 
 set -euo pipefail
 cd "$(dirname "$0")"
-if ! command -v stow &>/dev/null; then
-    _log_error "GNU Stow is not installed."
-    exit 1
-fi
 
 mkdir -p ~/.config ~/.local/share ~/.local/state ~/.local/bin ~/.cache
 
