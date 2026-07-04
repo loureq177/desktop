@@ -1,4 +1,4 @@
-@define-color text #c0caf5;
+@define-color text #ffffff;
 @define-color text-inactive #565f89;
 @define-color accent-alt #00ff99;
 @define-color hover-bg rgba(255, 255, 255, 0.15);
@@ -12,7 +12,7 @@
 * {
   font-family: "JetBrainsMono Nerd Font Propo", sans-serif;
   font-size: 16px;
-  font-weight: 800;
+  font-weight: 700;
   border: none;
   min-height: 0;
   margin: 0;
@@ -32,7 +32,6 @@ tooltip {
 }
 tooltip label {
   color: @tooltip-text;
-  font-size: 16px;
 }
 .modules-left > widget > *,
 .modules-center > widget > *,
@@ -45,7 +44,6 @@ tooltip label {
   transition: all 0.25s ease;
 }
 
-/* --- window title (no pill) --- */
 #window {
   background: transparent;
   margin: 0;
@@ -53,7 +51,6 @@ tooltip label {
   font-weight: 700;
 }
 
-/* --- workspaces --- */
 #workspaces {
   background: @module-bg;
   padding: 0;
@@ -71,26 +68,9 @@ tooltip label {
   background: @module-bg;
 }
 #workspaces button:hover {
-  background: @module-hover;
-  box-shadow: inherit;
-  text-shadow: inherit;
+  background: @hover-bg;
 }
 
-/* --- hover on interactive modules --- */
-#custom-notification:hover,
-#custom-caffeine:hover,
-#custom-theme:hover,
-#custom-dgpu:hover,
-#pulseaudio:hover,
-#custom-microphone:hover,
-#memory:hover,
-#temperature:hover,
-#bluetooth:hover,
-#network:hover {
-  background: @module-hover;
-}
-
-/* === battery === */
 #battery.charging,
 #battery.plugged {
   color: @accent-alt;
@@ -122,38 +102,23 @@ tooltip label {
   animation-direction: alternate;
 }
 
-/* === custom/dgpu === */
 #custom-dgpu.off {
-  color: #ccc;
+  color: @text-inactive;
 }
 #custom-dgpu.on {
-  color: #76b900;
+  color: #00ff99;
 }
 
-/* === privacy indicators === */
 #privacy-item.screenshare {
   color: #9b59b6;
   background-color: rgba(155, 89, 182, 0.15);
 }
 
-/* === custom/notification (swaync) === */
-@keyframes notif-pulse {
-  0% {
-    background-color: rgba(243, 139, 168, 0.7);
-  }
-  50% {
-    background-color: rgba(243, 139, 168, 1);
-  }
-  100% {
-    background-color: rgba(166, 173, 200, 0.12);
-  }
-}
 #custom-notification.none {
   color: @text-inactive;
   background: @module-bg;
 }
 
-/* === custom/record === */
 #custom-record.recording {
   color: #ff0000;
   background-color: rgba(255, 0, 0, 0.18);
@@ -178,37 +143,29 @@ tooltip label {
   }
 }
 
-/* === bluetooth === */
-@keyframes bt-flash {
-  0% {
-    background-color: rgba(51, 204, 255, 0.45);
-  }
-  100% {
-    background-color: rgba(51, 204, 255, 0.12);
-  }
-}
-
 #bluetooth.connected {
   color: #33ccff;
   background-color: rgba(51, 204, 255, 0.12);
-  animation: bt-flash 0.8s ease-out 1;
-}
-#bluetooth.discoverable {
-  color: #33ccff;
-  background-color: rgba(51, 204, 255, 0.18);
-  animation: bt-flash 0.8s ease-out infinite;
-}
-#bluetooth.discovering {
-  background-color: rgba(51, 204, 255, 0.25);
-  animation: bt-flash 0.6s ease-out infinite alternate;
 }
 
-/* === microphone (custom/microphone) === */
-#custom-microphone.idle {
-  background: @module-bg;
+#custom-caffeine.off {
+  color: @text-inactive;
+}
+#custom-caffeine.on {
   color: @text;
 }
-#custom-microphone.active {
-  background-color: rgba(245, 60, 60, 0.85);
-  color: #ffffff;
+
+#battery:hover,
+#bluetooth:hover,
+#custom-caffeine:hover,
+#custom-dgpu:hover,
+#pulseaudio\\#microphone:hover,
+#custom-notification:hover,
+#memory:hover,
+#network:hover,
+#privacy:hover,
+#pulseaudio:hover,
+#temperature:hover,
+#window:hover {
+  background: @hover-bg;
 }
