@@ -1,8 +1,0 @@
-[Desktop Entry]
-Name=Tasks
-Exec=tasks
-Icon=google-tasks
-Terminal=false
-Type=Application
-StartupWMClass=tasks
-Categories=Office;Utility;

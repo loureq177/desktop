@@ -1,8 +1,0 @@
-[Desktop Entry]
-Name=Gmail
-Exec=gmail
-Icon=google-mail
-Terminal=false
-Type=Application
-StartupWMClass=gmail
-Categories=Network;Email;
