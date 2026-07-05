@@ -47,8 +47,8 @@ for _, app in pairs(programs.special) do
 end
 
 local function applyFocusGaps(monitor)
-	local gH = math.floor(monitor.height * 0.075)
-	local gW = math.floor(monitor.width * 0.075)
+	local gH = math.floor(monitor.height * 0.085)
+	local gW = math.floor(monitor.width * 0.085)
 	local gaps = { top = gH, right = gW, bottom = gH, left = gW }
 
 	for _, app in pairs(programs.special) do
