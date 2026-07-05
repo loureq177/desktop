@@ -33,6 +33,8 @@ if [ "$OS" = "Linux" ]; then
     check_sudo
 
     install_packages() {
+        _log_info "Updating pacman databases..."
+        sudo pacman -Sy
         _log_info "Installing packages via pacman..."
         for label in "${PKG_GROUPS[@]}"; do
             [ "$label" = "AUR" ] && continue
@@ -75,30 +77,15 @@ if [ "$OS" = "Linux" ]; then
     if [ -d "archlinux/hypr/.config/hypr/scripts" ]; then
         chmod +x archlinux/hypr/.config/hypr/scripts/* 2>/dev/null || true
     fi
-    if [ -d "archlinux/speech-to-text/.local/bin" ]; then
-        chmod +x archlinux/speech-to-text/.local/bin/*.sh 2>/dev/null || true
-    fi
     if [ -d "archlinux/webapps/.local/bin" ]; then
         chmod +x archlinux/webapps/.local/bin/* 2>/dev/null || true
-    fi
-
-    SPEECH_DIR="archlinux/speech-to-text"
-    if [ -d "$SPEECH_DIR" ]; then
-        _log_info "Setting up Python venv for speech-to-text..."
-        if [ ! -d "$SPEECH_DIR/.venv" ]; then
-            python3 -m venv "$SPEECH_DIR/.venv"
-        fi
-        "$SPEECH_DIR/.venv/bin/pip" install --quiet --upgrade \
-            faster-whisper \
-            nvidia-cublas-cu12 \
-            nvidia-cudnn-cu12
     fi
 
     install_packages
     install_flatpaks
     install_aur_packages
 
-    STOW_ARCH_PKGS=(bin electron hypr ly paru swaync webapps rofi speech-to-text systemd waybar wireplumber)
+    STOW_ARCH_PKGS=(bin electron hypr ly paru swaync webapps rofi systemd waybar wireplumber)
     STOW_IGNORE="$STOW_IGNORE_BASE --ignore=\.venv"
     (cd archlinux && stow --verbose --restow --target ~ $STOW_IGNORE "${STOW_ARCH_PKGS[@]}")
 
