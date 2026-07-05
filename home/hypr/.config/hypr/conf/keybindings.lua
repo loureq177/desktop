@@ -8,7 +8,7 @@ local cmds = {
 	["SUPER + Escape"] = "~/.config/hypr/scripts/powermenu.sh",
 	["SUPER + Period"] = "rofi -show emoji -modi emoji -emoji-mode copy",
 
-	["SUPER + CTRL + L"] = "hyprlock --immediate-render --no-fade-in",
+	["SUPER + CTRL + Q"] = "hyprlock --immediate-render --no-fade-in",
 	["SUPER + CTRL + A"] = "swaync-client -t",
 	["SUPER + CTRL + R"] = "~/.config/hypr/scripts/record-screen.sh",
 	["SUPER + CTRL + M"] = "wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle && pkill -RTMIN+8 waybar",
