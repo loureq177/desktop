@@ -1,2 +1,0 @@
-#!/bin/bash
-chromium --ozone-platform-hint=auto --user-data-dir="$HOME/.local/share/pwa/chromium-profile" --class=tasks --force-device-scale-factor=1.1 --app=https://tasks.google.com

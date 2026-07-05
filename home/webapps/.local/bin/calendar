@@ -1,2 +1,0 @@
-#!/bin/bash
-chromium --ozone-platform-hint=auto   --user-data-dir="$HOME/.local/share/pwa/chromium-profile"   --class=calendar   --app=https://calendar.google.com
