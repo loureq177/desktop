@@ -2,10 +2,10 @@
 Description=Bedtime routine script
 
 [Service]
-Type=oneshot
+Type=simple
 Environment=DISPLAY=:0
 Environment=WAYLAND_DISPLAY=wayland-1
-ExecStart=%h/.local/bin/bedtime
+ExecStart=%h/.local/bin/bedtime.sh
 
 [Install]
 WantedBy=timers.target
