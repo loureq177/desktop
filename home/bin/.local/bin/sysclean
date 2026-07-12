@@ -17,6 +17,7 @@ else
 fi
 
 echo "\nCleaning cached packages..."
+sudo rm -rf /var/cache/pacman/pkg
 paru -Scc --noconfirm
 
 echo "\nCleaning Flatpak leftovers..."
