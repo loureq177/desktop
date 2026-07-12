@@ -77,15 +77,12 @@ if [ "$OS" = "Linux" ]; then
     if [ -d "archlinux/hypr/.config/hypr/scripts" ]; then
         chmod +x archlinux/hypr/.config/hypr/scripts/* 2>/dev/null || true
     fi
-    if [ -d "archlinux/webapps/.local/bin" ]; then
-        chmod +x archlinux/webapps/.local/bin/* 2>/dev/null || true
-    fi
 
     install_packages
     install_flatpaks
     install_aur_packages
 
-    STOW_ARCH_PKGS=(bin electron hypr ly paru swaync webapps rofi systemd waybar wireplumber)
+    STOW_ARCH_PKGS=(bin electron hypr ly paru swaync rofi systemd waybar wireplumber)
     STOW_IGNORE="$STOW_IGNORE_BASE --ignore=\.venv"
     (cd archlinux && stow --verbose --restow --target ~ $STOW_IGNORE "${STOW_ARCH_PKGS[@]}")
 
@@ -102,14 +99,9 @@ if [ "$OS" = "Darwin" ]; then
 fi
 
 echo "Applying common configs..."
-STOW_COMMON_PKGS=(bat btop ghostty git mimeapps nvim opencode xdg yazi zsh)
+STOW_COMMON_PKGS=(btop ghostty git mimeapps nvim opencode xdg yazi zsh)
 STOW_IGNORE="$STOW_IGNORE_BASE"
 (cd common && stow --verbose --restow --target ~ $STOW_IGNORE "${STOW_COMMON_PKGS[@]}")
-
-if command -v bat &>/dev/null; then
-    echo "Building bat cache for custom themes..."
-    bat cache --build 2>&1 || echo "Warning: bat cache rebuild failed"
-fi
 
 if command -v systemctl &>/dev/null; then
     echo "Enabling user services..."
