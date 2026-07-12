@@ -159,13 +159,18 @@ tooltip label {
 #bluetooth:hover,
 #custom-caffeine:hover,
 #custom-dgpu:hover,
-#pulseaudio\\#microphone:hover,
+#group-microphone:hover,
 #custom-notification:hover,
 #memory:hover,
 #network:hover,
 #privacy:hover,
-#pulseaudio:hover,
+#group-volume:hover,
 #temperature:hover,
 #window:hover {
   background: @hover-bg;
+}
+
+#pulseaudio\\#volume-percent,
+#pulseaudio\\#microphone-percent {
+  padding-left: 4px;
 }

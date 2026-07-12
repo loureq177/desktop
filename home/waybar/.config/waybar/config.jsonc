@@ -16,8 +16,8 @@
     "custom/notification",
     "privacy",
     "custom/caffeine",
-    "pulseaudio#microphone",
-    "pulseaudio",
+    "group/microphone",
+    "group/volume",
     "bluetooth",
     "network",
     "battery",
@@ -52,8 +52,8 @@
   },
 
   "pulseaudio": {
-    "format": "<span size='120%'>{icon}</span> {volume}%",
-    "format-muted": "<span size='120%'>󰖁</span> {volume}%",
+    "format": "<span size='120%'>{icon}</span>",
+    "format-muted": "<span size='120%'>󰖁</span>",
     "format-icons": {
       "headphone": "󰋋",
       "hands-free": "󰋎",
@@ -68,11 +68,44 @@
     "signal": 7,
   },
 
+  "pulseaudio#volume-percent": {
+    "format": "{volume} ",
+    "format-muted": "{volume}",
+    "tooltip-format": "Volume: {volume}%",
+    "on-click": "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle && pkill -RTMIN+7 waybar",
+    "signal": 7,
+  },
+
   "pulseaudio#microphone": {
     "format": "{format_source}",
     "format-source": "<span size='120%'>󰍬</span>",
     "format-source-muted": "<span size='120%'>󰍭</span>",
     "on-click": "wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle",
+  },
+
+  "pulseaudio#microphone-percent": {
+    "format": "{format_source}",
+    "format-source": "{volume} ",
+    "format-source-muted": "{volume}",
+    "on-click": "wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle",
+  },
+
+  "group/volume": {
+    "orientation": "horizontal",
+    "drawer": {
+      "transition-duration": 500,
+      "transition-left-to-right": false,
+    },
+    "modules": ["pulseaudio", "pulseaudio#volume-percent"],
+  },
+
+  "group/microphone": {
+    "orientation": "horizontal",
+    "drawer": {
+      "transition-duration": 500,
+      "transition-left-to-right": false,
+    },
+    "modules": ["pulseaudio#microphone", "pulseaudio#microphone-percent"],
   },
 
   "bluetooth": {
@@ -115,7 +148,7 @@
 
   "battery": {
     "interval": 60,
-    "format": "{icon} {capacity}%",
+    "format": "{icon} {capacity}",
     "format-charging": "{icon} {capacity}%",
     "format-plugged": "{icon} {capacity}%",
     "format-icons": ["󰂎", "󰁺", "󰁻", "󰁼", "󰁽", "󰁾", "󰁿", "󰂀", "󰂁", "󰂂", "󰁹"],
