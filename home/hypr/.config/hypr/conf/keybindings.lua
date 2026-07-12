@@ -33,7 +33,7 @@ local special_apps = {
 	["SUPER + S"] = "spotify",
 	["SUPER + A"] = "gemini",
 	["SUPER + E"] = "yazi",
-	["SUPER + V"] = "clipboard",
+	["SUPER + CTRL + C"] = "clipboard",
 	["SUPER + CTRL + B"] = "bluetui",
 	["SUPER + CTRL + I"] = "impala",
 	["SUPER + CTRL + Escape"] = "btop",
@@ -64,6 +64,7 @@ end
 
 -- Move windows with mouse ----------------------------------------------------
 hl.bind("SUPER + mouse:272", hl.dsp.window.drag(), { mouse = true })
+hl.bind("mouse:274", hl.dsp.window.drag(), { mouse = true })
 
 -- System controls ------------------------------------------------------------
 hl.bind("SUPER + CTRL + S", hl.dsp.exec_cmd("~/.local/bin/dictate.sh start"))
