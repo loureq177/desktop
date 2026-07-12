@@ -131,6 +131,6 @@ export AUR_PKGS=(
     bibata-cursor-git
     nitch
     pwvucontrol
-    tlrc
+    tlrc-bin
     zsh-fast-syntax-highlighting
 )
