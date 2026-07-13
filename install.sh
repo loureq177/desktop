@@ -86,26 +86,27 @@ if [ "$OS" = "Linux" ]; then
     STOW_IGNORE="$STOW_IGNORE_BASE --ignore=\.venv"
     (cd archlinux && stow --verbose --restow --target ~ $STOW_IGNORE "${STOW_ARCH_PKGS[@]}")
 
+    if command -v systemctl &>/dev/null; then
+        echo "Enabling user services..."
+        systemctl --user daemon-reload 2>/dev/null || true
+    fi
+
 fi
 
 if [ "$OS" = "Darwin" ]; then
     _log_info "Detected macOS. Applying macOS configs..."
-    if [ -d "macos/bin/.local/bin" ]; then
-        chmod +x macos/bin/.local/bin/* 2>/dev/null || true
-    fi
-    if [ -d "macos" ]; then
-        (cd macos && stow --verbose --restow --target ~ */)
-    fi
+    source macos/deps_brew.sh
+    source macos/deps_brew_casks.sh
+    brew install "${PACKAGES[@]}"
+    brew install --cask "${CASKS[@]}"
+    # if [ -d "macos" ]; then
+    #     (cd macos && stow --verbose --restow --target ~ */)
+    # fi
 fi
 
 echo "Applying common configs..."
-STOW_COMMON_PKGS=(btop ghostty git mimeapps nvim opencode xdg yazi zsh)
+STOW_COMMON_PKGS=(btop ghostty mimeapps nvim opencode xdg yazi zsh)
 STOW_IGNORE="$STOW_IGNORE_BASE"
 (cd common && stow --verbose --restow --target ~ $STOW_IGNORE "${STOW_COMMON_PKGS[@]}")
-
-if command -v systemctl &>/dev/null; then
-    echo "Enabling user services..."
-    systemctl --user daemon-reload 2>/dev/null || true
-fi
 
 echo "Done."
