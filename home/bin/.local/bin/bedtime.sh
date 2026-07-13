@@ -8,7 +8,7 @@ night_end=$((2 * 60))
 notify_bed() {
     notify-send \
         --app-name "Bedtime" \
-        -t 5000 "Bedtime" \
+        -t 0 "Bedtime" \
         -i "weather-clear-night" \
         "$1"
 }

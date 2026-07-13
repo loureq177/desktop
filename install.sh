@@ -82,7 +82,7 @@ if [ "$OS" = "Linux" ]; then
     install_flatpaks
     install_aur_packages
 
-    STOW_ARCH_PKGS=(bin electron hypr ly paru swaync rofi systemd waybar wireplumber)
+    STOW_ARCH_PKGS=(bin electron git hypr ly paru swaync rofi systemd waybar wireplumber)
     STOW_IGNORE="$STOW_IGNORE_BASE --ignore=\.venv"
     (cd archlinux && stow --verbose --restow --target ~ $STOW_IGNORE "${STOW_ARCH_PKGS[@]}")
 
