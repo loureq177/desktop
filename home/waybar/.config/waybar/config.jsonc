@@ -70,7 +70,7 @@
 
   "pulseaudio#volume-percent": {
     "format": "{volume} ",
-    "format-muted": "{volume}",
+    "format-muted": "{volume} ",
     "tooltip-format": "Volume: {volume}%",
     "on-click": "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle && pkill -RTMIN+7 waybar",
     "signal": 7,
@@ -79,7 +79,7 @@
   "pulseaudio#microphone": {
     "format": "{format_source}",
     "format-source": "<span size='120%'>󰍬</span>",
-    "format-source-muted": "<span size='120%'>󰍭</span>",
+    "format-source-muted": "<span size='120%'> 󰍭</span>",
     "on-click": "wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle",
   },
 
@@ -149,8 +149,8 @@
   "battery": {
     "interval": 60,
     "format": "{icon} {capacity}",
-    "format-charging": "{icon} {capacity}%",
-    "format-plugged": "{icon} {capacity}%",
+    "format-charging": "{icon} {capacity}",
+    "format-plugged": "{icon} {capacity}",
     "format-icons": ["󰂎", "󰁺", "󰁻", "󰁼", "󰁽", "󰁾", "󰁿", "󰂀", "󰂁", "󰂂", "󰁹"],
     "tooltip": true,
     "tooltip-format": "{capacity}%\nRemaining time: {time}",
