@@ -59,6 +59,7 @@ export CLI_PKGS=(
     zip
     unzip
     flatpak
+    chafa
     bun
     bat
     cmatrix
