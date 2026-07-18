@@ -27,7 +27,8 @@ excludes=(
 )
 
 echo "Syncing: $source_root -> $remote_root"
-if ! rclone sync \
+set +e
+rclone sync \
     "$source_root" \
     "$remote_root" \
     "${excludes[@]}" \
@@ -39,8 +40,11 @@ if ! rclone sync \
     --fast-list \
     --track-renames \
     --drive-use-trash=true \
-    --verbose; then
-    rc=$?
+    --verbose
+rc=$?
+set -e
+
+if [ $rc -ne 0 ]; then
     notify-send --app-name "Rclone" -t 5000 "Rclone" -i "dialog-error" "Rclone Sync failed. Check the logs for details"
     exit "$rc"
 fi

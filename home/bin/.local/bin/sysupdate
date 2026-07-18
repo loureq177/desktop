@@ -6,11 +6,8 @@ export PATH="$HOME/.bun/bin:$PATH"
 paru -Syu --devel
 
 if command -v nvim >/dev/null 2>&1; then
-    nvim --headless "+Lazy! sync" "+lua require('mason')" \
-        "+MasonUpdate" \
-        "+lua P=require('mason-registry').get_installed_package_names()" \
-        "+lua if #P>0 then pcall(vim.cmd, 'MasonInstall '..table.concat(P,' ')) end" \
-        +qa
+    nvim --headless "+Lazy! sync" \
+        "+lua require('mason-registry').refresh(function() local P=require('mason-registry').get_installed_package_names(); if #P>0 then vim.cmd('MasonInstall '..table.concat(P,' ')) end; vim.cmd('qa') end)"
 fi
 
 if command -v bun >/dev/null 2>&1; then

@@ -56,20 +56,17 @@ if command -v docker >/dev/null 2>&1; then
     docker system prune -af --volumes 2>/dev/null || true
 fi
 
-echo "\nRemoving old kernels..."
-for dir in /usr/lib/modules/*/(N); do
-    if pacman -Qo "$dir" &>/dev/null; then
-        pkg=$(pacman -Qo "$dir" | awk -F' is owned by ' '{print $2}' | awk '{print $1}')
-        ver=$(basename "$dir")
-        if [ -n "$pkg" ] && [ "$ver" != "$(uname -r)" ] && [[ "$pkg" == linux* ]]; then
-            paru -Rns --noconfirm "$pkg" 2>/dev/null || true
-        fi
+echo "\nCleaning orphaned kernel modules..."
+for dir in /usr/lib/modules/*(N/); do
+    ver=$(basename "$dir")
+    if [ "$ver" != "$(uname -r)" ] && ! pacman -Qo "$dir" &>/dev/null; then
+        echo "Removing orphaned modules directory: $dir"
+        sudo rm -rf "$dir"
     fi
 done
 
-echo "\nNuking all caches..."
-rm -rfv "$HOME/.cache" 2>/dev/null || true
-mkdir -p "$HOME/.cache" 2>/dev/null || true
+echo "\nCleaning specific caches..."
+rm -rfv "$HOME/.cache/thumbnails/"*(N) /tmp/paru/*(N) 2>/dev/null || true
 
 echo "\nVacuuming journal..."
 sudo journalctl --vacuum-time=2weeks --quiet
