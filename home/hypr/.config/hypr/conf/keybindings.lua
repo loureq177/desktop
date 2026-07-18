@@ -67,8 +67,6 @@ hl.bind("SUPER + mouse:272", hl.dsp.window.drag(), { mouse = true })
 hl.bind("mouse:274", hl.dsp.window.drag(), { mouse = true })
 
 -- System controls ------------------------------------------------------------
-hl.bind("SUPER + CTRL + S", hl.dsp.exec_cmd("~/.local/bin/dictate.sh start"))
-hl.bind("SUPER + CTRL + S", hl.dsp.exec_cmd("~/.local/bin/dictate.sh stop"), { release = true })
 
 -- Audio and brightness ------------------------------------------------------
 local volume = "/usr/share/sounds/freedesktop/stereo/audio-volume-change.oga"

@@ -21,19 +21,3 @@ hl.config({
 })
 
 hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })
-hl.gesture({
-	fingers = 2,
-	direction = "pinchin",
-	mods = "SUPER",
-	action = "cursorZoom",
-	zoom_level = 2.0,
-	mode = "mult",
-})
-hl.gesture({
-	fingers = 2,
-	direction = "pinchout",
-	mods = "SUPER",
-	action = "cursorZoom",
-	zoom_level = 0.5,
-	mode = "mult",
-})
