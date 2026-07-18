@@ -2,7 +2,7 @@
 set -euo pipefail
 
 entry_id="$1"
-mime=$(cliphist decode "$entry_id" | file -b --mime-type -)
+mime=$(set +o pipefail; cliphist decode "$entry_id" | head -c 2048 | file -b --mime-type -)
 
 printf '\e_Ga=d\e\\'
 

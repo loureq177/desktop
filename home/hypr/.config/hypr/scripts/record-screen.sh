@@ -37,5 +37,6 @@ FILE="$OUT_DIR/$(date +'%Y-%m-%d_%H-%M-%S').mkv"
 echo "$FILE" >"$STATUS_FILE"
 
 exec 200>&-
-wf-recorder -g "$GEOM" -f "$FILE" -a --audio=default &
+wf-recorder -g "$GEOM" -f "$FILE" --audio=default &
+disown
 pkill -RTMIN+2 waybar || true
