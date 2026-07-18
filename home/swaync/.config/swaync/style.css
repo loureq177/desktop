@@ -15,24 +15,29 @@
   font-size: 17px;
 }
 
-.notification-row {
-  all: unset;
-}
-
-.notification-background {
-  all: unset;
-}
-
 .notification-row,
+.notification-background,
+.notification-default-action {
+  all: unset;
+  background: transparent;
+  border: none;
+  outline: none;
+  box-shadow: none;
+  padding: 0;
+}
+
 .notification-row:hover,
 .notification-row:focus,
 .notification-row:selected,
 .notification-row:active,
-.notification-background,
 .notification-background:hover,
 .notification-background:focus,
 .notification-background:selected,
-.notification-background:active {
+.notification-background:active,
+.notification-default-action:hover,
+.notification-default-action:focus,
+.notification-default-action:selected,
+.notification-default-action:active {
   background: transparent;
   border: none;
   outline: none;
@@ -43,7 +48,7 @@
 .control-center {
   background: @bg-main;
   border-radius: 16px;
-  border: 1px solid @border-color;
+  border: 2px solid @border-color;
   padding: 12px;
 }
 
@@ -93,7 +98,7 @@
   border-radius: 16px;
   padding: 8px 12px;
   margin-bottom: 2px;
-  border: 1px solid @border-color;
+  border: 2px solid @border-color;
   box-shadow: 0px 2px 6px 0px @shadow-color;
   transition:
     border-color 150ms ease,
@@ -101,8 +106,8 @@
 }
 
 .notification:hover {
-  border-color: @accent;
-  background: mix(@bg-card, @accent, 0.08);
+  background: @bg-hover;
+  border-color: @text-muted;
 }
 
 .notification.critical {
@@ -118,29 +123,41 @@
   padding: 0;
 }
 
+.notification-alt-actions {
+  background: transparent;
+}
+
 .notification-action {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+
+.notification-action > button {
   background: @bg-hover;
   color: @text-main;
   border: 1px solid @border-color;
   border-radius: 8px;
-  padding: 4px 10px;
-  margin-top: 6px;
+  padding: 6px 12px;
+  box-shadow: none;
   transition:
     background 150ms ease,
     color 150ms ease,
     border-color 150ms ease;
 }
 
-.notification-action:hover {
-  background: @accent;
-  color: @bg-main;
-  border-color: @accent;
+.notification-action > button:hover {
+  background: @border-color;
+  color: @text-main;
+  border-color: @text-muted;
+  box-shadow: none;
 }
 
 .close-button {
   background: transparent;
   color: @text-muted;
   border: 1px solid transparent;
+  box-shadow: none;
   border-radius: 8px;
   padding: 4px;
   transition:
@@ -153,6 +170,7 @@
   background: @bg-hover;
   color: @text-main;
   border-color: @border-color;
+  box-shadow: none;
 }
 
 .image {
@@ -200,6 +218,7 @@
   border-radius: 8px;
   padding: 4px 10px;
   border: 1px solid @border-color;
+  box-shadow: none;
   transition:
     background 150ms ease,
     color 150ms ease;
@@ -208,6 +227,7 @@
 .widget-title > button:hover {
   background: @bg-hover;
   color: @text-main;
+  box-shadow: none;
 }
 
 .widget-dnd {
@@ -249,7 +269,7 @@
 
 .notification-group-headline {
   background: @bg-card;
-  border: 1px solid @border-color;
+  border: 2px solid @border-color;
   border-radius: 16px;
   padding: 6px 10px;
 }
@@ -266,6 +286,7 @@
   border: 1px solid @border-color;
   border-radius: 8px;
   padding: 4px 10px;
+  box-shadow: none;
   transition:
     background 150ms ease,
     color 150ms ease;
@@ -276,6 +297,7 @@
 .notification-group-close-all-button:hover {
   background: @accent;
   color: @bg-main;
+  box-shadow: none;
 }
 
 .notification-group-headline > label {
