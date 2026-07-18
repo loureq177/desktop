@@ -20,6 +20,16 @@ OS="$(uname -s)"
 STOW_IGNORE_BASE='--ignore=node_modules --ignore=__pycache__ --ignore=\.pyc$ --ignore=\.zwc$'
 
 if [ "$OS" = "Linux" ]; then
+    if [ "${EUID:-$(id -u)}" -eq 0 ]; then
+        _log_error "Do not run this script as root/sudo directly. It will run pacman via sudo when needed, but AUR helpers (paru) must run as a normal user."
+        exit 1
+    fi
+
+    if [ ! -f /etc/arch-release ]; then
+        _log_error "This script currently only supports Arch Linux distributions."
+        exit 1
+    fi
+
     _log_info "Detected Linux. Applying Archlinux configs..."
     source archlinux/deps_paru.sh
 
@@ -82,9 +92,15 @@ if [ "$OS" = "Linux" ]; then
     install_flatpaks
     install_aur_packages
 
-    STOW_ARCH_PKGS=(bin electron git hypr ly paru swaync rofi systemd waybar wireplumber)
+    STOW_ARCH_PKGS=(bin electron git hypr paru swaync rofi systemd waybar wireplumber)
     STOW_IGNORE="$STOW_IGNORE_BASE --ignore=\.venv"
     (cd archlinux && stow --verbose --restow --target ~ $STOW_IGNORE "${STOW_ARCH_PKGS[@]}")
+
+    if [ -f "archlinux/ly/.config/ly/config.ini" ]; then
+        _log_info "Configuring Ly display manager..."
+        sudo mkdir -p /etc/ly
+        sudo ln -sfv "$(pwd)/archlinux/ly/.config/ly/config.ini" /etc/ly/config.ini
+    fi
 
     if command -v systemctl &>/dev/null; then
         echo "Enabling user services..."
@@ -105,7 +121,7 @@ if [ "$OS" = "Darwin" ]; then
 fi
 
 echo "Applying common configs..."
-STOW_COMMON_PKGS=(btop ghostty mimeapps nvim opencode xdg yazi zsh)
+STOW_COMMON_PKGS=(btop ghostty mimeapps nvim opencode prettier stylua xdg yazi zsh)
 STOW_IGNORE="$STOW_IGNORE_BASE"
 (cd common && stow --verbose --restow --target ~ $STOW_IGNORE "${STOW_COMMON_PKGS[@]}")
 
