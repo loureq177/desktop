@@ -1,6 +1,6 @@
 @define-color text #ffffff;
 @define-color text-inactive #565f89;
-@define-color accent-alt #00ff99;
+@define-color accent-alt #09ed95;
 @define-color hover-bg rgba(255, 255, 255, 0.15);
 @define-color dnd-off #a6adc8;
 @define-color module-bg rgba(41, 46, 66, 0.6);
@@ -26,8 +26,8 @@ window#waybar {
 
 tooltip {
   background: @tooltip-bg;
-  border: 1px solid @tooltip-border;
-  border-radius: 8px;
+  border: 2px solid @tooltip-border;
+  border-radius: 16px;
   padding: 8px 12px;
 }
 tooltip label {

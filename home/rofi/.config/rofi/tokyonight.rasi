@@ -2,7 +2,7 @@
     fg0: #c0caf5;
     accent: #2ac3de;
     urgent: #ff757f;
-    accent-alt: #00ff99;
+    accent-alt: #09ed95;
     background-color: transparent;
     border-color: #292e42;
     text-color: @fg0;
