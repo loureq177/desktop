@@ -1,13 +1,13 @@
-@define-color text #ffffff;
-@define-color text-inactive #565f89;
-@define-color accent-alt #09ed95;
-@define-color hover-bg rgba(255, 255, 255, 0.15);
-@define-color dnd-off #a6adc8;
-@define-color module-bg rgba(41, 46, 66, 0.6);
-@define-color module-hover rgba(36, 40, 59, 0.8);
-@define-color tooltip-bg rgba(26, 27, 38, 0.95);
-@define-color tooltip-border rgba(41, 46, 66, 0.8);
-@define-color tooltip-text #c0caf5;
+@define-color text #c9d1d9;
+@define-color text-inactive #8b949e;
+@define-color accent-alt #3fb950;
+@define-color hover-bg rgba(255, 255, 255, 0.1);
+@define-color dnd-off #8b949e;
+@define-color module-bg rgba(22, 27, 34, 0.6);
+@define-color module-hover rgba(48, 54, 61, 0.8);
+@define-color tooltip-bg rgba(13, 17, 23, 0.95);
+@define-color tooltip-border rgba(48, 54, 61, 0.8);
+@define-color tooltip-text #c9d1d9;
 
 * {
   font-family: "JetBrainsMono Nerd Font Propo", sans-serif;
@@ -88,12 +88,12 @@ tooltip label {
 }
 
 #battery.warning:not(.charging) {
-  color: #f9c74f;
-  background-color: rgba(249, 199, 79, 0.15);
+  color: #d29922;
+  background-color: rgba(210, 153, 34, 0.15);
 }
 
 #battery.critical:not(.charging) {
-  background-color: rgba(245, 60, 60, 0.35);
+  background-color: rgba(248, 81, 73, 0.35);
   color: #ffffff;
   animation-name: blink-critical;
   animation-duration: 0.5s;
@@ -106,12 +106,12 @@ tooltip label {
   color: @text-inactive;
 }
 #custom-dgpu.on {
-  color: #00ff99;
+  color: #3fb950;
 }
 
 #privacy-item.screenshare {
-  color: #9b59b6;
-  background-color: rgba(155, 89, 182, 0.15);
+  color: #bc8cff;
+  background-color: rgba(188, 140, 255, 0.15);
 }
 
 #custom-notification.none {
@@ -120,8 +120,8 @@ tooltip label {
 }
 
 #custom-record.recording {
-  color: #ff0000;
-  background-color: rgba(255, 0, 0, 0.18);
+  color: #f85149;
+  background-color: rgba(248, 81, 73, 0.18);
   animation: breathe 2s ease-in-out infinite;
 }
 #custom-record.idle {
@@ -144,8 +144,8 @@ tooltip label {
 }
 
 #bluetooth.connected {
-  color: #33ccff;
-  background-color: rgba(51, 204, 255, 0.12);
+  color: #58a6ff;
+  background-color: rgba(88, 166, 255, 0.12);
 }
 
 #custom-caffeine.off {
