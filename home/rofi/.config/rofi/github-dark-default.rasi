@@ -1,0 +1,80 @@
+* {
+    fg0: #c9d1d9;
+    accent: #58a6ff;
+    urgent: #f85149;
+    accent-alt: #3fb950;
+    background-color: transparent;
+    border-color: #30363d;
+    text-color: @fg0;
+    margin: 0;
+    padding: 0;
+    spacing: 0;
+    font: "JetBrainsMono Nerd Font Mono 13";
+}
+window {
+    background-color: rgba(13, 17, 23, 0.95);
+    border: 2px;
+    border-color: @accent;
+    border-radius: 16px;
+    width: 720px;
+    location: center;
+    anchor: center;
+    yoffset: -150;
+    fullscreen: false;
+}
+
+inputbar {
+    padding: 20px;
+    background-color: rgba(22, 27, 34, 0.4);
+    children: [prompt, entry];
+    border: 1px;
+    border-color: rgba(88, 166, 255, 0);
+}
+entry {
+    placeholder: "Search...";
+    placeholder-color: #8b949e;
+    text-color: @fg0;
+    font: "JetBrainsMono Nerd Font Mono Bold 14";
+    padding: 8px 12px;
+    background-color: rgba(22, 27, 34, 0.3);
+    border-radius: 8px;
+}
+prompt {
+    text-color: @accent;
+    padding: 8px 12px 8px 0;
+    font: "JetBrainsMono Nerd Font Mono Bold 14";
+}
+listview {
+    padding: 12px 20px 20px 20px;
+    lines: 8;
+    columns: 1;
+    fixed-height: true;
+    scrollbar: true;
+    spacing: 4px;
+}
+element {
+    padding: 10px 14px;
+    border-radius: 8px;
+    background-color: transparent;
+}
+element selected {
+    background-color: rgba(56, 139, 253, 0.15);
+    text-color: @accent;
+    border: 1px 1px 1px 1px;
+    border-color: @border-color;
+}
+element-text {
+    vertical-align: 0.5;
+    font: "JetBrainsMono Nerd Font Mono 13";
+}
+element-icon {
+    size: 1.8em;
+    padding: 0 18px 0 0;
+}
+scrollbar {
+    width: 2px;
+    handle-color: @accent-alt;
+    handle-width: 2px;
+    border: 0;
+    padding: 0;
+}

@@ -17,4 +17,4 @@ configuration {
     yoffset: -150;
     fullscreen: false;
 }
-@theme "tokyonight"
+@theme "github-dark-default"
