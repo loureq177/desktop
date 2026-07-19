@@ -4,15 +4,24 @@
 [interactive]
     diffFilter = delta --color-only
 [delta]
-    syntax-theme = Dracula
-    features = decorations
+    features = github-dark
+
+[delta "github-dark"]
+    dark = true
+    syntax-theme = TwoDark
     line-numbers = true
     side-by-side = true
     navigate = true
-[delta "decorations"]
-    commit-decoration-style = bold yellow box ul
-    file-style = bold yellow ul
+    minus-style = syntax "#2c161a"
+    minus-emph-style = syntax "#581e24"
+    plus-style = syntax "#13231b"
+    plus-emph-style = syntax "#204e2d"
+    commit-decoration-style = bold #58a6ff box ul
+    file-style = bold #58a6ff ul
     file-decoration-style = none
+    hunk-header-decoration-style = "#30363d" box
+    hunk-header-file-style = bold #c9d1d9
+    hunk-header-line-number-style = bold #8b949e
 [init]
 	defaultBranch = main
 [user]
