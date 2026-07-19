@@ -13,7 +13,7 @@ entry=$(printf "%b\n" "${menu_options[@]}" | rofi \
     -show-icons \
     -theme-str 'configuration { icon-theme: "Papirus"; }' \
     -format s \
-    -theme ~/.config/rofi/tokyonight.rasi) || exit 0
+    -theme ~/.config/rofi/github-dark-default.rasi) || exit 0
 
 case "$entry" in
 "suspend") systemctl suspend ;;
