@@ -92,6 +92,7 @@ export CLI_PKGS=(
     slurp
     openbsd-netcat
     duf
+    httpie
 )
 
 export TUI_PKGS=(
