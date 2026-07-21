@@ -1,22 +1,7 @@
 local gsettings = "gsettings set org.gnome.desktop.interface"
 
-local env_vars = table.concat({
-	"XDG_SESSION_TYPE",
-	"XDG_SESSION_DESKTOP",
-	"GTK_THEME",
-	"GTK_USE_PORTAL",
-	"ELECTRON_OZONE_PLATFORM_HINT",
-	"__GLX_VENDOR_LIBRARY_NAME",
-	"LIBVA_DRIVER_NAME",
-	"GBM_BACKEND",
-	"GDK_BACKEND",
-}, " ")
-
 hl.on("hyprland.start", function()
 	local cmds = {
-		"dbus-update-activation-environment --systemd " .. env_vars,
-		"systemctl --user import-environment " .. env_vars,
-
 		gsettings .. " cursor-theme 'Bibata-Modern-Classic'",
 		gsettings .. " icon-theme 'Papirus-Dark'",
 		gsettings .. " font-name 'Adwaita Sans 13'",
