@@ -75,24 +75,19 @@ end
 hl.bind("SUPER + mouse:272", hl.dsp.window.drag(), { mouse = true })
 hl.bind("mouse:274", hl.dsp.window.drag(), { mouse = true })
 
--- System controls ------------------------------------------------------------
-
 -- Audio and brightness ------------------------------------------------------
-local volume = "/usr/share/sounds/freedesktop/stereo/audio-volume-change.oga"
-local vol_base = "wpctl set-volume "
+local snd = "/usr/share/sounds/freedesktop/stereo/audio-volume-change.oga"
+local vol = "wpctl set-volume"
 
 local media = {
-	XF86AudioRaiseVolume = {
-		vol_base .. "-l 1.5 @DEFAULT_AUDIO_SINK@ 2%+ && pw-play " .. volume,
-		true,
-	},
-	XF86AudioLowerVolume = { vol_base .. "@DEFAULT_AUDIO_SINK@ 2%- && pw-play " .. volume, true },
-	XF86AudioMute = { "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle", false },
-	XF86AudioMicMute = { "wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle", false },
-	XF86MonBrightnessUp = { "brightnessctl set +10%", true },
-	XF86MonBrightnessDown = { "brightnessctl set 10%-", true },
+	{ "XF86AudioRaiseVolume", vol .. " -l 1.5 @DEFAULT_AUDIO_SINK@ 2%+ && pw-play " .. snd, true },
+	{ "XF86AudioLowerVolume", vol .. " @DEFAULT_AUDIO_SINK@ 2%- && pw-play " .. snd, true },
+	{ "XF86AudioMute", "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle" },
+	{ "XF86AudioMicMute", "wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle" },
+	{ "XF86MonBrightnessUp", "brightnessctl set +10%", true },
+	{ "XF86MonBrightnessDown", "brightnessctl set 10%-", true },
 }
 
-for key, conf in pairs(media) do
-	hl.bind(key, hl.dsp.exec_cmd(conf[1]), { locked = true, repeating = conf[2] })
+for _, m in ipairs(media) do
+	hl.bind(m[1], hl.dsp.exec_cmd(m[2]), { locked = true, repeating = m[3] })
 end
