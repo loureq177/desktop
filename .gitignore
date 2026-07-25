@@ -6,4 +6,5 @@
 node_modules/
 .venv/
 .ruff_cache/
+.env*
 __pycache__
