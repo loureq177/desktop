@@ -5,7 +5,6 @@ local cmds = {
 	["SUPER + RETURN"] = programs.terminal,
 	["SUPER + B"] = programs.browser,
 	["SUPER + space"] = programs.launcher,
-	["SUPER + Escape"] = "~/.config/hypr/scripts/powermenu.sh",
 	["SUPER + Period"] = "rofi -show emoji -modi emoji -emoji-mode copy",
 
 	["SUPER + CTRL + Q"] = "hyprlock --immediate-render --no-fade-in",
@@ -17,6 +16,7 @@ local cmds = {
 
 	["Print"] = "~/.config/hypr/scripts/screenshot.sh region",
 	["SHIFT + Print"] = "~/.config/hypr/scripts/screenshot.sh fullscreen",
+	["SUPER + Escape"] = "~/.config/hypr/scripts/powermenu.sh",
 }
 
 for bind, cmd in pairs(cmds) do
@@ -55,13 +55,15 @@ local step = 50
 for key, dir in pairs(directions) do
 	hl.bind("SUPER + " .. key, hl.dsp.focus({ direction = dir }))
 	hl.bind("SUPER + SHIFT + " .. key, hl.dsp.window.swap({ direction = dir }))
+
 	hl.bind(
 		"SUPER + CTRL + " .. key,
 		hl.dsp.window.resize({
 			x = (dir == "left" and -step) or (dir == "right" and step) or 0,
 			y = (dir == "up" and -step) or (dir == "down" and step) or 0,
 			relative = true,
-		})
+		}),
+		{ repeating = true }
 	)
 end
 
