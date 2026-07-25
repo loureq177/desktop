@@ -14,6 +14,9 @@ hl.config({
 			tap_to_click = true,
 		},
 	},
+	cursor = {
+		inactive_timeout = 1,
+	},
 	gestures = {
 		workspace_swipe_touch = true,
 		workspace_swipe_cancel_ratio = 0.05,
