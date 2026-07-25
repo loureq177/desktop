@@ -8,10 +8,9 @@ hl.on("hyprland.start", function()
 		gsettings .. " color-scheme 'prefer-dark'",
 		gsettings .. " gtk-theme 'Adwaita-dark'",
 		gsettings .. " monospace-font-name 'JetBrainsMono Nerd Font Mono 13'",
+		"hyprctl setcursor Bibata-Modern-Classic 24",
 
 		"systemctl --user start hyprland-session.target",
-
-		"systemctl --user start xdg-desktop-portal-hyprland xdg-desktop-portal-gtk xdg-desktop-portal",
 
 		"wl-paste --type text --watch cliphist -max-items 50 store",
 		"wl-paste --type image/png --watch cliphist -max-items 10 store",
