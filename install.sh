@@ -115,9 +115,12 @@ if [ "$OS" = "Darwin" ]; then
     source macos/deps_brew_casks.sh
     brew install "${PACKAGES[@]}"
     brew install --cask "${CASKS[@]}"
-    # if [ -d "macos" ]; then
-    #     (cd macos && stow --verbose --restow --target ~ */)
-    # fi
+    if [ -d "macos/bin/.local/bin" ]; then
+        chmod +x macos/bin/.local/bin/* 2>/dev/null || true
+    fi
+    STOW_MACOS_PKGS=(bin)
+    STOW_IGNORE="$STOW_IGNORE_BASE --ignore=\.venv"
+    (cd macos && stow --verbose --restow --target ~ $STOW_IGNORE "${STOW_MACOS_PKGS[@]}")
 fi
 
 echo "Applying common configs..."
