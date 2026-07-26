@@ -17,7 +17,8 @@ cd "$(dirname "$0")"
 mkdir -p ~/.config ~/.local/share ~/.local/state ~/.local/bin ~/.cache
 
 OS="$(uname -s)"
-STOW_IGNORE_BASE='--ignore=node_modules --ignore=__pycache__ --ignore=\.pyc$ --ignore=\.zwc$'
+STOW_IGNORE_BASE=(--ignore=node_modules --ignore=__pycache__ '--ignore=\.pyc$' '--ignore=\.zwc$')
+
 
 if [ "$OS" = "Linux" ]; then
     if [ "${EUID:-$(id -u)}" -eq 0 ]; then
@@ -44,7 +45,7 @@ if [ "$OS" = "Linux" ]; then
 
     install_packages() {
         _log_info "Updating pacman databases..."
-        sudo pacman -Sy
+        sudo pacman -Syu --noconfirm
         _log_info "Installing packages via pacman..."
         for label in "${PKG_GROUPS[@]}"; do
             [ "$label" = "AUR" ] && continue
@@ -93,8 +94,9 @@ if [ "$OS" = "Linux" ]; then
     install_aur_packages
 
     STOW_ARCH_PKGS=(bin electron git hypr paru swaync rofi systemd waybar wireplumber)
-    STOW_IGNORE="$STOW_IGNORE_BASE --ignore=\.venv"
-    (cd archlinux && stow --verbose --restow --target ~ $STOW_IGNORE "${STOW_ARCH_PKGS[@]}")
+    STOW_IGNORE=("${STOW_IGNORE_BASE[@]}" '--ignore=\.venv')
+    (cd archlinux && stow --verbose --restow --target ~ "${STOW_IGNORE[@]}" "${STOW_ARCH_PKGS[@]}")
+
 
     if [ -f "archlinux/ly/.config/ly/config.ini" ]; then
         _log_info "Configuring Ly display manager..."
@@ -119,13 +121,14 @@ if [ "$OS" = "Darwin" ]; then
         chmod +x macos/bin/.local/bin/* 2>/dev/null || true
     fi
     STOW_MACOS_PKGS=(bin)
-    STOW_IGNORE="$STOW_IGNORE_BASE --ignore=\.venv"
-    (cd macos && stow --verbose --restow --target ~ $STOW_IGNORE "${STOW_MACOS_PKGS[@]}")
+    STOW_IGNORE=("${STOW_IGNORE_BASE[@]}" '--ignore=\.venv')
+    (cd macos && stow --verbose --restow --target ~ "${STOW_IGNORE[@]}" "${STOW_MACOS_PKGS[@]}")
 fi
 
 echo "Applying common configs..."
 STOW_COMMON_PKGS=(btop ghostty mimeapps nvim opencode prettier stylua xdg yazi zsh)
-STOW_IGNORE="$STOW_IGNORE_BASE"
-(cd common && stow --verbose --restow --target ~ $STOW_IGNORE "${STOW_COMMON_PKGS[@]}")
+STOW_IGNORE=("${STOW_IGNORE_BASE[@]}")
+(cd common && stow --verbose --restow --target ~ "${STOW_IGNORE[@]}" "${STOW_COMMON_PKGS[@]}")
+
 
 echo "Done."
