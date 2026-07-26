@@ -24,7 +24,7 @@ case $(date +%H:%M) in
         nmcli radio wifi on
         ;;
     *)
-        hour=$(10#$(date +%H))
+        hour=$((10#$(date +%H)))
         if [ "$hour" -ge 22 ] || [ "$hour" -lt 2 ]; then
             notify_bed "WiFi has been turned off."
             nmcli radio wifi off
