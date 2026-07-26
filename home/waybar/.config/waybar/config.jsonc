@@ -16,10 +16,10 @@
     "custom/notification",
     "privacy",
     "custom/caffeine",
-    "group/microphone",
-    "group/volume",
     "bluetooth",
     "network",
+    "group/microphone",
+    "pulseaudio",
     "battery",
   ],
 
@@ -52,8 +52,8 @@
   },
 
   "pulseaudio": {
-    "format": "<span size='120%'>{icon}</span>",
-    "format-muted": "<span size='120%'>󰖁</span>",
+    "format": "<span size='120%'>{icon}</span> {volume}",
+    "format-muted": "<span size='120%'>󰖁</span> {volume}",
     "format-icons": {
       "headphone": "󰋋",
       "hands-free": "󰋎",
@@ -63,15 +63,7 @@
       "car": "󰄋",
       "default": ["󰕿", "󰖀", "󰕾"],
     },
-    "tooltip-format": "Volume: {volume}%",
-    "on-click": "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle && pkill -RTMIN+7 waybar",
-    "signal": 7,
-  },
-
-  "pulseaudio#volume-percent": {
-    "format": "{volume} ",
-    "format-muted": "{volume} ",
-    "tooltip-format": "Volume: {volume}%",
+    "tooltip-format": "Volume: {volume}",
     "on-click": "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle && pkill -RTMIN+7 waybar",
     "signal": 7,
   },
@@ -90,15 +82,6 @@
     "on-click": "wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle",
   },
 
-  "group/volume": {
-    "orientation": "horizontal",
-    "drawer": {
-      "transition-duration": 500,
-      "transition-left-to-right": false,
-    },
-    "modules": ["pulseaudio", "pulseaudio#volume-percent"],
-  },
-
   "group/microphone": {
     "orientation": "horizontal",
     "drawer": {
@@ -113,7 +96,7 @@
     "tooltip-format": "{controller_alias}\t{controller_address}\n\n{num_connections} connected",
     "tooltip-format-connected": "{controller_alias}\t{controller_address}\n\n{num_connections} connected\n\n{device_enumerate}",
     "tooltip-format-enumerate-connected": "{device_alias}\t{device_address}",
-    "tooltip-format-enumerate-connected-battery": "{device_alias}\t{device_address}\t{device_battery_percentage}%",
+    "tooltip-format-enumerate-connected-battery": "{device_alias}\t{device_address}\t{device_battery_percentage}",
     "on-click": "hyprctl dispatch \"hl.dsp.workspace.toggle_special('bluetui')\"",
   },
 

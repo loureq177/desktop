@@ -45,6 +45,7 @@ export GUI_PKGS=(
     discord
     gimp
     chromium
+    firefox
     libreoffice-fresh
     libreoffice-fresh-pl
     network-manager-applet
@@ -129,7 +130,6 @@ export GNOME_PKGS=(
 )
 
 export AUR_PKGS=(
-    zen-browser-bin
     bibata-cursor-git
     nitch
     pwvucontrol

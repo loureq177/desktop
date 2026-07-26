@@ -3,7 +3,7 @@ local hypr = os.getenv("HOME") .. "/.config/hypr"
 
 return {
 	terminal = "ghostty",
-	browser = "zen-browser",
+	browser = "firefox",
 	launcher = "rofi -show drun -replace",
 
 	special = {
