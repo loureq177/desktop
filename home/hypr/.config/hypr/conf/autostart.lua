@@ -2,13 +2,13 @@ local gsettings = "gsettings set org.gnome.desktop.interface"
 
 hl.on("hyprland.start", function()
 	local cmds = {
-		gsettings .. " cursor-theme 'Bibata-Modern-Classic'",
+		-- gsettings .. " cursor-theme 'Bibata-Modern-Classic'",
 		gsettings .. " icon-theme 'Papirus-Dark'",
 		gsettings .. " font-name 'Adwaita Sans 13'",
 		gsettings .. " color-scheme 'prefer-dark'",
 		gsettings .. " gtk-theme 'Adwaita-dark'",
 		gsettings .. " monospace-font-name 'JetBrainsMono Nerd Font Mono 13'",
-		"hyprctl setcursor Bibata-Modern-Classic 24",
+		-- "hyprctl setcursor Bibata-Modern-Classic 24",
 
 		"systemctl --user start hyprland-session.target",
 
