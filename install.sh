@@ -93,7 +93,7 @@ if [ "$OS" = "Linux" ]; then
     install_flatpaks
     install_aur_packages
 
-    STOW_ARCH_PKGS=(bin electron git hypr paru swaync rofi systemd waybar wireplumber)
+    STOW_ARCH_PKGS=(bin electron git hypr mimeapps paru swaync rofi systemd waybar wireplumber xdg)
     STOW_IGNORE=("${STOW_IGNORE_BASE[@]}" '--ignore=\.venv')
     (cd archlinux && stow --verbose --restow --target ~ "${STOW_IGNORE[@]}" "${STOW_ARCH_PKGS[@]}")
 
@@ -126,7 +126,7 @@ if [ "$OS" = "Darwin" ]; then
 fi
 
 echo "Applying common configs..."
-STOW_COMMON_PKGS=(btop ghostty mimeapps nvim opencode prettier stylua xdg yazi zsh)
+STOW_COMMON_PKGS=(btop ghostty nvim opencode prettier stylua yazi zsh)
 STOW_IGNORE=("${STOW_IGNORE_BASE[@]}")
 (cd common && stow --verbose --restow --target ~ "${STOW_IGNORE[@]}" "${STOW_COMMON_PKGS[@]}")
 
