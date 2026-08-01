@@ -130,9 +130,9 @@ export GNOME_PKGS=(
 )
 
 export AUR_PKGS=(
-    bibata-cursor-git
-    nitch
+    # bibata-cursor-git
+    # nitch
     pwvucontrol
-    tlrc-bin
+    # tlrc-bin
     zsh-fast-syntax-highlighting
 )
