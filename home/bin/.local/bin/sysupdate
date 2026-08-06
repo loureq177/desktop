@@ -1,14 +1,23 @@
 #!/usr/bin/env zsh
 set -euo pipefail
-
 export PATH="$HOME/.bun/bin:$PATH"
 
 paru -Syu --devel
 
-if command -v nvim >/dev/null 2>&1; then
-    nvim --headless "+Lazy! sync" "+Lazy load mason.nvim" "+MasonUpdate" "+qa" || true
-fi
-
+# TODO: headless mason update sucks hard
+# if command -v nvim >/dev/null 2>&1; then
+#     for attempt in 1 2; do
+#         if timeout -s INT 600 nvim --headless \
+#             "+lua require('lazy').sync({wait=true, show=false})" \
+#             "+Lazy load mason.nvim" \
+#             "+lua local r=require('mason-registry') r.refresh(function() local p=r.get_installed_package_names() local n=#p if n==0 then vim.cmd('qa') return end for _,v in ipairs(p) do r.get_package(v):install():once('closed',function() n=n-1 if n==0 then vim.cmd('qa') end end) end end)"
+#         then
+#             break
+#         fi
+#         echo "nvim/mason sync: timeout (próba $attempt), ponawiam..." >&2
+#     done
+# fi
+#
 if command -v bun >/dev/null 2>&1; then
     echo "\n"
     bun upgrade || true
