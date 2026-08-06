@@ -18,17 +18,26 @@ hl.monitor({
 
 hl.bind(
 	"switch:on:Lid Switch",
-	hl.dsp.exec_cmd(string.format([=[hyprctl eval 'hl.monitor({output = "%s", disabled = true})']=], laptop_output)),
+	function()
+		local mons = hl.get_monitors()
+		if #mons > 1 then
+			hl.monitor({ output = laptop_output, disabled = true })
+		end
+	end,
 	{ locked = true }
 )
+
 hl.bind(
 	"switch:off:Lid Switch",
-	hl.dsp.exec_cmd(string.format(
-		[=[hyprctl eval 'hl.monitor({output = "%s", mode = "%s", position = "%s", scale = %d, disabled = false})']=],
-		laptop_output,
-		laptop_mode,
-		laptop_pos,
-		laptop_scale
-	)),
+	function()
+		hl.monitor({
+			output = laptop_output,
+			mode = laptop_mode,
+			position = laptop_pos,
+			scale = laptop_scale,
+			disabled = false,
+		})
+	end,
 	{ locked = true }
 )
+
