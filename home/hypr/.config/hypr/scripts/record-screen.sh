@@ -10,6 +10,7 @@ exec 200>"$LOCKFILE"
 flock -n 200 || exit 0
 
 if pkill -x wf-recorder; then
+    swaync-client --dnd-off || true
     pkill -RTMIN+2 waybar || true
 
     FILE=""
@@ -37,6 +38,7 @@ FILE="$OUT_DIR/$(date +'%Y-%m-%d_%H-%M-%S').mkv"
 echo "$FILE" >"$STATUS_FILE"
 
 exec 200>&-
+swaync-client --dnd-on || true
 wf-recorder -g "$GEOM" -f "$FILE" --audio=default &
 disown
 pkill -RTMIN+2 waybar || true
