@@ -44,11 +44,27 @@ for _, app in pairs(programs.special) do
 	hl.window_rule({ match = { class = app.class }, workspace = ws })
 end
 
+hl.window_rule({
+	name = "picture-in-picture",
+	match = { title = "^(Picture-in-Picture|Obraz w obrazie)$" },
+	float = true,
+	pin = true,
+})
+
+-- ─── Workspace Monitor Pinning ──────────────────────────────────────────────
+
+for i = 1, 5 do
+	hl.workspace_rule({ workspace = tostring(i), monitor = "DP-1" })
+end
+for i = 6, 9 do
+	hl.workspace_rule({ workspace = tostring(i), monitor = "desc:BOE 0x0998" })
+end
+
 -- ─── Floating Apps ───────────────────────────────────────────────────────────
 
 hl.window_rule({
 	match = {
-		class = "^(org.gnome.*|com.saivert.pwvucontrol)$",
+		class = "^(org.gnome.*|com.saivert.pwvucontrol|pavucontrol|nm-connection-editor|blueman-manager|xdg-desktop-portal-gtk|file-roller)$",
 	},
 	float = true,
 	center = true,
