@@ -10,6 +10,7 @@ hl.on("hyprland.start", function()
 		gsettings .. " monospace-font-name 'JetBrainsMono Nerd Font Mono 12'",
 		-- "hyprctl setcursor Bibata-Modern-Classic 24",
 
+		"dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP HYPRLAND_INSTANCE_SIGNATURE",
 		"systemctl --user start hyprland-session.target",
 
 		"wl-paste --type text --watch cliphist -max-items 50 store",
