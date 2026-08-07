@@ -16,6 +16,7 @@ hl.config({
 	},
 	cursor = {
 		inactive_timeout = 0,
+		warp_on_change_workspace = true,
 	},
 	gestures = {
 		workspace_swipe_touch = true,
