@@ -75,7 +75,7 @@ end
 
 -- Move windows with mouse ----------------------------------------------------
 hl.bind("SUPER + mouse:272", hl.dsp.window.drag(), { mouse = true })
-hl.bind("mouse:274", hl.dsp.window.drag(), { mouse = true })
+hl.bind("SUPER + mouse:274", hl.dsp.window.drag(), { mouse = true })
 
 -- Audio and brightness ------------------------------------------------------
 local snd = "/usr/share/sounds/freedesktop/stereo/audio-volume-change.oga"
