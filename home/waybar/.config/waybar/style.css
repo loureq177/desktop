@@ -1,17 +1,23 @@
 @define-color text #c9d1d9;
 @define-color text-inactive #8b949e;
-@define-color accent-alt #3fb950;
-@define-color hover-bg rgba(255, 255, 255, 0.1);
-@define-color dnd-off #8b949e;
 @define-color module-bg rgba(22, 27, 34, 0.6);
 @define-color module-hover rgba(48, 54, 61, 0.8);
+@define-color hover-bg rgba(255, 255, 255, 0.1);
+
+@define-color accent #58a6ff;
+@define-color accent-purple #bc8cff;
+@define-color accent-green #3fb950;
+@define-color warning #d29922;
+@define-color critical #f85149;
+
+@define-color border-color #30363d;
 @define-color tooltip-bg rgba(13, 17, 23, 0.95);
 @define-color tooltip-border rgba(48, 54, 61, 0.8);
 @define-color tooltip-text #c9d1d9;
 
 * {
   font-family: "JetBrainsMono Nerd Font Propo", sans-serif;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 700;
   border: none;
   min-height: 0;
@@ -20,19 +26,21 @@
 }
 
 window#waybar {
-  background-color: rgba(0, 0, 0, 0);
+  background-color: transparent;
   color: @text;
 }
 
 tooltip {
   background: @tooltip-bg;
-  border: 2px solid @tooltip-border;
-  border-radius: 16px;
+  border: 1px solid @tooltip-border;
+  border-radius: 12px;
   padding: 8px 12px;
 }
+
 tooltip label {
   color: @tooltip-text;
 }
+
 .modules-left > widget > *,
 .modules-center > widget > *,
 .modules-right > widget > * {
@@ -56,6 +64,7 @@ tooltip label {
   padding: 0;
   margin: 0;
 }
+
 #workspaces button {
   padding: 0 8px;
   margin: 0 1px;
@@ -63,32 +72,35 @@ tooltip label {
   border-radius: 8px;
   transition: all 0.25s ease;
 }
+
 #workspaces button.active {
-  color: @text;
-  background: @module-bg;
+  color: @accent;
+  background: @module-hover;
 }
+
 #workspaces button:hover {
   background: @hover-bg;
+  color: @text;
 }
 
 #battery.charging,
 #battery.plugged {
-  color: @accent-alt;
+  color: @accent-green;
 }
 
 @keyframes blink-critical {
   from {
-    background-color: rgba(245, 60, 60, 0.35);
+    background-color: rgba(248, 81, 73, 0.35);
     color: #ffffff;
   }
   to {
-    background-color: rgba(245, 60, 60, 0.8);
+    background-color: rgba(248, 81, 73, 0.8);
     color: #ffffff;
   }
 }
 
 #battery.warning:not(.charging) {
-  color: #d29922;
+  color: @warning;
   background-color: rgba(210, 153, 34, 0.15);
 }
 
@@ -106,11 +118,11 @@ tooltip label {
   color: @text-inactive;
 }
 #custom-dgpu.on {
-  color: #3fb950;
+  color: @accent-green;
 }
 
 #privacy-item.screenshare {
-  color: #bc8cff;
+  color: @accent-purple;
   background-color: rgba(188, 140, 255, 0.15);
 }
 
@@ -120,10 +132,11 @@ tooltip label {
 }
 
 #custom-record.recording {
-  color: #f85149;
+  color: @critical;
   background-color: rgba(248, 81, 73, 0.18);
   animation: breathe 2s ease-in-out infinite;
 }
+
 #custom-record.idle {
   background: transparent;
   min-width: 0;
@@ -144,7 +157,7 @@ tooltip label {
 }
 
 #bluetooth.connected {
-  color: #58a6ff;
+  color: @accent;
   background-color: rgba(88, 166, 255, 0.12);
 }
 
@@ -152,7 +165,7 @@ tooltip label {
   color: @text-inactive;
 }
 #custom-caffeine.on {
-  color: @text;
+  color: @accent;
 }
 
 #battery:hover,
@@ -170,7 +183,7 @@ tooltip label {
   background: @hover-bg;
 }
 
-#pulseaudio\\#volume-percent,
-#pulseaudio\\#microphone-percent {
+#pulseaudio\#volume-percent,
+#pulseaudio\#microphone-percent {
   padding-left: 4px;
 }
