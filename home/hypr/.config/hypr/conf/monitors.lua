@@ -27,7 +27,7 @@ hl.bind(
 	function()
 		local mons = hl.get_monitors()
 		if #mons > 1 then
-			hl.monitor({ output = laptop_output, disabled = true })
+			hl.dsp.dpms("off", laptop_output)
 		end
 	end,
 	{ locked = true }
@@ -36,13 +36,7 @@ hl.bind(
 hl.bind(
 	"switch:off:Lid Switch",
 	function()
-		hl.monitor({
-			output = laptop_output,
-			mode = laptop_mode,
-			position = laptop_pos,
-			scale = laptop_scale,
-			disabled = false,
-		})
+		hl.dsp.dpms("on", laptop_output)
 	end,
 	{ locked = true }
 )
