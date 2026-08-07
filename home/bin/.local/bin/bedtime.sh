@@ -25,12 +25,11 @@ case $(date +%H:%M) in
         ;;
     *)
         hour=$((10#$(date +%H)))
-        if [ "$hour" -ge 22 ] || [ "$hour" -lt 2 ]; then
+        if [ "$hour" -ge 22 ] || [ "$hour" -lt 7 ]; then
             notify_bed "WiFi has been turned off."
             nmcli radio wifi off
-        elif [ "$hour" -ge 7 ] && [ "$hour" -lt 21 ]; then
+        elif [ "$hour" -ge 7 ] && [ "$hour" -lt 22 ]; then
             nmcli radio wifi on
         fi
         ;;
 esac
-
