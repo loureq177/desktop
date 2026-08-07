@@ -53,10 +53,10 @@ hl.window_rule({
 
 -- ─── Workspace Monitor Pinning ──────────────────────────────────────────────
 
-for i = 1, 5 do
+for i = 1, 3 do
 	hl.workspace_rule({ workspace = tostring(i), monitor = "DP-1" })
 end
-for i = 6, 9 do
+for i = 4, 6 do
 	hl.workspace_rule({ workspace = tostring(i), monitor = "desc:BOE 0x0998" })
 end
 
