@@ -15,6 +15,12 @@ hl.monitor({
 	position = "0x0", -- down position
 	scale = 1,
 })
+hl.monitor({
+	output = "",
+	mode = "preferred",
+	position = "auto",
+	scale = 1,
+})
 
 hl.bind(
 	"switch:on:Lid Switch",
