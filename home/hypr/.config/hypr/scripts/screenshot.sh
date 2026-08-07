@@ -12,6 +12,9 @@ FILE="$DIR/$(date +'%Y-%m-%d_%H-%M-%S').png"
 if [ "${1:-region}" = "region" ]; then
     GEOM=$(slurp -d -b "#00000080" -c "#ffffff" -w 2) || exit 0
     grim -g "$GEOM" "$FILE"
+elif [ "$1" = "window" ]; then
+    GEOM=$(hyprctl activewindow -j | jq -r '"\(.at[0]),\(.at[1]) \(.size[0])x\(.size[1])"')
+    grim -g "$GEOM" "$FILE"
 else
     FOCUSED_OUTPUT=$(hyprctl monitors -j | jq -r '.[] | select(.focused) | .name')
     grim -o "$FOCUSED_OUTPUT" "$FILE"
