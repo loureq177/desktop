@@ -1,3 +1,10 @@
+-- GitHub Dark Palette tokens
+local colors = {
+	accent_blue = "rgba(58a6ffee)",
+	accent_purple = "rgba(bc8cffee)",
+	inactive_border = "rgba(30363dee)",
+}
+
 hl.config({
 	general = {
 		gaps_in = 10,
@@ -5,10 +12,10 @@ hl.config({
 		border_size = 2,
 		col = {
 			active_border = {
-				colors = { "rgba(58a6ffee)", "rgba(bc8cffee)" },
+				colors = { colors.accent_blue, colors.accent_purple },
 				angle = 45,
 			},
-			inactive_border = "rgba(30363dee)",
+			inactive_border = colors.inactive_border,
 		},
 		resize_on_border = true,
 		allow_tearing = false,
@@ -25,8 +32,8 @@ hl.config({
 			color = "0xee1a1a1a",
 		},
 		blur = {
-			size = 3,
-			passes = 4,
+			size = 6,
+			passes = 2,
 			vibrancy = 0.1696,
 		},
 	},
