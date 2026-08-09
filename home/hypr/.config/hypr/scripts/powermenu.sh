@@ -2,6 +2,7 @@
 set -euo pipefail
 
 menu_options=(
+    "lock\0icon\x1fsystem-lock-screen"
     "suspend\0icon\x1fsystem-suspend"
     "reboot\0icon\x1fsystem-reboot"
     "poweroff\0icon\x1fsystem-shutdown"
@@ -16,7 +17,8 @@ entry=$(printf "%b\n" "${menu_options[@]}" | rofi \
     -theme ~/.config/rofi/github-dark-default.rasi) || exit 0
 
 case "$entry" in
-"suspend") systemctl suspend ;;
+"lock") loginctl lock-session ;;
+"suspend") loginctl lock-session && systemctl suspend ;;
 "reboot") hyprshutdown --post-cmd "systemctl reboot" ;;
 "poweroff") hyprshutdown --post-cmd "systemctl poweroff" ;;
 esac
