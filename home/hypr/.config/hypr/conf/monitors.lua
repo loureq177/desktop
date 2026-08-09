@@ -36,7 +36,7 @@ hl.bind(
 hl.bind(
 	"switch:off:Lid Switch",
 	function()
-		hl.dsp.dpms("on", laptop_output)
+		hl.dsp.dpms("on")
 	end,
 	{ locked = true }
 )
