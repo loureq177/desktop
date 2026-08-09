@@ -5,3 +5,8 @@
 --ignore=.zcompdump*
 --ignore=.zsh_history
 --ignore=\.zwc$
+--ignore=packages.txt
+--ignore=aur.txt
+--ignore=flatpak.txt
+--ignore=Brewfile
+

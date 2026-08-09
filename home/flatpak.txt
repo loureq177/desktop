@@ -1,0 +1,3 @@
+com.prusa3d.PrusaSlicer
+com.spotify.Client
+org.freecad.FreeCAD

@@ -1,0 +1,2 @@
+pwvucontrol
+zsh-fast-syntax-highlighting

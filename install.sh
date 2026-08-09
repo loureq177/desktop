@@ -17,12 +17,11 @@ cd "$(dirname "$0")"
 mkdir -p ~/.config ~/.local/share ~/.local/state ~/.local/bin ~/.cache
 
 OS="$(uname -s)"
-STOW_IGNORE_BASE=(--ignore=node_modules --ignore=__pycache__ '--ignore=\.pyc$' '--ignore=\.zwc$')
-
+STOW_IGNORE=(--ignore=node_modules --ignore=__pycache__ '--ignore=\.pyc$' '--ignore=\.zwc$')
 
 if [ "$OS" = "Linux" ]; then
     if [ "${EUID:-$(id -u)}" -eq 0 ]; then
-        _log_error "Do not run this script as root/sudo directly. It will run pacman via sudo when needed, but AUR helpers (paru) must run as a normal user."
+        _log_error "Do not run this script as root/sudo directly. It will run pacman via sudo when needed."
         exit 1
     fi
 
@@ -31,104 +30,53 @@ if [ "$OS" = "Linux" ]; then
         exit 1
     fi
 
-    _log_info "Detected Linux. Applying Archlinux configs..."
-    source archlinux/deps_paru.sh
+    _log_info "Detected Arch Linux. Updating system and installing official packages..."
+    sudo pacman -Syu --noconfirm
+    sudo pacman -S --noconfirm --needed - < archlinux/packages.txt
+    _log_ok "Pacman packages installed."
 
-    check_sudo() {
-        if ! command -v sudo &>/dev/null; then
-            _log_error "sudo is not installed."
-            exit 1
-        fi
-        sudo -n &>/dev/null || sudo -v
-    }
-    check_sudo
-
-    install_packages() {
-        _log_info "Updating pacman databases..."
-        sudo pacman -Syu --noconfirm
-        _log_info "Installing packages via pacman..."
-        for label in "${PKG_GROUPS[@]}"; do
-            [ "$label" = "AUR" ] && continue
-            declare -n arr="${label}_PKGS"
-            _log_info "Installing [$label]_PKGS..."
-            sudo pacman -S --noconfirm --needed "${arr[@]}"
-            _log_ok "[$label] done."
-        done
-    }
-
-    install_flatpaks() {
-        source archlinux/deps_flatpak.sh
-        if ! command -v flatpak &>/dev/null; then
-            _log_warn "flatpak not found, skipping Flatpak apps"
-            return
-        fi
-        _log_info "Configuring Flatpak and installing applications for user..."
+    if command -v flatpak &>/dev/null && [ -f archlinux/flatpak.txt ]; then
+        _log_info "Configuring Flatpak and installing applications..."
         flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
-        flatpak install --user -y --or-update flathub "${FLATPAK_APPS[@]}"
-        _log_ok "Flatpaks installed for $USER."
-    }
-
-    install_aur_packages() {
-        if ! command -v paru &>/dev/null; then
-            _log_warn "paru not found, skipping AUR packages"
-            return
-        fi
-        declare -n arr="AUR_PKGS"
-        _log_info "Installing [AUR]_PKGS..."
-        paru -S --noconfirm --needed "${arr[@]}"
-        _log_ok "AUR packages done."
-    }
-
-    if [ -d "archlinux/bin/.local/bin" ]; then
-        chmod +x archlinux/bin/.local/bin/* 2>/dev/null || true
-    fi
-    if [ -d "archlinux/waybar/.config/waybar/scripts" ]; then
-        chmod +x archlinux/waybar/.config/waybar/scripts/* 2>/dev/null || true
-    fi
-    if [ -d "archlinux/hypr/.config/hypr/scripts" ]; then
-        chmod +x archlinux/hypr/.config/hypr/scripts/* 2>/dev/null || true
+        flatpak install --user -y --or-update flathub $(cat archlinux/flatpak.txt)
+        _log_ok "Flatpaks installed."
     fi
 
-    install_packages
-    install_flatpaks
-    install_aur_packages
+    if command -v paru &>/dev/null && [ -f archlinux/aur.txt ]; then
+        _log_info "Installing AUR packages via paru..."
+        paru -S --noconfirm --needed $(cat archlinux/aur.txt)
+        _log_ok "AUR packages installed."
+    fi
 
-    STOW_ARCH_PKGS=(bin electron git hypr mimeapps paru swaync rofi systemd waybar wireplumber xdg)
-    STOW_IGNORE=("${STOW_IGNORE_BASE[@]}" '--ignore=\.venv')
-    (cd archlinux && stow --verbose --restow --target ~ "${STOW_IGNORE[@]}" "${STOW_ARCH_PKGS[@]}")
+    _log_info "Applying Arch Linux Stow configs..."
+    stow --verbose --restow --target ~ "${STOW_IGNORE[@]}" archlinux
 
-
-    if [ -f "archlinux/ly/.config/ly/config.ini" ]; then
+    if [ -f "archlinux/.config/ly/config.ini" ]; then
         _log_info "Configuring Ly display manager..."
         sudo mkdir -p /etc/ly
-        sudo ln -sfv "$(pwd)/archlinux/ly/.config/ly/config.ini" /etc/ly/config.ini
+        sudo ln -sfv "$(pwd)/archlinux/.config/ly/config.ini" /etc/ly/config.ini
     fi
 
     if command -v systemctl &>/dev/null; then
-        echo "Enabling user services..."
         systemctl --user daemon-reload 2>/dev/null || true
     fi
-
-fi
-
-if [ "$OS" = "Darwin" ]; then
-    _log_info "Detected macOS. Applying macOS configs..."
-    source macos/deps_brew.sh
-    source macos/deps_brew_casks.sh
-    brew install "${PACKAGES[@]}"
-    brew install --cask "${CASKS[@]}"
-    if [ -d "macos/bin/.local/bin" ]; then
-        chmod +x macos/bin/.local/bin/* 2>/dev/null || true
+elif [ "$OS" = "Darwin" ]; then
+    _log_info "Detected macOS. Installing dependencies from Brewfile..."
+    if command -v brew &>/dev/null; then
+        brew bundle --file=macos/Brewfile
+    else
+        _log_warn "Homebrew is not installed. Please install Homebrew first."
     fi
-    STOW_MACOS_PKGS=(bin)
-    STOW_IGNORE=("${STOW_IGNORE_BASE[@]}" '--ignore=\.venv')
-    (cd macos && stow --verbose --restow --target ~ "${STOW_IGNORE[@]}" "${STOW_MACOS_PKGS[@]}")
+
+    _log_info "Applying macOS Stow configs..."
+    stow --verbose --restow --target ~ "${STOW_IGNORE[@]}" macos
 fi
 
-echo "Applying common configs..."
-STOW_COMMON_PKGS=(btop ghostty nvim opencode prettier stylua yazi zsh)
-STOW_IGNORE=("${STOW_IGNORE_BASE[@]}")
-(cd common && stow --verbose --restow --target ~ "${STOW_IGNORE[@]}" "${STOW_COMMON_PKGS[@]}")
+_log_info "Applying common Stow configs..."
+stow --verbose --restow --target ~ "${STOW_IGNORE[@]}" common
 
+_log_info "Ensuring script files have executable permissions..."
+find archlinux/.local/bin macos/.local/bin archlinux/.config -type f -name "*.sh" -exec chmod +x {} + 2>/dev/null || true
 
-echo "Done."
+_log_ok "Installation completed successfully."
+
