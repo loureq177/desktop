@@ -21,7 +21,7 @@ if pkill -x wf-recorder; then
 
     sleep 0.3
 
-    if [[ -f "$FILE" ]]; then
+    if [[ -n "$FILE" && -f "$FILE" ]]; then
         notify-send --app-name "Screen Record" -t 5000 "Screen Record" -i "camera-video" "Recording saved to:\n$FILE"
     else
         notify-send --app-name "Screen Record" -t 5000 "Screen Record" -i "camera-video" "Recording stopped. No file found."

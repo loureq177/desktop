@@ -13,7 +13,15 @@ if [ "${1:-region}" = "region" ]; then
     GEOM=$(slurp -d -b "#00000080" -c "#ffffff" -w 2) || exit 0
     grim -g "$GEOM" "$FILE"
 elif [ "$1" = "window" ]; then
-    GEOM=$(hyprctl activewindow -j | jq -r '"\(.at[0]),\(.at[1]) \(.size[0])x\(.size[1])"')
+    WINDOW_DATA=$(hyprctl activewindow -j 2>/dev/null || true)
+    GEOM=""
+    if [[ -n "$WINDOW_DATA" && "$WINDOW_DATA" != "{}" ]]; then
+        GEOM=$(echo "$WINDOW_DATA" | jq -r 'select(.at != null and .size != null) | "\(.at[0]),\(.at[1]) \(.size[0])x\(.size[1])"' 2>/dev/null || true)
+    fi
+    if [[ -z "$GEOM" ]]; then
+        notify-send --app-name "Screenshot" "Screenshot" "No active window found."
+        exit 0
+    fi
     grim -g "$GEOM" "$FILE"
 else
     FOCUSED_OUTPUT=$(hyprctl monitors -j | jq -r '.[] | select(.focused) | .name')
