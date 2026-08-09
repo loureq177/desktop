@@ -7,7 +7,7 @@ local cmds = {
 	["SUPER + space"] = programs.launcher,
 	["SUPER + Period"] = "rofi -show emoji -modi emoji -emoji-mode copy",
 
-	["SUPER + CTRL + Q"] = "hyprlock --immediate-render --no-fade-in",
+	["SUPER + CTRL + Q"] = "loginctl lock-session",
 	["SUPER + CTRL + A"] = "swaync-client -t",
 	["SUPER + CTRL + R"] = "~/.config/hypr/scripts/record-screen.sh",
 	["SUPER + CTRL + M"] = "wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle && pkill -RTMIN+8 waybar",
