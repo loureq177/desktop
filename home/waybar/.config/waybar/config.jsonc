@@ -37,7 +37,7 @@
   },
 
   "custom/record": {
-    "exec": "~/.config/waybar/scripts/record-status.sh",
+    "exec": "f=${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/recording_status; [ -f \"$f\" ] && echo '{\"text\":\"●\",\"class\":\"recording\",\"tooltip\":\"Recording screen\"}' || echo '{\"text\":\"\",\"class\":\"idle\",\"tooltip\":\"Not recording\"}'",
     "return-type": "json",
     "interval": "once",
     "signal": 2,
