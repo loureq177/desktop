@@ -19,7 +19,6 @@ hl.on("hyprland.start", function()
 		"waybar",
 		"swaybg -i ~/.config/hypr/wallpapers/hyprland.png",
 		"swaync",
-		"hypridle",
 		"hyprsunset",
 	}
 
