@@ -54,7 +54,7 @@ hl.window_rule({
 -- ─── Workspace Monitor Pinning ──────────────────────────────────────────────
 
 for i = 1, 3 do
-	hl.workspace_rule({ workspace = tostring(i), monitor = "DP-1" })
+	hl.workspace_rule({ workspace = tostring(i), monitor = "desc:Iiyama North America PL2792Q 1152011401936" })
 end
 for i = 4, 6 do
 	hl.workspace_rule({ workspace = tostring(i), monitor = "desc:BOE 0x0998" })
