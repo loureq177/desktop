@@ -12,9 +12,5 @@ configuration {
     disable-history: true;
     sort: true;
     sorting-method: "normal";
-    location: 5;
-    anchor: center;
-    yoffset: -150;
-    fullscreen: false;
 }
 @theme "github-dark-default"
