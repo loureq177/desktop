@@ -17,7 +17,7 @@ if [ "$pci_dev" = "none" ]; then
     exit 0
 fi
 
-status=$(cat "$pci_dev/power/runtime_status" 2>/dev/null)
+status=$(cat "$pci_dev/power/runtime_status" 2>/dev/null || echo "unknown")
 
 case "$status" in
     suspended)
