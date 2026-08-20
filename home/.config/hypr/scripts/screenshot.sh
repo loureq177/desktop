@@ -33,7 +33,7 @@ if [ ! -f "$FILE" ]; then
 fi
 
 exec 200>&-
-wl-copy <"$FILE"
+wl-copy -t image/png <"$FILE"
 
 ACTION=$(notify-send --app-name "Screenshot" -t 5000 "Screenshot" -i "$FILE" -A "default=Edit" -A "edit=Edit with Satty" "Screenshot saved and copied to clipboard.")
 
