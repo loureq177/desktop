@@ -20,7 +20,7 @@ selected=\$(cliphist list | fzf \
   --color=\"$fzf_theme\")
 
 if [[ -n \"\$selected\" ]]; then
-    id=\$(echo \"\$selected\" | cut -f1)
+    id=\$(printf '%s\n' \"\$selected\" | cut -f1)
     cliphist decode \"\$id\" | wl-copy
     echo 1 > \"$status_file\"
 fi
