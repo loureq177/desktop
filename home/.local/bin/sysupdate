@@ -1,6 +1,6 @@
 #!/usr/bin/env zsh
 set -euo pipefail
-export PATH="$HOME/.bun/bin:$PATH"
+export PATH="${BUN_INSTALL:-$HOME/.local/share/bun}/bin:$PATH"
 
 paru -Syu --devel
 
