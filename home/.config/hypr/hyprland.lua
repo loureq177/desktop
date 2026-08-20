@@ -134,7 +134,7 @@ hl.config({
 		repeat_delay = 200,
 		repeat_rate = 20,
 		follow_mouse = 1,
-		sensitivity = 0.4,
+		sensitivity = 0.2,
 		touchpad = {
 			natural_scroll = true,
 			tap_to_click = true,
@@ -378,8 +378,8 @@ hl.bind("SUPER + mouse:273", hl.dsp.window.resize(), { mouse = true })
 local vol = "wpctl set-volume"
 
 local media = {
-	{ "XF86AudioRaiseVolume", vol .. " -l 1.5 @DEFAULT_AUDIO_SINK@ 2%+", true },
-	{ "XF86AudioLowerVolume", vol .. " -l 1.5 @DEFAULT_AUDIO_SINK@ 2%-", true },
+	{ "XF86AudioRaiseVolume", vol .. " -l 1.0 @DEFAULT_AUDIO_SINK@ 2%+", true },
+	{ "XF86AudioLowerVolume", vol .. " -l 1.0 @DEFAULT_AUDIO_SINK@ 2%-", true },
 	{ "XF86AudioMute", "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle" },
 	{ "XF86AudioMicMute", "wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle" },
 	{ "XF86MonBrightnessUp", "brightnessctl set +10%", true },
