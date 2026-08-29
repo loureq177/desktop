@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-fzf_theme="bg+:#2f334d,bg:#222436,fg:#c8d3f5,hl:#2ccade,fg+:#c8d3f5,hl+:#2ccade,header:#2ccade,info:#2ccade,pointer:#2ccade,marker:#2ccade,prompt:#2ccade,spinner:#2ccade"
+fzf_theme="bg+:#21262d,bg:#0d1117,fg:#c9d1d9,hl:#58a6ff,fg+:#c9d1d9,hl+:#58a6ff,header:#58a6ff,info:#8b949e,pointer:#58a6ff,marker:#3fb950,prompt:#58a6ff,spinner:#58a6ff,border:#30363d"
 
 status_file=$(mktemp)
 trap 'rm -f "$status_file"' EXIT
 
-ghostty --class=clipboard-special --title=Clipboard -e bash -c "
+ghostty --class=clipboard-special -e bash -c "
 tab=\$(printf '\t')
 selected=\$(cliphist list | fzf \
   --delimiter=\"\$tab\" \

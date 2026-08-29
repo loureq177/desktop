@@ -162,8 +162,8 @@ local colors = {
 
 hl.config({
 	general = {
-		gaps_in = 10,
-		gaps_out = 20,
+		gaps_in = 8,
+		gaps_out = 8,
 		border_size = 2,
 		col = {
 			active_border = {
@@ -177,10 +177,10 @@ hl.config({
 		layout = "dwindle",
 	},
 	decoration = {
-		rounding = 16,
-		rounding_power = 2,
+		rounding = 0,
+		rounding_power = 0,
 		active_opacity = 1.0,
-		inactive_opacity = 0.70,
+		inactive_opacity = 0.75,
 		shadow = {
 			range = 4,
 			render_power = 3,
@@ -281,17 +281,10 @@ end
 
 hl.window_rule({
 	name = "picture-in-picture",
-	match = { title = "^(Picture-in-Picture|Obraz w obrazie)$" },
+	match = { title = "^(Picture-in-Picture)$" },
 	float = true,
 	pin = true,
 })
-
-for i = 1, 3 do
-	hl.workspace_rule({ workspace = tostring(i), monitor = external_output })
-end
-for i = 4, 6 do
-	hl.workspace_rule({ workspace = tostring(i), monitor = laptop_output })
-end
 
 hl.window_rule({
 	match = {
@@ -304,21 +297,24 @@ hl.window_rule({
 -- ─── Keybindings ─────────────────────────────────────────────────────────────
 
 local cmds = {
+	-- ─── Essential ─────────────────────────────────────────────────────────────
 	["SUPER + RETURN"] = programs.terminal,
 	["SUPER + B"] = programs.browser,
 	["SUPER + space"] = programs.launcher,
-	["SUPER + Period"] = "rofi -show emoji -modi emoji -emoji-mode copy",
+	["SUPER + period"] = "rofi -show emoji -modi emoji -emoji-mode copy",
+	["SUPER + comma"] = "swaync-client --hide-latest", -- Dismiss notification
+	["SUPER + CTRL + D"] = "swaync-client -d", -- DND mode
 
+	-- ─── System ─────────────────────────────────────────────────────────────
 	["SUPER + CTRL + Q"] = "loginctl lock-session",
-	["SUPER + CTRL + A"] = "swaync-client -t",
+	["SUPER + CTRL + comma"] = "swaync-client -t",
 	["SUPER + CTRL + R"] = "~/.config/hypr/scripts/record-screen.sh",
 	["SUPER + CTRL + M"] = "wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle && pkill -RTMIN+8 waybar",
 	["SUPER + CTRL + P"] = "hyprpicker -a --notify",
 	["SUPER + CTRL + space"] = "rofi -show run -replace",
-
-	["Print"] = "~/.config/hypr/scripts/screenshot.sh region",
-	["SHIFT + Print"] = "~/.config/hypr/scripts/screenshot.sh fullscreen",
-	["SUPER + Escape"] = "~/.config/hypr/scripts/powermenu.sh",
+	["print"] = "~/.config/hypr/scripts/screenshot.sh region",
+	["SHIFT + print"] = "~/.config/hypr/scripts/screenshot.sh fullscreen",
+	["SUPER + escape"] = "~/.config/hypr/scripts/powermenu.sh",
 }
 
 for bind, cmd in pairs(cmds) do
@@ -326,18 +322,19 @@ for bind, cmd in pairs(cmds) do
 end
 
 local special_apps = {
-	["SUPER + C"] = "calendar",
-	["SUPER + T"] = "tasks",
-	["SUPER + W"] = "whatsapp",
-	["SUPER + M"] = "mail",
-	["SUPER + D"] = "discord",
-	["SUPER + S"] = "spotify",
-	["SUPER + A"] = "gemini",
-	["SUPER + E"] = "yazi",
+	["SUPER + SHIFT + C"] = "calendar",
+	["SUPER + SHIFT + T"] = "tasks",
+	["SUPER + SHIFT + W"] = "whatsapp",
+	["SUPER + SHIFT + E"] = "mail",
+	["SUPER + SHIFT + D"] = "discord",
+	["SUPER + SHIFT + S"] = "spotify",
+	["SUPER + SHIFT + A"] = "gemini",
+	["SUPER + SHIFT + F"] = "yazi",
+
+	["SUPER + CTRL + B"] = "bluetui", -- Bluetooth
 	["SUPER + CTRL + C"] = "clipboard",
-	["SUPER + CTRL + B"] = "bluetui",
-	["SUPER + CTRL + I"] = "impala",
-	["SUPER + CTRL + Escape"] = "btop",
+	["SUPER + CTRL + W"] = "impala", -- WiFi
+	["SUPER + CTRL + T"] = "btop", --Activity Monitor
 }
 
 for bind, app in pairs(special_apps) do
@@ -346,11 +343,10 @@ end
 
 hl.bind("SUPER + Q", hl.dsp.window.close())
 hl.bind("SUPER + F", hl.dsp.window.fullscreen())
-hl.bind("SUPER + P", hl.dsp.window.pseudo())
-hl.bind("SUPER + SHIFT + T", hl.dsp.layout("togglesplit"))
+hl.bind("SUPER + T", hl.dsp.layout("togglesplit"))
 
 local directions = { H = "left", L = "right", K = "up", J = "down" }
-local step = 50
+local step = 25
 
 for key, dir in pairs(directions) do
 	hl.bind("SUPER + " .. key, hl.dsp.focus({ direction = dir }))
@@ -370,6 +366,7 @@ end
 for i = 1, 9 do
 	hl.bind("SUPER + " .. i, hl.dsp.focus({ workspace = i }))
 	hl.bind("SUPER + SHIFT + " .. i, hl.dsp.window.move({ workspace = i }))
+	hl.bind("SUPER + CTRL + SHIFT + " .. i, hl.dsp.window.move({ workspace = i, follow = false }))
 end
 
 hl.bind("SUPER + mouse:272", hl.dsp.window.drag(), { mouse = true })
