@@ -1,2 +1,3 @@
 pwvucontrol
+waybar-git
 zsh-fast-syntax-highlighting

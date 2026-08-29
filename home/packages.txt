@@ -9,6 +9,7 @@ chromium
 cliphist
 cmatrix
 discord
+dua-cli
 duf
 eza
 fastfetch
@@ -48,7 +49,6 @@ libreoffice-fresh-pl
 loupe
 ly
 man-db
-ncdu
 neovim
 network-manager-applet
 nodejs
@@ -58,6 +58,7 @@ noto-fonts-emoji
 nvtop
 openbsd-netcat
 opencode
+pacman-contrib
 papirus-icon-theme
 php
 pipewire
@@ -91,9 +92,9 @@ tailscale
 terminus-font
 termshark
 ttf-jetbrains-mono-nerd
+ufw
 unzip
 uv
-waybar
 wev
 wf-recorder
 wget
