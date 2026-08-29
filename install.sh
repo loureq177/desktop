@@ -80,8 +80,4 @@ if [ -f "$HOME/.config/opencode/package.json" ] && command -v npm &>/dev/null; t
     (cd "$HOME/.config/opencode" && npm install --no-audit --no-fund) || _log_warn "opencode dependencies install failed."
 fi
 
-_log_info "Ensuring script files have executable permissions..."
-find archlinux/.local/bin macos/.local/bin -type f -exec chmod +x {} + 2>/dev/null || true
-find archlinux/.config -type f -name "*.sh" -exec chmod +x {} + 2>/dev/null || true
-
 _log_ok "Installation completed successfully."
