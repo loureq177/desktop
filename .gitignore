@@ -8,3 +8,4 @@ node_modules/
 .ruff_cache/
 .env*
 __pycache__
+.ponytail-active
