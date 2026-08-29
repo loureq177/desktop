@@ -1,12 +1,6 @@
 #!/usr/bin/env zsh
 set -euo pipefail
 
-get_space() {
-    df -m / "$HOME" | awk '!/Filesystem/ {mounts[$1]=$3} END {for (m in mounts) sum+=mounts[m]; print sum}'
-}
-
-used_before=$(get_space)
-
 echo "Checking for orphaned packages..."
 orphans=$(paru -Qdtq || true)
 if [ -n "$orphans" ]; then
@@ -17,8 +11,8 @@ else
 fi
 
 echo "\nCleaning cached packages..."
-sudo rm -rf /var/cache/pacman/pkg/*
-paru -Scc --noconfirm
+paccache -r -k 2     # Keeps last 2 versions of installed packages
+paccache -r -u -k 0  # Removes cached versions of uninstalled packages
 
 echo "\nCleaning Flatpak leftovers..."
 flatpak uninstall --unused --noninteractive --verbose
@@ -65,15 +59,10 @@ for dir in /usr/lib/modules/*(N/); do
     fi
 done
 
-
 echo "\nVacuuming journal..."
 sudo journalctl --vacuum-time=2weeks --quiet
 
-used_after=$(get_space)
-freed=$(( used_before - used_after ))
-
 echo "\nSystem is clean."
-echo "Freed: ${freed} MB"
 
 if command -v duf >/dev/null 2>&1; then
     echo "\nCurrent disk usage:"
