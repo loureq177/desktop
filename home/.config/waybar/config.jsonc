@@ -3,9 +3,9 @@
   "height": 30,
   "spacing": 8,
   "margin-top": 4,
-  "margin-bottom": -10,
-  "margin-left": 6,
-  "margin-right": 6,
+  "margin-left": 4,
+  "margin-right": 4,
+  "margin-bottom": 4,
 
   "modules-left": ["hyprland/workspaces", "memory", "custom/dgpu"],
 
@@ -138,7 +138,7 @@
     "tooltip": true,
     "tooltip-format": "{capacity}%\nRemaining time: {time}",
     "states": {
-      "warning": 20,
+      "warning": 30,
       "critical": 10,
     },
     "on-click": "hyprctl dispatch \"hl.dsp.workspace.toggle_special('jolt')\"",
