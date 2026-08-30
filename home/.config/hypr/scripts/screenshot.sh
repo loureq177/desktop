@@ -9,9 +9,20 @@ DIR="$HOME/Pictures/Screenshots"
 mkdir -p "$DIR"
 FILE="$DIR/$(date +'%Y-%m-%d_%H-%M-%S').png"
 
+HYPRPICKER_PID=""
+cleanup() {
+    [ -n "$HYPRPICKER_PID" ] && kill "$HYPRPICKER_PID" 2>/dev/null || true
+}
+trap cleanup EXIT
+
 if [ "${1:-region}" = "region" ]; then
+    hyprpicker -r -z &
+    HYPRPICKER_PID=$!
+    sleep 0.2
     GEOM=$(slurp -d -b "#00000080" -c "#ffffff" -w 2) || exit 0
     grim -g "$GEOM" "$FILE"
+    kill "$HYPRPICKER_PID" 2>/dev/null || true
+    HYPRPICKER_PID=""
 elif [ "$1" = "window" ]; then
     WINDOW_DATA=$(hyprctl activewindow -j 2>/dev/null || true)
     GEOM=""
