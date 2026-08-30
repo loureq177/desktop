@@ -1,12 +1,11 @@
---ignore=.git
---ignore=README.md
+--ignore=README\.md
 --ignore=node_modules
---ignore=.venv
---ignore=.zcompdump*
---ignore=.zsh_history
+--ignore=\.venv
+--ignore=\.zcompdump.*
+--ignore=\.zsh_history
 --ignore=\.zwc$
---ignore=packages.txt
---ignore=aur.txt
---ignore=flatpak.txt
+--ignore=packages\.txt
+--ignore=aur\.txt
+--ignore=flatpak\.txt
 --ignore=Brewfile
 
