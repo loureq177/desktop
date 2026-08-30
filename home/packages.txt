@@ -1,4 +1,5 @@
 7zip
+atac
 bat
 bluetui
 brightnessctl
@@ -91,6 +92,9 @@ swaync
 tailscale
 terminus-font
 termshark
+tesseract
+tesseract-data-eng
+tesseract-data-pol
 ttf-jetbrains-mono-nerd
 ufw
 unzip
@@ -105,5 +109,6 @@ xdg-desktop-portal-gtk
 xdg-desktop-portal-hyprland
 yazi
 zip
+zoxide
 zsh
 zsh-autosuggestions
