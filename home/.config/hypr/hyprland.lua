@@ -9,6 +9,7 @@ local programs = {
 	launcher = "rofi -show drun -replace",
 
 	special = {
+		-- Apps
 		discord = { exe = "discord", class = "discord", ws = "discord" },
 		spotify = { exe = "flatpak run com.spotify.Client", class = "spotify", ws = "spotify" },
 		tasks = { exe = bin .. "/tasks", class = "tasks", ws = "tasks" },
@@ -17,7 +18,19 @@ local programs = {
 		gemini = { exe = bin .. "/gemini", class = "gemini", ws = "gemini" },
 		whatsapp = { exe = bin .. "/whatsapp", class = "whatsapp", ws = "whatsapp" },
 		yazi = { exe = "ghostty --class=yazi -e yazi", class = "yazi", ws = "yazi" },
+
+		-- System tools
+		audio = {
+			exe = "pwvucontrol --tab 4",
+			class = "com.saivert.pwvucontrol",
+			ws = "pwvucontrol",
+		},
 		bluetui = { exe = "ghostty --class=bluetui -e bluetui", class = "bluetui", ws = "bluetui" },
+		calculator = {
+			exe = "gnome-calculator",
+			class = "org.ghome.Calculator",
+			ws = "gnome-calculator",
+		},
 		jolt = { exe = "ghostty --class=jolt -e jolt", class = "jolt", ws = "jolt" },
 		impala = { exe = "ghostty --class=impala -e impala", class = "impala", ws = "impala" },
 		btop = { exe = "ghostty --class=btop -e btop", class = "btop", ws = "btop" },
@@ -68,7 +81,6 @@ hl.on("hyprland.start", function()
 		"wpctl set-volume @DEFAULT_AUDIO_SOURCE@ 0.25",
 		"waybar",
 		"swaybg -i ~/.config/hypr/wallpapers/hyprland.png",
-		"swaync",
 		"hyprsunset",
 	}
 
@@ -251,16 +263,26 @@ hl.config({
 
 -- ─── Windows & Workspaces ────────────────────────────────────────────────────
 
-hl.window_rule({
-	name = "suppress-maximize-events",
-	match = { class = ".*" },
-	suppress_event = "maximize",
+hl.layer_rule({
+	name = "swaync-control-center-slide",
+	match = { namespace = "^swaync-control-center$" },
+	animation = "slide right",
 })
 hl.layer_rule({
 	name = "blur-layer-popups",
 	match = { namespace = "^(rofi|swaync-control-center)$" },
 	blur = true,
 	ignore_alpha = 0.2,
+})
+hl.layer_rule({
+	name = "no-anim-capture",
+	match = { namespace = "^(hyprpicker|selection)$" },
+	no_anim = true,
+})
+hl.window_rule({
+	name = "suppress-maximize-events",
+	match = { class = ".*" },
+	suppress_event = "maximize",
 })
 hl.window_rule({
 	name = "move-hyprland-run",
@@ -294,27 +316,35 @@ hl.window_rule({
 	center = true,
 })
 
--- ─── Keybindings ─────────────────────────────────────────────────────────────
+-- ─── Keybindings ────────────────────────────────────────────────────────────────
 
 local cmds = {
-	-- ─── Essential ─────────────────────────────────────────────────────────────
+	-- ─── Essential ──────────────────────────────────────────────────────────────
 	["SUPER + RETURN"] = programs.terminal,
 	["SUPER + B"] = programs.browser,
 	["SUPER + space"] = programs.launcher,
-	["SUPER + period"] = "rofi -show emoji -modi emoji -emoji-mode copy",
-	["SUPER + comma"] = "swaync-client --hide-latest", -- Dismiss notification
-	["SUPER + CTRL + D"] = "swaync-client -d", -- DND mode
 
-	-- ─── System ─────────────────────────────────────────────────────────────
-	["SUPER + CTRL + Q"] = "loginctl lock-session",
+	--  ─── Notifications ─────────────────────────────────────────────────────────
+	["SUPER + comma"] = "swaync-client --hide-latest", -- Dismiss notification
+	["SUPER + SHIFT + comma"] = "swaync-client -a", -- Activate/open latest notification
+	["SUPER + CTRL + D"] = "swaync-client -d", -- DND mode
 	["SUPER + CTRL + comma"] = "swaync-client -t",
-	["SUPER + CTRL + R"] = "~/.config/hypr/scripts/record-screen.sh",
+
+	-- ─── System ─────────────────────────────────────────────────────────────────
+	["SUPER + CTRL + Q"] = "hyprlock",
 	["SUPER + CTRL + M"] = "wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle && pkill -RTMIN+8 waybar",
-	["SUPER + CTRL + P"] = "hyprpicker -a --notify",
-	["SUPER + CTRL + space"] = "rofi -show run -replace",
-	["print"] = "~/.config/hypr/scripts/screenshot.sh region",
-	["SHIFT + print"] = "~/.config/hypr/scripts/screenshot.sh fullscreen",
+	["SUPER + CTRL + I"] = "~/.config/hypr/scripts/caffeine-toggle.sh",
+	["SUPER + CTRL + P"] = "hyprpicker -a --notify", -- Pick colors from the screen
+	["SUPER + CTRL + space"] = "rofi -show run -replace", -- Run commands
+	["SUPER + CTRL + E"] = "rofi -show emoji -modi emoji -emoji-mode copy",
 	["SUPER + escape"] = "~/.config/hypr/scripts/powermenu.sh",
+
+	-- ─── Capture ────────────────────────────────────────────────────────────────
+	["SUPER + CTRL + R"] = "~/.config/hypr/scripts/record-screen.sh region",
+	["SUPER + CTRL + SHIFT + R"] = "~/.config/hypr/scripts/record-screen.sh fullscreen",
+	["SUPER + CTRL + O"] = "~/.config/hypr/scripts/ocr.sh",
+	["SHIFT + print"] = "~/.config/hypr/scripts/screenshot.sh fullscreen",
+	["print"] = "~/.config/hypr/scripts/screenshot.sh region",
 }
 
 for bind, cmd in pairs(cmds) do
@@ -331,8 +361,12 @@ local special_apps = {
 	["SUPER + SHIFT + A"] = "gemini",
 	["SUPER + SHIFT + F"] = "yazi",
 
+	-- ─── "System" Apps ──────────────────────────────────────────────────────────
+
+	["SUPER + CTRL + A"] = "audio", -- Audio control
 	["SUPER + CTRL + B"] = "bluetui", -- Bluetooth
-	["SUPER + CTRL + C"] = "clipboard",
+	["SUPER + CTRL + C"] = "calculator",
+	["SUPER + CTRL + V"] = "clipboard",
 	["SUPER + CTRL + W"] = "impala", -- WiFi
 	["SUPER + CTRL + T"] = "btop", --Activity Monitor
 }
@@ -386,3 +420,78 @@ local media = {
 for _, m in ipairs(media) do
 	hl.bind(m[1], hl.dsp.exec_cmd(m[2]), { locked = true, repeating = m[3] })
 end
+
+-- ─── Universal Clipboard & Selection ────────────────────────────────────────
+
+local function send_shortcut_once(mods, key)
+	return function()
+		hl.dispatch(hl.dsp.send_key_state({ mods = mods, key = key, state = "down" }))
+		hl.timer(function()
+			hl.dispatch(hl.dsp.send_key_state({ mods = mods, key = key, state = "up" }))
+		end, { timeout = 50, type = "oneshot" })
+	end
+end
+
+local function active_window_is_terminal()
+	local window = hl.get_active_window()
+	if not window then
+		return false
+	end
+
+	for _, tag in ipairs(window.tags or {}) do
+		if tag:gsub("%*$", "") == "terminal" then
+			return true
+		end
+	end
+
+	local class = (window.class or ""):lower()
+	local initial_class = (window.initial_class or ""):lower()
+	if
+		class:find("ghostty")
+		or initial_class:find("ghostty")
+		or class:find("kitty")
+		or initial_class:find("kitty")
+		or class:find("alacritty")
+		or initial_class:find("alacritty")
+		or class:find("foot")
+		or initial_class:find("foot")
+		or class:find("wezterm")
+		or initial_class:find("wezterm")
+	then
+		return true
+	end
+
+	if window.pid and window.pid > 0 then
+		local f = io.open("/proc/" .. window.pid .. "/comm", "r")
+		if f then
+			local comm = (f:read("*l") or ""):lower():gsub("%s+", "")
+			f:close()
+			if
+				comm == "ghostty"
+				or comm == "kitty"
+				or comm == "alacritty"
+				or comm == "foot"
+				or comm == "wezterm"
+			then
+				return true
+			end
+		end
+	end
+
+	return false
+end
+
+local function universal_shortcut(gui_mods, gui_key, term_mods, term_key)
+	return function()
+		if active_window_is_terminal() then
+			send_shortcut_once(term_mods, term_key)()
+		else
+			send_shortcut_once(gui_mods, gui_key)()
+		end
+	end
+end
+
+hl.bind("SUPER + C", universal_shortcut("CTRL", "C", "CTRL", "Insert"))
+hl.bind("SUPER + V", universal_shortcut("CTRL", "V", "SHIFT", "Insert"))
+hl.bind("SUPER + X", send_shortcut_once("CTRL", "X"))
+hl.bind("SUPER + A", universal_shortcut("CTRL", "A", "CTRL+SHIFT", "A"))
