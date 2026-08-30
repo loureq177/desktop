@@ -11,13 +11,14 @@ flock -n 200 || exit 0
 
 if pkill -x wf-recorder; then
     swaync-client --dnd-off || true
-    pkill -RTMIN+2 waybar || true
 
     FILE=""
     if [[ -f "$STATUS_FILE" ]]; then
         FILE=$(cat "$STATUS_FILE")
         rm -f "$STATUS_FILE"
     fi
+
+    pkill -RTMIN+2 waybar || true
 
     sleep 0.3
 
@@ -29,9 +30,20 @@ if pkill -x wf-recorder; then
     exit 0
 fi
 
-GEOM=$(slurp -d -b "#00000080" -c "#ffffff" -w 2) || {
-    exit 0
-}
+MODE="${1:-region}"
+TARGET_ARGS=()
+
+if [ "$MODE" = "fullscreen" ] || [ "$MODE" = "full" ]; then
+    FOCUSED_OUTPUT=$(hyprctl monitors -j | jq -r '.[] | select(.focused) | .name' 2>/dev/null || true)
+    if [[ -n "$FOCUSED_OUTPUT" ]]; then
+        TARGET_ARGS=(-o "$FOCUSED_OUTPUT")
+    fi
+else
+    GEOM=$(slurp -d -b "#00000080" -c "#ffffff" -w 2) || {
+        exit 0
+    }
+    TARGET_ARGS=(-g "$GEOM")
+fi
 
 mkdir -p "$(dirname "$STATUS_FILE")"
 FILE="$OUT_DIR/$(date +'%Y-%m-%d_%H-%M-%S').mkv"
@@ -39,6 +51,6 @@ echo "$FILE" >"$STATUS_FILE"
 
 exec 200>&-
 swaync-client --dnd-on || true
-wf-recorder -g "$GEOM" -f "$FILE" --audio=default &
+wf-recorder "${TARGET_ARGS[@]}" -f "$FILE" --audio=default &
 disown
 pkill -RTMIN+2 waybar || true
