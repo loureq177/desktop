@@ -1,22 +1,33 @@
 [core]
     editor = nvim
     pager = delta
+
 [interactive]
     diffFilter = delta --color-only
 
+[delta]
+    navigate = true
+
+[merge]
+    conflictStyle = zdiff3
+
 [init]
 	defaultBranch = main
+
 [user]
 	name = loureq177
 	email = 142215274+loureq177@users.noreply.github.com
 
 [pull]
 	rebase = false
+
 [push]
 	autoSetupRemote = true
+
 [credential "https://github.com"]
 	helper = 
 	helper = !gh auth git-credential
+
 [credential "https://gist.github.com"]
 	helper = 
 	helper = !gh auth git-credential
