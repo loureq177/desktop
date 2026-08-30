@@ -14,10 +14,10 @@
   "notification-inline-replies": false,
   "notification-body-image-height": 100,
   "notification-body-image-width": 200,
-  "timeout": 5,
-  "timeout-low": 2,
+  "timeout": 0,
+  "timeout-low": 0,
   "timeout-critical": 0,
-  "fit-to-screen": true,
+  "fit-to-screen": false,
   "relative-timestamps": true,
   "control-center-width": 500,
   "control-center-height": -1,
@@ -37,6 +37,9 @@
     },
     "dnd": {
       "text": "Do Not Disturb"
+    },
+    "notifications": {
+      "vexpand": false
     }
   }
 }

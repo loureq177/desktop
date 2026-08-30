@@ -49,7 +49,7 @@
 
 .control-center {
   background: @bg-main;
-  border-radius: 16px;
+  border-radius: 0px;
   border: 2px solid @border-color;
   padding: 12px;
 }
@@ -68,7 +68,7 @@
 }
 .control-center-list scrollbar slider {
   background: @border-color;
-  border-radius: 999px;
+  border-radius: 0px;
   min-width: 6px;
 }
 .control-center-list scrollbar slider:hover {
@@ -77,6 +77,8 @@
 
 .floating-notifications {
   background: transparent;
+  margin-top: 20px;
+  margin-right: 20px;
 }
 
 @keyframes notif-in {
@@ -97,7 +99,7 @@
 
 .notification {
   background: @bg-card;
-  border-radius: 16px;
+  border-radius: 0px;
   padding: 8px 12px;
   margin-bottom: 2px;
   border: 2px solid @border-color;
@@ -139,7 +141,7 @@
   background: @bg-hover;
   color: @text-main;
   border: 1px solid @border-color;
-  border-radius: 8px;
+  border-radius: 0px;
   padding: 6px 12px;
   box-shadow: none;
   transition:
@@ -160,8 +162,12 @@
   color: @text-muted;
   border: 1px solid transparent;
   box-shadow: none;
-  border-radius: 8px;
+  border-radius: 0px;
   padding: 4px;
+  margin-top: 6px;
+  margin-right: 6px;
+  min-width: 24px;
+  min-height: 24px;
   transition:
     background 150ms ease,
     color 150ms ease,
@@ -175,8 +181,18 @@
   box-shadow: none;
 }
 
+.text-box {
+  margin-right: 32px;
+}
+
+.time {
+  /* font-size: 13px; */
+  color: @text-dim;
+  margin-left: 6px;
+}
+
 .image {
-  border-radius: 16px;
+  border-radius: 0px;
   margin-right: 10px;
 }
 
@@ -217,7 +233,7 @@
   font-size: 15px;
   color: @text-muted;
   background: @bg-card;
-  border-radius: 8px;
+  border-radius: 0px;
   padding: 4px 10px;
   border: 1px solid @border-color;
   box-shadow: none;
@@ -245,7 +261,7 @@
 
 .widget-dnd > switch {
   background: @bg-card;
-  border-radius: 16px;
+  border-radius: 0px;
   border: 1px solid @border-color;
   transition:
     background 200ms ease,
@@ -259,7 +275,7 @@
 
 .widget-dnd > switch slider {
   background: @text-main;
-  border-radius: 8px;
+  border-radius: 0px;
   transition: margin 200ms ease;
 }
 
@@ -272,7 +288,7 @@
 .notification-group-headline {
   background: @bg-card;
   border: 2px solid @border-color;
-  border-radius: 16px;
+  border-radius: 0px;
   padding: 6px 10px;
 }
 
@@ -286,7 +302,7 @@
   background: @bg-hover;
   color: @text-muted;
   border: 1px solid @border-color;
-  border-radius: 8px;
+  border-radius: 0px;
   padding: 4px 10px;
   box-shadow: none;
   transition:
