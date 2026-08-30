@@ -21,7 +21,7 @@ window {
     background-color: rgba(13, 17, 23, 0.95);
     border: 2px;
     border-color: @border-color;
-    border-radius: 16px;
+    border-radius: 0px;
     width: 680px;
     location: center;
     anchor: center;
@@ -50,7 +50,7 @@ entry {
     font: "JetBrainsMono Nerd Font Mono Bold 14";
     padding: 8px 12px;
     background-color: @bg2;
-    border-radius: 8px;
+    border-radius: 0px;
 }
 
 listview {
@@ -64,7 +64,7 @@ listview {
 
 element {
     padding: 10px 14px;
-    border-radius: 8px;
+    border-radius: 0px;
     background-color: transparent;
 }
 
