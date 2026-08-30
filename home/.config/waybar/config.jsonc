@@ -7,7 +7,12 @@
   "margin-right": 4,
   "margin-bottom": 4,
 
-  "modules-left": ["hyprland/workspaces", "memory", "custom/dgpu"],
+  "modules-left": [
+    "hyprland/workspaces",
+    "memory",
+    "custom/dgpu",
+    "custom/powersave",
+  ],
 
   "modules-center": ["clock"],
 
@@ -37,10 +42,11 @@
   },
 
   "custom/record": {
-    "exec": "f=${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/recording_status; [ -f \"$f\" ] && echo '{\"text\":\"●\",\"class\":\"recording\",\"tooltip\":\"Recording screen\"}' || echo '{\"text\":\"\",\"class\":\"idle\",\"tooltip\":\"Not recording\"}'",
+    "exec": "pgrep -x wf-recorder >/dev/null && echo '{\"text\":\"●\",\"class\":\"recording\",\"tooltip\":\"Recording screen\\nClick to stop\"}' || echo '{\"text\":\"\",\"class\":\"idle\"}'",
     "return-type": "json",
-    "interval": "once",
+    "interval": 2,
     "signal": 2,
+    "on-click": "~/.config/hypr/scripts/record-screen.sh",
   },
 
   "custom/caffeine": {
@@ -163,5 +169,15 @@
     "exec": "swaync-client -swb",
     "on-click": "swaync-client -t -sw",
     "escape": true,
+  },
+
+  "custom/powersave": {
+    "format": "<span size='120%'>{}</span>",
+    "exec": "~/.config/hypr/scripts/power-save.sh --status",
+    "on-click": "~/.config/hypr/scripts/power-save.sh",
+    "return-type": "json",
+    "interval": "once",
+    "signal": 8,
+    "tooltip": true,
   },
 }

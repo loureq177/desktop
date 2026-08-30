@@ -33,7 +33,7 @@ window#waybar {
 tooltip {
   background: @tooltip-bg;
   border: 1px solid @tooltip-border;
-  border-radius: 12px;
+  border-radius: 0px;
   padding: 8px 12px;
 }
 
@@ -48,7 +48,7 @@ tooltip label {
   color: @text;
   padding: 0 10px;
   margin: 0 1px;
-  border-radius: 8px;
+  border-radius: 0px;
   transition: all 0.25s ease;
 }
 
@@ -69,7 +69,7 @@ tooltip label {
   padding: 0 8px;
   margin: 0 1px;
   color: @text-inactive;
-  border-radius: 8px;
+  border-radius: 0px;
   transition: all 0.25s ease;
 }
 
@@ -134,7 +134,6 @@ tooltip label {
 #custom-record.recording {
   color: @critical;
   background-color: rgba(248, 81, 73, 0.18);
-  animation: breathe 2s ease-in-out infinite;
 }
 
 #custom-record.idle {
@@ -168,9 +167,17 @@ tooltip label {
   color: @accent;
 }
 
+#custom-powersave.off {
+  color: @text-inactive;
+}
+#custom-powersave.on {
+  color: @accent-green;
+}
+
 #battery:hover,
 #bluetooth:hover,
 #custom-caffeine:hover,
+#custom-powersave:hover,
 #custom-dgpu:hover,
 #group-microphone:hover,
 #custom-notification:hover,
