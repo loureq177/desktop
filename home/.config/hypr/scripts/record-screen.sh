@@ -54,3 +54,5 @@ swaync-client --dnd-on || true
 wf-recorder "${TARGET_ARGS[@]}" -f "$FILE" --audio=default &
 disown
 pkill -RTMIN+2 waybar || true
+
+pw-play /usr/share/sounds/freedesktop/stereo/bell.oga &

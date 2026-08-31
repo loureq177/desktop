@@ -30,6 +30,7 @@ elif [ "$1" = "window" ]; then
         GEOM=$(echo "$WINDOW_DATA" | jq -r 'select(.at != null and .size != null) | "\(.at[0]),\(.at[1]) \(.size[0])x\(.size[1])"' 2>/dev/null || true)
     fi
     if [[ -z "$GEOM" ]]; then
+        pw-play /usr/share/sounds/freedesktop/stereo/dialog-warning.oga &
         notify-send --app-name "Screenshot" "Screenshot" "No active window found."
         exit 0
     fi
@@ -42,6 +43,8 @@ fi
 if [ ! -f "$FILE" ]; then
     exit 0
 fi
+
+pw-play /usr/share/sounds/freedesktop/stereo/camera-shutter.oga &
 
 exec 200>&-
 wl-copy -t image/png <"$FILE"
