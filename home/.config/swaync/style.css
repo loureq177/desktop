@@ -118,10 +118,6 @@
   border-left: 3px solid @critical;
 }
 
-.notification.low {
-  opacity: 0.85;
-}
-
 .notification-content {
   background: transparent;
   padding: 0;
