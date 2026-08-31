@@ -37,9 +37,9 @@ except Exception:
 
 _status() {
     if _is_active; then
-        printf '%s\n' '{"text": "󰌪", "alt": "on", "class": "on", "tooltip": "Power Saving Mode: ON\n• Refresh rate: 60 Hz\n• Animations & blur: Disabled\n• Brightness: Reduced (-20%)\n• Profile: Power-saver (Lenovo Quiet)\n\nClick to disable"}'
+        printf '%s\n' '{"text": "󰌪", "alt": "on", "class": "on", "tooltip": "Power Saving Mode: ON\n• Refresh rate: 60 Hz\n• Animations &amp; blur: Disabled\n• Brightness: Reduced (-20%)\n• Profile: Power-saver (Lenovo Quiet)\n\nClick to disable"}'
     else
-        printf '%s\n' '{"text": "󰌪", "alt": "off", "class": "off", "tooltip": "Power Saving Mode: OFF\n• Refresh rate: 165 Hz\n• Animations & blur: Enabled\n\nClick to enable"}'
+        printf '%s\n' '{"text": "󰌪", "alt": "off", "class": "off", "tooltip": "Power Saving Mode: OFF\n• Refresh rate: 165 Hz\n• Animations &amp; blur: Enabled\n\nClick to enable"}'
     fi
 }
 
