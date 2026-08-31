@@ -1,0 +1,33 @@
+@import "github-dark-default.rasi"
+
+window {
+    width: 580px;
+}
+
+entry {
+    placeholder: "Search emojis...";
+}
+
+listview {
+    columns: 8;
+    lines: 6;
+    fixed-height: true;
+    spacing: 6px;
+    padding: 12px 16px;
+}
+
+element {
+    padding: 10px 0px;
+    border-radius: 0px;
+    orientation: vertical;
+}
+
+element-text {
+    horizontal-align: 0.5;
+    vertical-align: 0.5;
+    font: "Noto Color Emoji 20, JetBrainsMono Nerd Font Mono 18";
+}
+
+element-icon {
+    enabled: false;
+}

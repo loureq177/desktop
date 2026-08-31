@@ -46,6 +46,16 @@ local programs = {
 -- ─── Environment ─────────────────────────────────────────────────────────────
 
 hl.env("AQ_DRM_DEVICES", "/dev/dri/amd-igpu:/dev/dri/nvidia-dgpu")
+hl.env("GSK_RENDERER", "ngl")
+hl.env("GTK_A11Y", "none")
+hl.env(
+	"VK_DRIVER_FILES",
+	"/usr/share/vulkan/icd.d/radeon_icd.x86_64.json:/usr/share/vulkan/icd.d/radeon_icd.i686.json"
+)
+hl.env(
+	"VK_ICD_FILENAMES",
+	"/usr/share/vulkan/icd.d/radeon_icd.x86_64.json:/usr/share/vulkan/icd.d/radeon_icd.i686.json"
+)
 hl.env("LIBVA_DRIVER_NAME", "radeonsi")
 hl.env("XDG_SESSION_TYPE", "wayland")
 hl.env("XDG_CURRENT_DESKTOP", "Hyprland")
@@ -81,6 +91,7 @@ hl.on("hyprland.start", function()
 		"wpctl set-volume @DEFAULT_AUDIO_SOURCE@ 0.25",
 		"waybar",
 		"swaybg -i ~/.config/hypr/wallpapers/hyprland.png",
+		"swayosd-server",
 		"hyprsunset",
 	}
 
@@ -336,7 +347,7 @@ local cmds = {
 	["SUPER + CTRL + I"] = "~/.config/hypr/scripts/caffeine-toggle.sh",
 	["SUPER + CTRL + P"] = "hyprpicker -a --notify", -- Pick colors from the screen
 	["SUPER + CTRL + space"] = "rofi -show run -replace", -- Run commands
-	["SUPER + CTRL + E"] = "rofi -show emoji -modi emoji -emoji-mode copy",
+	["SUPER + CTRL + E"] = "rofi -show emoji -modi emoji -emoji-mode copy -emoji-format '{emoji}' -theme emoji",
 	["SUPER + escape"] = "~/.config/hypr/scripts/powermenu.sh",
 
 	-- ─── Capture ────────────────────────────────────────────────────────────────
@@ -406,15 +417,13 @@ end
 hl.bind("SUPER + mouse:272", hl.dsp.window.drag(), { mouse = true })
 hl.bind("SUPER + mouse:273", hl.dsp.window.resize(), { mouse = true })
 
-local vol = "wpctl set-volume"
-
 local media = {
-	{ "XF86AudioRaiseVolume", vol .. " -l 1.0 @DEFAULT_AUDIO_SINK@ 2%+", true },
-	{ "XF86AudioLowerVolume", vol .. " -l 1.0 @DEFAULT_AUDIO_SINK@ 2%-", true },
-	{ "XF86AudioMute", "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle" },
-	{ "XF86AudioMicMute", "wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle" },
-	{ "XF86MonBrightnessUp", "brightnessctl set +10%", true },
-	{ "XF86MonBrightnessDown", "brightnessctl set 10%-", true },
+	{ "XF86AudioRaiseVolume", "swayosd-client --output-volume raise", true },
+	{ "XF86AudioLowerVolume", "swayosd-client --output-volume lower", true },
+	{ "XF86AudioMute", "swayosd-client --output-volume mute-toggle" },
+	{ "XF86AudioMicMute", "swayosd-client --input-volume mute-toggle" },
+	{ "XF86MonBrightnessUp", "swayosd-client --brightness raise", true },
+	{ "XF86MonBrightnessDown", "swayosd-client --brightness lower", true },
 }
 
 for _, m in ipairs(media) do
