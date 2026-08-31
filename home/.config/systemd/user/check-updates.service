@@ -1,0 +1,10 @@
+[Unit]
+Description=Check for Arch and AUR package updates
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/check-updates
+Environment=DISPLAY=:0
+Environment=WAYLAND_DISPLAY=wayland-1
