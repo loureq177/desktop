@@ -23,8 +23,6 @@
     "custom/caffeine",
     "bluetooth",
     "network",
-    "group/microphone",
-    "pulseaudio",
     "battery",
   ],
 
@@ -55,46 +53,6 @@
     "return-type": "json",
     "interval": "once",
     "signal": 1,
-  },
-
-  "pulseaudio": {
-    "format": "<span size='120%'>{icon}</span> {volume}",
-    "format-muted": "<span size='120%'>󰖁</span> {volume}",
-    "format-icons": {
-      "headphone": "󰋋",
-      "hands-free": "󰋎",
-      "headset": "󰋎",
-      "phone": "󰏲",
-      "portable": "󰏲",
-      "car": "󰄋",
-      "default": ["󰕿", "󰖀", "󰕾"],
-    },
-    "tooltip-format": "Volume: {volume}",
-    "on-click": "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle && pkill -RTMIN+7 waybar",
-    "signal": 7,
-  },
-
-  "pulseaudio#microphone": {
-    "format": "{format_source}",
-    "format-source": "<span size='120%'>󰍬</span>",
-    "format-source-muted": "<span size='120%'> 󰍭</span>",
-    "on-click": "wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle",
-  },
-
-  "pulseaudio#microphone-percent": {
-    "format": "{format_source}",
-    "format-source": "{volume} ",
-    "format-source-muted": "{volume}",
-    "on-click": "wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle",
-  },
-
-  "group/microphone": {
-    "orientation": "horizontal",
-    "drawer": {
-      "transition-duration": 500,
-      "transition-left-to-right": false,
-    },
-    "modules": ["pulseaudio#microphone", "pulseaudio#microphone-percent"],
   },
 
   "bluetooth": {
