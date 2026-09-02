@@ -6,7 +6,7 @@
   "control-center-layer": "top",
   "layer-shell": true,
   "cssPriority": "application",
-  "control-center-margin-top": 20,
+  "control-center-margin-top": 58,
   "control-center-margin-bottom": 20,
   "control-center-margin-right": 20,
   "control-center-margin-left": 20,
@@ -28,6 +28,12 @@
   "hide-on-clear": false,
   "hide-on-action": true,
   "script-fail-notify": true,
+  "scripts": {
+    "default-sound": {
+      "exec": "paplay /usr/share/sounds/freedesktop/stereo/message.oga &",
+      "app-name": ".*"
+    }
+  },
   "widgets": ["title", "dnd", "notifications"],
   "widget-config": {
     "title": {
