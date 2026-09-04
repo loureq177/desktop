@@ -46,16 +46,16 @@ _status() {
 _enable() {
     touch "$STATE_FILE"
 
-    _set_refresh_rate 60
-
     if command -v brightnessctl >/dev/null 2>&1; then
         local cur_b
         cur_b=$(brightnessctl get 2>/dev/null || echo "")
-        if [[ -n "$cur_b" ]]; then
+        if [[ ! -f "$PREV_BRIGHTNESS_FILE" ]] && [[ -n "$cur_b" ]]; then
             echo "$cur_b" >"$PREV_BRIGHTNESS_FILE"
         fi
-        brightnessctl -n 5 set 20%- >/dev/null 2>&1 || true
+        brightnessctl --min-value=5 set 20%- >/dev/null 2>&1 || true
     fi
+
+    _set_refresh_rate 60
 
     hyprctl eval "hl.config({ animations = { enabled = false }, decoration = { blur = { enabled = false }, shadow = { enabled = false } } })" >/dev/null 2>&1 || true
 
@@ -64,23 +64,31 @@ _enable() {
     fi
 
     if command -v notify-send >/dev/null 2>&1; then
-        notify-send -u low -i battery-profile-power-saver "Power Saver" "Enabled: 60Hz, animations off, -20% brightness" >/dev/null 2>&1 || true
+        notify-send -u low -i battery "Power Saver" "Enabled: 60Hz, animations off, -20% brightness" >/dev/null 2>&1 || true
     fi
 }
 
 _disable() {
     rm -f "$STATE_FILE"
 
-    _set_refresh_rate 165
-
     if command -v brightnessctl >/dev/null 2>&1; then
+        local prev_b=""
         if [[ -f "$PREV_BRIGHTNESS_FILE" ]] && [[ -s "$PREV_BRIGHTNESS_FILE" ]]; then
-            brightnessctl set "$(cat "$PREV_BRIGHTNESS_FILE")" >/dev/null 2>&1 || true
+            prev_b=$(cat "$PREV_BRIGHTNESS_FILE")
             rm -f "$PREV_BRIGHTNESS_FILE"
+        fi
+
+        local cur_b
+        cur_b=$(brightnessctl get 2>/dev/null || echo "")
+
+        if [[ -n "$prev_b" ]] && [[ -n "$cur_b" ]] && (( prev_b > cur_b )); then
+            brightnessctl set "$prev_b" >/dev/null 2>&1 || true
         else
             brightnessctl set +20% >/dev/null 2>&1 || true
         fi
     fi
+
+    _set_refresh_rate 165
 
     hyprctl eval "hl.config({ animations = { enabled = true }, decoration = { blur = { enabled = true }, shadow = { enabled = true } } })" >/dev/null 2>&1 || true
 

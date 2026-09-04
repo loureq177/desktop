@@ -44,7 +44,7 @@ if [ -n "$TRIMMED_TEXT" ]; then
     if [ ${#TRIMMED_TEXT} -gt 100 ]; then
         PREVIEW="${PREVIEW}..."
     fi
-    notify-send --app-name "OCR" -t 5000 "OCR" -i "edit-copy" "Text copied to clipboard:\n$PREVIEW"
+    notify-send --app-name "OCR" -t 5000 "OCR" -i "ocrfeeder" "Text copied to clipboard:\n$PREVIEW"
 else
     notify-send --app-name "OCR" -t 5000 "OCR" -i "dialog-warning" "No text recognized."
 fi
