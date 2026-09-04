@@ -1,3 +1,4 @@
+bibata-cursor-git
 pwvucontrol
 waybar-git
 zsh-fast-syntax-highlighting

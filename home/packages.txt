@@ -10,6 +10,7 @@ chromium
 cliphist
 cmatrix
 discord
+docker
 dua-cli
 duf
 eza
