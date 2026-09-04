@@ -1,0 +1,72 @@
+# ==============================================================================
+# Central UI Configuration
+#
+# Single source of truth for desktop look & feel across all components:
+# - Hyprland (window manager)
+# - Waybar (status bar)
+# - SwayNC (notification center)
+# - Rofi (app launcher & emoji picker)
+# - Hyprlock (lockscreen)
+#
+# After modifying values here, run 'apply-ui' to generate configs and reload.
+# ==============================================================================
+
+[rounding]
+window = 0          # Hyprland window corners (0 for sharp, 8-12 for rounded)
+element = 0         # Rofi elements, buttons, notifications, Waybar modules
+subtle = 0          # Tooltips, scrollbars, switches
+
+[border]
+size = 2            # Border thickness in pixels (Hyprland, SwayNC, Rofi, Hyprlock)
+
+[spacing]
+gaps_in = 10        # Gaps between windows in Hyprland
+gaps_out = 20       # Gaps between windows and screen edges
+bar_spacing = 8     # Spacing between modules in Waybar
+bar_margin = 4      # Waybar outer margin (top, left, right, bottom)
+
+[padding]
+module = "0 10px"            # Waybar modules padding
+workspace = "0 8px"          # Waybar workspace buttons padding
+tooltip = "8px 12px"         # Waybar tooltips padding
+notification = "8px 12px"    # SwayNC notification card padding
+control_center = "12px"      # SwayNC control center container padding
+button = "6px 12px"          # SwayNC notification action buttons padding
+rofi_input = "16px 20px"     # Rofi search bar padding
+rofi_element = "10px 14px"   # Rofi list items padding
+rofi_list = "12px 16px"      # Rofi listview container padding
+rofi_entry = "8px 12px"      # Rofi text input box padding
+
+[opacity]
+active = 1.0        # Active window opacity in Hyprland
+inactive = 0.75     # Inactive window opacity in Hyprland
+
+[font]
+family = "JetBrainsMono Nerd Font Propo"   # UI proportional font (Waybar, SwayNC, Hyprlock)
+mono = "JetBrainsMono Nerd Font Mono"       # Monospace font (Rofi, terminal)
+ui = "Adwaita Sans 12"                      # System / GTK UI font
+size_bar = 15                               # Waybar font size (px)
+size_rofi = 13                              # Rofi font size (pt)
+size_notif = 17                             # SwayNC font size (px)
+size_cursor = 24                            # Mouse cursor size
+
+[theme]
+cursor = "Bibata-Modern-Classic"
+icon = "Papirus-Dark"
+gtk = "Adwaita-dark"
+
+[colors]
+# GitHub Dark Default Palette
+bg_main = "#0d1117"
+bg_card = "#161b22"
+bg_hover = "#21262d"
+border = "#30363d"
+accent_blue = "#58a6ff"
+accent_purple = "#bc8cff"
+accent_green = "#3fb950"
+warning = "#d29922"
+critical = "#f85149"
+text_main = "#c9d1d9"
+text_dim = "#8b949e"
+text_muted = "#484f58"
+shadow = "#010409"

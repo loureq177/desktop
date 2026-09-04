@@ -1,27 +1,19 @@
-* {
-    bg0: #0d1117;
-    bg1: #161b22;
-    bg2: #21262d;
-    fg0: #c9d1d9;
-    fg1: #8b949e;
-    accent: #58a6ff;
-    accent-alt: #3fb950;
-    urgent: #f85149;
-    border-color: #30363d;
+@import "ui.rasi"
 
+* {
     background-color: transparent;
     text-color: @fg0;
     margin: 0;
     padding: 0;
     spacing: 0;
-    font: "JetBrainsMono Nerd Font Mono 13";
+    font: @font-main;
 }
 
 window {
     background-color: rgba(13, 17, 23, 0.95);
-    border: 2px;
+    border: @border-width;
     border-color: @border-color;
-    border-radius: 0px;
+    border-radius: @border-radius;
     width: 680px;
     location: center;
     anchor: center;
@@ -30,7 +22,7 @@ window {
 }
 
 inputbar {
-    padding: 16px 20px;
+    padding: @input-padding;
     background-color: rgba(22, 27, 34, 0.6);
     children: [prompt, entry];
     border: 0 0 1px 0;
@@ -40,21 +32,21 @@ inputbar {
 prompt {
     text-color: @accent;
     padding: 8px 12px 8px 0;
-    font: "JetBrainsMono Nerd Font Mono Bold 14";
+    font: @font-bold;
 }
 
 entry {
     placeholder: "Search...";
     placeholder-color: @fg1;
     text-color: @fg0;
-    font: "JetBrainsMono Nerd Font Mono Bold 14";
-    padding: 8px 12px;
+    font: @font-bold;
+    padding: @entry-padding;
     background-color: @bg2;
-    border-radius: 0px;
+    border-radius: @entry-radius;
 }
 
 listview {
-    padding: 12px 16px;
+    padding: @list-padding;
     lines: 8;
     columns: 1;
     fixed-height: true;
@@ -63,8 +55,8 @@ listview {
 }
 
 element {
-    padding: 10px 14px;
-    border-radius: 0px;
+    padding: @element-padding;
+    border-radius: @element-radius;
     background-color: transparent;
 }
 
@@ -78,7 +70,7 @@ element selected {
 element-text {
     vertical-align: 0.5;
     text-color: inherit;
-    font: "JetBrainsMono Nerd Font Mono 13";
+    font: inherit;
 }
 
 element-icon {

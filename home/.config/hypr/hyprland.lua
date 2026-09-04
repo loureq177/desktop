@@ -3,6 +3,23 @@
 local bin = os.getenv("HOME") .. "/.local/bin"
 local hypr = os.getenv("HOME") .. "/.config/hypr"
 
+local ui_ok, ui = pcall(dofile, hypr .. "/ui.lua")
+if not ui_ok then
+	ui = {
+		rounding = { window = 0, element = 0, subtle = 0 },
+		border = { size = 2 },
+		spacing = { gaps_in = 10, gaps_out = 20 },
+		opacity = { active = 1.0, inactive = 0.75 },
+		theme = { cursor = "Bibata-Modern-Classic", icon = "Papirus-Dark", gtk = "Adwaita-dark" },
+		font = { family = "JetBrainsMono Nerd Font Propo", mono = "JetBrainsMono Nerd Font Mono", ui = "Adwaita Sans 12", size_cursor = 24 },
+		colors = {
+			border = "rgba(30363dee)",
+			accent_blue = "rgba(58a6ffee)",
+			accent_purple = "rgba(bc8cffee)",
+		},
+	}
+end
+
 local programs = {
 	terminal = "ghostty",
 	browser = "firefox",
@@ -18,6 +35,11 @@ local programs = {
 		gemini = { exe = bin .. "/gemini", class = "gemini", ws = "gemini" },
 		whatsapp = { exe = bin .. "/whatsapp", class = "whatsapp", ws = "whatsapp" },
 		yazi = { exe = "ghostty --class=yazi -e yazi", class = "yazi", ws = "yazi" },
+		notes = {
+			exe = "ghostty --class=notes --working-directory=" .. os.getenv("HOME") .. "/Notes -e nvim",
+			class = "notes",
+			ws = "notes",
+		},
 
 		-- System tools
 		audio = {
@@ -65,8 +87,10 @@ hl.env("QT_QPA_PLATFORM", "wayland;xcb")
 hl.env("SDL_VIDEODRIVER", "wayland")
 hl.env("CLUTTER_BACKEND", "wayland")
 hl.env("MOZ_ENABLE_WAYLAND", "1")
-hl.env("XCURSOR_SIZE", "24")
-hl.env("HYPRCURSOR_SIZE", "24")
+hl.env("XCURSOR_THEME", ui.theme.cursor)
+hl.env("XCURSOR_SIZE", tostring(ui.font.size_cursor))
+hl.env("HYPRCURSOR_THEME", ui.theme.cursor)
+hl.env("HYPRCURSOR_SIZE", tostring(ui.font.size_cursor))
 hl.env("QT_QPA_PLATFORMTHEME", "qt6ct")
 hl.env("ELECTRON_OZONE_PLATFORM_HINT", "auto")
 hl.env("SAL_USE_VCLPLUGIN", "gtk3")
@@ -77,11 +101,12 @@ local gsettings = "gsettings set org.gnome.desktop.interface"
 
 hl.on("hyprland.start", function()
 	local cmds = {
-		gsettings .. " icon-theme 'Papirus-Dark'",
-		gsettings .. " font-name 'Adwaita Sans 12'",
+		gsettings .. " cursor-theme '" .. ui.theme.cursor .. "'",
+		gsettings .. " icon-theme '" .. ui.theme.icon .. "'",
+		gsettings .. " font-name '" .. ui.font.ui .. "'",
 		gsettings .. " color-scheme 'prefer-dark'",
-		gsettings .. " gtk-theme 'Adwaita-dark'",
-		gsettings .. " monospace-font-name 'JetBrainsMono Nerd Font Mono 12'",
+		gsettings .. " gtk-theme '" .. ui.theme.gtk .. "'",
+		gsettings .. " monospace-font-name '" .. ui.font.mono .. " 12'",
 
 		"dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP HYPRLAND_INSTANCE_SIGNATURE",
 		"systemctl --user start hyprland-session.target",
@@ -93,6 +118,7 @@ hl.on("hyprland.start", function()
 		"swaybg -i ~/.config/hypr/wallpapers/hyprland.png",
 		"swayosd-server",
 		"hyprsunset",
+		"hyprpm reload -n",
 	}
 
 	for _, cmd in ipairs(cmds) do
@@ -166,6 +192,8 @@ hl.config({
 	cursor = {
 		inactive_timeout = 0,
 		warp_on_change_workspace = true,
+		enable_hyprcursor = true,
+		sync_gsettings_theme = true,
 	},
 	gestures = {
 		workspace_swipe_touch = true,
@@ -177,33 +205,27 @@ hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })
 
 -- ─── Look & Feel ─────────────────────────────────────────────────────────────
 
-local colors = {
-	accent_blue = "rgba(58a6ffee)",
-	accent_purple = "rgba(bc8cffee)",
-	inactive_border = "rgba(30363dee)",
-}
-
 hl.config({
 	general = {
-		gaps_in = 10,
-		gaps_out = 20,
-		border_size = 2,
+		gaps_in = ui.spacing.gaps_in,
+		gaps_out = ui.spacing.gaps_out,
+		border_size = ui.border.size,
 		col = {
 			active_border = {
-				colors = { colors.accent_blue, colors.accent_purple },
+				colors = { ui.colors.accent_blue, ui.colors.accent_purple },
 				angle = 45,
 			},
-			inactive_border = colors.inactive_border,
+			inactive_border = ui.colors.border,
 		},
 		resize_on_border = true,
 		allow_tearing = false,
 		layout = "dwindle",
 	},
 	decoration = {
-		rounding = 0,
+		rounding = ui.rounding.window,
 		rounding_power = 0,
-		active_opacity = 1.0,
-		inactive_opacity = 0.75,
+		active_opacity = ui.opacity.active,
+		inactive_opacity = ui.opacity.inactive,
 		shadow = {
 			range = 4,
 			render_power = 3,
@@ -271,6 +293,46 @@ hl.config({
 		vrr = 0,
 	},
 })
+
+-- ─── Plugins ─────────────────────────────────────────────────────────────────
+
+if hl.plugin and hl.plugin.dynamic_cursors then
+	hl.config({
+		plugin = {
+			dynamic_cursors = {
+				enabled = true,
+				mode = "tilt",
+				threshold = 2,
+
+				tilt = {
+					limit = 5000,
+					activation = "negative_quadratic",
+					window = 100,
+					full = 60,
+				},
+
+				shake = {
+					enabled = true,
+					threshold = 6.0,
+					base = 4.0,
+					speed = 4.0,
+					influence = 0.0,
+					limit = 0.0,
+					timeout = 2000,
+					effects = false,
+					ipc = false,
+				},
+
+				hyprcursor = {
+					nearest = 1,
+					enabled = true,
+					resolution = -1,
+					fallback = "clientside",
+				},
+			},
+		},
+	})
+end
 
 -- ─── Windows & Workspaces ────────────────────────────────────────────────────
 
@@ -371,6 +433,7 @@ local special_apps = {
 	["SUPER + SHIFT + S"] = "spotify",
 	["SUPER + SHIFT + A"] = "gemini",
 	["SUPER + SHIFT + F"] = "yazi",
+	["SUPER + SHIFT + N"] = "notes",
 
 	-- ─── "System" Apps ──────────────────────────────────────────────────────────
 
@@ -504,3 +567,15 @@ hl.bind("SUPER + C", universal_shortcut("CTRL", "C", "CTRL", "Insert"))
 hl.bind("SUPER + V", universal_shortcut("CTRL", "V", "SHIFT", "Insert"))
 hl.bind("SUPER + X", send_shortcut_once("CTRL", "X"))
 hl.bind("SUPER + A", universal_shortcut("CTRL", "A", "CTRL+SHIFT", "A"))
+
+-- ─── Cursor Magnify (hypr-dynamic-cursors) ───────────────────────────────────
+
+if hl.plugin and hl.plugin.dynamic_cursors and hl.plugin.dynamic_cursors.dsp_magnify then
+	hl.bind("SUPER + CTRL + Z", hl.plugin.dynamic_cursors.dsp_magnify({ duration = 2000, size = 4.0 }))
+else
+	hl.bind("SUPER + CTRL + Z", function()
+		if hl.plugin and hl.plugin.dynamic_cursors and hl.plugin.dynamic_cursors.dsp_magnify then
+			hl.plugin.dynamic_cursors.dsp_magnify({ duration = 2000, size = 4.0 })()
+		end
+	end)
+end

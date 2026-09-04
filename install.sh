@@ -57,6 +57,11 @@ if [ "$OS" = "Linux" ]; then
         sudo ln -sfv "$(pwd)/archlinux/.config/ly/config.ini" /etc/ly/config.ini
     fi
 
+    if [ -x "$HOME/.local/bin/apply-ui" ]; then
+        _log_info "Applying UI styles..."
+        "$HOME/.local/bin/apply-ui" --no-reload || _log_warn "Failed to apply UI styles."
+    fi
+
     if command -v systemctl &>/dev/null; then
         systemctl --user daemon-reload 2>/dev/null || true
     fi
@@ -74,6 +79,11 @@ fi
 
 _log_info "Applying common Stow configs..."
 stow --verbose --restow --target ~ "${STOW_IGNORE[@]}" common
+
+if command -v bat &>/dev/null; then
+    _log_info "Building bat cache..."
+    bat cache --build || _log_warn "bat cache build failed."
+fi
 
 _log_info "Installing opencode plugin dependencies..."
 if [ -f "$HOME/.config/opencode/package.json" ] && command -v npm &>/dev/null; then

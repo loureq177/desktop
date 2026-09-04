@@ -1,7 +1,7 @@
 @import "github-dark-default.rasi"
 
-window {
-    width: 580px;
+configuration {
+    display-emoji: "󰞅 Emoji";
 }
 
 entry {
@@ -10,22 +10,22 @@ entry {
 
 listview {
     columns: 8;
-    lines: 6;
+    lines: 7;
     fixed-height: true;
-    spacing: 6px;
-    padding: 12px 16px;
+    spacing: 8px;
+    padding: 10px 16px;
 }
 
 element {
-    padding: 10px 0px;
-    border-radius: 0px;
+    padding: 9px 0px;
+    border-radius: @element-radius;
     orientation: vertical;
 }
 
 element-text {
     horizontal-align: 0.5;
     vertical-align: 0.5;
-    font: "Noto Color Emoji 20, JetBrainsMono Nerd Font Mono 18";
+    font: "Noto Color Emoji 32, JetBrainsMono Nerd Font Mono 28";
 }
 
 element-icon {

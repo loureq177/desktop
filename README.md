@@ -25,8 +25,16 @@ stow --restow --target ~ common
 stow --restow --target ~ common archlinux
 ```
 
-## Package Dependencies
+## UI Configuration & Theming
 
-- **Arch Linux**: Listed in `archlinux/packages.txt` (official), `archlinux/aur.txt` (AUR), and `archlinux/flatpak.txt` (Flatpak).
-- **macOS**: Managed via `macos/Brewfile` (`brew bundle`).
+Desktop appearance (roundings, paddings, borders, gaps, fonts, colors) is centralized in a single configuration file:
+- **Config**: [`~/.config/ui/ui.toml`](file:///home/mlorenc/.files/archlinux/.config/ui/ui.toml)
+- **Apply & Live Reload**: run `apply-ui`
+
+Components synchronized:
+- **Hyprland**: window rounding, border size, inner/outer gaps, opacities, colors, cursor, UI fonts
+- **Waybar**: margins, spacing, module padding, border-radius, color palette
+- **SwayNC**: notification & control center border-radius, padding, borders, color palette
+- **Rofi**: window & element roundings, borders, paddings, fonts, color palette
+- **Hyprlock**: input field rounding, outline thickness, font, color palette
 
