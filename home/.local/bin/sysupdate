@@ -1,13 +1,49 @@
 #!/usr/bin/env zsh
 set -euo pipefail
 
+echo "==> Updating system & AUR packages..."
 paru -Syu --devel
 
-zsh -ic "zinit update --all && zinit self-update" || true
+echo "\n==> Updating Zsh plugins (zinit)..."
+zsh -ic "zinit self-update && zinit update --all" || true
 
-fwupdmgr refresh || true
-fwupdmgr update -y || true
+if command -v fwupdmgr >/dev/null 2>&1; then
+    echo "\n==> Checking firmware updates..."
+    fwupdmgr refresh || true
+    fwupdmgr update -y || true
+fi
 
-tldr --update || true
+if command -v flatpak >/dev/null 2>&1; then
+    echo "\n==> Updating Flatpak packages..."
+    flatpak update -y || true
+fi
 
-flatpak update --noninteractive
+if command -v tldr >/dev/null 2>&1; then
+    echo "\n==> Updating tldr cache..."
+    tldr --update || true
+fi
+
+if command -v uv >/dev/null 2>&1; then
+    echo "\n==> Updating uv tools..."
+    uv tool upgrade --all 2>/dev/null || true
+fi
+
+if command -v nvim >/dev/null 2>&1; then
+    echo "\n==> Updating Neovim plugins (LazyVim)..."
+    nvim --headless "+Lazy! sync" +qa || true
+fi
+
+# Check for pacnew / pacsave files
+if command -v pacdiff >/dev/null 2>&1; then
+    pacnew_files=$(pacdiff -o || true)
+    if [ -n "$pacnew_files" ]; then
+        echo "\n⚠️  Found pacnew/pacsave files:"
+        echo "$pacnew_files"
+        echo "Run 'DIFFPROG=nvim pacdiff' to merge."
+    fi
+fi
+
+# Check if reboot is recommended (kernel modules changed)
+if [ ! -d "/usr/lib/modules/$(uname -r)" ]; then
+    echo "\n⚠️  Running kernel ($(uname -r)) modules not found on disk. A reboot is recommended!"
+fi
