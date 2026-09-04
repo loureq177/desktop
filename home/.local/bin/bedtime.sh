@@ -6,7 +6,23 @@ notify_bed() {
         --app-name "Bedtime" \
         -t 0 "Bedtime" \
         -i "weather-clear-night" \
-        "$1"
+        "$1" 2>/dev/null || true
+}
+
+set_wifi() {
+    local target="$1" # "on" or "off"
+    local current
+    current=$(nmcli radio wifi 2>/dev/null || echo "unknown")
+
+    if [ "$target" = "off" ]; then
+        if [ "$current" != "disabled" ]; then
+            nmcli radio wifi off 2>/dev/null || true
+        fi
+    elif [ "$target" = "on" ]; then
+        if [ "$current" != "enabled" ]; then
+            nmcli radio wifi on 2>/dev/null || true
+        fi
+    fi
 }
 
 case $(date +%H:%M) in
@@ -18,18 +34,18 @@ case $(date +%H:%M) in
         ;;
     "22:00")
         notify_bed "WiFi has been turned off."
-        nmcli radio wifi off
+        set_wifi "off"
         ;;
     "07:00")
-        nmcli radio wifi on
+        set_wifi "on"
         ;;
     *)
         hour=$((10#$(date +%H)))
         if [ "$hour" -ge 22 ] || [ "$hour" -lt 7 ]; then
             notify_bed "WiFi has been turned off."
-            nmcli radio wifi off
+            set_wifi "off"
         elif [ "$hour" -ge 7 ] && [ "$hour" -lt 22 ]; then
-            nmcli radio wifi on
+            set_wifi "on"
         fi
         ;;
 esac
