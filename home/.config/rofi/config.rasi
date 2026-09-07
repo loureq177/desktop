@@ -3,8 +3,7 @@ configuration {
     modi: "drun,run,window";
     show-icons: true;
     icon-theme: "Papirus-Dark";
-    font: "JetBrainsMono Nerd Font Mono 13";
-    drun-display-format: "{icon} {name}";
+    drun-display-format: "{name}";
     display-drun: " Apps";
     display-run: " Commands";
     display-window: " Windows";

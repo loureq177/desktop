@@ -10,20 +10,20 @@
 }
 
 window {
-    background-color: rgba(13, 17, 23, 0.95);
+    background-color: @bg-window;
     border: @border-width;
     border-color: @border-color;
     border-radius: @border-radius;
-    width: 680px;
+    width: 780px;
     location: center;
     anchor: center;
-    yoffset: -150;
+    yoffset: -60;
     fullscreen: false;
 }
 
 inputbar {
     padding: @input-padding;
-    background-color: rgba(22, 27, 34, 0.6);
+    background-color: @bg-input;
     children: [prompt, entry];
     border: 0 0 1px 0;
     border-color: @border-color;
@@ -47,35 +47,44 @@ entry {
 
 listview {
     padding: @list-padding;
-    lines: 8;
-    columns: 1;
+    lines: 4;
+    columns: 5;
     fixed-height: true;
-    scrollbar: true;
-    spacing: 4px;
+    fixed-columns: true;
+    cycle: true;
+    dynamic: true;
+    scrollbar: false;
+    layout: vertical;
+    flow: horizontal;
+    spacing: 12px;
 }
 
 element {
+    orientation: vertical;
     padding: @element-padding;
     border-radius: @element-radius;
     background-color: transparent;
+    spacing: 8px;
 }
 
 element selected {
-    background-color: rgba(56, 139, 253, 0.15);
+    background-color: @selected-bg;
     text-color: @accent;
     border: 1px;
-    border-color: rgba(88, 166, 255, 0.4);
+    border-color: @selected-border;
 }
 
 element-text {
+    horizontal-align: 0.5;
     vertical-align: 0.5;
     text-color: inherit;
     font: inherit;
 }
 
 element-icon {
-    size: 1.8em;
-    padding: 0 14px 0 0;
+    size: 48px;
+    horizontal-align: 0.5;
+    vertical-align: 0.5;
 }
 
 scrollbar {
