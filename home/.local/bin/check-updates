@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Checks for official, AUR, and .pacnew updates; sends a desktop notification with update action.
 set -euo pipefail
 
 # Check if network is reachable
@@ -7,25 +8,39 @@ if ! ping -q -c 1 -W 2 1.1.1.1 >/dev/null 2>&1; then
 fi
 
 # Count official Arch updates
-official_count=$(checkupdates 2>/dev/null | wc -l || echo 0)
+official_count=$(checkupdates 2>/dev/null | grep -c . || true)
 
 # Count AUR updates via paru
 aur_count=0
 if command -v paru >/dev/null 2>&1; then
-    aur_count=$(paru -Qum 2>/dev/null | wc -l || echo 0)
+    aur_count=$(paru -Qum 2>/dev/null | grep -c . || true)
+fi
+
+pacnew_count=0
+if command -v pacdiff >/dev/null 2>&1; then
+    pacnew_count=$(pacdiff -o 2>/dev/null | grep -c . || true)
 fi
 
 total=$((official_count + aur_count))
 
-if [ "$total" -gt 0 ]; then
-    summary="Dostępne aktualizacje ($total)"
-    body="Pakiety oficjalne: $official_count\nPakiety AUR: $aur_count\n\nKliknij przycisk poniżej, aby zaktualizować."
+if [ "$total" -gt 0 ] || [ "$pacnew_count" -gt 0 ]; then
+    if [ "$total" -gt 0 ]; then
+        summary="Available updates ($total)"
+        body="Official packages: $official_count\nAUR packages: $aur_count"
+        if [ "$pacnew_count" -gt 0 ]; then
+            body="$body\n.pacnew files: $pacnew_count"
+        fi
+    else
+        summary=".pacnew files detected ($pacnew_count)"
+        body="System configuration merge required."
+    fi
+    body="$body\n\nClick the button below to update."
 
     action=$(notify-send \
         --app-name="System Update" \
         --icon="software-update-available" \
         --urgency=normal \
-        --action="update=Zaktualizuj system" \
+        --action="update=Update system" \
         "$summary" "$body" 2>/dev/null || true)
 
     if [ "$action" = "update" ]; then

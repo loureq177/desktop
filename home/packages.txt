@@ -74,6 +74,7 @@ python-pynvim
 qt5-wayland
 qt6-wayland
 rclone
+reflector
 resvg
 ripgrep
 rofi

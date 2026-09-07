@@ -1,5 +1,14 @@
 #!/usr/bin/env zsh
+# Arch Linux system updater: pacman/AUR (paru), flatpaks, zinit, dev tools, and .pacnew review.
 set -euo pipefail
+
+step() {
+    local msg=$1 tool=$2
+    shift 2
+    command -v "$tool" >/dev/null 2>&1 || return 0
+    echo "\n==> $msg"
+    "$@" || true
+}
 
 echo "==> Updating system & AUR packages..."
 paru -Syu --devel
@@ -13,33 +22,35 @@ if command -v fwupdmgr >/dev/null 2>&1; then
     fwupdmgr update -y || true
 fi
 
-if command -v flatpak >/dev/null 2>&1; then
-    echo "\n==> Updating Flatpak packages..."
-    flatpak update -y || true
-fi
+step "Updating Flatpak packages..." flatpak update -y
 
-if command -v tldr >/dev/null 2>&1; then
-    echo "\n==> Updating tldr cache..."
-    tldr --update || true
-fi
+step "Updating tldr cache..." tldr --update
 
 if command -v uv >/dev/null 2>&1; then
     echo "\n==> Updating uv tools..."
     uv tool upgrade --all 2>/dev/null || true
 fi
 
-if command -v nvim >/dev/null 2>&1; then
-    echo "\n==> Updating Neovim plugins (LazyVim)..."
-    nvim --headless "+Lazy! sync" +qa || true
-fi
+step "Updating Neovim plugins (LazyVim)..." nvim --headless "+Lazy! sync" +qa
 
 # Check for pacnew / pacsave files
 if command -v pacdiff >/dev/null 2>&1; then
+    echo "\n==> Checking and cleaning .pacnew / .pacsave files..."
+    # 1. Automatically remove .pacnew files that are 100% identical to current
+    yes s | DIFFPROG=true pacdiff -s >/dev/null 2>&1 || true
+
+    # 2. Check if files with actual changes remain
     pacnew_files=$(pacdiff -o || true)
     if [ -n "$pacnew_files" ]; then
-        echo "\n⚠️  Found pacnew/pacsave files:"
+        echo "⚠️  Detected .pacnew/.pacsave files requiring attention:"
         echo "$pacnew_files"
-        echo "Run 'DIFFPROG=nvim pacdiff' to merge."
+        echo
+        read -r "reply?Do you want to merge differences with pacdiff (nvim) now? [y/N] " || reply="n"
+        if [[ "$reply" =~ ^[Yy]$ ]]; then
+            DIFFPROG="nvim -d" pacdiff -s
+        fi
+    else
+        echo "✓ No pending .pacnew files."
     fi
 fi
 
