@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Bedtime enforcer: sends curfew notifications and toggles WiFi off at 22:00, back on at 07:00.
 set -euo pipefail
 
 notify_bed() {
@@ -10,18 +11,14 @@ notify_bed() {
 }
 
 set_wifi() {
-    local target="$1" # "on" or "off"
-    local current
-    current=$(nmcli radio wifi 2>/dev/null || echo "unknown")
-
-    if [ "$target" = "off" ]; then
-        if [ "$current" != "disabled" ]; then
-            nmcli radio wifi off 2>/dev/null || true
-        fi
-    elif [ "$target" = "on" ]; then
-        if [ "$current" != "enabled" ]; then
-            nmcli radio wifi on 2>/dev/null || true
-        fi
+    local want
+    case "$1" in
+        off) want=disabled ;;
+        on) want=enabled ;;
+        *) return 0 ;;
+    esac
+    if [ "$(nmcli radio wifi 2>/dev/null || echo unknown)" != "$want" ]; then
+        nmcli radio wifi "$1" 2>/dev/null || true
     fi
 }
 

@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Backs up $HOME to Google Drive via rclone with exclusion filters (skips caches, dotfiles, venvs).
 set -euo pipefail
 
 LOCKFILE="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/rclone-sync.lock"
@@ -27,8 +28,7 @@ excludes=(
 )
 
 echo "Syncing: $source_root -> $remote_root"
-set +e
-rclone sync \
+if ! rclone sync \
     "$source_root" \
     "$remote_root" \
     "${excludes[@]}" \
@@ -40,11 +40,8 @@ rclone sync \
     --fast-list \
     --track-renames \
     --drive-use-trash=true \
-    --verbose
-rc=$?
-set -e
-
-if [ $rc -ne 0 ]; then
+    --verbose; then
+    rc=$?
     notify-send --app-name "Rclone" -t 5000 "Rclone" -i "dialog-error" "Rclone Sync failed. Check the logs for details"
     exit "$rc"
 fi
