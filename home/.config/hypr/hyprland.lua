@@ -11,7 +11,12 @@ if not ui_ok then
 		spacing = { gaps_in = 10, gaps_out = 20 },
 		opacity = { active = 1.0, inactive = 0.75 },
 		theme = { cursor = "Bibata-Modern-Classic", icon = "Papirus-Dark", gtk = "Adwaita-dark" },
-		font = { family = "JetBrainsMono Nerd Font Propo", mono = "JetBrainsMono Nerd Font Mono", ui = "Adwaita Sans 12", size_cursor = 24 },
+		font = {
+			family = "JetBrainsMono Nerd Font Propo",
+			mono = "JetBrainsMono Nerd Font Mono",
+			ui = "Adwaita Sans 12",
+			size_cursor = 24,
+		},
 		colors = {
 			border = "rgba(30363dee)",
 			accent_blue = "rgba(58a6ffee)",
@@ -36,7 +41,9 @@ local programs = {
 		whatsapp = { exe = bin .. "/whatsapp", class = "whatsapp", ws = "whatsapp" },
 		yazi = { exe = "ghostty --class=yazi -e yazi", class = "yazi", ws = "yazi" },
 		notes = {
-			exe = "ghostty --class=notes --working-directory=" .. os.getenv("HOME") .. "/Notes -e nvim",
+			exe = "ghostty --class=notes --working-directory="
+				.. os.getenv("HOME")
+				.. "/Notes -e nvim",
 			class = "notes",
 			ws = "notes",
 		},
@@ -324,9 +331,9 @@ if hl.plugin and hl.plugin.dynamic_cursors then
 				},
 
 				hyprcursor = {
-					nearest = 1,
+					nearest = 0,
 					enabled = true,
-					resolution = -1,
+					resolution = 256,
 					fallback = "clientside",
 				},
 			},
@@ -398,14 +405,16 @@ local cmds = {
 	["SUPER + space"] = programs.launcher,
 
 	--  ─── Notifications ─────────────────────────────────────────────────────────
-	["SUPER + comma"] = "swaync-client --hide-latest", -- Dismiss notification
-	["SUPER + SHIFT + comma"] = "swaync-client -a", -- Activate/open latest notification
-	["SUPER + CTRL + D"] = "swaync-client -d", -- DND mode
+	["SUPER + comma"] = "swaync-client --close-latest",
+	["SUPER + SHIFT + comma"] = "swaync-client --action",
+	["SUPER + ALT + 1"] = "swaync-client -a 0",
+	["SUPER + ALT + 2"] = "swaync-client -a 1",
+	["SUPER + ALT + 3"] = "swaync-client -a 2",
+	["SUPER + CTRL + D"] = "swaync-client --toggle-dnd",
 	["SUPER + CTRL + comma"] = "swaync-client -t",
 
 	-- ─── System ─────────────────────────────────────────────────────────────────
 	["SUPER + CTRL + Q"] = "hyprlock",
-	["SUPER + CTRL + M"] = "wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle && pkill -RTMIN+8 waybar",
 	["SUPER + CTRL + I"] = "~/.config/hypr/scripts/caffeine-toggle.sh",
 	["SUPER + CTRL + P"] = "hyprpicker -a --notify", -- Pick colors from the screen
 	["SUPER + CTRL + space"] = "rofi -show run -replace", -- Run commands
@@ -481,12 +490,12 @@ hl.bind("SUPER + mouse:272", hl.dsp.window.drag(), { mouse = true })
 hl.bind("SUPER + mouse:273", hl.dsp.window.resize(), { mouse = true })
 
 local media = {
-	{ "XF86AudioRaiseVolume", "swayosd-client --output-volume raise", true },
-	{ "XF86AudioLowerVolume", "swayosd-client --output-volume lower", true },
-	{ "XF86AudioMute", "swayosd-client --output-volume mute-toggle" },
-	{ "XF86AudioMicMute", "swayosd-client --input-volume mute-toggle" },
-	{ "XF86MonBrightnessUp", "swayosd-client --brightness raise", true },
-	{ "XF86MonBrightnessDown", "swayosd-client --brightness lower", true },
+	{ "XF86AudioRaiseVolume", "~/.config/hypr/scripts/volume.sh output raise", true },
+	{ "XF86AudioLowerVolume", "~/.config/hypr/scripts/volume.sh output lower", true },
+	{ "XF86AudioMute", "~/.config/hypr/scripts/volume.sh output mute-toggle" },
+	{ "XF86AudioMicMute", "~/.config/hypr/scripts/volume.sh input mute-toggle" },
+	{ "XF86MonBrightnessUp", "swayosd-client --brightness +10", true },
+	{ "XF86MonBrightnessDown", "swayosd-client --brightness -10", true },
 }
 
 for _, m in ipairs(media) do
@@ -571,7 +580,10 @@ hl.bind("SUPER + A", universal_shortcut("CTRL", "A", "CTRL+SHIFT", "A"))
 -- ─── Cursor Magnify (hypr-dynamic-cursors) ───────────────────────────────────
 
 if hl.plugin and hl.plugin.dynamic_cursors and hl.plugin.dynamic_cursors.dsp_magnify then
-	hl.bind("SUPER + CTRL + Z", hl.plugin.dynamic_cursors.dsp_magnify({ duration = 2000, size = 4.0 }))
+	hl.bind(
+		"SUPER + CTRL + Z",
+		hl.plugin.dynamic_cursors.dsp_magnify({ duration = 1500, size = 4.0 })
+	)
 else
 	hl.bind("SUPER + CTRL + Z", function()
 		if hl.plugin and hl.plugin.dynamic_cursors and hl.plugin.dynamic_cursors.dsp_magnify then
