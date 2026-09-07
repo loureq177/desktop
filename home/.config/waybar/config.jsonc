@@ -3,8 +3,8 @@
   "height": 30,
   "spacing": 8,
   "margin-top": 4,
-  "margin-left": 4,
-  "margin-right": 4,
+  "margin-left": 20,
+  "margin-right": 20,
   "margin-bottom": 4,
 
   "modules-left": [
@@ -42,7 +42,7 @@
   "custom/record": {
     "exec": "pgrep -x wf-recorder >/dev/null && echo '{\"text\":\"●\",\"class\":\"recording\",\"tooltip\":\"Recording screen\\nClick to stop\"}' || echo '{\"text\":\"\",\"class\":\"idle\"}'",
     "return-type": "json",
-    "interval": 2,
+    "interval": "once",
     "signal": 2,
     "on-click": "~/.config/hypr/scripts/record-screen.sh",
   },
@@ -56,7 +56,7 @@
   },
 
   "bluetooth": {
-    "format": "<span size='110%'></span>",
+    "format": "<span size='120%'></span>",
     "tooltip-format": "{controller_alias}\t{controller_address}\n\n{num_connections} connected",
     "tooltip-format-connected": "{controller_alias}\t{controller_address}\n\n{num_connections} connected\n\n{device_enumerate}",
     "tooltip-format-enumerate-connected": "{device_alias}\t{device_address}",
@@ -65,9 +65,9 @@
   },
 
   "network": {
-    "format-wifi": "󰖩",
-    "format-ethernet": "󰈀",
-    "format-disconnected": "󰖪",
+    "format-wifi": "<span size='120%'>󰖩</span>",
+    "format-ethernet": "<span size='120%'>󰈀</span>",
+    "format-disconnected": "<span size='120%'>󰖪</span>",
     "tooltip-format": "{essid}\nIP: {ipaddr}\nSignal: {signalStrength}%",
     "on-click": "hyprctl dispatch \"hl.dsp.workspace.toggle_special('impala')\"",
   },
@@ -86,18 +86,17 @@
   },
 
   "custom/dgpu": {
-    "format": "<span size='130%'>{}</span>",
+    "format": "<span size='120%'>{}</span>",
     "exec": "~/.config/waybar/scripts/nvidia-status.sh",
     "return-type": "json",
-    "interval": 1,
     "tooltip": true,
   },
 
   "battery": {
     "interval": 60,
-    "format": "{icon} {capacity}",
-    "format-charging": "{icon} {capacity}",
-    "format-plugged": "{icon} {capacity}",
+    "format": "<span size='120%'>{icon}</span> {capacity}",
+    "format-charging": "<span size='120%'>{icon}</span> {capacity}",
+    "format-plugged": "<span size='120%'>{icon}</span> {capacity}",
     "format-icons": ["󰂎", "󰁺", "󰁻", "󰁼", "󰁽", "󰁾", "󰁿", "󰂀", "󰂁", "󰂂", "󰁹"],
     "tooltip": true,
     "tooltip-format": "{capacity}%\nRemaining time: {time}",

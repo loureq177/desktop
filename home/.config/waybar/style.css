@@ -67,22 +67,22 @@ tooltip label {
 
 @keyframes blink-critical {
   from {
-    background-color: rgba(248, 81, 73, 0.35);
+    background-color: @critical-bg;
     color: #ffffff;
   }
   to {
-    background-color: rgba(248, 81, 73, 0.8);
+    background-color: @critical-bg-active;
     color: #ffffff;
   }
 }
 
 #battery.warning:not(.charging) {
   color: @warning;
-  background-color: rgba(210, 153, 34, 0.15);
+  background-color: @warning-bg;
 }
 
 #battery.critical:not(.charging) {
-  background-color: rgba(248, 81, 73, 0.35);
+  background-color: @critical-bg;
   color: #ffffff;
   animation-name: blink-critical;
   animation-duration: 0.5s;
@@ -100,7 +100,7 @@ tooltip label {
 
 #privacy-item.screenshare {
   color: @accent-purple;
-  background-color: rgba(188, 140, 255, 0.15);
+  background-color: @screenshare-bg;
 }
 
 #custom-notification.none {
@@ -110,7 +110,7 @@ tooltip label {
 
 #custom-record.recording {
   color: @critical;
-  background-color: rgba(248, 81, 73, 0.18);
+  background-color: @record-bg;
 }
 
 #custom-record.idle {
@@ -134,7 +134,7 @@ tooltip label {
 
 #bluetooth.connected {
   color: @accent;
-  background-color: rgba(88, 166, 255, 0.12);
+  background-color: @bluetooth-bg;
 }
 
 #custom-caffeine.off {
