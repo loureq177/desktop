@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Dotfiles bootstrapper: installs system packages (Arch/macOS) and symlinks configs via stow.
 
 BLUE='\033[0;34m'
 GREEN='\033[0;32m'
@@ -88,6 +89,11 @@ fi
 _log_info "Installing opencode plugin dependencies..."
 if [ -f "$HOME/.config/opencode/package.json" ] && command -v npm &>/dev/null; then
     (cd "$HOME/.config/opencode" && npm install --no-audit --no-fund) || _log_warn "opencode dependencies install failed."
+fi
+
+if [ -d ".githooks" ]; then
+    _log_info "Configuring git hooks..."
+    git config core.hooksPath .githooks || true
 fi
 
 _log_ok "Installation completed successfully."
