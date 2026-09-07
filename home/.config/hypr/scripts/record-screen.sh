@@ -1,30 +1,68 @@
 #!/usr/bin/env bash
+# Screen recording toggle via wf-recorder with audio and notifications. Usage: [region|fullscreen]
 set -euo pipefail
 
 OUT_DIR="$HOME/Videos/Screencasts"
 mkdir -p "$OUT_DIR"
 STATUS_FILE="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/recording_status"
 
+# Source centralized UI variables if available
+UI_SH="${XDG_CONFIG_HOME:-$HOME/.config}/ui/ui.sh"
+if [[ -f "$UI_SH" ]]; then
+    # shellcheck source=/dev/null
+    source "$UI_SH"
+fi
+SLURP_OPTS=("${SLURP_ARGS[@]:--d -b "#0d1117b0" -c "#58a6ff" -s "#58a6ff20" -w 2}")
+
 LOCKFILE="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/record_slurp.lock"
 exec 200>"$LOCKFILE"
 flock -n 200 || exit 0
 
-if pkill -x wf-recorder; then
+play_sound() { "${HOME}/.local/bin/play-sound" "$@" 2>/dev/null || true; }
+
+if pkill -INT -x wf-recorder; then
     swaync-client --dnd-off || true
 
     FILE=""
     if [[ -f "$STATUS_FILE" ]]; then
-        FILE=$(cat "$STATUS_FILE")
+        FILE=$(<"$STATUS_FILE")
         rm -f "$STATUS_FILE"
     fi
 
+    # Wait for wf-recorder to actually exit before refreshing waybar.
+    # Otherwise waybar re-runs pgrep while the recorder is still finalizing
+    # and keeps showing the red dot forever.
+    for _ in $(seq 1 50); do
+        pgrep -x wf-recorder >/dev/null || break
+        sleep 0.1
+    done
+
     pkill -RTMIN+2 waybar || true
 
-    sleep 0.3
+    # Release lock before waiting for notification action
+    exec 200>&-
 
     if [[ -n "$FILE" && -f "$FILE" ]]; then
-        notify-send --app-name "Screen Record" -t 5000 "Screen Record" -i "camera-video" "Recording saved to:\n$FILE"
+        play_sound complete
+        ACTION=$(notify-send \
+            --app-name "Screen Record" \
+            -t 8000 \
+            -i "camera-video" \
+            -A "default=Play" \
+            -A "open=Open in Video Player" \
+            "Screen Record" \
+            "Recording saved to:\n$FILE" 2>/dev/null || true)
+
+        if [[ "$ACTION" == "default" || "$ACTION" == "open" ]]; then
+            if command -v showtime >/dev/null 2>&1; then
+                showtime "$FILE" >/dev/null 2>&1 &
+            else
+                xdg-open "$FILE" >/dev/null 2>&1 &
+            fi
+            disown
+        fi
     else
+        play_sound dialog-warning
         notify-send --app-name "Screen Record" -t 5000 "Screen Record" -i "camera-video" "Recording stopped. No file found."
     fi
     exit 0
@@ -34,18 +72,17 @@ MODE="${1:-region}"
 TARGET_ARGS=()
 
 if [ "$MODE" = "fullscreen" ] || [ "$MODE" = "full" ]; then
-    FOCUSED_OUTPUT=$(hyprctl monitors -j | jq -r '.[] | select(.focused) | .name' 2>/dev/null || true)
+    FOCUSED_OUTPUT=$(hyprctl monitors -j 2>/dev/null | jq -r '.[] | select(.focused) | .name' 2>/dev/null || true)
     if [[ -n "$FOCUSED_OUTPUT" ]]; then
         TARGET_ARGS=(-o "$FOCUSED_OUTPUT")
     fi
 else
-    GEOM=$(slurp -d -b "#00000080" -c "#ffffff" -w 2) || {
+    GEOM=$(slurp "${SLURP_OPTS[@]}") || {
         exit 0
     }
     TARGET_ARGS=(-g "$GEOM")
 fi
 
-mkdir -p "$(dirname "$STATUS_FILE")"
 FILE="$OUT_DIR/$(date +'%Y-%m-%d_%H-%M-%S').mkv"
 echo "$FILE" >"$STATUS_FILE"
 
@@ -55,4 +92,4 @@ wf-recorder "${TARGET_ARGS[@]}" -f "$FILE" --audio=default &
 disown
 pkill -RTMIN+2 waybar || true
 
-pw-play /usr/share/sounds/freedesktop/stereo/bell.oga &
+play_sound bell

@@ -1,38 +1,52 @@
 #!/usr/bin/env bash
+# Waybar battery module: queries sysfs capacity/status and outputs colored icon + percentage.
+set -euo pipefail
 
-BAT=$(ls -d /sys/class/power_supply/BAT* 2>/dev/null | head -n 1)
+# Source centralized UI variables if available
+UI_SH="${XDG_CONFIG_HOME:-$HOME/.config}/ui/ui.sh"
+if [[ -f "$UI_SH" ]]; then
+    # shellcheck source=/dev/null
+    source "$UI_SH"
+fi
 
-if [ -z "$BAT" ] || [ ! -d "$BAT" ]; then
+COLOR_GREEN="${UI_ACCENT_GREEN:-#3fb950}"
+COLOR_WARN="${UI_WARNING:-#d29922}"
+COLOR_CRIT="${UI_CRITICAL:-#f85149}"
+COLOR_NORMAL="${UI_TEXT_MAIN:-#c9d1d9}"
+
+bats=(/sys/class/power_supply/BAT*/)
+BAT="${bats[0]:-}"
+
+if [[ -z "${BAT:-}" ]] || [[ ! -d "$BAT" ]]; then
     exit 0
 fi
 
-CAP=$(cat "$BAT/capacity" 2>/dev/null || echo 0)
-STATUS=$(cat "$BAT/status" 2>/dev/null || echo "Discharging")
+CAP=$(<"$BAT/capacity" 2>/dev/null || echo 0)
+STATUS=$(<"$BAT/status" 2>/dev/null || echo "Discharging")
 
 if [ "$STATUS" = "Charging" ]; then
     ICON="󰂄"
-    COLOR="#3fb950"
+    COLOR="$COLOR_GREEN"
 elif [ "$STATUS" = "Full" ]; then
     ICON="󰁹"
-    COLOR="#3fb950"
+    COLOR="$COLOR_GREEN"
 elif [ "$CAP" -le 10 ]; then
     ICON="󰂃"
-    COLOR="#f85149"
+    COLOR="$COLOR_CRIT"
 elif [ "$CAP" -le 20 ]; then
     ICON="󰁼"
-    COLOR="#d29922"
-elif [ "$CAP" -ge 90 ]; then ICON="󰁹"; COLOR="#c9d1d9"
-elif [ "$CAP" -ge 80 ]; then ICON="󰂂"; COLOR="#c9d1d9"
-elif [ "$CAP" -ge 70 ]; then ICON="󰂁"; COLOR="#c9d1d9"
-elif [ "$CAP" -ge 60 ]; then ICON="󰂀"; COLOR="#c9d1d9"
-elif [ "$CAP" -ge 50 ]; then ICON="󰁿"; COLOR="#c9d1d9"
-elif [ "$CAP" -ge 40 ]; then ICON="󰁾"; COLOR="#c9d1d9"
-elif [ "$CAP" -ge 30 ]; then ICON="󰁽"; COLOR="#c9d1d9"
-elif [ "$CAP" -ge 20 ]; then ICON="󰁼"; COLOR="#c9d1d9"
-else ICON="󰁻"; COLOR="#c9d1d9"
+    COLOR="$COLOR_WARN"
+elif [ "$CAP" -ge 90 ]; then
+    ICON="󰁹"
+    COLOR="$COLOR_NORMAL"
+else
+    # 20-29: 󰁼, 30-39: 󰁽, 40-49: 󰁾, 50-59: 󰁿, 60-69: 󰂀, 70-79: 󰂁, 80-89: 󰂂
+    ICONS=(󰁼 󰁼 󰁼 󰁽 󰁾 󰁿 󰂀 󰂁 󰂂)
+    ICON="${ICONS[$((CAP / 10))]}"
+    COLOR="$COLOR_NORMAL"
 fi
 
-if [ "$COLOR" = "#c9d1d9" ]; then
+if [ "$COLOR" = "$COLOR_NORMAL" ]; then
     echo "$ICON $CAP%"
 else
     echo "<span color='$COLOR'>$ICON $CAP%</span>"

@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# Play a freedesktop sound theme event, GNOME-style. Usage: play-sound [--replace] <event>
+#
+# Events are theme sounds like audio-volume-change, camera-shutter, dialog-warning.
+# Fire-and-forget: returns immediately, never fails loudly. --replace restarts the
+# blip instead of layering it (for keys held down with repeat).
+set -euo pipefail
+
+REPLACE=0
+if [[ "${1:-}" == "--replace" ]]; then
+    REPLACE=1
+    shift
+fi
+
+EVENT="${1:-}"
+if [[ -z "$EVENT" ]]; then
+    echo "Usage: play-sound [--replace] <event>" >&2
+    exit 2
+fi
+
+THEME_DIR="${SOUND_THEME_DIR:-/usr/share/sounds/freedesktop/stereo}"
+FILE=""
+for ext in oga ogg wav; do
+    if [[ -f "$THEME_DIR/$EVENT.$ext" ]]; then
+        FILE="$THEME_DIR/$EVENT.$ext"
+        break
+    fi
+done
+[[ -z "$FILE" ]] && exit 0
+
+if ((REPLACE)); then
+    pkill -f "pw-play.*${EVENT}\.(oga|ogg|wav)" 2>/dev/null || true
+    pkill -f "paplay.*${EVENT}\.(oga|ogg|wav)" 2>/dev/null || true
+fi
+
+if command -v pw-play >/dev/null 2>&1; then
+    pw-play "$FILE" >/dev/null 2>&1 &
+elif command -v paplay >/dev/null 2>&1; then
+    paplay "$FILE" >/dev/null 2>&1 &
+fi

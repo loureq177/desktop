@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Toggles Hyprland power-save mode (refresh rate 60/165Hz, animations, blur, brightness). Usage: [--status|--enable|--disable]
 set -euo pipefail
 
 STATE_FILE="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/powersave_mode"
@@ -8,21 +9,33 @@ _is_active() {
     [[ -f "$STATE_FILE" ]]
 }
 
+bri() {
+    command -v brightnessctl >/dev/null 2>&1 || return 0
+    brightnessctl "$@" >/dev/null 2>&1 || true
+}
+
+prof() {
+    command -v powerprofilesctl >/dev/null 2>&1 || return 0
+    powerprofilesctl set "$1" >/dev/null 2>&1 || true
+}
+
+note() {
+    command -v notify-send >/dev/null 2>&1 || return 0
+    notify-send -u low "$@" >/dev/null 2>&1 || true
+}
+
+_signal_waybar() {
+    pkill -RTMIN+8 -x waybar 2>/dev/null || true
+}
+
+_set_look() { # $1: true|false
+    hyprctl eval "hl.config({ animations = { enabled = $1 }, decoration = { blur = { enabled = $1 }, shadow = { enabled = $1 } } })" >/dev/null 2>&1 || true
+}
+
 _set_refresh_rate() {
     local target_hz="$1"
     local mon_info
-    mon_info=$(hyprctl monitors -j | python3 -c '
-import json, sys
-try:
-    data = json.load(sys.stdin)
-    for m in data:
-        if "BOE" in m.get("description", "") or m.get("name") == "eDP-2":
-            desc = "desc:" + m["description"] if m.get("description") else m["name"]
-            print(f"{desc}|{m[\"x\"]}x{m[\"y\"]}|{m[\"scale\"]}")
-            break
-except Exception:
-    pass
-' 2>/dev/null || true)
+    mon_info=$(hyprctl monitors -j 2>/dev/null | jq -r '.[] | select((.description // "" | contains("BOE")) or .name == "eDP-2") | "\(if .description and (.description | length > 0) then "desc:\(.description)" else .name end)|\(.x)x\(.y)|\(.scale)"' 2>/dev/null | head -n 1 || true)
 
     local desc="desc:BOE 0x0998"
     local pos="320x1440"
@@ -52,20 +65,13 @@ _enable() {
         if [[ ! -f "$PREV_BRIGHTNESS_FILE" ]] && [[ -n "$cur_b" ]]; then
             echo "$cur_b" >"$PREV_BRIGHTNESS_FILE"
         fi
-        brightnessctl --min-value=5 set 20%- >/dev/null 2>&1 || true
+        bri --min-value=5 set 20%-
     fi
 
     _set_refresh_rate 60
-
-    hyprctl eval "hl.config({ animations = { enabled = false }, decoration = { blur = { enabled = false }, shadow = { enabled = false } } })" >/dev/null 2>&1 || true
-
-    if command -v powerprofilesctl >/dev/null 2>&1; then
-        powerprofilesctl set power-saver >/dev/null 2>&1 || true
-    fi
-
-    if command -v notify-send >/dev/null 2>&1; then
-        notify-send -u low -i battery "Power Saver" "Enabled: 60Hz, animations off, -20% brightness" >/dev/null 2>&1 || true
-    fi
+    _set_look false
+    prof power-saver
+    note -i battery "Power Saver" "Enabled: 60Hz, animations off, -20% brightness"
 }
 
 _disable() {
@@ -82,23 +88,16 @@ _disable() {
         cur_b=$(brightnessctl get 2>/dev/null || echo "")
 
         if [[ -n "$prev_b" ]] && [[ -n "$cur_b" ]] && (( prev_b > cur_b )); then
-            brightnessctl set "$prev_b" >/dev/null 2>&1 || true
+            bri set "$prev_b"
         else
-            brightnessctl set +20% >/dev/null 2>&1 || true
+            bri set +20%
         fi
     fi
 
     _set_refresh_rate 165
-
-    hyprctl eval "hl.config({ animations = { enabled = true }, decoration = { blur = { enabled = true }, shadow = { enabled = true } } })" >/dev/null 2>&1 || true
-
-    if command -v powerprofilesctl >/dev/null 2>&1; then
-        powerprofilesctl set balanced >/dev/null 2>&1 || true
-    fi
-
-    if command -v notify-send >/dev/null 2>&1; then
-        notify-send -u low -i battery-profile-balanced "Power Saver" "Disabled: 165Hz, animations on, balanced profile" >/dev/null 2>&1 || true
-    fi
+    _set_look true
+    prof balanced
+    note -i battery-profile-balanced "Power Saver" "Disabled: 165Hz, animations on, balanced profile"
 }
 
 _toggle() {
@@ -107,18 +106,18 @@ _toggle() {
     else
         _enable
     fi
-    pkill -RTMIN+8 -x waybar 2>/dev/null || true
+    _signal_waybar
 }
 
 case "${1:-}" in
 --status) _status ;;
 --enable)
     _enable
-    pkill -RTMIN+8 -x waybar 2>/dev/null || true
+    _signal_waybar
     ;;
 --disable)
     _disable
-    pkill -RTMIN+8 -x waybar 2>/dev/null || true
+    _signal_waybar
     ;;
 *) _toggle ;;
 esac

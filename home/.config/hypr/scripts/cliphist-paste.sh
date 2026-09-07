@@ -1,7 +1,15 @@
 #!/usr/bin/env bash
+# Clipboard history picker: opens fzf preview (chafa/bat) in Ghostty, copies and pastes via wtype.
 set -euo pipefail
 
-fzf_theme="bg+:#21262d,bg:#0d1117,fg:#c9d1d9,hl:#58a6ff,fg+:#c9d1d9,hl+:#58a6ff,header:#58a6ff,info:#8b949e,pointer:#58a6ff,marker:#3fb950,prompt:#58a6ff,spinner:#58a6ff,border:#30363d"
+# Source centralized UI variables if available
+UI_SH="${XDG_CONFIG_HOME:-$HOME/.config}/ui/ui.sh"
+if [[ -f "$UI_SH" ]]; then
+    # shellcheck source=/dev/null
+    source "$UI_SH"
+fi
+
+fzf_theme="${UI_FZF_THEME:-bg+:#21262d,bg:#0d1117,fg:#c9d1d9,hl:#58a6ff,fg+:#c9d1d9,hl+:#58a6ff,header:#58a6ff,info:#8b949e,pointer:#58a6ff,marker:#3fb950,prompt:#58a6ff,spinner:#58a6ff,border:#30363d}"
 
 status_file=$(mktemp)
 trap 'rm -f "$status_file"' EXIT
