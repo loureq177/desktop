@@ -11,7 +11,9 @@ step() {
 }
 
 echo "==> Updating system & AUR packages..."
-paru -Syu --devel
+if command -v paru >/dev/null 2>&1; then
+    paru -Syu --devel
+fi
 
 echo "\n==> Updating Zsh plugins (zinit)..."
 zsh -ic "zinit self-update && zinit update --all" || true
@@ -22,16 +24,16 @@ if command -v fwupdmgr >/dev/null 2>&1; then
     fwupdmgr update -y || true
 fi
 
-step "Updating Flatpak packages..." flatpak update -y
+step "Updating Flatpak packages..." flatpak flatpak update -y
 
-step "Updating tldr cache..." tldr --update
+step "Updating tldr cache..." tldr tldr --update
 
 if command -v uv >/dev/null 2>&1; then
     echo "\n==> Updating uv tools..."
     uv tool upgrade --all 2>/dev/null || true
 fi
 
-step "Updating Neovim plugins (LazyVim)..." nvim --headless "+Lazy! sync" +qa
+step "Updating Neovim plugins (LazyVim)..." nvim nvim --headless "+Lazy! sync" +qa
 
 # Check for pacnew / pacsave files
 if command -v pacdiff >/dev/null 2>&1; then

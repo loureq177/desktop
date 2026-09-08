@@ -1,3 +1,5 @@
+# Reference inventory of explicitly installed packages on the main machine.
+# NOT used by install.sh - archlinux/packages.txt is the source of truth.
 7zip
 acpid
 amd-ucode

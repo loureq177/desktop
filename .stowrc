@@ -1,5 +1,7 @@
 --ignore=README\.md
 --ignore=node_modules
+--ignore=__pycache__
+--ignore=\.pyc$
 --ignore=\.venv
 --ignore=\.zcompdump.*
 --ignore=\.zsh_history

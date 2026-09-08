@@ -18,7 +18,8 @@ cd "$(dirname "$0")"
 mkdir -p ~/.config ~/.local/share ~/.local/state ~/.local/bin ~/.cache
 
 OS="$(uname -s)"
-STOW_IGNORE=(--ignore=node_modules --ignore=__pycache__ '--ignore=\.pyc$' '--ignore=\.zwc$')
+# Ignore rules live in .stowrc (single source of truth); stow reads it automatically.
+pkglist() { grep -vE '^\s*(#|$)' "$1"; }
 
 if [ "$OS" = "Linux" ]; then
     if [ "${EUID:-$(id -u)}" -eq 0 ]; then
@@ -33,24 +34,29 @@ if [ "$OS" = "Linux" ]; then
 
     _log_info "Detected Arch Linux. Updating system and installing official packages..."
     sudo pacman -Syu --noconfirm
-    sudo pacman -S --noconfirm --needed - <archlinux/packages.txt
+    pkglist archlinux/packages.txt | sudo pacman -S --noconfirm --needed -
     _log_ok "Pacman packages installed."
 
     if command -v flatpak &>/dev/null && [ -f archlinux/flatpak.txt ]; then
         _log_info "Configuring Flatpak and installing applications..."
         flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
-        xargs -r flatpak install --user -y --or-update flathub <archlinux/flatpak.txt
+        pkglist archlinux/flatpak.txt | xargs -r flatpak install --user -y --or-update flathub
         _log_ok "Flatpaks installed."
     fi
 
-    if command -v paru &>/dev/null && [ -f archlinux/aur.txt ]; then
-        _log_info "Installing AUR packages via paru..."
-        xargs -r paru -S --noconfirm --needed <archlinux/aur.txt
-        _log_ok "AUR packages installed."
+    if [ -f archlinux/aur.txt ] && [ -s archlinux/aur.txt ] && pkglist archlinux/aur.txt | grep -q .; then
+        if command -v paru &>/dev/null; then
+            _log_info "Installing AUR packages via paru..."
+            pkglist archlinux/aur.txt | xargs -r paru -S --noconfirm --needed
+            _log_ok "AUR packages installed."
+        else
+            _log_warn "paru not found - skipping AUR packages from archlinux/aur.txt (waybar, pwvucontrol, cursor theme)."
+            _log_warn "Install paru first (see FreshArchLinux install_and_setup_paru) and re-run this script."
+        fi
     fi
 
     _log_info "Applying Arch Linux Stow configs..."
-    stow --verbose --restow --target ~ "${STOW_IGNORE[@]}" archlinux
+    stow --verbose --restow --target ~ archlinux
 
     if [ -f "archlinux/.config/ly/config.ini" ]; then
         _log_info "Configuring Ly display manager..."
@@ -75,11 +81,11 @@ elif [ "$OS" = "Darwin" ]; then
     fi
 
     _log_info "Applying macOS Stow configs..."
-    stow --verbose --restow --target ~ "${STOW_IGNORE[@]}" macos
+    stow --verbose --restow --target ~ macos
 fi
 
 _log_info "Applying common Stow configs..."
-stow --verbose --restow --target ~ "${STOW_IGNORE[@]}" common
+stow --verbose --restow --target ~ common
 
 if command -v bat &>/dev/null; then
     _log_info "Building bat cache..."
@@ -87,13 +93,8 @@ if command -v bat &>/dev/null; then
 fi
 
 _log_info "Installing opencode plugin dependencies..."
-if [ -f "$HOME/.config/opencode/package.json" ] && command -v npm &>/dev/null; then
+if [ ! -d "$HOME/.config/opencode/node_modules" ] && [ -f "$HOME/.config/opencode/package.json" ] && command -v npm &>/dev/null; then
     (cd "$HOME/.config/opencode" && npm install --no-audit --no-fund) || _log_warn "opencode dependencies install failed."
-fi
-
-if [ -d ".githooks" ]; then
-    _log_info "Configuring git hooks..."
-    git config core.hooksPath .githooks || true
 fi
 
 _log_ok "Installation completed successfully."

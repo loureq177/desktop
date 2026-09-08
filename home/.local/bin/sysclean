@@ -21,8 +21,10 @@ else
 fi
 
 echo "\nCleaning cached pacman packages..."
-paccache -r -k 2     # Keeps last 2 versions of installed packages
-paccache -r -u -k 0  # Removes cached versions of uninstalled packages
+if command -v paccache >/dev/null 2>&1; then
+    paccache -r -k 2     # Keeps last 2 versions of installed packages
+    paccache -r -u -k 0  # Removes cached versions of uninstalled packages
+fi
 
 echo "\nCleaning Paru AUR cache..."
 if [ -d "$HOME/.cache/paru" ]; then
