@@ -30,7 +30,7 @@
   "script-fail-notify": true,
   "scripts": {
     "default-sound": {
-      "exec": "paplay /usr/share/sounds/freedesktop/stereo/message.oga &",
+      "exec": "paplay /usr/share/sounds/freedesktop/stereo/message.oga",
       "app-name": ".*"
     }
   },

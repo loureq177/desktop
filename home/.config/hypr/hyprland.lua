@@ -21,6 +21,7 @@ if not ui_ok then
 			border = "rgba(30363dee)",
 			accent_blue = "rgba(58a6ffee)",
 			accent_purple = "rgba(bc8cffee)",
+			shadow = "rgba(010409ee)",
 		},
 	}
 end
@@ -34,6 +35,11 @@ local programs = {
 		-- Apps
 		discord = { exe = "discord", class = "discord", ws = "discord" },
 		spotify = { exe = "flatpak run com.spotify.Client", class = "spotify", ws = "spotify" },
+		-- Progressive web apps provisioned by FreshArchLinux
+		-- (configure_progressive_webapps in fresh_archlinux.sh).
+		-- Not stored in this repo; entries below degrade gracefully
+		-- when the launchers are absent (no autostart, keybind still
+		-- toggles the workspace).
 		tasks = { exe = bin .. "/tasks", class = "tasks", ws = "tasks" },
 		calendar = { exe = bin .. "/calendar", class = "calendar", ws = "calendar" },
 		mail = { exe = bin .. "/gmail", class = "gmail", ws = "mail" },
@@ -57,13 +63,12 @@ local programs = {
 		bluetui = { exe = "ghostty --class=bluetui -e bluetui", class = "bluetui", ws = "bluetui" },
 		calculator = {
 			exe = "gnome-calculator",
-			class = "org.ghome.Calculator",
+			class = "org.gnome.Calculator",
 			ws = "gnome-calculator",
 		},
 		jolt = { exe = "ghostty --class=jolt -e jolt", class = "jolt", ws = "jolt" },
 		impala = { exe = "ghostty --class=impala -e impala", class = "impala", ws = "impala" },
 		btop = { exe = "ghostty --class=btop -e btop", class = "btop", ws = "btop" },
-		nvtop = { exe = "ghostty --class=nvtop -e nvtop", class = "nvtop", ws = "nvtop" },
 		clipboard = {
 			exe = hypr .. "/scripts/cliphist-paste.sh",
 			class = "clipboard-special",
@@ -75,7 +80,7 @@ local programs = {
 -- ─── Environment ─────────────────────────────────────────────────────────────
 
 hl.env("AQ_DRM_DEVICES", "/dev/dri/amd-igpu:/dev/dri/nvidia-dgpu")
-hl.env("GSK_RENDERER", "ngl")
+hl.env("GSK_RENDERER", "gl")
 hl.env("GTK_A11Y", "none")
 hl.env(
 	"VK_DRIVER_FILES",
@@ -115,7 +120,7 @@ hl.on("hyprland.start", function()
 		gsettings .. " gtk-theme '" .. ui.theme.gtk .. "'",
 		gsettings .. " monospace-font-name '" .. ui.font.mono .. " 12'",
 
-		"dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP HYPRLAND_INSTANCE_SIGNATURE",
+		"dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP HYPRLAND_INSTANCE_SIGNATURE AQ_DRM_DEVICES VK_DRIVER_FILES VK_ICD_FILENAMES LIBVA_DRIVER_NAME GSK_RENDERER",
 		"systemctl --user start hyprland-session.target",
 
 		"wl-paste --type text --watch cliphist -max-items 50 store",
@@ -154,12 +159,8 @@ hl.monitor({
 	position = "0x0",
 	scale = 1,
 })
-hl.monitor({
-	output = "DP-1",
-	mode = "2560x1440@59.95",
-	position = "0x0",
-	scale = 1,
-})
+-- NOTE: DP-1 removed (duplicate of Iiyama on another port, same mode/pos).
+-- The empty-output fallback below already covers unlisted outputs.
 hl.monitor({
 	output = "",
 	mode = "preferred",
@@ -210,6 +211,104 @@ hl.config({
 
 hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })
 
+-- ─── Special workspace swipe ────────────────────────────────────────────────
+-- Native finger-tracked gestures (CSpecialWorkspaceGesture in Hyprland source):
+-- only one vertical 3-finger gesture can exist at a time and it needs a fixed
+-- workspace name, so re-register it when visibility changes. Swipe down hides
+-- the visible special workspace, swipe up restores the most recently used one.
+-- Never creates an empty special workspace.
+
+local special_gesture_mode = nil -- "down", "up" or nil
+local special_gesture_name = nil
+local last_special = nil
+
+local function special_short_name(ws)
+	if ws == nil then
+		return nil
+	end
+	local name = (ws.name or ""):gsub("^special:", "")
+	if name == "" then
+		return nil
+	end
+	return name
+end
+
+local function visible_special_workspace()
+	local mon = hl.get_active_monitor()
+	if mon ~= nil and mon.active_special_workspace ~= nil then
+		return mon.active_special_workspace
+	end
+	for _, m in ipairs(hl.get_monitors()) do
+		if m.active_special_workspace ~= nil then
+			return m.active_special_workspace
+		end
+	end
+	return nil
+end
+
+local function set_special_gesture(mode, name)
+	if mode == special_gesture_mode and name == special_gesture_name then
+		return
+	end
+	if special_gesture_mode ~= nil then
+		hl.gesture({ fingers = 3, direction = special_gesture_mode, action = "unset" })
+	end
+	special_gesture_mode = nil
+	special_gesture_name = nil
+	if mode ~= nil and name ~= nil then
+		hl.gesture({ fingers = 3, direction = mode, action = "special", workspace_name = name })
+		special_gesture_mode = mode
+		special_gesture_name = name
+	end
+end
+
+local function refresh_special_gestures()
+	local name = special_short_name(visible_special_workspace())
+	if name ~= nil then
+		last_special = name
+		set_special_gesture("down", name)
+		return
+	end
+	if last_special ~= nil then
+		local target = hl.get_workspace("special:" .. last_special)
+		if target ~= nil and not target.is_empty then
+			set_special_gesture("up", last_special)
+			return
+		end
+		last_special = nil
+	end
+	set_special_gesture(nil, nil)
+end
+
+local function track_last_special()
+	local best_id = -1
+	for _, w in ipairs(hl.get_windows()) do
+		if w.workspace ~= nil and w.workspace.special then
+			local id = w.focus_history_id or 0
+			if id >= best_id then
+				best_id = id
+				last_special = special_short_name(w.workspace)
+			end
+		end
+	end
+end
+
+hl.on("workspace.special_active", function()
+	refresh_special_gestures()
+end)
+hl.on("workspace.active", function()
+	refresh_special_gestures()
+end)
+hl.on("window.active", function()
+	refresh_special_gestures()
+end)
+hl.on("window.close", function()
+	refresh_special_gestures()
+end)
+
+track_last_special()
+refresh_special_gestures()
+
 -- ─── Look & Feel ─────────────────────────────────────────────────────────────
 
 hl.config({
@@ -236,7 +335,7 @@ hl.config({
 		shadow = {
 			range = 4,
 			render_power = 3,
-			color = "0xee1a1a1a",
+			color = ui.colors.shadow or "rgba(010409ee)",
 		},
 		blur = {
 			size = 6,
@@ -371,11 +470,26 @@ hl.window_rule({
 	float = true,
 })
 
+-- Skip autostart when the launcher does not exist (e.g. standalone
+-- dotfiles clone without the FreshArchLinux PWA step). The workspace
+-- and keybind still work; only the auto-spawn is skipped.
+local function autostart_for(exe)
+	local prog = exe:match("^(%S+)")
+	if prog ~= nil and prog:find("/", 1, true) ~= nil then
+		local f = io.open(prog, "r")
+		if f == nil then
+			return nil
+		end
+		f:close()
+	end
+	return exe
+end
+
 for _, app in pairs(programs.special) do
 	local ws = "special:" .. app.ws
 	hl.workspace_rule({
 		workspace = ws,
-		on_created_empty = app.exe,
+		on_created_empty = autostart_for(app.exe),
 		gaps_out = 75,
 	})
 	hl.window_rule({ match = { class = app.class }, workspace = ws })

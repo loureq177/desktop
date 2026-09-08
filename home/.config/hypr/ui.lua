@@ -49,5 +49,6 @@ return {
         text_main = "#c9d1d9",
         text_dim = "#8b949e",
         text_muted = "#484f58",
+        shadow = "rgba(010409ee)",
     },
 }
