@@ -139,6 +139,7 @@ return {{
         text_main = "{c.get("text_main", "#c9d1d9")}",
         text_dim = "{c.get("text_dim", "#8b949e")}",
         text_muted = "{c.get("text_muted", "#484f58")}",
+        shadow = "{hex_to_hypr_rgba(c.get("shadow", "#010409"))}",
     }},
 }}
 """
@@ -417,7 +418,10 @@ export UI_ROUNDING_WINDOW="{r_win}"
 export UI_ROUNDING_ELEMENT="{r_elem}"
 export UI_ROUNDING_SUBTLE="{r_subtle}"
 
-export SLURP_ARGS=({slurp_args})
+export SLURP_OPTS='{slurp_args}'
+# Array form for direct use in bash scripts (arrays cannot be exported).
+# shellcheck disable=SC2034
+SLURP_ARGS=({slurp_args})
 export UI_FZF_THEME="{fzf_theme}"
 """
     r7 = safe_write(config_dir / "ui" / "ui.sh", ui_sh, check_mode)
