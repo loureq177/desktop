@@ -1,7 +1,8 @@
 # .files
 
 My own dotfiles managed with [GNU Stow](https://www.gnu.org/software/stow/).
-Organized into 3 main Stow packages mirroring `$HOME`: `common`, `archlinux`, and `macos`.
+Organized into 3 main Stow packages mirroring `$HOME`: `common`, `archlinux`,
+and `macos`.
 
 ## Installation
 
@@ -13,7 +14,8 @@ cd ~/.files
 
 ## Adding & Managing Configs
 
-With the flattened Stow package structure, `common`, `archlinux`, and `macos` mirror your home directory directly:
+With the flattened Stow package structure, `common`, `archlinux`, and `macos`
+mirror your home directory directly:
 
 ```bash
 # Add a new common config (e.g. starship)
@@ -27,14 +29,19 @@ stow --restow --target ~ common archlinux
 
 ## UI Configuration & Theming
 
-Desktop appearance (roundings, paddings, borders, gaps, fonts, colors) is centralized in a single configuration file:
-- **Config**: [`~/.config/ui/ui.toml`](file:///home/mlorenc/.files/archlinux/.config/ui/ui.toml)
+Desktop appearance (roundings, paddings, borders, gaps, fonts, colors) is
+centralized in a single configuration file:
+
+- **Config**:
+  [`~/.config/ui/ui.toml`](file:///home/mlorenc/.files/archlinux/.config/ui/ui.toml)
 - **Apply & Live Reload**: run `apply-ui`
 
 Components synchronized:
-- **Hyprland**: window rounding, border size, inner/outer gaps, opacities, colors, cursor, UI fonts
+
+- **Hyprland**: window rounding, border size, inner/outer gaps, opacities,
+  colors, cursor, UI fonts
 - **Waybar**: margins, spacing, module padding, border-radius, color palette
-- **SwayNC**: notification & control center border-radius, padding, borders, color palette
+- **SwayNC**: notification & control center border-radius, padding, borders,
+  color palette
 - **Rofi**: window & element roundings, borders, paddings, fonts, color palette
 - **Hyprlock**: input field rounding, outline thickness, font, color palette
-
