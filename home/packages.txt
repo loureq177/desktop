@@ -52,12 +52,12 @@ loupe
 ly
 man-db
 neovim
+networkmanager
 network-manager-applet
 nodejs
 noto-fonts
 noto-fonts-cjk
 noto-fonts-emoji
-nvtop
 openbsd-netcat
 opencode
 pacman-contrib
@@ -91,6 +91,7 @@ steam
 stow
 swaybg
 swaync
+swayosd
 tailscale
 terminus-font
 termshark
@@ -104,6 +105,7 @@ uv
 wev
 wf-recorder
 wget
+wireplumber
 wl-clipboard
 wtype
 xdg-desktop-portal
