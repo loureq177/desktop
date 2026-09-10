@@ -10,6 +10,53 @@ run_if() {
     true
 }
 
+avail_bytes() {
+    # Sum available bytes across given mount points. Prints 0 on failure.
+    df -B1 --output=avail "$@" 2>/dev/null | awk 'NR>1 {sum+=$1} END {print sum+0}'
+}
+
+human_bytes() {
+    if command -v numfmt >/dev/null 2>&1; then
+        numfmt --to=iec-i --suffix=B -- "$1" 2>/dev/null || echo "$1 B"
+    else
+        echo "$1 B"
+    fi
+}
+
+print_total() {
+    # Prominent final summary. Color comes from ui.toml via ui.sh, never hardcoded.
+    local freed_h="$1"
+    local ui_sh="${XDG_CONFIG_HOME:-$HOME/.config}/ui/ui.sh"
+    [ -f "$ui_sh" ] && source "$ui_sh" 2>/dev/null || true
+    local hex="${UI_ACCENT_GREEN:-#3fb950}"
+    hex="${hex#\#}"
+    local green="" bold="" reset=""
+    if [ "${#hex}" = 6 ]; then
+        local hr="${hex:0:2}" hg="${hex:2:2}" hb="${hex:4:2}"
+        local r=$((16#$hr)) g=$((16#$hg)) b=$((16#$hb)) 2>/dev/null
+        if [ -n "${r:-}" ] && [ -n "${g:-}" ] && [ -n "${b:-}" ]; then
+            green="$(printf '\033[38;2;%d;%d;%dm' "$r" "$g" "$b")"
+            bold="$(printf '\033[1m')"
+            reset="$(printf '\033[0m')"
+        fi
+    fi
+    if [ -z "$green" ]; then
+        green="$(printf '\033[1;32m')"
+        bold=""
+        reset="$(printf '\033[0m')"
+    fi
+    echo ""
+    echo "${green}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${reset}"
+    echo "${bold}${green}  Total reclaimed space: ${freed_h}${reset}"
+    echo "${green}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${reset}"
+}
+
+CLEAN_MOUNTS=()
+for m in / /home /boot; do
+    [ -e "$m" ] && CLEAN_MOUNTS+=("$m")
+done
+AVAIL_BEFORE=$(avail_bytes "${CLEAN_MOUNTS[@]}")
+
 echo "Checking for orphaned packages..."
 orphan_list=$(paru -Qdtq || true)
 if [ -n "$orphan_list" ]; then
@@ -22,8 +69,10 @@ fi
 
 echo "\nCleaning cached pacman packages..."
 if command -v paccache >/dev/null 2>&1; then
-    paccache -r -k 2     # Keeps last 2 versions of installed packages
-    paccache -r -u -k 0  # Removes cached versions of uninstalled packages
+    # Run under sudo directly: avoids per-file sudo prompts and the
+    # upstream "type -p sudo" stdout noise in paccache 1.13.1.
+    sudo paccache -r -k 2     # Keeps last 2 versions of installed packages
+    sudo paccache -r -u -k 0  # Removes cached versions of uninstalled packages
 fi
 
 echo "\nCleaning Paru AUR cache..."
@@ -52,7 +101,7 @@ run_if pip pip cache purge
 run_if bun bun pm cache rm
 run_if npm npm cache clean --force
 
-echo "\nPruning container engines..."
+echo "\nPruning container engines (per-engine details above)..."
 run_if podman podman system prune --force
 run_if docker docker system prune -f
 
@@ -91,7 +140,7 @@ fi
 
 echo "\nSystem is clean."
 
-if command -v duf >/dev/null 2>&1; then
-    echo "\nCurrent disk usage:"
-    duf / /home /boot
-fi
+AVAIL_AFTER=$(avail_bytes "${CLEAN_MOUNTS[@]}")
+FREED_BYTES=$((AVAIL_AFTER - AVAIL_BEFORE))
+if [ "$FREED_BYTES" -lt 0 ]; then FREED_BYTES=0; fi
+print_total "$(human_bytes "$FREED_BYTES")"
