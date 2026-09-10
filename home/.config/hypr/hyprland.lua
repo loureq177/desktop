@@ -502,6 +502,13 @@ hl.window_rule({
 })
 
 hl.window_rule({
+	name = "keybindings-popup",
+	match = { title = "Keybindings" },
+	float = true,
+	center = true,
+})
+
+hl.window_rule({
 	match = {
 		class = "^(org.gnome.*|com.saivert.pwvucontrol|pavucontrol|nm-connection-editor|blueman-manager|xdg-desktop-portal-gtk|file-roller)$",
 	},
@@ -510,80 +517,97 @@ hl.window_rule({
 })
 
 -- ─── Keybindings ────────────────────────────────────────────────────────────────
+-- Every bind carries a description so the SUPER + ? cheatsheet
+-- (quickshell keybindings menu, fed by `hyprctl binds`) can list it.
+
+local function b(keys, desc, dispatcher, opts)
+	opts = opts or {}
+	opts.description = desc
+	hl.bind(keys, dispatcher, opts)
+end
 
 local cmds = {
 	-- ─── Essential ──────────────────────────────────────────────────────────────
-	["SUPER + RETURN"] = programs.terminal,
-	["SUPER + B"] = programs.browser,
-	["SUPER + space"] = programs.launcher,
+	["SUPER + RETURN"] = { programs.terminal, "Terminal" },
+	["SUPER + B"] = { programs.browser, "Browser" },
+	["SUPER + space"] = { programs.launcher, "Launch apps" },
+	["SUPER + slash"] = { "keybindings-menu", "Keybindings" },
+	["SUPER + SHIFT + slash"] = { "keybindings-menu", "Keybindings" },
 
 	--  ─── Notifications ─────────────────────────────────────────────────────────
-	["SUPER + comma"] = "swaync-client --close-latest",
-	["SUPER + SHIFT + comma"] = "swaync-client --action",
-	["SUPER + ALT + 1"] = "swaync-client -a 0",
-	["SUPER + ALT + 2"] = "swaync-client -a 1",
-	["SUPER + ALT + 3"] = "swaync-client -a 2",
-	["SUPER + CTRL + D"] = "swaync-client --toggle-dnd",
-	["SUPER + CTRL + comma"] = "swaync-client -t",
+	["SUPER + comma"] = { "swaync-client --close-latest", "Close latest notification" },
+	["SUPER + SHIFT + comma"] = { "swaync-client --action", "Notification action" },
+	["SUPER + ALT + 1"] = { "swaync-client -a 0", "Notification action 1" },
+	["SUPER + ALT + 2"] = { "swaync-client -a 1", "Notification action 2" },
+	["SUPER + ALT + 3"] = { "swaync-client -a 2", "Notification action 3" },
+	["SUPER + CTRL + D"] = { "swaync-client --toggle-dnd", "Toggle Do Not Disturb" },
+	["SUPER + CTRL + comma"] = { "swaync-client -t", "Toggle notification center" },
 
 	-- ─── System ─────────────────────────────────────────────────────────────────
-	["SUPER + CTRL + Q"] = "hyprlock",
-	["SUPER + CTRL + I"] = "~/.config/hypr/scripts/caffeine-toggle.sh",
-	["SUPER + CTRL + P"] = "hyprpicker -a --notify", -- Pick colors from the screen
-	["SUPER + CTRL + space"] = "rofi -show run -replace", -- Run commands
-	["SUPER + CTRL + E"] = "rofi -show emoji -modi emoji -emoji-mode copy -emoji-format '{emoji}' -theme emoji",
-	["SUPER + escape"] = "~/.config/hypr/scripts/powermenu.sh",
+	["SUPER + CTRL + Q"] = { "hyprlock", "Lock system" },
+	["SUPER + CTRL + I"] = { "~/.config/hypr/scripts/caffeine-toggle.sh", "Toggle idle inhibit" },
+	["SUPER + CTRL + P"] = { "hyprpicker -a --notify", "Color picker" },
+	["SUPER + CTRL + space"] = { "rofi -show run -replace", "Run commands" },
+	["SUPER + CTRL + E"] = {
+		"rofi -show emoji -modi emoji -emoji-mode copy -emoji-format '{emoji}' -theme emoji",
+		"Emojis",
+	},
+	["SUPER + escape"] = { "~/.config/hypr/scripts/powermenu.sh", "System menu" },
 
 	-- ─── Capture ────────────────────────────────────────────────────────────────
-	["SUPER + CTRL + R"] = "~/.config/hypr/scripts/record-screen.sh region",
-	["SUPER + CTRL + SHIFT + R"] = "~/.config/hypr/scripts/record-screen.sh fullscreen",
-	["SUPER + CTRL + O"] = "~/.config/hypr/scripts/ocr.sh",
-	["SHIFT + print"] = "~/.config/hypr/scripts/screenshot.sh fullscreen",
-	["print"] = "~/.config/hypr/scripts/screenshot.sh region",
+	["SUPER + CTRL + R"] = { "~/.config/hypr/scripts/record-screen.sh region", "Screen recording (region)" },
+	["SUPER + CTRL + SHIFT + R"] = {
+		"~/.config/hypr/scripts/record-screen.sh fullscreen",
+		"Screen recording (fullscreen)",
+	},
+	["SUPER + CTRL + O"] = { "~/.config/hypr/scripts/ocr.sh", "OCR from screen" },
+	["SHIFT + print"] = { "~/.config/hypr/scripts/screenshot.sh fullscreen", "Screenshot (fullscreen)" },
+	["print"] = { "~/.config/hypr/scripts/screenshot.sh region", "Screenshot (region)" },
 }
 
-for bind, cmd in pairs(cmds) do
-	hl.bind(bind, hl.dsp.exec_cmd(cmd))
+for bind, entry in pairs(cmds) do
+	b(bind, entry[2], hl.dsp.exec_cmd(entry[1]))
 end
 
 local special_apps = {
-	["SUPER + SHIFT + C"] = "calendar",
-	["SUPER + SHIFT + T"] = "tasks",
-	["SUPER + SHIFT + W"] = "whatsapp",
-	["SUPER + SHIFT + E"] = "mail",
-	["SUPER + SHIFT + D"] = "discord",
-	["SUPER + SHIFT + S"] = "spotify",
-	["SUPER + SHIFT + A"] = "gemini",
-	["SUPER + SHIFT + F"] = "yazi",
-	["SUPER + SHIFT + N"] = "notes",
+	["SUPER + SHIFT + C"] = { "calendar", "Calendar" },
+	["SUPER + SHIFT + T"] = { "tasks", "Tasks" },
+	["SUPER + SHIFT + W"] = { "whatsapp", "WhatsApp" },
+	["SUPER + SHIFT + E"] = { "mail", "Mail" },
+	["SUPER + SHIFT + D"] = { "discord", "Discord" },
+	["SUPER + SHIFT + S"] = { "spotify", "Spotify" },
+	["SUPER + SHIFT + A"] = { "gemini", "Gemini" },
+	["SUPER + SHIFT + F"] = { "yazi", "File manager (yazi)" },
+	["SUPER + SHIFT + N"] = { "notes", "Notes" },
 
 	-- ─── "System" Apps ──────────────────────────────────────────────────────────
 
-	["SUPER + CTRL + A"] = "audio", -- Audio control
-	["SUPER + CTRL + B"] = "bluetui", -- Bluetooth
-	["SUPER + CTRL + C"] = "calculator",
-	["SUPER + CTRL + V"] = "clipboard",
-	["SUPER + CTRL + W"] = "impala", -- WiFi
-	["SUPER + CTRL + T"] = "btop", --Activity Monitor
+	["SUPER + CTRL + A"] = { "audio", "Audio controls" },
+	["SUPER + CTRL + B"] = { "bluetui", "Bluetooth controls" },
+	["SUPER + CTRL + C"] = { "calculator", "Calculator" },
+	["SUPER + CTRL + V"] = { "clipboard", "Clipboard history" },
+	["SUPER + CTRL + W"] = { "impala", "Wifi controls" },
+	["SUPER + CTRL + T"] = { "btop", "Activity Monitor" },
 }
 
-for bind, app in pairs(special_apps) do
-	hl.bind(bind, hl.dsp.workspace.toggle_special(programs.special[app].ws))
+for bind, entry in pairs(special_apps) do
+	b(bind, entry[2], hl.dsp.workspace.toggle_special(programs.special[entry[1]].ws))
 end
 
-hl.bind("SUPER + Q", hl.dsp.window.close())
-hl.bind("SUPER + F", hl.dsp.window.fullscreen())
-hl.bind("SUPER + T", hl.dsp.layout("togglesplit"))
+b("SUPER + Q", "Close window", hl.dsp.window.close())
+b("SUPER + F", "Toggle fullscreen", hl.dsp.window.fullscreen())
+b("SUPER + T", "Toggle window split", hl.dsp.layout("togglesplit"))
 
 local directions = { H = "left", L = "right", K = "up", J = "down" }
 local step = 25
 
 for key, dir in pairs(directions) do
-	hl.bind("SUPER + " .. key, hl.dsp.focus({ direction = dir }))
-	hl.bind("SUPER + SHIFT + " .. key, hl.dsp.window.swap({ direction = dir }))
+	b("SUPER + " .. key, "Focus " .. dir, hl.dsp.focus({ direction = dir }))
+	b("SUPER + SHIFT + " .. key, "Swap window " .. dir, hl.dsp.window.swap({ direction = dir }))
 
-	hl.bind(
+	b(
 		"SUPER + CTRL + " .. key,
+		"Resize window " .. dir,
 		hl.dsp.window.resize({
 			x = (dir == "left" and -step) or (dir == "right" and step) or 0,
 			y = (dir == "up" and -step) or (dir == "down" and step) or 0,
@@ -594,25 +618,29 @@ for key, dir in pairs(directions) do
 end
 
 for i = 1, 9 do
-	hl.bind("SUPER + " .. i, hl.dsp.focus({ workspace = i }))
-	hl.bind("SUPER + SHIFT + " .. i, hl.dsp.window.move({ workspace = i }))
-	hl.bind("SUPER + CTRL + SHIFT + " .. i, hl.dsp.window.move({ workspace = i, follow = false }))
+	b("SUPER + " .. i, "Switch to workspace " .. i, hl.dsp.focus({ workspace = i }))
+	b("SUPER + SHIFT + " .. i, "Move window to workspace " .. i, hl.dsp.window.move({ workspace = i }))
+	b(
+		"SUPER + CTRL + SHIFT + " .. i,
+		"Move window silently to workspace " .. i,
+		hl.dsp.window.move({ workspace = i, follow = false })
+	)
 end
 
-hl.bind("SUPER + mouse:272", hl.dsp.window.drag(), { mouse = true })
-hl.bind("SUPER + mouse:273", hl.dsp.window.resize(), { mouse = true })
+b("SUPER + mouse:272", "Drag window", hl.dsp.window.drag(), { mouse = true })
+b("SUPER + mouse:273", "Resize window (mouse)", hl.dsp.window.resize(), { mouse = true })
 
 local media = {
-	{ "XF86AudioRaiseVolume", "~/.config/hypr/scripts/volume.sh output raise", true },
-	{ "XF86AudioLowerVolume", "~/.config/hypr/scripts/volume.sh output lower", true },
-	{ "XF86AudioMute", "~/.config/hypr/scripts/volume.sh output mute-toggle" },
-	{ "XF86AudioMicMute", "~/.config/hypr/scripts/volume.sh input mute-toggle" },
-	{ "XF86MonBrightnessUp", "swayosd-client --brightness +10", true },
-	{ "XF86MonBrightnessDown", "swayosd-client --brightness -10", true },
+	{ "XF86AudioRaiseVolume", "~/.config/hypr/scripts/volume.sh output raise", true, "Volume up" },
+	{ "XF86AudioLowerVolume", "~/.config/hypr/scripts/volume.sh output lower", true, "Volume down" },
+	{ "XF86AudioMute", "~/.config/hypr/scripts/volume.sh output mute-toggle", nil, "Volume mute" },
+	{ "XF86AudioMicMute", "~/.config/hypr/scripts/volume.sh input mute-toggle", nil, "Microphone mute" },
+	{ "XF86MonBrightnessUp", "swayosd-client --brightness +10", true, "Brightness up" },
+	{ "XF86MonBrightnessDown", "swayosd-client --brightness -10", true, "Brightness down" },
 }
 
 for _, m in ipairs(media) do
-	hl.bind(m[1], hl.dsp.exec_cmd(m[2]), { locked = true, repeating = m[3] })
+	b(m[1], m[4], hl.dsp.exec_cmd(m[2]), { locked = true, repeating = m[3] })
 end
 
 -- ─── Universal Clipboard & Selection ────────────────────────────────────────
@@ -685,20 +713,21 @@ local function universal_shortcut(gui_mods, gui_key, term_mods, term_key)
 	end
 end
 
-hl.bind("SUPER + C", universal_shortcut("CTRL", "C", "CTRL", "Insert"))
-hl.bind("SUPER + V", universal_shortcut("CTRL", "V", "SHIFT", "Insert"))
-hl.bind("SUPER + X", send_shortcut_once("CTRL", "X"))
-hl.bind("SUPER + A", universal_shortcut("CTRL", "A", "CTRL+SHIFT", "A"))
+b("SUPER + C", "Copy", universal_shortcut("CTRL", "C", "CTRL", "Insert"))
+b("SUPER + V", "Paste", universal_shortcut("CTRL", "V", "SHIFT", "Insert"))
+b("SUPER + X", "Cut", send_shortcut_once("CTRL", "X"))
+b("SUPER + A", "Select all", universal_shortcut("CTRL", "A", "CTRL+SHIFT", "A"))
 
 -- ─── Cursor Magnify (hypr-dynamic-cursors) ───────────────────────────────────
 
 if hl.plugin and hl.plugin.dynamic_cursors and hl.plugin.dynamic_cursors.dsp_magnify then
-	hl.bind(
+	b(
 		"SUPER + CTRL + Z",
+		"Magnify cursor",
 		hl.plugin.dynamic_cursors.dsp_magnify({ duration = 1500, size = 4.0 })
 	)
 else
-	hl.bind("SUPER + CTRL + Z", function()
+	b("SUPER + CTRL + Z", "Magnify cursor", function()
 		if hl.plugin and hl.plugin.dynamic_cursors and hl.plugin.dynamic_cursors.dsp_magnify then
 			hl.plugin.dynamic_cursors.dsp_magnify({ duration = 2000, size = 4.0 })()
 		end
