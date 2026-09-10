@@ -1,0 +1,6 @@
+[Unit]
+Description=Sync power-save mode with power source (battery vs AC)
+
+[Service]
+Type=oneshot
+ExecStart=%h/.config/hypr/scripts/power-save.sh --auto

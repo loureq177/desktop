@@ -79,30 +79,29 @@ local programs = {
 
 -- ─── Environment ─────────────────────────────────────────────────────────────
 
-hl.env("AQ_DRM_DEVICES", "/dev/dri/amd-igpu:/dev/dri/nvidia-dgpu")
+-- iGPU only: keeping the NVIDIA node open here blocks runtime suspend (~15W
+-- idle). dGPU stays available on demand via prime-run offload.
+hl.env("AQ_DRM_DEVICES", "/dev/dri/amd-igpu")
 hl.env("GSK_RENDERER", "gl")
 hl.env("GTK_A11Y", "none")
-hl.env(
-	"VK_DRIVER_FILES",
+local vulkan_icd =
 	"/usr/share/vulkan/icd.d/radeon_icd.x86_64.json:/usr/share/vulkan/icd.d/radeon_icd.i686.json"
-)
-hl.env(
-	"VK_ICD_FILENAMES",
-	"/usr/share/vulkan/icd.d/radeon_icd.x86_64.json:/usr/share/vulkan/icd.d/radeon_icd.i686.json"
-)
+hl.env("VK_DRIVER_FILES", vulkan_icd)
+hl.env("VK_ICD_FILENAMES", vulkan_icd)
 hl.env("LIBVA_DRIVER_NAME", "radeonsi")
 hl.env("XDG_SESSION_TYPE", "wayland")
-hl.env("XDG_CURRENT_DESKTOP", "Hyprland")
-hl.env("XDG_SESSION_DESKTOP", "Hyprland")
+for _, var in ipairs({ "XDG_CURRENT_DESKTOP", "XDG_SESSION_DESKTOP" }) do
+	hl.env(var, "Hyprland")
+end
 hl.env("GDK_BACKEND", "wayland,x11")
 hl.env("QT_QPA_PLATFORM", "wayland;xcb")
 hl.env("SDL_VIDEODRIVER", "wayland")
 hl.env("CLUTTER_BACKEND", "wayland")
 hl.env("MOZ_ENABLE_WAYLAND", "1")
-hl.env("XCURSOR_THEME", ui.theme.cursor)
-hl.env("XCURSOR_SIZE", tostring(ui.font.size_cursor))
-hl.env("HYPRCURSOR_THEME", ui.theme.cursor)
-hl.env("HYPRCURSOR_SIZE", tostring(ui.font.size_cursor))
+for _, prefix in ipairs({ "XCURSOR", "HYPRCURSOR" }) do
+	hl.env(prefix .. "_THEME", ui.theme.cursor)
+	hl.env(prefix .. "_SIZE", tostring(ui.font.size_cursor))
+end
 hl.env("QT_QPA_PLATFORMTHEME", "qt6ct")
 hl.env("ELECTRON_OZONE_PLATFORM_HINT", "auto")
 hl.env("SAL_USE_VCLPLUGIN", "gtk3")

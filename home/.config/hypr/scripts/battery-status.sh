@@ -21,8 +21,11 @@ if [[ -z "${BAT:-}" ]] || [[ ! -d "$BAT" ]]; then
     exit 0
 fi
 
-CAP=$(<"$BAT/capacity" 2>/dev/null || echo 0)
-STATUS=$(<"$BAT/status" 2>/dev/null || echo "Discharging")
+CAP=$(cat "$BAT/capacity" 2>/dev/null || echo 0)
+STATUS=$(cat "$BAT/status" 2>/dev/null || echo "Discharging")
+
+CAP="${CAP//[^0-9]/}"
+[[ -z "${CAP:-}" ]] && CAP=0
 
 if [ "$STATUS" = "Charging" ]; then
     ICON="󰂄"

@@ -1,0 +1,10 @@
+[Unit]
+Description=Periodically sync power-save mode with power source
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=1min
+Persistent=false
+
+[Install]
+WantedBy=timers.target
