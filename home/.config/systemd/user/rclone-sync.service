@@ -2,6 +2,8 @@
 Description=Rclone Sync Background Sync
 After=network-online.target
 Wants=network-online.target
+# Skip on battery: daily backup is not worth the power draw.
+ConditionACPower=true
 
 [Service]
 Type=oneshot
