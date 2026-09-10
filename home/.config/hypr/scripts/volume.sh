@@ -12,13 +12,10 @@ if [[ -z "$ACTION" ]]; then
     exit 2
 fi
 
-PLAY_SOUND_BIN="${PLAY_SOUND:-$HOME/.local/bin/play-sound}"
 sound() {
-    if [[ -x "$PLAY_SOUND_BIN" ]]; then
-        "$PLAY_SOUND_BIN" "$@" 2>/dev/null || true
-    elif command -v play-sound >/dev/null 2>&1; then
-        play-sound "$@" 2>/dev/null || true
-    fi
+    # --replace is accepted for backward compat but ignored: libcanberra mixes natively.
+    [[ "${1:-}" == "--replace" ]] && shift
+    canberra-gtk-play -i "$1" >/dev/null 2>&1 || true
 }
 
 VOLUME_EVENT="audio-volume-change"

@@ -21,7 +21,7 @@ LOCKFILE="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/ocr_slurp.lock"
 exec 200>"$LOCKFILE"
 flock -n 200 || exit 0
 
-play_sound() { "${HOME}/.local/bin/play-sound" "$@" 2>/dev/null || true; }
+play_sound() { canberra-gtk-play -i "$1" >/dev/null 2>&1 || true; }
 
 TMP_DIR=$(mktemp -d "${XDG_RUNTIME_DIR:-/tmp}/ocr.XXXXXX")
 TMP_IMG="$TMP_DIR/crop.png"

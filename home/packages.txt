@@ -46,6 +46,7 @@ impala
 jolt
 jq
 lazygit
+libcanberra
 libreoffice-fresh
 libreoffice-fresh-pl
 loupe

@@ -25,7 +25,7 @@ LOCKFILE="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/record_slurp.lock"
 exec 200>"$LOCKFILE"
 flock -n 200 || exit 0
 
-play_sound() { "${HOME}/.local/bin/play-sound" "$@" 2>/dev/null || true; }
+play_sound() { canberra-gtk-play -i "$1" >/dev/null 2>&1 || true; }
 
 if pkill -INT -x wf-recorder; then
     swaync-client --dnd-off || true
