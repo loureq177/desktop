@@ -7,10 +7,11 @@ YELLOW='\033[0;33m'
 RED='\033[0;31m'
 NC='\033[0m'
 
-_log_info() { echo -e "${BLUE}\n[INFO]${NC} $*"; }
-_log_ok() { echo -e "${GREEN}[OK]${NC} $*"; }
-_log_warn() { echo -e "${YELLOW}[WARN]${NC} $*"; }
-_log_error() { echo -e "${RED}[ERROR]${NC} $*"; }
+_log() { local color=$1; shift; echo -e "${color}$*${NC}"; }
+_log_info() { _log "${BLUE}\n[INFO]" "$@"; }
+_log_ok() { _log "${GREEN}[OK]" "$@"; }
+_log_warn() { _log "${YELLOW}[WARN]" "$@"; }
+_log_error() { _log "${RED}[ERROR]" "$@"; }
 
 set -euo pipefail
 cd "$(dirname "$0")"
