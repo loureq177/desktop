@@ -91,7 +91,9 @@ tooltip label {
   animation-direction: alternate;
 }
 
-#custom-dgpu.off {
+#custom-dgpu.off,
+#custom-caffeine.off,
+#custom-powersave.off {
   color: @text-inactive;
 }
 #custom-dgpu.on {
@@ -120,33 +122,15 @@ tooltip label {
   margin: 0;
 }
 
-@keyframes breathe {
-  0% {
-    opacity: 0.3;
-  }
-  50% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0.3;
-  }
-}
-
 #bluetooth.connected {
   color: @accent;
   background-color: @bluetooth-bg;
 }
 
-#custom-caffeine.off {
-  color: @text-inactive;
-}
 #custom-caffeine.on {
   color: @accent;
 }
 
-#custom-powersave.off {
-  color: @text-inactive;
-}
 #custom-powersave.on {
   color: @accent-green;
 }

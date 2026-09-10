@@ -1,33 +1,33 @@
 @import "ui.css";
 
-.notification-row,
-.notification-background,
-.notification-default-action {
-  all: unset;
+.notification-row {
   background: transparent;
   border: none;
   outline: none;
   box-shadow: none;
+}
+
+.notification-row:focus {
+  background: transparent;
+  outline: none;
+}
+
+.notification-background {
+  background: transparent;
+  border: none;
   padding: 0;
 }
 
-.notification-row:hover,
-.notification-row:focus,
-.notification-row:selected,
-.notification-row:active,
-.notification-background:hover,
-.notification-background:focus,
-.notification-background:selected,
-.notification-background:active,
-.notification-default-action:hover,
-.notification-default-action:focus,
-.notification-default-action:selected,
-.notification-default-action:active {
+.notification-default-action {
   background: transparent;
   border: none;
-  outline: none;
   box-shadow: none;
   padding: 0;
+  margin: 0;
+}
+
+.notification-default-action:hover {
+  background: transparent;
 }
 
 .control-center {
@@ -58,26 +58,26 @@
 
 .floating-notifications {
   background: transparent;
-  margin-top: 58px;
-  margin-right: 20px;
-  margin-bottom: 0;
-  margin-left: 0;
-}
-
-@keyframes notif-in {
-  from {
-    opacity: 0;
-    margin-top: -10px;
-  }
-  to {
-    opacity: 1;
-    margin-top: 0;
-  }
+  /* NOTE: do NOT add margin/padding here. Any offset on this container
+     breaks hit-testing for action buttons in the layer-shell window
+     (buttons render but never receive clicks). Position is top-right
+     by design; swaync layer sits above Waybar so nothing is occluded. */
 }
 
 .notification-row {
   margin: 2px 0;
-  animation: notif-in 200ms ease-out;
+}
+
+/* Gap below Waybar. NOTE: offset must live on the rows, never on
+   .floating-notifications itself (container margin/padding breaks
+   action-button hit-testing). */
+.floating-notifications .notification-row:first-child {
+  margin-top: 58px;
+}
+
+/* Right gap matching Hyprland gaps_out (ui.toml spacing.gaps_out = 20). */
+.floating-notifications .notification-row {
+  margin-right: 20px;
 }
 
 .notification {
@@ -107,12 +107,15 @@
 
 .notification-alt-actions {
   background: transparent;
+  padding: 4px;
 }
 
 .notification-action {
   background: transparent;
   border: none;
   box-shadow: none;
+  margin: 4px;
+  padding: 0;
 }
 
 .notification-action > button {
@@ -161,7 +164,6 @@
 }
 
 .time {
-  /* font-size: 13px; */
   color: @text-dim;
   margin-left: 6px;
 }
