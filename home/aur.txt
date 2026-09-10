@@ -1,4 +1,5 @@
 bibata-cursor-git
+localsend-bin
 pwvucontrol
 waybar-git
 zsh-fast-syntax-highlighting
