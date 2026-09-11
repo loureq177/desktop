@@ -236,6 +236,28 @@ hl = setmetatable({
   get_workspace = function()
     return nil
   end,
+  get_workspaces = function()
+    return {}
+  end,
+  get_cursor_pos = function()
+    return nil
+  end,
+  plugin = setmetatable({
+    dynamic_cursors = setmetatable({
+      dsp_magnify = function(opts)
+        local expr = "hl.plugin.dynamic_cursors.dsp_magnify(" .. lua_literal(opts) .. ")"
+        return dispatcher("lua", expr, expr)
+      end,
+    }, {
+      __index = function()
+        return noop
+      end,
+    }),
+  }, {
+    __index = function()
+      return noop
+    end,
+  }),
 }, {
   __index = function()
     return noop

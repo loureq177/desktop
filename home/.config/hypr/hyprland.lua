@@ -79,9 +79,10 @@ local programs = {
 
 -- ─── Environment ─────────────────────────────────────────────────────────────
 
--- iGPU only: keeping the NVIDIA node open here blocks runtime suspend (~15W
--- idle). dGPU stays available on demand via prime-run offload.
-hl.env("AQ_DRM_DEVICES", "/dev/dri/amd-igpu")
+-- Both GPUs: external USB-C/DP ports on this Legion are wired to the NVIDIA
+-- dGPU, so it must be listed for the external monitor to work (relogin
+-- after change). iGPU stays primary; dGPU on demand via prime-run.
+hl.env("AQ_DRM_DEVICES", "/dev/dri/amd-igpu:/dev/dri/nvidia-dgpu")
 hl.env("GSK_RENDERER", "gl")
 hl.env("GTK_A11Y", "none")
 local vulkan_icd =
@@ -158,8 +159,6 @@ hl.monitor({
 	position = "0x0",
 	scale = 1,
 })
--- NOTE: DP-1 removed (duplicate of Iiyama on another port, same mode/pos).
--- The empty-output fallback below already covers unlisted outputs.
 hl.monitor({
 	output = "",
 	mode = "preferred",
@@ -204,11 +203,79 @@ hl.config({
 	},
 	gestures = {
 		workspace_swipe_touch = true,
-		workspace_swipe_cancel_ratio = 0.05,
+		workspace_swipe_cancel_ratio = 0.01,
 	},
 })
 
 hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })
+
+-- 4-finger drag moves the active window like SUPER + left-click drag.
+-- Tiled windows pop out to floating while dragging and dock back to tiling
+-- on release. Already-floating windows stay floating.
+-- The cursor rides along with the window, like a real mouse drag.
+-- SUPER + click bind below is left untouched.
+local drag_move_scale = 2.5
+local drag_win = nil
+local drag_was_tiled = false
+local function drag_move_by(delta)
+	if delta == nil then
+		return
+	end
+	local dx = math.floor(delta.x * drag_move_scale)
+	local dy = math.floor(delta.y * drag_move_scale)
+	if dx == 0 and dy == 0 then
+		return
+	end
+	if drag_win ~= nil then
+		hl.dispatch(hl.dsp.window.move({ x = dx, y = dy, relative = true, window = drag_win }))
+	else
+		hl.dispatch(hl.dsp.window.move({ x = dx, y = dy, relative = true }))
+	end
+	-- Keep the cursor glued to the dragged window, like a real mouse drag.
+	local pos = hl.get_cursor_pos()
+	if pos ~= nil then
+		hl.dispatch(hl.dsp.cursor.move({ x = pos.x + dx, y = pos.y + dy }))
+	end
+end
+local function drag_move_begin()
+	local w = hl.get_active_window()
+	if w == nil then
+		drag_win = nil
+		drag_was_tiled = false
+		return
+	end
+	drag_win = w
+	drag_was_tiled = not w.floating
+	if w.fullscreen ~= 0 then
+		hl.dispatch(hl.dsp.window.fullscreen({ action = "unset", window = w }))
+	end
+	if drag_was_tiled then
+		hl.dispatch(hl.dsp.window.float({ action = "set", window = w }))
+	end
+end
+local function drag_move_end()
+	if drag_win ~= nil and drag_was_tiled then
+		hl.dispatch(hl.dsp.window.float({ action = "unset", window = drag_win }))
+	end
+	drag_win = nil
+	drag_was_tiled = false
+end
+hl.gesture({
+	fingers = 4,
+	direction = "swipe",
+	action = {
+		start = function(e)
+			drag_move_begin()
+			drag_move_by(e.delta)
+		end,
+		update = function(e)
+			drag_move_by(e.delta)
+		end,
+		finish = function(_e)
+			drag_move_end()
+		end,
+	},
+})
 
 -- ─── Special workspace swipe ────────────────────────────────────────────────
 -- Native finger-tracked gestures (CSpecialWorkspaceGesture in Hyprland source):
@@ -216,10 +283,20 @@ hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })
 -- workspace name, so re-register it when visibility changes. Swipe down hides
 -- the visible special workspace, swipe up restores the most recently used one.
 -- Never creates an empty special workspace.
+--
+-- Open specials are tracked as an MRU stack (most recent first), rebuilt from
+-- window focus history on every relevant event. Closing a special instead of
+-- hiding it drops it from the stack, so swipe-up falls back to the next most
+-- recently used open special.
+--
+-- While a special workspace is visible, the 3-finger horizontal workspace
+-- swipe is replaced with discrete left/right gestures that cycle through the
+-- open specials. Hiding the special restores the normal workspace swipe.
 
 local special_gesture_mode = nil -- "down", "up" or nil
 local special_gesture_name = nil
-local last_special = nil
+local special_history = {} -- MRU stack of short names, most recent first
+local special_cycle_active = false
 
 local function special_short_name(ws)
 	if ws == nil then
@@ -261,35 +338,160 @@ local function set_special_gesture(mode, name)
 	end
 end
 
-local function refresh_special_gestures()
-	local name = special_short_name(visible_special_workspace())
-	if name ~= nil then
-		last_special = name
-		set_special_gesture("down", name)
-		return
-	end
-	if last_special ~= nil then
-		local target = hl.get_workspace("special:" .. last_special)
-		if target ~= nil and not target.is_empty then
-			set_special_gesture("up", last_special)
+-- All non-empty special workspaces, most recently focused first. Sources are
+-- merged so a workspace is never lost: window focus history gives the order,
+-- the previous stack covers transients, and the workspace list is the safety
+-- net for anything still open.
+local function list_open_specials()
+	local seen = {}
+	local ordered = {}
+	local function push(name)
+		if name == nil or seen[name] then
 			return
 		end
-		last_special = nil
+		local target = hl.get_workspace("special:" .. name)
+		if target ~= nil and not target.is_empty then
+			seen[name] = true
+			table.insert(ordered, name)
+		end
 	end
-	set_special_gesture(nil, nil)
-end
-
-local function track_last_special()
-	local best_id = -1
-	for _, w in ipairs(hl.get_windows()) do
+	local wins = hl.get_windows()
+	-- Note: lower focus_history_id means more recently focused (0 is the
+	-- focused window); windows missing from history sort as least recent.
+	local function focus_age(w)
+		local id = w.focus_history_id
+		if id == nil or id < 0 then
+			return math.huge
+		end
+		return id
+	end
+	table.sort(wins, function(a, b)
+		return focus_age(a) < focus_age(b)
+	end)
+	for _, w in ipairs(wins) do
 		if w.workspace ~= nil and w.workspace.special then
-			local id = w.focus_history_id or 0
-			if id >= best_id then
-				best_id = id
-				last_special = special_short_name(w.workspace)
+			push(special_short_name(w.workspace))
+		end
+	end
+	for _, name in ipairs(special_history) do
+		push(name)
+	end
+	if hl.get_workspaces ~= nil then
+		for _, ws in ipairs(hl.get_workspaces()) do
+			if ws.special then
+				push(special_short_name(ws))
 			end
 		end
 	end
+	return ordered
+end
+
+-- Directional slide for cycling between specials. The global In/Out styles
+-- are switched to horizontal just for the toggle, then restored to the
+-- vertical card style. A generation counter keeps rapid successive cycles
+-- from restoring too early.
+local special_slide_gen = 0
+local special_slide_horizontal = false
+
+local function set_special_slide(in_style, out_style, horizontal)
+	hl.animation({ leaf = "specialWorkspaceIn", speed = 4, bezier = "default", style = in_style })
+	hl.animation({ leaf = "specialWorkspaceOut", speed = 4, bezier = "default", style = out_style })
+	special_slide_horizontal = horizontal
+end
+
+local function restore_special_slide()
+	if special_slide_horizontal then
+		set_special_slide("slide bottom", "slide top", false)
+	end
+end
+
+local function cycle_special(step)
+	local visible = special_short_name(visible_special_workspace())
+	if visible == nil then
+		return
+	end
+	local list = list_open_specials()
+	if #list < 2 then
+		return
+	end
+	local idx = 1
+	for i, name in ipairs(list) do
+		if name == visible then
+			idx = i
+			break
+		end
+	end
+	local target = list[((idx - 1 + step) % #list) + 1]
+	-- Swipe left pushes content left, so the next card enters from the
+	-- right (and vice versa), like switching regular workspaces.
+	if step > 0 then
+		set_special_slide("slide right", "slide left", true)
+	else
+		set_special_slide("slide left", "slide right", true)
+	end
+	-- The cycled-to special is now the most recently used.
+	for i, name in ipairs(special_history) do
+		if name == target then
+			table.remove(special_history, i)
+			break
+		end
+	end
+	table.insert(special_history, 1, target)
+	hl.dispatch(hl.dsp.workspace.toggle_special(target))
+	special_slide_gen = special_slide_gen + 1
+	local gen = special_slide_gen
+	hl.timer(function()
+		if gen == special_slide_gen then
+			restore_special_slide()
+		end
+	end, { timeout = 600, type = "oneshot" })
+end
+
+local function cycle_special_next()
+	cycle_special(1)
+end
+
+local function cycle_special_prev()
+	cycle_special(-1)
+end
+
+-- While a special workspace is visible, horizontal motion cycles specials
+-- instead of switching regular workspaces underneath the overlay.
+local function set_cycle_gestures(enabled)
+	if enabled == special_cycle_active then
+		return
+	end
+	if special_cycle_active then
+		hl.gesture({ fingers = 3, direction = "left", action = "unset" })
+		hl.gesture({ fingers = 3, direction = "right", action = "unset" })
+		hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })
+		special_cycle_active = false
+	end
+	if enabled then
+		hl.gesture({ fingers = 3, direction = "horizontal", action = "unset" })
+		hl.gesture({ fingers = 3, direction = "left", action = cycle_special_next })
+		hl.gesture({ fingers = 3, direction = "right", action = cycle_special_prev })
+		special_cycle_active = true
+	end
+end
+
+local function refresh_special_gestures()
+	special_history = list_open_specials()
+	local visible = special_short_name(visible_special_workspace())
+	if visible ~= nil then
+		for i, name in ipairs(special_history) do
+			if name == visible then
+				table.remove(special_history, i)
+				break
+			end
+		end
+		table.insert(special_history, 1, visible)
+		set_special_gesture("down", visible)
+	else
+		set_special_gesture("up", special_history[1])
+		restore_special_slide()
+	end
+	set_cycle_gestures(visible ~= nil)
 end
 
 hl.on("workspace.special_active", function()
@@ -305,7 +507,6 @@ hl.on("window.close", function()
 	refresh_special_gestures()
 end)
 
-track_last_special()
 refresh_special_gestures()
 
 -- ─── Look & Feel ─────────────────────────────────────────────────────────────
@@ -532,7 +733,6 @@ local cmds = {
 	["SUPER + B"] = { programs.browser, "Browser" },
 	["SUPER + space"] = { programs.launcher, "Launch apps" },
 	["SUPER + slash"] = { "keybindings-menu", "Keybindings" },
-	["SUPER + SHIFT + slash"] = { "keybindings-menu", "Keybindings" },
 
 	--  ─── Notifications ─────────────────────────────────────────────────────────
 	["SUPER + comma"] = { "swaync-client --close-latest", "Close latest notification" },
@@ -555,13 +755,19 @@ local cmds = {
 	["SUPER + escape"] = { "~/.config/hypr/scripts/powermenu.sh", "System menu" },
 
 	-- ─── Capture ────────────────────────────────────────────────────────────────
-	["SUPER + CTRL + R"] = { "~/.config/hypr/scripts/record-screen.sh region", "Screen recording (region)" },
+	["SUPER + CTRL + R"] = {
+		"~/.config/hypr/scripts/record-screen.sh region",
+		"Screen recording (region)",
+	},
 	["SUPER + CTRL + SHIFT + R"] = {
 		"~/.config/hypr/scripts/record-screen.sh fullscreen",
 		"Screen recording (fullscreen)",
 	},
 	["SUPER + CTRL + O"] = { "~/.config/hypr/scripts/ocr.sh", "OCR from screen" },
-	["SHIFT + print"] = { "~/.config/hypr/scripts/screenshot.sh fullscreen", "Screenshot (fullscreen)" },
+	["SHIFT + print"] = {
+		"~/.config/hypr/scripts/screenshot.sh fullscreen",
+		"Screenshot (fullscreen)",
+	},
 	["print"] = { "~/.config/hypr/scripts/screenshot.sh region", "Screenshot (region)" },
 }
 
@@ -597,6 +803,7 @@ end
 b("SUPER + Q", "Close window", hl.dsp.window.close())
 b("SUPER + F", "Toggle fullscreen", hl.dsp.window.fullscreen())
 b("SUPER + T", "Toggle window split", hl.dsp.layout("togglesplit"))
+b("SUPER + CTRL + F", "Toggle floating", hl.dsp.window.float())
 
 local directions = { H = "left", L = "right", K = "up", J = "down" }
 local step = 25
@@ -619,7 +826,11 @@ end
 
 for i = 1, 9 do
 	b("SUPER + " .. i, "Switch to workspace " .. i, hl.dsp.focus({ workspace = i }))
-	b("SUPER + SHIFT + " .. i, "Move window to workspace " .. i, hl.dsp.window.move({ workspace = i }))
+	b(
+		"SUPER + SHIFT + " .. i,
+		"Move window to workspace " .. i,
+		hl.dsp.window.move({ workspace = i })
+	)
 	b(
 		"SUPER + CTRL + SHIFT + " .. i,
 		"Move window silently to workspace " .. i,
@@ -632,9 +843,19 @@ b("SUPER + mouse:273", "Resize window (mouse)", hl.dsp.window.resize(), { mouse 
 
 local media = {
 	{ "XF86AudioRaiseVolume", "~/.config/hypr/scripts/volume.sh output raise", true, "Volume up" },
-	{ "XF86AudioLowerVolume", "~/.config/hypr/scripts/volume.sh output lower", true, "Volume down" },
+	{
+		"XF86AudioLowerVolume",
+		"~/.config/hypr/scripts/volume.sh output lower",
+		true,
+		"Volume down",
+	},
 	{ "XF86AudioMute", "~/.config/hypr/scripts/volume.sh output mute-toggle", nil, "Volume mute" },
-	{ "XF86AudioMicMute", "~/.config/hypr/scripts/volume.sh input mute-toggle", nil, "Microphone mute" },
+	{
+		"XF86AudioMicMute",
+		"~/.config/hypr/scripts/volume.sh input mute-toggle",
+		nil,
+		"Microphone mute",
+	},
 	{ "XF86MonBrightnessUp", "swayosd-client --brightness +10", true, "Brightness up" },
 	{ "XF86MonBrightnessDown", "swayosd-client --brightness -10", true, "Brightness down" },
 }
