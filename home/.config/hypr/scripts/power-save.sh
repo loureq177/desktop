@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-# Toggles Hyprland power-save mode (refresh rate 60/165Hz, animations, blur, brightness, ghostty shader). Usage: [--status|--enable|--disable|--auto]
+# Toggles Hyprland power-save mode (refresh rate 60/165Hz, animations, blur, brightness, ghostty shader, opencode anims). Usage: [--status|--enable|--disable|--auto]
 set -euo pipefail
 
 STATE_FILE="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/powersave_mode"
 PREV_BRIGHTNESS_FILE="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/powersave_prev_brightness"
 GHOSTTY_CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/ghostty/config"
+OPENCODE_KV="${XDG_STATE_HOME:-$HOME/.local/state}/opencode/kv.json"
 
 _is_active() {
     [[ -f "$STATE_FILE" ]]
@@ -59,6 +60,28 @@ _ghostty_shader() { # $1: on|off (ghostty live-reloads the config file)
     fi
 }
 
+_opencode_anims() { # $1: true|false (persists TUI animation state in kv.json for NEW sessions only)
+    # Upstream has no watcher or reload IPC: packages/tui/src/context/kv.tsx
+    # reads kv.json once at startup and kv.set() updates memory + disk together.
+    # External edits apply to the next launched TUI; running TUIs need a
+    # manual Commands > Disable/Enable animations or a restart.
+    local enabled="$1"
+    [[ "$enabled" == "true" || "$enabled" == "false" ]] || return 0
+    mkdir -p "$(dirname "$OPENCODE_KV")"
+    if [[ ! -f "$OPENCODE_KV" ]]; then
+        printf '{"animations_enabled":%s}' "$enabled" >"$OPENCODE_KV"
+        return 0
+    fi
+    local tmp
+    tmp=$(mktemp) || return 0
+    if command -v jq >/dev/null 2>&1; then
+        jq --argjson v "$enabled" '.animations_enabled = $v' "$OPENCODE_KV" >"$tmp" 2>/dev/null && mv "$tmp" "$OPENCODE_KV" || rm -f "$tmp"
+    else
+        python3 -c 'import json,sys; p=sys.argv[1]; v=sys.argv[2]=="true"; d=json.load(open(p)); d["animations_enabled"]=v; json.dump(d,open(p,"w"))' "$OPENCODE_KV" "$enabled" 2>/dev/null || true
+        rm -f "$tmp"
+    fi
+}
+
 _on_battery() {
     local f online
     for f in /sys/class/power_supply/AC*/online /sys/class/power_supply/ADP*/online /sys/class/power_supply/ucsi-source-psy-*/online; do
@@ -76,9 +99,9 @@ _on_battery() {
 
 _status() {
     if _is_active; then
-        printf '%s\n' '{"text": "󰌪", "alt": "on", "class": "on", "tooltip": "Power Saving Mode: ON\n• Refresh rate: 60 Hz\n• Animations &amp; blur: Disabled\n• Ghostty shader: Disabled\n• Brightness: Reduced (-20%)\n• Profile: Power-saver (Lenovo Quiet)\n\nClick to disable"}'
+        printf '%s\n' '{"text": "󰌪", "alt": "on", "class": "on", "tooltip": "Power Saving Mode: ON\n• Refresh rate: 60 Hz\n• Animations &amp; blur: Disabled\n• Ghostty shader: Disabled\n• OpenCode anims: Disabled\n• Brightness: Reduced (-20%)\n• Profile: Power-saver (Lenovo Quiet)\n\nClick to disable"}'
     else
-        printf '%s\n' '{"text": "󰌪", "alt": "off", "class": "off", "tooltip": "Power Saving Mode: OFF\n• Refresh rate: 165 Hz\n• Animations &amp; blur: Enabled\n• Ghostty shader: Enabled\n\nClick to enable"}'
+        printf '%s\n' '{"text": "󰌪", "alt": "off", "class": "off", "tooltip": "Power Saving Mode: OFF\n• Refresh rate: 165 Hz\n• Animations &amp; blur: Enabled\n• Ghostty shader: Enabled\n• OpenCode anims: Enabled\n\nClick to enable"}'
     fi
 }
 
@@ -104,8 +127,9 @@ _enable() {
     _set_refresh_rate 60
     _set_look false
     _ghostty_shader off
+    _opencode_anims false
     prof power-saver
-    note -i battery "Power Saver" "Enabled: 60Hz, animations off, shader off, -20% brightness"
+    note -i battery "Power Saver" "Enabled: 60Hz, animations off, shader off, opencode anims off, -20% brightness"
 }
 
 _disable() {
@@ -134,8 +158,9 @@ _disable() {
     _set_refresh_rate 165
     _set_look true
     _ghostty_shader on
+    _opencode_anims true
     prof balanced
-    note -i battery-profile-balanced "Power Saver" "Disabled: 165Hz, animations on, balanced profile"
+    note -i battery-profile-balanced "Power Saver" "Disabled: 165Hz, animations on, opencode anims on, balanced profile"
 }
 
 _toggle() {
