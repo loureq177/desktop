@@ -45,3 +45,4 @@ Components synchronized:
   color palette
 - **Rofi**: window & element roundings, borders, paddings, fonts, color palette
 - **Hyprlock**: input field rounding, outline thickness, font, color palette
+- Quickshell on the way!!

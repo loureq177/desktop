@@ -26,20 +26,102 @@ ShellRoot {
 		currentIndex = 0;
 	}
 
+	function wtypeArgsForChord(chord) {
+		if (!chord)
+			return null;
+		var upper = chord.toUpperCase();
+		if (upper.indexOf("MOUSE") !== -1 || upper.indexOf("CODE:") !== -1)
+			return null;
+		var rawParts = chord.split("+");
+		if (rawParts.length === 0)
+			return null;
+		var rawKey = rawParts[rawParts.length - 1].trim();
+		if (rawKey === "")
+			return null;
+		var modMap = {
+			"SUPER": "logo",
+			"SHIFT": "shift",
+			"CTRL": "ctrl",
+			"CONTROL": "ctrl",
+			"ALT": "alt"
+		};
+		var args = [];
+		for (var i = 0; i < rawParts.length - 1; i++) {
+			var toks = rawParts[i].trim().split(/\s+/);
+			for (var j = 0; j < toks.length; j++) {
+				if (toks[j] === "")
+					continue;
+				var m = modMap[toks[j].toUpperCase()];
+				if (!m)
+					return null;
+				args.push("-M", m);
+			}
+		}
+		var k;
+		if (rawKey.indexOf("XF86") === 0)
+			k = rawKey;
+		else {
+			k = rawKey.toLowerCase();
+			var keyMap = {
+				"~": "grave",
+				"grave": "grave",
+				"comma": "comma",
+				"period": "period",
+				"minus": "minus",
+				"equal": "equal",
+				"slash": "slash",
+				"space": "space",
+				"return": "Return",
+				"enter": "Return",
+				"escape": "Escape",
+				"esc": "Escape",
+				"print": "Print",
+				"tab": "Tab",
+				"backspace": "BackSpace",
+				"delete": "Delete",
+				"up": "Up",
+				"down": "Down",
+				"left": "Left",
+				"right": "Right"
+			};
+			if (keyMap[k])
+				k = keyMap[k];
+			else if (k.length === 1)
+				k = k.toLowerCase();
+			else if (!/^[A-Za-z0-9_]+$/.test(k))
+				return null;
+		}
+		args.push("-k", k);
+		return args;
+	}
+
 	function dispatch(entry) {
 		if (!entry)
 			return;
 		var cmd = [];
 		if (entry.dispatcher === "exec" && entry.arg !== "")
 			cmd = ["hyprctl", "dispatch", "exec", entry.arg];
-		else if (entry.dispatcher === "lua" && entry.arg !== "")
-			cmd = ["hyprctl", "dispatch", entry.arg];
-		else if (entry.dispatcher !== "" && entry.arg !== "")
+		else if (entry.dispatcher !== "" && entry.dispatcher !== "lua" && entry.arg !== "")
 			cmd = ["hyprctl", "dispatch", entry.dispatcher, entry.arg];
-		else if (entry.dispatcher !== "")
+		else if (entry.dispatcher !== "" && entry.dispatcher !== "lua")
 			cmd = ["hyprctl", "dispatch", entry.dispatcher];
-		else
+		else {
+			// Lua / plain-function binds (toggle_special, resize, copy/paste...):
+			// hyprctl cannot run Lua closures, so re-trigger the original
+			// chord via wtype and let Hyprland run the real bind.
+			var wargs = wtypeArgsForChord(entry.chord);
+			if (wargs) {
+				var shell = "sleep 0.25; exec wtype";
+				for (var i = 0; i < wargs.length; i++)
+					shell += " '" + wargs[i].replace(/'/g, "'\\''") + "'";
+				// Detached (&): sh exits immediately, menu quits via
+				// keysim.onExited, keys land after focus is restored.
+				keysim.command = ["sh", "-c", "( " + shell + " ) &"];
+				keysim.running = true;
+				return;
+			}
 			return;
+		}
 		dispatcher.command = cmd;
 		dispatcher.running = true;
 	}
@@ -62,6 +144,11 @@ ShellRoot {
 
 	Process {
 		id: dispatcher
+		onExited: Qt.quit()
+	}
+
+	Process {
+		id: keysim
 		onExited: Qt.quit()
 	}
 
@@ -154,7 +241,7 @@ ShellRoot {
 								width: 300
 								anchors.verticalCenter: parent.verticalCenter
 								font.family: "JetBrainsMono Nerd Font Mono"
-								font.pixelSize: 14
+								font.pixelSize: 17
 								color: "#58a6ff"
 								elide: Text.ElideRight
 								text: modelData.chord
@@ -163,7 +250,7 @@ ShellRoot {
 							Text {
 								anchors.verticalCenter: parent.verticalCenter
 								font.family: "JetBrainsMono Nerd Font Mono"
-								font.pixelSize: 14
+								font.pixelSize: 17
 								color: "#c9d1d9"
 								elide: Text.ElideRight
 								text: modelData.action
