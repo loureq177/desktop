@@ -71,3 +71,11 @@ text_main = "#c9d1d9"
 text_dim = "#8b949e"
 text_muted = "#484f58"
 shadow = "#010409"
+
+[ly]
+# TTY-tuned overrides for the Ly login manager (plain Linux console has no
+# truecolor, so bright Wayland accents render washed out there).
+# Deep GitHub Primer blue reads as true blue on TTY instead of teal.
+matrix_fg = "#1f6feb"
+# Delay between animation frames in milliseconds (higher = calmer).
+frame_delay = 50

@@ -8,6 +8,7 @@ Reads ~/.config/ui/ui.toml and compiles style definitions for:
 - SwayOSD (ui.css)
 - Rofi (ui.rasi)
 - Shell scripts (ui.sh)
+- Ly (base + animation colors in config.ini)
 
 Usage:
   apply-ui              # Generate configs and reload running apps
@@ -33,6 +34,9 @@ def hex_to_hypr_rgba(hex_str, alpha="ee"):
 def hex_to_css_rgba(hex_str, alpha=0.6):
     r, g, b = hex_to_rgb(hex_str)
     return f"rgba({r}, {g}, {b}, {alpha})"
+
+def hex_to_ly(hex_str, style="00"):
+    return f"0x{style}{hex_str.lstrip('#').lower()}"
 
 def get_config_path():
     candidates = [
@@ -79,6 +83,7 @@ def main():
     fnt = cfg.get("font", {})
     thm = cfg.get("theme", {})
     c = cfg.get("colors", {})
+    ly = cfg.get("ly", {})
 
     r_win = r.get("window", 0)
     r_elem = r.get("element", 0)
@@ -426,8 +431,57 @@ export UI_FZF_THEME="{fzf_theme}"
 """
     r7 = safe_write(config_dir / "ui" / "ui.sh", ui_sh, check_mode)
 
+    # 8. Ly display manager: sync base + animation colors with ui.toml
+    ly_in_sync = True
+    ly_config = config_dir / "ly" / "config.ini"
+    # TTY-tuned glyph color (plain console washes out the bright Wayland blue).
+    ly_glyph = ly.get("matrix_fg", accent_blue)
+    ly_frame_delay = ly.get("frame_delay", 5)
+    if ly_config.exists():
+        target = ly_config.resolve()
+        txt = target.read_text()
+        new_txt = txt
+        ly_colors = {
+            "bg": hex_to_ly(bg_main),
+            "border_fg": hex_to_ly(border_color),
+            "fg": hex_to_ly(text_main),
+            "error_fg": hex_to_ly(c.get("critical", "#f85149"), style="01"),
+            "colormix_col1": hex_to_ly(bg_main),
+            "colormix_col2": hex_to_ly(accent_blue),
+            "colormix_col3": hex_to_ly(c.get("accent_purple", "#bc8cff")),
+            "doom_top_color": hex_to_ly("#8957e5"),
+            "doom_middle_color": hex_to_ly(accent_blue),
+            "doom_bottom_color": hex_to_ly(text_main),
+            "cmatrix_fg": hex_to_ly(ly_glyph),
+            "cmatrix_head_col": hex_to_ly(text_main, style="01"),
+            "gameoflife_fg": hex_to_ly(ly_glyph),
+        }
+        new_txt = re.sub(
+            rf"^(animation_frame_delay\s*=\s*)\d+",
+            rf"\g<1>{ly_frame_delay}",
+            new_txt,
+            flags=re.MULTILINE,
+        )
+        for key, value in ly_colors.items():
+            new_txt = re.sub(
+                rf"^({key}\s*=\s*).*$",
+                rf"\g<1>{value}",
+                new_txt,
+                flags=re.MULTILINE,
+            )
+        if check_mode:
+            if txt != new_txt:
+                print(f"  \033[31m✗\033[0m Out of sync with ui.toml: {target}")
+                ly_in_sync = False
+            else:
+                print(f"  \033[32m✓\033[0m In sync: {target}")
+        else:
+            if txt != new_txt:
+                target.write_text(new_txt)
+                print(f"  \033[32m✓\033[0m Updated Ly colors in: {target}")
+
     if check_mode:
-        all_ok = all([r1, r2, r3, r4, r5, r6, r7, waybar_in_sync])
+        all_ok = all([r1, r2, r3, r4, r5, r6, r7, waybar_in_sync, ly_in_sync])
         if all_ok:
             print("\033[32m[OK]\033[0m All UI configuration files are up to date with ui.toml.")
             sys.exit(0)
