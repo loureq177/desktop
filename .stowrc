@@ -9,6 +9,5 @@
 --ignore=packages\.txt
 --ignore=aur\.txt
 --ignore=flatpak\.txt
---ignore=pkglist\.txt
 --ignore=Brewfile
 

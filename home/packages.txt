@@ -38,7 +38,6 @@ hypridle
 hyprland
 hyprlock
 hyprpicker
-hyprpolkitagent
 hyprshutdown
 hyprsunset
 impala
@@ -73,12 +72,11 @@ profile-sync-daemon
 python-pynvim
 qt5-wayland
 qt6-wayland
+quickshell
 rclone
 reflector
 resvg
 ripgrep
-rofi
-rofi-emoji
 ruff
 satty
 seahorse
@@ -90,8 +88,6 @@ starship
 steam
 stow
 swaybg
-swaync
-swayosd
 tailscale
 terminus-font
 termshark

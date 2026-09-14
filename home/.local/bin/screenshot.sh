@@ -34,9 +34,12 @@ cleanup() {
 trap cleanup EXIT
 
 if [ "${1:-region}" = "region" ]; then
+    # Only offer windows that are actually visible: when a special workspace
+    # is open on a monitor it covers the regular workspace, so the regular
+    # workspace windows would otherwise be selectable yet invisible.
     WINDOW_RECTS=$(
         jq -r --argjson mons "$(hyprctl monitors -j 2>/dev/null || echo "[]")" '
-          [ $mons[]? | (.activeWorkspace.id, (select(.specialWorkspace.id != 0) | .specialWorkspace.id)) ] as $ws |
+          [ $mons[]? | (if .specialWorkspace.id != 0 then .specialWorkspace.id else .activeWorkspace.id end) ] as $ws |
           [ .[]? | select(.fullscreen != 0) | .workspace.id ] as $fs_ws |
           .[]? | select(
             .mapped and (.hidden | not) and

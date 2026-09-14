@@ -2,5 +2,4 @@ bibata-cursor-git
 cmatrix-git
 localsend-bin
 pwvucontrol
-waybar-git
 zsh-fast-syntax-highlighting

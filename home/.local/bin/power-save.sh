@@ -27,10 +27,6 @@ note() {
     notify-send -u low "$@" >/dev/null 2>&1 || true
 }
 
-_signal_waybar() {
-    pkill -RTMIN+8 -x waybar 2>/dev/null || true
-}
-
 _set_look() { # $1: true|false
     hyprctl eval "hl.config({ animations = { enabled = $1 }, decoration = { blur = { enabled = $1 }, shadow = { enabled = $1 } } })" >/dev/null 2>&1 || true
 }
@@ -51,13 +47,24 @@ _set_refresh_rate() {
     hyprctl eval "hl.monitor({ output = '${desc}', mode = '1920x1080@${target_hz}', position = '${pos}', scale = ${scale} })" >/dev/null 2>&1 || true
 }
 
-_ghostty_shader() { # $1: on|off (ghostty live-reloads the config file)
+_ghostty_reload() {
+    # Ghostty does not watch the config file; the same reload as
+    # ctrl+shift+, (reload_config) must be triggered explicitly.
+    # SIGUSR2 is the supported reload signal; the systemd unit wraps it.
+    if systemctl reload --user app-com.mitchellh.ghostty.service >/dev/null 2>&1; then
+        return 0
+    fi
+    pkill -SIGUSR2 -x ghostty >/dev/null 2>&1 || true
+}
+
+_ghostty_shader() { # $1: on|off
     [[ -f "$GHOSTTY_CONFIG" ]] || return 0
     if [[ "$1" == "off" ]]; then
         sed -i 's/^custom-shader /#custom-shader /; s/^custom-shader-animation = true/#custom-shader-animation = true/' "$GHOSTTY_CONFIG"
     else
         sed -i 's/^#custom-shader /custom-shader /; s/^#custom-shader-animation = true/custom-shader-animation = true/' "$GHOSTTY_CONFIG"
     fi
+    _ghostty_reload
 }
 
 _opencode_anims() { # $1: true|false (persists TUI animation state in kv.json for NEW sessions only)
@@ -169,7 +176,6 @@ _toggle() {
     else
         _enable
     fi
-    _signal_waybar
 }
 
 # Idempotent sync with actual power source; safe for timer polling.
@@ -188,12 +194,10 @@ _auto() {
     if [[ "$second" == "battery" ]]; then
         if ! _is_active; then
             _enable --no-brightness
-            _signal_waybar
         fi
     else
         if _is_active; then
             _disable --no-brightness
-            _signal_waybar
         fi
     fi
 }
@@ -202,11 +206,9 @@ case "${1:-}" in
 --status) _status ;;
 --enable)
     _enable
-    _signal_waybar
     ;;
 --disable)
     _disable
-    _signal_waybar
     ;;
 --auto) _auto ;;
 *) _toggle ;;

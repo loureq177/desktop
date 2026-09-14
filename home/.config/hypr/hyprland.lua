@@ -29,7 +29,7 @@ end
 local programs = {
 	terminal = "ghostty",
 	browser = "firefox",
-	launcher = "rofi -show drun -replace",
+	launcher = "qs ipc call shell toggle launcher apps",
 
 	special = {
 		-- Apps
@@ -69,11 +69,6 @@ local programs = {
 		jolt = { exe = "ghostty --class=jolt -e jolt", class = "jolt", ws = "jolt" },
 		impala = { exe = "ghostty --class=impala -e impala", class = "impala", ws = "impala" },
 		btop = { exe = "ghostty --class=btop -e btop", class = "btop", ws = "btop" },
-		clipboard = {
-			exe = hypr .. "/scripts/cliphist-paste.sh",
-			class = "clipboard-special",
-			ws = "clipboard",
-		},
 	},
 }
 
@@ -85,8 +80,7 @@ local programs = {
 hl.env("AQ_DRM_DEVICES", "/dev/dri/amd-igpu:/dev/dri/nvidia-dgpu")
 hl.env("GSK_RENDERER", "gl")
 hl.env("GTK_A11Y", "none")
-local vulkan_icd =
-	"/usr/share/vulkan/icd.d/radeon_icd.x86_64.json:/usr/share/vulkan/icd.d/radeon_icd.i686.json"
+local vulkan_icd = "/usr/share/vulkan/icd.d/radeon_icd.json"
 hl.env("VK_DRIVER_FILES", vulkan_icd)
 hl.env("VK_ICD_FILENAMES", vulkan_icd)
 hl.env("LIBVA_DRIVER_NAME", "radeonsi")
@@ -103,7 +97,9 @@ for _, prefix in ipairs({ "XCURSOR", "HYPRCURSOR" }) do
 	hl.env(prefix .. "_THEME", ui.theme.cursor)
 	hl.env(prefix .. "_SIZE", tostring(ui.font.size_cursor))
 end
-hl.env("QT_QPA_PLATFORMTHEME", "qt6ct")
+-- No QT_QPA_PLATFORMTHEME on purpose: qt6ct is not installed and forcing
+-- it makes Qt fall back to a light Fusion palette. Qt apps follow the
+-- portal prefer-dark setting instead.
 hl.env("ELECTRON_OZONE_PLATFORM_HINT", "auto")
 hl.env("SAL_USE_VCLPLUGIN", "gtk3")
 
@@ -126,9 +122,8 @@ hl.on("hyprland.start", function()
 		"wl-paste --type text --watch cliphist -max-items 50 store",
 		"wl-paste --type image/png --watch cliphist -max-items 10 store",
 		"wpctl set-volume @DEFAULT_AUDIO_SOURCE@ 0.25",
-		"waybar",
 		"swaybg -i ~/.config/hypr/wallpapers/hyprland.png",
-		"swayosd-server",
+		"quickshell -d",
 		"hyprsunset",
 		"hyprpm reload -n",
 	}
@@ -203,7 +198,7 @@ hl.config({
 	},
 	gestures = {
 		workspace_swipe_touch = true,
-		workspace_swipe_cancel_ratio = 0.01,
+		workspace_swipe_cancel_ratio = 0.02,
 	},
 })
 
@@ -386,25 +381,12 @@ local function list_open_specials()
 	return ordered
 end
 
--- Directional slide for cycling between specials. The global In/Out styles
--- are switched to horizontal just for the toggle, then restored to the
--- vertical card style. A generation counter keeps rapid successive cycles
--- from restoring too early.
-local special_slide_gen = 0
-local special_slide_horizontal = false
-
-local function set_special_slide(in_style, out_style, horizontal)
-	hl.animation({ leaf = "specialWorkspaceIn", speed = 4, bezier = "default", style = in_style })
-	hl.animation({ leaf = "specialWorkspaceOut", speed = 4, bezier = "default", style = out_style })
-	special_slide_horizontal = horizontal
-end
-
-local function restore_special_slide()
-	if special_slide_horizontal then
-		set_special_slide("slide bottom", "slide top", false)
-	end
-end
-
+-- Cycling between specials is a plain toggle_special dispatch: the native
+-- special workspace gesture finger-tracks the card between the running
+-- animation's begun/goal offsets, so any horizontal In/Out restyling here
+-- would make the next swipe-down hide slide sideways instead of down. The
+-- vertical card styles (bottom In, top Out) keep the gesture tracking
+-- coherent: cards always rise from the bottom and sink back down.
 local function cycle_special(step)
 	local visible = special_short_name(visible_special_workspace())
 	if visible == nil then
@@ -422,13 +404,6 @@ local function cycle_special(step)
 		end
 	end
 	local target = list[((idx - 1 + step) % #list) + 1]
-	-- Swipe left pushes content left, so the next card enters from the
-	-- right (and vice versa), like switching regular workspaces.
-	if step > 0 then
-		set_special_slide("slide right", "slide left", true)
-	else
-		set_special_slide("slide left", "slide right", true)
-	end
 	-- The cycled-to special is now the most recently used.
 	for i, name in ipairs(special_history) do
 		if name == target then
@@ -438,13 +413,6 @@ local function cycle_special(step)
 	end
 	table.insert(special_history, 1, target)
 	hl.dispatch(hl.dsp.workspace.toggle_special(target))
-	special_slide_gen = special_slide_gen + 1
-	local gen = special_slide_gen
-	hl.timer(function()
-		if gen == special_slide_gen then
-			restore_special_slide()
-		end
-	end, { timeout = 600, type = "oneshot" })
 end
 
 local function cycle_special_next()
@@ -489,7 +457,6 @@ local function refresh_special_gestures()
 		set_special_gesture("down", visible)
 	else
 		set_special_gesture("up", special_history[1])
-		restore_special_slide()
 	end
 	set_cycle_gestures(visible ~= nil)
 end
@@ -643,17 +610,6 @@ end
 -- ─── Windows & Workspaces ────────────────────────────────────────────────────
 
 hl.layer_rule({
-	name = "swaync-control-center-slide",
-	match = { namespace = "^swaync-control-center$" },
-	animation = "slide right",
-})
-hl.layer_rule({
-	name = "blur-layer-popups",
-	match = { namespace = "^(rofi|swaync-control-center)$" },
-	blur = true,
-	ignore_alpha = 0.2,
-})
-hl.layer_rule({
 	name = "no-anim-capture",
 	match = { namespace = "^(hyprpicker|selection)$" },
 	no_anim = true,
@@ -703,13 +659,6 @@ hl.window_rule({
 })
 
 hl.window_rule({
-	name = "keybindings-popup",
-	match = { title = "Keybindings" },
-	float = true,
-	center = true,
-})
-
-hl.window_rule({
 	match = {
 		class = "^(org.gnome.*|com.saivert.pwvucontrol|pavucontrol|nm-connection-editor|blueman-manager|xdg-desktop-portal-gtk|file-roller)$",
 	},
@@ -732,43 +681,42 @@ local cmds = {
 	["SUPER + RETURN"] = { programs.terminal, "Terminal" },
 	["SUPER + B"] = { programs.browser, "Browser" },
 	["SUPER + space"] = { programs.launcher, "Launch apps" },
-	["SUPER + slash"] = { "keybindings-menu", "Keybindings" },
+	["SUPER + slash"] = { "qs ipc call shell toggle keybindings ''", "Keybindings" },
 
-	--  ─── Notifications ─────────────────────────────────────────────────────────
-	["SUPER + comma"] = { "swaync-client --close-latest", "Close latest notification" },
-	["SUPER + SHIFT + comma"] = { "swaync-client --action", "Notification action" },
-	["SUPER + ALT + 1"] = { "swaync-client -a 0", "Notification action 1" },
-	["SUPER + ALT + 2"] = { "swaync-client -a 1", "Notification action 2" },
-	["SUPER + ALT + 3"] = { "swaync-client -a 2", "Notification action 3" },
-	["SUPER + CTRL + D"] = { "swaync-client --toggle-dnd", "Toggle Do Not Disturb" },
-	["SUPER + CTRL + comma"] = { "swaync-client -t", "Toggle notification center" },
+	--  ─── Notifications (quickshell) ────────────────────────────────────────────
+	["SUPER + comma"] = { "qs ipc call notifications dismissLatest", "Close latest notification" },
+	["SUPER + SHIFT + comma"] = { "qs ipc call notifications invokeDefault", "Notification action" },
+	["SUPER + ALT + 1"] = { "qs ipc call notifications invokeAction 0", "Notification action 1" },
+	["SUPER + ALT + 2"] = { "qs ipc call notifications invokeAction 1", "Notification action 2" },
+	["SUPER + ALT + 3"] = { "qs ipc call notifications invokeAction 2", "Notification action 3" },
+	["SUPER + CTRL + D"] = { "qs ipc call notifications toggleDnd", "Toggle Do Not Disturb" },
+	["SUPER + CTRL + comma"] = { "qs ipc call notifications toggle", "Toggle notification center" },
+	["SUPER + CTRL + V"] = { "qs ipc call clipboard toggle", "Clipboard history" },
 
 	-- ─── System ─────────────────────────────────────────────────────────────────
 	["SUPER + CTRL + Q"] = { "hyprlock", "Lock system" },
-	["SUPER + CTRL + I"] = { "~/.config/hypr/scripts/caffeine-toggle.sh", "Toggle idle inhibit" },
+	["SUPER + CTRL + I"] = { "~/.local/bin/caffeine-toggle.sh", "Toggle idle inhibit" },
 	["SUPER + CTRL + P"] = { "hyprpicker -a --notify", "Color picker" },
-	["SUPER + CTRL + space"] = { "rofi -show run -replace", "Run commands" },
-	["SUPER + CTRL + E"] = {
-		"rofi -show emoji -modi emoji -emoji-mode copy -emoji-format '{emoji}' -theme emoji",
-		"Emojis",
-	},
-	["SUPER + escape"] = { "~/.config/hypr/scripts/powermenu.sh", "System menu" },
+	["SUPER + CTRL + space"] = { "qs ipc call shell toggle launcher run", "Run commands" },
+	["SUPER + period"] = { "qs ipc call shell toggle launcher emoji", "Emoji picker" },
+	["SUPER + CTRL + E"] = { "qs ipc call shell toggle launcher emoji", "Emoji picker" },
+	["SUPER + escape"] = { "qs ipc call shell toggle launcher power", "System menu" },
 
 	-- ─── Capture ────────────────────────────────────────────────────────────────
 	["SUPER + CTRL + R"] = {
-		"~/.config/hypr/scripts/record-screen.sh region",
+		"~/.local/bin/record-screen.sh region",
 		"Screen recording (region)",
 	},
 	["SUPER + CTRL + SHIFT + R"] = {
-		"~/.config/hypr/scripts/record-screen.sh fullscreen",
+		"~/.local/bin/record-screen.sh fullscreen",
 		"Screen recording (fullscreen)",
 	},
-	["SUPER + CTRL + O"] = { "~/.config/hypr/scripts/ocr.sh", "OCR from screen" },
+	["SUPER + CTRL + O"] = { "~/.local/bin/ocr.sh", "OCR from screen" },
 	["SHIFT + print"] = {
-		"~/.config/hypr/scripts/screenshot.sh fullscreen",
+		"~/.local/bin/screenshot.sh fullscreen",
 		"Screenshot (fullscreen)",
 	},
-	["print"] = { "~/.config/hypr/scripts/screenshot.sh region", "Screenshot (region)" },
+	["print"] = { "~/.local/bin/screenshot.sh region", "Screenshot (region)" },
 }
 
 for bind, entry in pairs(cmds) do
@@ -791,7 +739,6 @@ local special_apps = {
 	["SUPER + CTRL + A"] = { "audio", "Audio controls" },
 	["SUPER + CTRL + B"] = { "bluetui", "Bluetooth controls" },
 	["SUPER + CTRL + C"] = { "calculator", "Calculator" },
-	["SUPER + CTRL + V"] = { "clipboard", "Clipboard history" },
 	["SUPER + CTRL + W"] = { "impala", "Wifi controls" },
 	["SUPER + CTRL + T"] = { "btop", "Activity Monitor" },
 }
@@ -842,22 +789,22 @@ b("SUPER + mouse:272", "Drag window", hl.dsp.window.drag(), { mouse = true })
 b("SUPER + mouse:273", "Resize window (mouse)", hl.dsp.window.resize(), { mouse = true })
 
 local media = {
-	{ "XF86AudioRaiseVolume", "~/.config/hypr/scripts/volume.sh output raise", true, "Volume up" },
+	{ "XF86AudioRaiseVolume", "~/.local/bin/volume.sh output raise", true, "Volume up" },
 	{
 		"XF86AudioLowerVolume",
-		"~/.config/hypr/scripts/volume.sh output lower",
+		"~/.local/bin/volume.sh output lower",
 		true,
 		"Volume down",
 	},
-	{ "XF86AudioMute", "~/.config/hypr/scripts/volume.sh output mute-toggle", nil, "Volume mute" },
+	{ "XF86AudioMute", "~/.local/bin/volume.sh output mute-toggle", nil, "Volume mute" },
 	{
 		"XF86AudioMicMute",
-		"~/.config/hypr/scripts/volume.sh input mute-toggle",
+		"~/.local/bin/volume.sh input mute-toggle",
 		nil,
 		"Microphone mute",
 	},
-	{ "XF86MonBrightnessUp", "swayosd-client --brightness +10", true, "Brightness up" },
-	{ "XF86MonBrightnessDown", "swayosd-client --brightness -10", true, "Brightness down" },
+	{ "XF86MonBrightnessUp", "~/.local/bin/brightness.sh up", true, "Brightness up" },
+	{ "XF86MonBrightnessDown", "~/.local/bin/brightness.sh down", true, "Brightness down" },
 }
 
 for _, m in ipairs(media) do

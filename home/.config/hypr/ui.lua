@@ -13,10 +13,6 @@ return {
     spacing = {
         gaps_in = 10,
         gaps_out = 20,
-        bar_spacing = 8,
-        bar_margin = 4,
-        bar_margin_x = 20,
-        bar_margin_y = 4,
     },
     opacity = {
         active = 1.0,
@@ -27,7 +23,7 @@ return {
         mono = "JetBrainsMono Nerd Font Mono",
         ui = "Adwaita Sans 12",
         size_bar = 15,
-        size_rofi = 12,
+        size_menu = 14,
         size_notif = 17,
         size_cursor = 24,
     },

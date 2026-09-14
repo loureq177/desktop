@@ -1,6 +1,0 @@
-#!/usr/bin/env bash
-# Open the Quickshell keybindings cheatsheet (SUPER + ?).
-# -n: pressing the shortcut while the menu is open does not stack a second copy.
-set -euo pipefail
-
-exec qs -n -p ~/.config/quickshell/keybindings/shell.qml

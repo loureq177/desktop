@@ -28,7 +28,7 @@ flock -n 200 || exit 0
 play_sound() { canberra-gtk-play -i "$1" >/dev/null 2>&1 || true; }
 
 if pkill -INT -x wf-recorder; then
-    swaync-client --dnd-off || true
+    qs ipc call notifications dndOff || true
 
     FILE=""
     if [[ -f "$STATUS_FILE" ]]; then
@@ -36,15 +36,14 @@ if pkill -INT -x wf-recorder; then
         rm -f "$STATUS_FILE"
     fi
 
-    # Wait for wf-recorder to actually exit before refreshing waybar.
-    # Otherwise waybar re-runs pgrep while the recorder is still finalizing
+    # Wait for wf-recorder to actually exit before the bar re-polls pgrep.
+    # Otherwise the bar re-runs pgrep while the recorder is still finalizing
     # and keeps showing the red dot forever.
     for _ in $(seq 1 50); do
         pgrep -x wf-recorder >/dev/null || break
         sleep 0.1
     done
 
-    pkill -RTMIN+2 waybar || true
 
     # Release lock before waiting for notification action
     exec 200>&-
@@ -94,9 +93,8 @@ FILE="$OUT_DIR/$(date +'%Y-%m-%d_%H-%M-%S').mkv"
 echo "$FILE" >"$STATUS_FILE"
 
 exec 200>&-
-swaync-client --dnd-on || true
+qs ipc call notifications dndOn || true
 wf-recorder "${TARGET_ARGS[@]}" -f "$FILE" --audio=default &
 disown
-pkill -RTMIN+2 waybar || true
 
 play_sound bell

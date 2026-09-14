@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Waybar battery module: queries sysfs capacity/status and outputs colored icon + percentage.
+# Battery status for hyprlock: sysfs capacity/status as colored icon + percentage.
 set -euo pipefail
 
 # Source centralized UI variables if available

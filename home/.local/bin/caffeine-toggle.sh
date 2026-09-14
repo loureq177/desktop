@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Toggles idle inhibition via systemd-inhibit and signals Waybar. Usage: [--status]
+# Toggles idle inhibition via systemd-inhibit and signals the bar. Usage: [--status]
 set -euo pipefail
 
 INHIBIT_PID_FILE="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/caffeine_inhibit.pid"
@@ -25,7 +25,6 @@ _toggle() {
         setsid systemd-inhibit --what=idle --who=caffeine --why="User requested stay awake" --mode=block sleep infinity &
         echo $! > "$INHIBIT_PID_FILE"
     fi
-    pkill -RTMIN+1 -x waybar || true
 }
 
 case "${1:-}" in

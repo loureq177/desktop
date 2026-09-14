@@ -3,9 +3,7 @@
 #
 # Single source of truth for desktop look & feel across all components:
 # - Hyprland (window manager)
-# - Waybar (status bar)
-# - SwayNC (notification center)
-# - Rofi (app launcher & emoji picker)
+# - Quickshell (bar + launcher + clipboard + notifications)
 # - Hyprlock (lockscreen)
 #
 # After modifying values here, run 'apply-ui' to generate configs and reload.
@@ -13,44 +11,53 @@
 
 [rounding]
 window = 0          # Hyprland window corners (0 for sharp, 8-12 for rounded)
-element = 0         # Rofi elements, buttons, notifications, Waybar modules
+element = 0         # Buttons, notifications, menu elements, tooltips
 subtle = 0          # Tooltips, scrollbars, switches
 
 [border]
-size = 2            # Border thickness in pixels (Hyprland, SwayNC, Rofi, Hyprlock)
+size = 2            # Border thickness in pixels (Hyprland, Quickshell, Hyprlock)
 
 [spacing]
 gaps_in = 10        # Gaps between windows in Hyprland
 gaps_out = 20       # Gaps between windows and screen edges
-bar_spacing = 8     # Spacing between modules in Waybar
-bar_margin_x = 20   # Waybar horizontal margin (matches gaps_out for pixel-perfect window alignment)
-bar_margin_y = 4    # Waybar vertical margin (top and bottom)
+bar_height = 30     # Quickshell bar height
+bar_spacing = 8     # Spacing between bar modules
+bar_margin_x = 20   # Bar horizontal margin (matches gaps_out for pixel-perfect window alignment)
+bar_margin_y = 4    # Bar vertical margin (top and bottom)
 
 [padding]
-module = "0 10px"            # Waybar modules padding
-workspace = "0 8px"          # Waybar workspace buttons padding
-tooltip = "8px 12px"         # Waybar tooltips padding
-notification = "8px 12px"    # SwayNC notification card padding
-control_center = "12px"      # SwayNC control center container padding
-button = "6px 12px"          # SwayNC notification action buttons padding
-rofi_input = "16px 20px"     # Rofi search bar padding
-rofi_element = "14px 10px"   # Rofi grid items padding
-rofi_list = "16px 20px"      # Rofi listview container padding
-rofi_entry = "8px 12px"      # Rofi text input box padding
+bar_pad = 10                 # Bar module horizontal padding (px)
+notif_pad_v = 8              # Quickshell notification card vertical padding (px)
+notif_pad_h = 12             # Quickshell notification card horizontal padding (px)
+menu_card = 16               # Quickshell menu inner padding (px)
+menu_item = 8                # Quickshell menu item padding (px)
 
 [opacity]
 active = 1.0        # Active window opacity in Hyprland
 inactive = 0.75     # Inactive window opacity in Hyprland
 
-[font]
-family = "JetBrainsMono Nerd Font Propo"   # UI proportional font (Waybar, SwayNC, Hyprlock)
-mono = "JetBrainsMono Nerd Font Mono"       # Monospace font (Rofi, terminal)
-ui = "Adwaita Sans 12"                      # System / GTK UI font
-size_bar = 15                               # Waybar font size (px)
-size_rofi = 12                              # Rofi font size (pt)
-size_notif = 17                             # SwayNC font size (px)
-size_cursor = 24                            # Mouse cursor size
+[launcher]
+# Quickshell launcher / keybindings dialog size
+width = 960
+height = 600
 
+[notifications]
+# Quickshell notification surfaces (toasts + control center), top-right.
+width = 500
+# Top offset clearing the bar: bar height 30 + bar margins 4+4 + gaps_out 20.
+top_margin = 58
+
+[font]
+family = "JetBrainsMono Nerd Font Propo"   # UI proportional font (also bar icon glyphs)
+mono = "JetBrainsMono Nerd Font Mono"       # Monospace font (terminal, Quickshell)
+ui = "Adwaita Sans 12"                      # System / GTK UI font
+size_bar = 15                               # Bar font size (px)
+size_bar_icon = 18                          # Bar Nerd Font icon glyphs (px, Propo variant)
+size_menu = 14                              # Quickshell item detail font size (pt)
+size_grid = 13                              # Quickshell app grid label size (pt)
+size_search = 15                            # Quickshell search input font size (pt)
+size_notif = 17                             # Quickshell notification font size (px)
+size_cursor = 24                            # Mouse cursor size
 [theme]
 cursor = "Bibata-Modern-Classic"
 icon = "Papirus-Dark"
@@ -77,5 +84,16 @@ shadow = "#010409"
 # truecolor, so bright Wayland accents render washed out there).
 # Deep GitHub Primer blue reads as true blue on TTY instead of teal.
 matrix_fg = "#1f6feb"
-# Delay between animation frames in milliseconds (higher = calmer).
-frame_delay = 50
+# Plain kernel console supports 16 colors only: ly addresses the VT palette
+# remapped in ly/startup.sh by index, so the colormix animation stays in
+# theme instead of white-cyan-gray.
+full_color = false
+# Extra VT palette slots with no direct theme equivalent.
+tty_purple_dark = "#8957e5"
+tty_cyan_bright = "#79c0ff"
+tty_white = "#f0f6fc"
+# Delay between animation frames in milliseconds (lower = faster).
+# Ly upstream default is 5, which matches cmatrix default speed
+# (cmatrix -u 4 = 40ms; Ly updates movement every ~9 frames, so 5ms * 9 ~= 45ms).
+# Previous value 50 was ~10x too slow (~450ms per step).
+frame_delay = 5
