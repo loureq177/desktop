@@ -22,27 +22,24 @@ set_wifi() {
     fi
 }
 
-case $(date +%H:%M) in
-    "21:45")
-        notify_bed "WiFi will turn off in 15 minutes."
-        ;;
-    "21:55")
-        notify_bed "WiFi will turn off in 5 minutes."
-        ;;
-    "22:00")
+hour=$((10#$(date +%H)))
+minute=$((10#$(date +%M)))
+now=$((hour * 60 + minute))
+curfew=$((22 * 60))
+morning=$((7 * 60))
+
+if [ "$now" -ge "$curfew" ] || [ "$now" -lt "$morning" ]; then
+    # Warn only shortly after curfew: Persistent=true catch-up runs (after
+    # sleep/boot) must not re-notify in the middle of the night.
+    if [ "$now" -ge "$curfew" ] && [ "$now" -lt $((curfew + 15)) ]; then
         notify_bed "WiFi has been turned off."
-        set_wifi "off"
-        ;;
-    "07:00")
-        set_wifi "on"
-        ;;
-    *)
-        hour=$((10#$(date +%H)))
-        if [ "$hour" -ge 22 ] || [ "$hour" -lt 7 ]; then
-            notify_bed "WiFi has been turned off."
-            set_wifi "off"
-        elif [ "$hour" -ge 7 ] && [ "$hour" -lt 22 ]; then
-            set_wifi "on"
-        fi
-        ;;
-esac
+    fi
+    set_wifi "off"
+elif [ "$hour" -eq 21 ] && [ "$minute" -ge 45 ]; then
+    # Minute ranges instead of exact HH:MM so a catch-up run at e.g. 21:47
+    # still warns, with the real remaining time.
+    notify_bed "WiFi will turn off in $((curfew - now)) minutes."
+    set_wifi "on"
+else
+    set_wifi "on"
+fi
