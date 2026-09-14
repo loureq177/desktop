@@ -6,5 +6,4 @@ Wants=network-online.target
 [Service]
 Type=oneshot
 ExecStart=%h/.local/bin/check-updates
-Environment=DISPLAY=:0
-Environment=WAYLAND_DISPLAY=wayland-1
+Environment=DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/%U/bus

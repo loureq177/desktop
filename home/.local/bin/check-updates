@@ -40,10 +40,11 @@ if [ "$total" -gt 0 ] || [ "$pacnew_count" -gt 0 ]; then
         --app-name="System Update" \
         --icon="software-update-available" \
         --urgency=normal \
-        --action="update=Update system" \
-        "$summary" "$body" 2>/dev/null || true)
+        -A "update=Update system" \
+        "$summary" "$body" || true)
 
     if [ "$action" = "update" ]; then
-        ghostty --class=sysupdate -e "$HOME/.local/bin/sysupdate" &
+        ghostty --class=sysupdate -e "$HOME/.local/bin/sysupdate" >/dev/null 2>&1 &
+        disown || true
     fi
 fi
