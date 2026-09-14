@@ -51,7 +51,7 @@ if [ "$OS" = "Linux" ]; then
             pkglist archlinux/aur.txt | xargs -r paru -S --noconfirm --needed
             _log_ok "AUR packages installed."
         else
-            _log_warn "paru not found - skipping AUR packages from archlinux/aur.txt (waybar, pwvucontrol, cursor theme)."
+            _log_warn "paru not found - skipping AUR packages from archlinux/aur.txt (pwvucontrol, cursor theme)."
             _log_warn "Install paru first (see FreshArchLinux install_and_setup_paru) and re-run this script."
         fi
     fi
@@ -62,7 +62,11 @@ if [ "$OS" = "Linux" ]; then
     if [ -f "archlinux/.config/ly/config.ini" ]; then
         _log_info "Configuring Ly display manager..."
         sudo mkdir -p /etc/ly
-        sudo ln -sfv "$(pwd)/archlinux/.config/ly/config.ini" /etc/ly/config.ini
+        # Link the stowed copies in $HOME (stable across repo moves), not $(pwd).
+        sudo ln -sfv "$HOME/.config/ly/config.ini" /etc/ly/config.ini
+        if [ -f "archlinux/.config/ly/startup.sh" ]; then
+            sudo ln -sfv "$HOME/.config/ly/startup.sh" /etc/ly/startup.sh
+        fi
     fi
 
     if [ -x "$HOME/.local/bin/apply-ui" ]; then
@@ -72,6 +76,12 @@ if [ "$OS" = "Linux" ]; then
 
     if command -v systemctl &>/dev/null; then
         systemctl --user daemon-reload 2>/dev/null || true
+        # Enable every stowed user timer (check-updates, bedtime, rclone-sync, power-save-auto).
+        for timer in "$HOME"/.config/systemd/user/*.timer; do
+            [ -e "$timer" ] || continue
+            name="$(basename "$timer")"
+            systemctl --user enable --now "$name" 2>/dev/null || _log_warn "Failed to enable $name."
+        done
     fi
 elif [ "$OS" = "Darwin" ]; then
     _log_info "Detected macOS. Installing dependencies from Brewfile..."
@@ -93,9 +103,9 @@ if command -v bat &>/dev/null; then
     bat cache --build || _log_warn "bat cache build failed."
 fi
 
-_log_info "Installing opencode plugin dependencies..."
-if [ ! -d "$HOME/.config/opencode/node_modules" ] && [ -f "$HOME/.config/opencode/package.json" ] && command -v npm &>/dev/null; then
-    (cd "$HOME/.config/opencode" && npm install --no-audit --no-fund) || _log_warn "opencode dependencies install failed."
+if command -v firefox &>/dev/null && [ -x "$HOME/.local/bin/firefox-apply" ]; then
+    _log_info "Applying Firefox defaults..."
+    "$HOME/.local/bin/firefox-apply" || _log_warn "Failed to apply Firefox defaults."
 fi
 
 _log_ok "Installation completed successfully."
