@@ -4,7 +4,11 @@ set -euo pipefail
 
 STATE_FILE="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/powersave_mode"
 PREV_BRIGHTNESS_FILE="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/powersave_prev_brightness"
-GHOSTTY_CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/ghostty/config"
+GHOSTTY_SHADERS="${XDG_CONFIG_HOME:-$HOME/.config}/ghostty/shaders"
+# Machine-local symlink that ~/.config/ghostty/config points at. Both targets
+# are stowed files; only this link is mutable, so toggling never dirties the
+# dotfiles repo (see _ghostty_shader).
+GHOSTTY_SHADER="${XDG_STATE_HOME:-$HOME/.local/state}/ghostty/active-shader.glsl"
 OPENCODE_KV="${XDG_STATE_HOME:-$HOME/.local/state}/opencode/kv.json"
 
 _is_active() {
@@ -57,12 +61,35 @@ _ghostty_reload() {
     pkill -SIGUSR2 -x ghostty >/dev/null 2>&1 || true
 }
 
-_ghostty_shader() { # $1: on|off
-    [[ -f "$GHOSTTY_CONFIG" ]] || return 0
+_shader_target() { # $1: on|off -> stowed shader file to point at
     if [[ "$1" == "off" ]]; then
-        sed -i 's/^custom-shader /#custom-shader /; s/^custom-shader-animation = true/#custom-shader-animation = true/' "$GHOSTTY_CONFIG"
+        printf '%s\n' "$GHOSTTY_SHADERS/noop.glsl"
     else
-        sed -i 's/^#custom-shader /custom-shader /; s/^#custom-shader-animation = true/custom-shader-animation = true/' "$GHOSTTY_CONFIG"
+        printf '%s\n' "$GHOSTTY_SHADERS/cursor_warp.glsl"
+    fi
+}
+
+_shader_state() { # current on|off, read from the symlink; defaults to "on"
+    case "$(readlink "$GHOSTTY_SHADER" 2>/dev/null || true)" in
+    *noop.glsl) printf 'off\n' ;;
+    *) printf 'on\n' ;;
+    esac
+}
+
+_ghostty_shader() { # $1: on|off
+    local want tmp
+    want="$(_shader_target "$1")"
+    [[ -f "$want" ]] || return 0
+    # Already in the wanted state and the link exists: nothing to do, and
+    # crucially no reload (this runs from the 1-minute --auto timer).
+    if [[ -e "$GHOSTTY_SHADER" ]] && [[ "$(_shader_state)" == "$1" ]]; then
+        return 0
+    fi
+    mkdir -p "$(dirname "$GHOSTTY_SHADER")" || return 0
+    tmp="$GHOSTTY_SHADER.tmp.$$"
+    if ! ln -sfn "$want" "$tmp" || ! mv -f "$tmp" "$GHOSTTY_SHADER"; then
+        rm -f "$tmp"
+        return 0
     fi
     _ghostty_reload
 }
@@ -201,6 +228,10 @@ _auto() {
         fi
     fi
 }
+
+# Self-seed: on a fresh clone the tracked ghostty config points at this link
+# before it exists. Cheap and idempotent; only ever flips on a real change.
+[[ -e "$GHOSTTY_SHADER" ]] || _ghostty_shader on
 
 case "${1:-}" in
 --status) _status ;;
