@@ -92,16 +92,29 @@ PanelWindow {
 	property string memPercent: ""
 	property bool recording: false
 
+	// Cheap state files, polled at 2s: they are FileViews, no process spawns.
 	Timer {
 		interval: 2000
 		running: true
 		repeat: true
 		triggeredOnStart: true
 		onTriggered: {
-			memView.reload();
 			gpuStatus.reload();
 			caffeineMarker.reload();
 			powerSaveMarker.reload();
+		}
+	}
+
+	// Slower cadence for the two expensive probes: reading /proc/meminfo and
+	// spawning pgrep every 2s costs a process fork every two seconds forever,
+	// and neither value moves fast enough to justify it.
+	Timer {
+		interval: 5000
+		running: true
+		repeat: true
+		triggeredOnStart: true
+		onTriggered: {
+			memView.reload();
 			recordProbe.running = true;
 		}
 	}

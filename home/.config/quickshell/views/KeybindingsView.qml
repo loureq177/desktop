@@ -17,7 +17,7 @@ PanelWindow {
 	WlrLayershell.keyboardFocus: visible ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
 	WlrLayershell.namespace: "quickshell"
 
-	screen: Quickshell.screens.find(s => s.name === Hyprland.focusedMonitor?.name) ?? null
+	screen: Quickshell.screens.find(s => s.name === Hyprland.focusedMonitor?.name) ?? Quickshell.screens[0] ?? null
 
 	anchors {
 		top: true

@@ -31,6 +31,8 @@ Item {
 	implicitWidth: root.size
 	implicitHeight: root.size
 
+	// Cap the decoded size at 2x the display box: an image hint is attacker
+	// controlled, and without sourceSize Qt decodes it at full resolution.
 	Image {
 		anchors.fill: parent
 		visible: root.hasImage
@@ -38,6 +40,8 @@ Item {
 		fillMode: Image.PreserveAspectFit
 		asynchronous: true
 		cache: false
+		sourceSize.width: root.size * 2
+		sourceSize.height: root.size * 2
 	}
 	Image {
 		anchors.fill: parent
@@ -45,5 +49,7 @@ Item {
 		source: root.iconSource
 		fillMode: Image.PreserveAspectFit
 		asynchronous: true
+		sourceSize.width: root.size * 2
+		sourceSize.height: root.size * 2
 	}
 }

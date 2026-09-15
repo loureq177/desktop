@@ -25,7 +25,15 @@ Singleton {
 	property int historyLimit: 100
 
 
+	// Each call spawns paplay, so collapse bursts: a flood of notifications
+	// would otherwise fork one process per notification.
+	property int lastSoundAt: 0
+
 	function playSound(): void {
+		var now = Date.now();
+		if (now - root.lastSoundAt < 250)
+			return;
+		root.lastSoundAt = now;
 		Quickshell.execDetached(["paplay", "/usr/share/sounds/freedesktop/stereo/message.oga"]);
 	}
 
@@ -194,19 +202,17 @@ Singleton {
 	}
 
 	function clear(): void {
+		// safeDismiss, not dismiss(): dismissing an already-destroyed
+		// notification logs "Cannot close destroyed notification".
 		var vals = server.trackedNotifications.values.slice();
-		for (var i = 0; i < vals.length; i++) {
-			if (vals[i])
-				vals[i].dismiss();
-		}
+		for (var i = 0; i < vals.length; i++)
+			root.safeDismiss(vals[i]);
 		root.toasts = [];
 		root.history = [];
 	}
 
 	function dismissLatest(): void {
-		var t = root.latestToast();
-		if (t)
-			t.dismiss();
+		root.safeDismiss(root.latestToast());
 	}
 
 	function status(): string {
@@ -233,7 +239,9 @@ Singleton {
 			n.closed.connect(() => {
 				root.removeToast(n.id);
 			});
-			root.playSound();
+			// Silent while DND is on; critical notifications still announce.
+			if (!root.dnd || critical)
+				root.playSound();
 		}
 	}
 

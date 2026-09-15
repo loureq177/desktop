@@ -262,9 +262,11 @@ PanelWindow {
 							Process {
 								running: row.isImage
 								command: {
+									// Paths from cliphist go through JSON.stringify,
+									// like the id already does: raw interpolation is a shell injection point.
 									var id = JSON.stringify(String(row.modelData.id));
 									return ["sh", "-c",
-										'f="' + row.thumbPath + '"'
+										'f=' + JSON.stringify(row.thumbPath)
 										+ '; [ -s "$f" ] || { mkdir -p ' + JSON.stringify((Quickshell.env("XDG_RUNTIME_DIR") || "/run/user/1000") + "/clipboard-thumbs")
 										+ ' && cliphist decode ' + id + ' > "$f.tmp" && mv "$f.tmp" "$f"; }'];
 								}
