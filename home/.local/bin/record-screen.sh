@@ -4,7 +4,11 @@ set -euo pipefail
 
 OUT_DIR="$HOME/Videos/Screencasts"
 mkdir -p "$OUT_DIR"
-STATUS_FILE="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/recording_status"
+RUN_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+STATUS_FILE="$RUN_DIR/recording_status"
+# Set only when this script is the one that enabled DND, so stopping never
+# clears a DND the user turned on themselves.
+DND_MARKER="$RUN_DIR/recording_dnd"
 
 # Source centralized UI variables if available
 UI_SH="${XDG_CONFIG_HOME:-$HOME/.config}/ui/ui.sh"
@@ -12,13 +16,10 @@ if [[ -f "$UI_SH" ]]; then
     # shellcheck source=/dev/null
     source "$UI_SH"
 fi
+# slurp styling: apply-ui exports SLURP_ARGS; the fallback matches it exactly.
+SLURP_OPTS=(-d -b "#0d1117b0" -c "#58a6ff" -s "#58a6ff20" -w 2 -B "#00000000")
 if [[ -v SLURP_ARGS[@] ]]; then
     SLURP_OPTS=("${SLURP_ARGS[@]}")
-elif [[ -n "${SLURP_OPTS:-}" ]]; then
-    # shellcheck disable=SC2206
-    SLURP_OPTS=($SLURP_OPTS)
-else
-    SLURP_OPTS=(-d -b "#0d1117b0" -c "#58a6ff" -s "#58a6ff20" -w 2)
 fi
 
 LOCKFILE="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/record_slurp.lock"
@@ -28,7 +29,10 @@ flock -n 200 || exit 0
 play_sound() { canberra-gtk-play -i "$1" >/dev/null 2>&1 || true; }
 
 if pkill -INT -x wf-recorder; then
-    qs ipc call notifications dndOff || true
+    if [ -f "$DND_MARKER" ]; then
+        qs ipc call notifications dndOff || true
+        rm -f "$DND_MARKER"
+    fi
 
     FILE=""
     if [[ -f "$STATUS_FILE" ]]; then
@@ -93,7 +97,12 @@ FILE="$OUT_DIR/$(date +'%Y-%m-%d_%H-%M-%S').mkv"
 echo "$FILE" >"$STATUS_FILE"
 
 exec 200>&-
-qs ipc call notifications dndOn || true
+if qs ipc call notifications status 2>/dev/null | grep -q '"dnd":true'; then
+    : # already quiet; leave the user's DND alone
+else
+    qs ipc call notifications dndOn || true
+    : >"$DND_MARKER"
+fi
 wf-recorder "${TARGET_ARGS[@]}" -f "$FILE" --audio=default &
 disown
 

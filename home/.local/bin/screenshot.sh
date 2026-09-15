@@ -8,13 +8,10 @@ if [[ -f "$UI_SH" ]]; then
     # shellcheck source=/dev/null
     source "$UI_SH"
 fi
+# slurp styling: apply-ui exports SLURP_ARGS; the fallback matches it exactly.
+SLURP_OPTS=(-d -b "#0d1117b0" -c "#58a6ff" -s "#58a6ff20" -w 2 -B "#00000000")
 if [[ -v SLURP_ARGS[@] ]]; then
     SLURP_OPTS=("${SLURP_ARGS[@]}")
-elif [[ -n "${SLURP_OPTS:-}" ]]; then
-    # shellcheck disable=SC2206
-    SLURP_OPTS=($SLURP_OPTS)
-else
-    SLURP_OPTS=(-d -b "#0d1117b0" -c "#58a6ff" -s "#58a6ff20" -w 2 -B "#00000000")
 fi
 
 LOCKFILE="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/screenshot_slurp.lock"
@@ -88,8 +85,10 @@ play_sound camera-shutter
 exec 200>&-
 wl-copy -t image/png <"$FILE"
 
-ACTION=$(notify-send --app-name "Screenshot" -t 5000 "Screenshot" -i "$FILE" -A "default=Edit" -A "edit=Edit with Satty" "Screenshot saved and copied to clipboard.")
+# One action, not two identical buttons: "default" is also what a click on the
+# notification body invokes, so it covers both paths without a duplicate.
+ACTION=$(notify-send --app-name "Screenshot" -t 5000 "Screenshot" -i "$FILE" -A "default=Edit with Satty" "Screenshot saved and copied to clipboard.")
 
-if [ "$ACTION" = "default" ] || [ "$ACTION" = "edit" ]; then
+if [ "$ACTION" = "default" ]; then
     satty --filename "$FILE" --fullscreen --output-filename "$FILE"
 fi

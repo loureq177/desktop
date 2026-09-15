@@ -8,13 +8,10 @@ if [[ -f "$UI_SH" ]]; then
     # shellcheck source=/dev/null
     source "$UI_SH"
 fi
+# slurp styling: apply-ui exports SLURP_ARGS; the fallback matches it exactly.
+SLURP_OPTS=(-d -b "#0d1117b0" -c "#58a6ff" -s "#58a6ff20" -w 2 -B "#00000000")
 if [[ -v SLURP_ARGS[@] ]]; then
     SLURP_OPTS=("${SLURP_ARGS[@]}")
-elif [[ -n "${SLURP_OPTS:-}" ]]; then
-    # shellcheck disable=SC2206
-    SLURP_OPTS=($SLURP_OPTS)
-else
-    SLURP_OPTS=(-d -b "#0d1117b0" -c "#58a6ff" -s "#58a6ff20" -w 2)
 fi
 
 LOCKFILE="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/ocr_slurp.lock"
