@@ -11,8 +11,11 @@ run_if() {
 }
 
 avail_bytes() {
-    # Sum available bytes across given mount points. Prints 0 on failure.
-    df -B1 --output=avail "$@" 2>/dev/null | awk 'NR>1 {sum+=$1} END {print sum+0}'
+    # Sum available bytes across given mount points, counting each distinct
+    # filesystem once: / and /home share a filesystem on single-root installs,
+    # and summing both would double the reported figure. Prints 0 on failure.
+    df -B1 --output=source,avail "$@" 2>/dev/null |
+        awk 'NR>1 && !seen[$1]++ {sum+=$2} END {print sum+0}'
 }
 
 human_bytes() {
@@ -106,12 +109,24 @@ run_if podman podman system prune --force
 run_if docker docker system prune -f
 
 echo "\nCleaning orphaned kernel modules..."
+running_kernel=$(uname -r)
 for dir in /usr/lib/modules/*(N/); do
     ver=$(basename "$dir")
-    if [ "$ver" != "$(uname -r)" ] && ! pacman -Qo "$dir" &>/dev/null; then
-        echo "Removing orphaned modules directory: $dir"
-        sudo rm -rf "$dir"
+    dir="${dir%/}"
+    if [ "$ver" = "$running_kernel" ]; then
+        echo "  Keeping $ver (running kernel)"
+        continue
     fi
+    # Probe the tree, not just the directory: pacman -Qo is exact-path based,
+    # so a trailing slash or a partially-registered tree makes it report "not
+    # owned" for modules an installed kernel package really does own. Deleting
+    # on that alone removes the modules of a bootable kernel.
+    if [ -e "$dir/modules.dep" ]; then
+        pacman -Qo "$dir/modules.dep" &>/dev/null && continue
+    fi
+    pacman -Qo "$dir" &>/dev/null && continue
+    echo "Removing orphaned modules directory: $dir"
+    sudo rm -rf "$dir"
 done
 
 echo "\nVacuuming systemd coredumps..."
