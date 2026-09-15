@@ -28,7 +28,10 @@ excludes=(
 )
 
 echo "Syncing: $source_root -> $remote_root"
-if ! rclone sync \
+# Capture rclone's own status: `if ! cmd` reports the negation's status (0),
+# which made the failure branch exit 0 and hid failures from systemd.
+rc=0
+rclone sync \
     "$source_root" \
     "$remote_root" \
     "${excludes[@]}" \
@@ -40,8 +43,9 @@ if ! rclone sync \
     --fast-list \
     --track-renames \
     --drive-use-trash=true \
-    --verbose; then
-    rc=$?
+    --verbose || rc=$?
+
+if [ "$rc" -ne 0 ]; then
     notify-send --app-name "Rclone" -t 5000 "Rclone" -i "dialog-error" "Rclone Sync failed. Check the logs for details"
     exit "$rc"
 fi
