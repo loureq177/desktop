@@ -2,9 +2,15 @@
 # Checks for official, AUR, and .pacnew updates; sends a desktop notification with update action.
 set -euo pipefail
 
-# Check if network is reachable
-if ! ping -q -c 1 -W 2 1.1.1.1 >/dev/null 2>&1; then
-    exit 0
+# Check if network is reachable. ICMP is blocked on plenty of networks, and a
+# hardcoded echo host says nothing about the mirror checkupdates talks to, so
+# probe the first pacman mirror instead: any HTTP response means online, while
+# curl's 6/7/28 (no DNS / refused / timeout) mean offline.
+if command -v curl >/dev/null 2>&1; then
+    mirror="$(sed -n 's|^[[:space:]]*Server[[:space:]]*=[[:space:]]*||p' /etc/pacman.d/mirrorlist 2>/dev/null | head -n 1)"
+    if [ -z "$mirror" ] || ! curl -sS -m 5 -o /dev/null "${mirror%%/\$repo*}/" >/dev/null 2>&1; then
+        exit 0
+    fi
 fi
 
 # Count official Arch updates
@@ -44,7 +50,7 @@ if [ "$total" -gt 0 ] || [ "$pacnew_count" -gt 0 ]; then
         "$summary" "$body" || true)
 
     if [ "$action" = "update" ]; then
-        ghostty --class=sysupdate -e "$HOME/.local/bin/sysupdate" >/dev/null 2>&1 &
+        "${TERMINAL:-ghostty}" --class=sysupdate -e "$HOME/.local/bin/sysupdate" >/dev/null 2>&1 &
         disown || true
     fi
 fi
