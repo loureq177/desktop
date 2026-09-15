@@ -24,7 +24,9 @@ _report() { # $1: SINK|SOURCE — push the current state to the OSD
     # wpctl prints a fraction ("Volume: 0.65"); the OSD wants percent.
     frac="${line#*: }"
     frac="${frac%% *}"
-    pct="$(awk -v f="$frac" 'BEGIN { printf "%d", f * 100 }' || true)"
+    # Round, do not truncate: printf "%d" on a binary float drops a percent
+    # (0.29 * 100 is 28.999...), so the OSD lagged one step behind wpctl.
+    pct="$(awk -v f="$frac" 'BEGIN { printf "%d", int(f * 100 + 0.5) }' || true)"
     [[ -z "$pct" ]] && pct=0
     if grep -q 'MUTED' <<<"$line"; then
         qs ipc call osd volume "$pct" true
