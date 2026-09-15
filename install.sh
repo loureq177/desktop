@@ -41,14 +41,14 @@ if [ "$OS" = "Linux" ]; then
     if command -v flatpak &>/dev/null && [ -f archlinux/flatpak.txt ]; then
         _log_info "Configuring Flatpak and installing applications..."
         flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
-        pkglist archlinux/flatpak.txt | xargs -r flatpak install --user -y --or-update flathub
+        pkglist archlinux/flatpak.txt | xargs -r -d '\n' flatpak install --user -y --or-update flathub
         _log_ok "Flatpaks installed."
     fi
 
     if [ -f archlinux/aur.txt ] && [ -s archlinux/aur.txt ] && pkglist archlinux/aur.txt | grep -q .; then
         if command -v paru &>/dev/null; then
             _log_info "Installing AUR packages via paru..."
-            pkglist archlinux/aur.txt | xargs -r paru -S --noconfirm --needed
+            pkglist archlinux/aur.txt | xargs -r -d '\n' paru -S --noconfirm --needed
             _log_ok "AUR packages installed."
         else
             _log_warn "paru not found - skipping AUR packages from archlinux/aur.txt (pwvucontrol, cursor theme)."
