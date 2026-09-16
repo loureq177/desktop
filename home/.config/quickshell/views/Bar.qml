@@ -188,6 +188,8 @@ PanelWindow {
 		implicitWidth: (text !== "" || value !== "") ? pillRow.implicitWidth + Theme.barPad * 2 : 0
 		visible: text !== "" || value !== ""
 		color: pillArea.containsMouse ? Theme.bgHover : Theme.barStripColor
+		border.color: Theme.border
+		border.width: 1
 		radius: Theme.roundingElement
 
 		Behavior on color {
@@ -255,6 +257,8 @@ PanelWindow {
 					implicitHeight: Theme.barHeight
 					implicitWidth: wsLabel.implicitWidth + Theme.paddingItem * 2
 					color: wsArea.containsMouse ? Theme.bgHover : (isActive ? Theme.selectionBg : Theme.barStripColor)
+					border.color: isActive ? Theme.selectionBorder : Theme.border
+					border.width: 1
 					radius: Theme.roundingElement
 
 					Behavior on color {
@@ -356,7 +360,7 @@ PanelWindow {
 				// which collapsed the module — this only shows while active).
 				visible: caffeineMarker.loaded
 				text: visible ? "󰖦" : ""
-				textColor: Theme.accentBlue
+				textColor: Theme.textMain
 				onActivated: Quickshell.execDetached(["sh", "-c", "~/.local/bin/caffeine-toggle.sh"])
 			}
 
@@ -378,7 +382,7 @@ PanelWindow {
 				// Distinct from the notification bell glyphs (which share the
 				// 󰂜 icon family); bluetooth uses the bluetooth family.
 				text: connectedCount > 0 ? "󰂲" : "󰂯"
-				textColor: connectedCount > 0 ? Theme.accentBlue : (adapter?.enabled ? Theme.textMain : Theme.textDim)
+				textColor: connectedCount > 0 ? Theme.textMain : (adapter?.enabled ? Theme.textMain : Theme.textDim)
 				onActivated: Quickshell.execDetached([
 					"hyprctl", "dispatch", "hl.dsp.workspace.toggle_special('bluetui')"
 				])

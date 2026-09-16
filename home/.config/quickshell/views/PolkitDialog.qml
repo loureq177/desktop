@@ -161,16 +161,10 @@ Item {
 			right: true
 		}
 
-		// Dim scrim; click refocuses the password field.
-		Rectangle {
+		// Click outside the card refocuses the password field.
+		MouseArea {
 			anchors.fill: parent
-			color: "#000000"
-			opacity: 0.6
-
-			MouseArea {
-				anchors.fill: parent
-				onClicked: root.refocus()
-			}
+			onClicked: root.refocus()
 		}
 
 		Rectangle {

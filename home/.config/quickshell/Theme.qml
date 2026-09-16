@@ -23,10 +23,8 @@ Singleton {
 
 	// Color-coerced aliases + derived overlays (strings have no .r/.g/.b).
 	readonly property color bgCardColor: bgCard
-	readonly property color shadowColor: shadow
-	readonly property color barStripColor: Qt.rgba(bgCardColor.r, bgCardColor.g, bgCardColor.b, 0.72)
-	readonly property color overlayColor: Qt.rgba(bgCardColor.r, bgCardColor.g, bgCardColor.b, 0.92)
-	readonly property color backdropColor: Qt.rgba(shadowColor.r, shadowColor.g, shadowColor.b, 0.55)
+	readonly property color barStripColor: Qt.rgba(bgCardColor.r, bgCardColor.g, bgCardColor.b, 0.85)
+	readonly property color overlayColor: Qt.rgba(bgCardColor.r, bgCardColor.g, bgCardColor.b, 0.94)
 
 	readonly property int borderSize: 2
 	readonly property int roundingWindow: 0
@@ -56,10 +54,10 @@ Singleton {
 	readonly property int notifWidth: 500
 	readonly property int notifTopMargin: 58
 	readonly property int notifRightMargin: 20
-	readonly property int notifPadV: 8
-	readonly property int notifPadH: 12
+	readonly property int notifPadV: 10
+	readonly property int notifPadH: 14
 
 	readonly property color accent: accentBlue
-	readonly property color selectionBg: Qt.rgba(accent.r, accent.g, accent.b, 0.15)
-	readonly property color selectionBorder: Qt.rgba(accent.r, accent.g, accent.b, 0.45)
+	readonly property color selectionBg: Qt.rgba(accent.r, accent.g, accent.b, 0.25)
+	readonly property color selectionBorder: Qt.rgba(accent.r, accent.g, accent.b, 0.70)
 }

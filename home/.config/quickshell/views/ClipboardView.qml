@@ -164,15 +164,10 @@ PanelWindow {
 		onActivated: win.close()
 	}
 
-	// Dim backdrop; clicking outside the card closes.
+	// Clicking outside the card closes.
 	MouseArea {
 		anchors.fill: parent
 		onClicked: win.close()
-
-		Rectangle {
-			anchors.fill: parent
-			color: Theme.backdropColor
-		}
 
 		Rectangle {
 			id: dialogCard

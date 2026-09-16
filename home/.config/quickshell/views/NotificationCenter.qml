@@ -2,7 +2,7 @@
 // Same panel size and placement (500px, top-right below the bar); the panel
 // slides in from the right screen edge like the toasts. Toggle with
 // `qs ipc call notifications toggle` (SUPER + CTRL + comma). ESC closes it;
-// clicking anywhere outside the panel closes it too (and yields the toasts);
+// clicking anywhere outside the panel just closes it (toasts stay);
 // the per-card ✕ dismisses a single notification (live or history entry).
 import ".."
 import "../widgets"
@@ -81,16 +81,11 @@ PanelWindow {
 		onActivated: Notifications.closeCenter()
 	}
 
-	// Dim backdrop; clicking anywhere outside the panel closes the center
+	// Clicking anywhere outside the panel closes the center
 	// (and dismisses the toasts with it).
-	Rectangle {
+	MouseArea {
 		anchors.fill: parent
-		color: Theme.backdropColor
-
-		MouseArea {
-			anchors.fill: parent
-			onClicked: Notifications.closeCenter()
-		}
+		onClicked: Notifications.closeCenter()
 	}
 
 	Rectangle {
@@ -105,7 +100,7 @@ PanelWindow {
 		border.width: Theme.borderSize
 		radius: Theme.roundingWindow
 
-		// Absorb clicks inside the panel so they don't reach the backdrop.
+		// Absorb clicks inside the panel so they don't close the center.
 		MouseArea {
 			anchors.fill: parent
 		}
@@ -200,7 +195,7 @@ PanelWindow {
 				Layout.fillWidth: true
 				Layout.fillHeight: true
 				clip: true
-				spacing: 2
+				spacing: 8
 				model: Notifications.history
 
 			delegate: Rectangle {
@@ -232,8 +227,8 @@ PanelWindow {
 				width: ListView.view.width
 				implicitHeight: Math.max(cardRow.implicitHeight, 40) + Theme.notifPadV * 2
 				color: rowArea.containsMouse ? Theme.bgHover : Theme.bgCard
-				border.color: Theme.border
-				border.width: Theme.borderSize
+				border.color: entry.critical ? Theme.critical : Theme.border
+				border.width: 1
 				radius: Theme.roundingElement
 
 				Behavior on color {
@@ -268,21 +263,22 @@ PanelWindow {
 					anchors.rightMargin: Theme.notifPadH
 					anchors.topMargin: Theme.notifPadV
 					anchors.bottomMargin: Theme.notifPadV
-					spacing: 10
+					spacing: 12
 
 					NotificationPicture {
+						id: centerPic
 						image: entry.snap.image || ""
 						appIcon: entry.snap.appIcon || ""
-						size: 64
-						Layout.preferredWidth: 64
-						Layout.preferredHeight: 64
+						size: 48
+						Layout.preferredWidth: centerPic.visible ? 48 : 0
+						Layout.preferredHeight: centerPic.visible ? 48 : 0
 						Layout.alignment: Qt.AlignTop
 					}
 
 					ColumnLayout {
 						id: centerBody
 						Layout.fillWidth: true
-						spacing: 2
+						spacing: 4
 
 						RowLayout {
 							Layout.fillWidth: true
@@ -300,7 +296,7 @@ PanelWindow {
 								text: Qt.formatDateTime(new Date(entry.snap.time), "hh:mm")
 								font.family: Theme.fontMono
 								font.pointSize: Theme.fontSizeSmall
-								color: Theme.textDim
+								color: Theme.textMuted
 							}
 						}
 						Text {
@@ -350,12 +346,12 @@ PanelWindow {
 						Layout.alignment: Qt.AlignTop
 						text: "✕"
 						font.pixelSize: 16
-						color: closeArea.containsMouse ? Theme.textMain : Theme.textDim
+						color: closeArea.containsMouse ? Theme.critical : Theme.textMuted
 
 						MouseArea {
 							id: closeArea
 							anchors.fill: parent
-							anchors.margins: -8
+							anchors.margins: -10
 							hoverEnabled: true
 							onClicked: Notifications.dismissEntry(entry.snap.id)
 						}
@@ -370,10 +366,11 @@ PanelWindow {
 				Layout.fillHeight: true
 				horizontalAlignment: Text.AlignHCenter
 				verticalAlignment: Text.AlignVCenter
-				text: "No notifications"
+				text: "󰂜\nNo notifications"
 				font.family: Theme.fontMono
 				font.pointSize: Theme.fontSizeBar
-				color: Theme.textDim
+				color: Theme.textMuted
+				lineHeight: 1.6
 			}
 		}
 	}

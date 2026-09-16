@@ -1,10 +1,11 @@
 // Sticky toast popups, top-right above everything (layer-shell overlay).
 // Geometry mirrors the old SwayNC setup: 500px wide, 58px below the top
 // (clears the bar), 20px from the right (matches Hyprland gaps_out).
-// Pops slide in from the right screen edge and slide back out right;
-// opening the control center sweeps them away. The window hugs its content
-// exactly and hides when empty so it never blocks clicks. No expire
-// timers: sticky parity (timeout 0).
+// Pops slide in from the right screen edge and slide back out right.
+// Toasts are sticky: focus changes, new windows, and opening/closing the
+// center never dismiss them. The window hugs its content exactly and hides
+// when empty so it never blocks clicks. No expire timers: sticky parity
+// (timeout 0).
 import ".."
 import "../widgets"
 import Quickshell
@@ -28,6 +29,12 @@ PanelWindow {
 	visible: shown || slideOut.running
 	color: "transparent"
 	exclusiveZone: 0
+
+	// Input follows the content: clicks outside the stacked cards fall
+	// through to the windows below instead of hitting this overlay.
+	mask: Region {
+		item: stack
+	}
 
 	onShownChanged: {
 		if (shown) {
@@ -85,7 +92,7 @@ PanelWindow {
 		anchors.top: parent.top
 		anchors.left: parent.left
 		anchors.right: parent.right
-		spacing: 2
+		spacing: 8
 
 		Repeater {
 			model: Notifications.toasts
@@ -119,8 +126,8 @@ PanelWindow {
 				width: stack.width
 				implicitHeight: Math.max(cardRow.implicitHeight, 40) + Theme.notifPadV * 2
 				color: hoverArea.containsMouse ? Theme.bgHover : Theme.bgCard
-				border.color: Theme.border
-				border.width: Theme.borderSize
+				border.color: card.critical ? Theme.critical : Theme.border
+				border.width: 1
 				radius: Theme.roundingElement
 
 				// Below the content: child button areas stay clickable on top.
@@ -151,31 +158,42 @@ PanelWindow {
 					anchors.rightMargin: Theme.notifPadH
 					anchors.topMargin: Theme.notifPadV
 					anchors.bottomMargin: Theme.notifPadV
-					spacing: 10
+					spacing: 12
 
 					NotificationPicture {
+						id: toastPic
 						image: card.notif.image || ""
 						appIcon: card.notif.appIcon || ""
-						size: 64
-						Layout.preferredWidth: 64
-						Layout.preferredHeight: 64
+						size: 48
+						Layout.preferredWidth: toastPic.visible ? 48 : 0
+						Layout.preferredHeight: toastPic.visible ? 48 : 0
 						Layout.alignment: Qt.AlignTop
 					}
 
 					ColumnLayout {
 						id: bodyCol
 						Layout.fillWidth: true
-						spacing: 2
+						spacing: 4
 
-						Text {
+						RowLayout {
 							Layout.fillWidth: true
-							text: card.notif.appName || ""
-							font.family: Theme.fontMono
-							font.pointSize: Theme.fontSizeSmall
-							font.bold: true
-							color: Theme.textDim
-							elide: Text.ElideRight
-							visible: text !== ""
+							spacing: 8
+							Text {
+								Layout.fillWidth: true
+								text: card.notif.appName || ""
+								font.family: Theme.fontMono
+								font.pointSize: Theme.fontSizeSmall
+								font.bold: true
+								color: Theme.textDim
+								elide: Text.ElideRight
+								visible: text !== ""
+							}
+							Text {
+								text: Qt.formatDateTime(new Date(), "hh:mm")
+								font.family: Theme.fontMono
+								font.pointSize: Theme.fontSizeSmall
+								color: Theme.textMuted
+							}
 						}
 						Text {
 							Layout.fillWidth: true
@@ -222,12 +240,12 @@ PanelWindow {
 						Layout.alignment: Qt.AlignTop
 						text: "✕"
 						font.pixelSize: 16
-						color: closeArea.containsMouse ? Theme.textMain : Theme.textDim
+						color: closeArea.containsMouse ? Theme.critical : Theme.textMuted
 
 						MouseArea {
 							id: closeArea
 							anchors.fill: parent
-							anchors.margins: -8
+							anchors.margins: -10
 							hoverEnabled: true
 							onClicked: Notifications.safeDismiss(notif)
 						}

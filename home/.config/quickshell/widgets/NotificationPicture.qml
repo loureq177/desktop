@@ -27,13 +27,19 @@ Item {
 		return Quickshell.iconPath(icon, "");
 	}
 
-	visible: root.hasImage || root.iconSource !== ""
+	// A failed load (unknown icon name, dead URL) must collapse to nothing
+	// instead of leaving an empty box behind.
+	property bool loadOk: true
+	visible: loadOk && (root.hasImage || root.iconSource !== "")
 	implicitWidth: root.size
 	implicitHeight: root.size
+	onImageChanged: loadOk = true
+	onAppIconChanged: loadOk = true
 
 	// Cap the decoded size at 2x the display box: an image hint is attacker
 	// controlled, and without sourceSize Qt decodes it at full resolution.
 	Image {
+		id: mainImage
 		anchors.fill: parent
 		visible: root.hasImage
 		source: root.image
@@ -42,8 +48,13 @@ Item {
 		cache: false
 		sourceSize.width: root.size * 2
 		sourceSize.height: root.size * 2
+		onStatusChanged: {
+			if (visible && status === Image.Error)
+				root.loadOk = false;
+		}
 	}
 	Image {
+		id: iconImage
 		anchors.fill: parent
 		visible: !root.hasImage && root.iconSource !== ""
 		source: root.iconSource
@@ -51,5 +62,9 @@ Item {
 		asynchronous: true
 		sourceSize.width: root.size * 2
 		sourceSize.height: root.size * 2
+		onStatusChanged: {
+			if (visible && status === Image.Error)
+				root.loadOk = false;
+		}
 	}
 }

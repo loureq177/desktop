@@ -336,16 +336,10 @@ PanelWindow {
 		}
 	}
 
-	// Full-screen backdrop: dim scrim; clicking outside the dialog card
-	// dismisses the launcher
+	// Clicking outside the dialog card dismisses the launcher
 	MouseArea {
 		anchors.fill: parent
 		onClicked: window.close()
-
-		Rectangle {
-			anchors.fill: parent
-			color: Theme.backdropColor
-		}
 
 		// Centered launcher dialog card
 		Rectangle {

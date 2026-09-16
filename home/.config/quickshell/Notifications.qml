@@ -1,13 +1,13 @@
 // Notification service: owns org.freedesktop.Notifications via NotificationServer.
-// Sticky parity with the previous SwayNC setup (timeout 0): toasts never
-// auto-expire, they stay until dismissed, an action is invoked, or Clear runs.
+// Toasts survive focus changes, new windows, and opening/closing the center.
+// Non-critical toasts expire after toastTimeoutMs; critical ones stay until
+// dismissed. Everything is kept in history regardless.
 // Critical notifications always pop and never expire. Non-critical popups are
 // suppressed while DND is on but are still kept in history.
 // Control via IPC: `qs ipc call notifications <toggle|toggleDnd|dndOn|dndOff|
 // clear|dismissLatest|invokeAction|invokeDefault|status>`.
 pragma Singleton
 import Quickshell
-import Quickshell.Hyprland
 import Quickshell.Io
 import Quickshell.Services.Notifications
 import QtQuick
@@ -23,6 +23,14 @@ Singleton {
 	// Plain snapshots for the control center (live objects die on dismiss).
 	property var history: []
 	property int historyLimit: 100
+
+	// Non-critical toasts clear themselves after this long (critical ones
+	// stay until dismissed). Focus changes and new windows never dismiss
+	// toasts; the timeout exists so a forgotten stack stops covering the
+	// top-right corner on its own. Everything stays in history regardless.
+	property int toastTimeoutMs: 12000
+	// Arrival timestamp per toast id, for the expiry sweeper below.
+	property var toastArrivedAt: ({})
 
 
 	// Each call spawns paplay, so collapse bursts: a flood of notifications
@@ -52,6 +60,7 @@ Singleton {
 	}
 
 	function removeToast(id: int): void {
+		delete root.toastArrivedAt[id];
 		var kept = [];
 		for (var i = 0; i < root.toasts.length; i++) {
 			if (root.toasts[i] && root.toasts[i].id !== id)
@@ -180,7 +189,6 @@ Singleton {
 
 	function closeCenter(): void {
 		root.centerOpen = false;
-		root.dismissToasts();
 	}
 
 	function dismissToasts(): void {
@@ -219,6 +227,39 @@ Singleton {
 		return JSON.stringify({ count: root.toasts.length, dnd: root.dnd, total: root.history.length });
 	}
 
+	// Expiry sweeper: non-critical toasts dismiss themselves after
+	// toastTimeoutMs so a forgotten stack cannot block its corner forever.
+	// Ticks only while toasts exist.
+	Timer {
+		interval: 1000
+		running: root.toasts.length > 0
+		repeat: true
+		onTriggered: {
+			var now = Date.now();
+			var liveIds = {};
+			var vals = root.toasts.slice();
+			for (var i = 0; i < vals.length; i++) {
+				var t = vals[i];
+				if (!t)
+					continue;
+				liveIds[t.id] = true;
+				if (t.urgency === NotificationUrgency.Critical)
+					continue;
+				var at = root.toastArrivedAt[t.id];
+				if (at === undefined) {
+					root.toastArrivedAt[t.id] = now;
+					continue;
+				}
+				if (now - at >= root.toastTimeoutMs)
+					root.safeDismiss(t);
+			}
+			for (var key in root.toastArrivedAt) {
+				if (!liveIds[key])
+					delete root.toastArrivedAt[key];
+			}
+		}
+	}
+
 	NotificationServer {
 		id: server
 		keepOnReload: true
@@ -233,6 +274,7 @@ Singleton {
 			n.tracked = true;
 			var now = Date.now();
 			root.history = [root.snapshot(n, now)].concat(root.history).slice(0, root.historyLimit);
+			root.toastArrivedAt[n.id] = now;
 			var critical = (n.urgency === NotificationUrgency.Critical);
 			if (!root.dnd || critical)
 				root.toasts = [n].concat(root.toasts);
@@ -242,26 +284,6 @@ Singleton {
 			// Silent while DND is on; critical notifications still announce.
 			if (!root.dnd || critical)
 				root.playSound();
-		}
-	}
-
-	// Clicking into another window yields the toasts: a focus change while
-	// they are up (and the center is closed) dismisses them. Tracked by
-	// address: this Hyprland re-fires activewindow on title changes too.
-	property string lastFocusAddress: ""
-
-	Connections {
-		target: Hyprland
-
-		function onRawEvent(ev) {
-			if (ev.name !== "activewindowv2")
-				return;
-			var addr = String(ev.data ?? "");
-			if (addr === root.lastFocusAddress)
-				return;
-			root.lastFocusAddress = addr;
-			if (root.toasts.length > 0 && !root.centerOpen)
-				root.dismissToasts();
 		}
 	}
 
