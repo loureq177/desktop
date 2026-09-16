@@ -499,15 +499,17 @@ hl.config({
 		rounding_power = 0,
 		active_opacity = ui.opacity.active,
 		inactive_opacity = ui.opacity.inactive,
+		dim_inactive = true,
+		dim_strength = 0.15,
 		shadow = {
-			range = 4,
-			render_power = 3,
+			range = 16,
+			render_power = 4,
 			color = ui.colors.shadow or "rgba(010409ee)",
 		},
 		blur = {
-			size = 6,
-			passes = 2,
-			vibrancy = 0.1696,
+			size = 9,
+			passes = 3,
+			vibrancy = 0.2,
 		},
 	},
 	dwindle = {
@@ -538,13 +540,13 @@ hl.animation({ leaf = "global", speed = 10, bezier = "default" })
 hl.animation({ leaf = "border", speed = 5.39, bezier = "easeOutQuint" })
 hl.animation({ leaf = "windows", speed = 4, bezier = "myBezier" })
 hl.animation({ leaf = "windowsIn", speed = 4, bezier = "myBezier", style = "popin 80%" })
-hl.animation({ leaf = "windowsOut", speed = 4, bezier = "myBezier", style = "popin 80%" })
+hl.animation({ leaf = "windowsOut", speed = 5, bezier = "myBezier", style = "popin 85%" })
 hl.animation({ leaf = "fadeIn", speed = 1.73, bezier = "almostLinear" })
 hl.animation({ leaf = "fadeOut", speed = 1.46, bezier = "almostLinear" })
 hl.animation({ leaf = "fade", speed = 4, bezier = "default" })
 hl.animation({ leaf = "layers", speed = 3.81, bezier = "easeOutQuint" })
 hl.animation({ leaf = "layersIn", speed = 4, bezier = "myBezier", style = "popin 90%" })
-hl.animation({ leaf = "layersOut", speed = 4, bezier = "myBezier", style = "popin 90%" })
+hl.animation({ leaf = "layersOut", speed = 5, bezier = "myBezier", style = "popin 90%" })
 hl.animation({ leaf = "fadeLayersIn", speed = 1.79, bezier = "almostLinear" })
 hl.animation({ leaf = "fadeLayersOut", speed = 1.39, bezier = "almostLinear" })
 hl.animation({ leaf = "workspaces", speed = 5, bezier = "quick", style = "slidevert" })
@@ -646,7 +648,7 @@ for _, app in pairs(programs.special) do
 	hl.workspace_rule({
 		workspace = ws,
 		on_created_empty = autostart_for(app.exe),
-		gaps_out = 75,
+		gaps_out = 40,
 	})
 	hl.window_rule({ match = { class = app.class }, workspace = ws })
 end

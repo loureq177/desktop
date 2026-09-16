@@ -16,7 +16,7 @@ return {
     },
     opacity = {
         active = 1.0,
-        inactive = 0.75,
+        inactive = 0.92,
     },
     font = {
         family = "JetBrainsMono Nerd Font Propo",

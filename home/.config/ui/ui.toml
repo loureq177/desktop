@@ -27,14 +27,26 @@ bar_margin_y = 4    # Bar vertical margin (top and bottom)
 
 [padding]
 bar_pad = 10                 # Bar module horizontal padding (px)
-notif_pad_v = 8              # Quickshell notification card vertical padding (px)
-notif_pad_h = 12             # Quickshell notification card horizontal padding (px)
+notif_pad_v = 10             # Quickshell notification card vertical padding (px)
+notif_pad_h = 14             # Quickshell notification card horizontal padding (px)
 menu_card = 16               # Quickshell menu inner padding (px)
 menu_item = 8                # Quickshell menu item padding (px)
 
 [opacity]
 active = 1.0        # Active window opacity in Hyprland
-inactive = 0.75     # Inactive window opacity in Hyprland
+inactive = 0.92     # Inactive window opacity in Hyprland
+
+[hyprlock]
+# Lockscreen backdrop built from a blurred screenshot. Values land in
+# hypr/ui.conf as $hyprlock_* and are consumed by hyprlock.conf.
+# brightness < 1.0 darkens bright wallpapers so light text stays readable.
+blur_size = 8
+blur_passes = 3
+noise = 0.0117
+contrast = 1.0
+brightness = 0.55
+vibrancy = 0.2
+vibrancy_darkness = 0.0
 
 [launcher]
 # Quickshell launcher / keybindings dialog size
