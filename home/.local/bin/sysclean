@@ -1,6 +1,18 @@
 #!/usr/bin/env zsh
 # Arch Linux system cleanup: removes orphans, cleans pacman/AUR/flatpak/dev caches, journal, and containers.
+# Usage: sysclean [--auto]
+#   --auto runs unattended (systemd timer): user-space caches only, skips
+#   every step that needs sudo and never prompts.
 set -euo pipefail
+
+AUTO=0
+if [[ "${1:-}" == "--auto" ]]; then
+    AUTO=1
+fi
+
+skip_sudo() {
+    echo "  (skipped in --auto: needs sudo)"
+}
 
 run_if() {
     command -v "$1" >/dev/null 2>&1 || return 0
@@ -63,15 +75,22 @@ AVAIL_BEFORE=$(avail_bytes "${CLEAN_MOUNTS[@]}")
 echo "Checking for orphaned packages..."
 orphan_list=$(paru -Qdtq || true)
 if [ -n "$orphan_list" ]; then
-    echo "Removing: ${orphan_list}"
-    orphans=(${(f)orphan_list})
-    sudo pacman -Rns --noconfirm "${orphans[@]}"
+    if [ "$AUTO" = 1 ]; then
+        echo "Orphans found (leaving them: removal needs sudo):"
+        echo "$orphan_list"
+    else
+        echo "Removing: ${orphan_list}"
+        orphans=(${(f)orphan_list})
+        sudo pacman -Rns --noconfirm "${orphans[@]}"
+    fi
 else
     echo "No orphaned packages."
 fi
 
 echo "\nCleaning cached pacman packages..."
-if command -v paccache >/dev/null 2>&1; then
+if [ "$AUTO" = 1 ]; then
+    skip_sudo
+elif command -v paccache >/dev/null 2>&1; then
     # Run under sudo directly: avoids per-file sudo prompts and the
     # upstream "type -p sudo" stdout noise in paccache 1.13.1.
     sudo paccache -r -k 2     # Keeps last 2 versions of installed packages
@@ -89,7 +108,11 @@ fi
 
 if command -v flatpak >/dev/null 2>&1; then
     echo "\nCleaning Flatpak leftovers..."
-    flatpak uninstall --unused -y 2>/dev/null || true
+    if [ "$AUTO" = 1 ]; then
+        flatpak uninstall --user --unused -y 2>/dev/null || true
+    else
+        flatpak uninstall --unused -y 2>/dev/null || true
+    fi
 fi
 
 echo "\nCleaning miscellaneous caches..."
@@ -109,7 +132,10 @@ run_if podman podman system prune --force
 run_if docker docker system prune -f
 
 echo "\nCleaning orphaned kernel modules..."
-running_kernel=$(uname -r)
+if [ "$AUTO" = 1 ]; then
+    skip_sudo
+else
+    running_kernel=$(uname -r)
 for dir in /usr/lib/modules/*(N/); do
     ver=$(basename "$dir")
     dir="${dir%/}"
@@ -128,14 +154,21 @@ for dir in /usr/lib/modules/*(N/); do
     echo "Removing orphaned modules directory: $dir"
     sudo rm -rf "$dir"
 done
+fi
 
 echo "\nVacuuming systemd coredumps..."
-if [ -d /var/lib/systemd/coredump ]; then
+if [ "$AUTO" = 1 ]; then
+    skip_sudo
+elif [ -d /var/lib/systemd/coredump ]; then
     sudo rm -rf /var/lib/systemd/coredump/* 2>/dev/null || true
 fi
 
 echo "\nVacuuming journal..."
-sudo journalctl --vacuum-size=200M --vacuum-time=2weeks --quiet
+if [ "$AUTO" = 1 ]; then
+    skip_sudo
+else
+    sudo journalctl --vacuum-size=200M --vacuum-time=2weeks --quiet
+fi
 
 echo "\nChecking for failed systemd services..."
 failed_sys=$(systemctl --failed --no-legend --no-pager 2>/dev/null || true)
