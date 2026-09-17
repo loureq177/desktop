@@ -102,6 +102,34 @@ def main():
     validate_colors(c, "colors")
     validate_colors(ly, "ly", keys=("matrix_fg", "tty_purple_dark", "tty_cyan_bright", "tty_white"))
 
+    def lua_escape(value):
+        # Escape for double-quoted Lua (and QML) string literals.
+        return (
+            value.replace("\\", "\\\\")
+            .replace('"', '\\"')
+            .replace("\n", "\\n")
+            .replace("\r", "\\r")
+            .replace("\t", "\\t")
+        )
+
+    def validate_names(table, label, keys):
+        # Free-form names (fonts, themes) flow into Lua, QML, Hypr conf and
+        # shell single-quoted strings downstream. Quotes and backslashes are
+        # escaped at each emit site, but control characters and newlines
+        # would break line-oriented formats, so reject them fail-fast here.
+        for key in keys:
+            value = table.get(key)
+            if value is None:
+                continue
+            if not isinstance(value, str) or re.search(r"[\x00-\x1f\x7f]", value):
+                raise SystemExit(
+                    f"\033[31m[ERROR]\033[0m ui.toml: [{label}] {key} must be a "
+                    f"single-line string, got {value!r}."
+                )
+
+    validate_names(fnt, "font", ("family", "mono", "ui"))
+    validate_names(thm, "theme", ("cursor", "icon", "gtk"))
+
     r_win = r.get("window", 0)
     r_elem = r.get("element", 0)
     r_subtle = r.get("subtle", 0)
@@ -131,18 +159,18 @@ return {{
         inactive = {o.get("inactive", 0.75)},
     }},
     font = {{
-        family = "{fnt.get("family", "JetBrainsMono Nerd Font Propo")}",
-        mono = "{fnt.get("mono", "JetBrainsMono Nerd Font Mono")}",
-        ui = "{fnt.get("ui", "Adwaita Sans 12")}",
+        family = "{lua_escape(fnt.get("family", "JetBrainsMono Nerd Font Propo"))}",
+        mono = "{lua_escape(fnt.get("mono", "JetBrainsMono Nerd Font Mono"))}",
+        ui = "{lua_escape(fnt.get("ui", "Adwaita Sans 12"))}",
         size_bar = {fnt.get("size_bar", 15)},
         size_menu = {fnt.get("size_menu", 14)},
         size_notif = {fnt.get("size_notif", 17)},
         size_cursor = {fnt.get("size_cursor", 24)},
     }},
     theme = {{
-        cursor = "{thm.get("cursor", "Bibata-Modern-Classic")}",
-        icon = "{thm.get("icon", "Papirus-Dark")}",
-        gtk = "{thm.get("gtk", "Adwaita-dark")}",
+        cursor = "{lua_escape(thm.get("cursor", "Bibata-Modern-Classic"))}",
+        icon = "{lua_escape(thm.get("icon", "Papirus-Dark"))}",
+        gtk = "{lua_escape(thm.get("gtk", "Adwaita-dark"))}",
     }},
     colors = {{
         bg_main = "{c.get("bg_main", "#0d1117")}",
@@ -391,10 +419,10 @@ find_position = {{ fg = "{accent_purple}", bg = "reset", bold = true }}
 symlink_target = {{ fg = "{text_dim}", italic = true }}
 
 # Marker
-marker_copied   = {{ fg = "{accent_green}", bg = "{accent_green}" }}
-marker_cut      = {{ fg = "{critical}", bg = "{critical}" }}
-marker_marked   = {{ fg = "{accent_blue}", bg = "{accent_blue}" }}
-marker_selected = {{ fg = "{warning}", bg = "{warning}" }}
+marker_copied   = {{ fg = "{bg_main}", bg = "{accent_green}" }}
+marker_cut      = {{ fg = "{bg_main}", bg = "{critical}" }}
+marker_marked   = {{ fg = "{bg_main}", bg = "{accent_blue}" }}
+marker_selected = {{ fg = "{bg_main}", bg = "{warning}" }}
 marker_symbol   = "│"
 
 # Count
@@ -523,8 +551,8 @@ Singleton {{
 	readonly property int windowWidth: {launcher.get("width", 960)}
 	readonly property int windowHeight: {launcher.get("height", 600)}
 
-	readonly property string fontFamily: "{fnt.get("family", "JetBrainsMono Nerd Font Propo")}"
-	readonly property string fontMono: "{fnt.get("mono", "JetBrainsMono Nerd Font Mono")}"
+	readonly property string fontFamily: "{lua_escape(fnt.get("family", "JetBrainsMono Nerd Font Propo"))}"
+	readonly property string fontMono: "{lua_escape(fnt.get("mono", "JetBrainsMono Nerd Font Mono"))}"
 	readonly property int fontSize: {fnt.get("size_notif", 17)}
 	readonly property int fontSizeSmall: {fnt.get("size_menu", 14)}
 	readonly property int fontSizeGrid: {fnt.get("size_grid", 13)}

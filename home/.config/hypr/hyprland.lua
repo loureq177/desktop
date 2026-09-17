@@ -107,14 +107,21 @@ hl.env("SAL_USE_VCLPLUGIN", "gtk3")
 
 local gsettings = "gsettings set org.gnome.desktop.interface"
 
+-- Shell single-quote escaping for values interpolated into hl.exec_cmd
+-- strings (theme/font names come from generated ui.lua). Without this a
+-- quote in a name breaks out of the quoting and executes arbitrary commands.
+local function shq(s)
+	return "'" .. tostring(s):gsub("'", "'\"'\"'") .. "'"
+end
+
 hl.on("hyprland.start", function()
 	local cmds = {
-		gsettings .. " cursor-theme '" .. ui.theme.cursor .. "'",
-		gsettings .. " icon-theme '" .. ui.theme.icon .. "'",
-		gsettings .. " font-name '" .. ui.font.ui .. "'",
+		gsettings .. " cursor-theme " .. shq(ui.theme.cursor),
+		gsettings .. " icon-theme " .. shq(ui.theme.icon),
+		gsettings .. " font-name " .. shq(ui.font.ui),
 		gsettings .. " color-scheme 'prefer-dark'",
-		gsettings .. " gtk-theme '" .. ui.theme.gtk .. "'",
-		gsettings .. " monospace-font-name '" .. ui.font.mono .. " 12'",
+		gsettings .. " gtk-theme " .. shq(ui.theme.gtk),
+		gsettings .. " monospace-font-name " .. shq(ui.font.mono .. " 12"),
 
 		"dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP HYPRLAND_INSTANCE_SIGNATURE AQ_DRM_DEVICES VK_DRIVER_FILES VK_ICD_FILENAMES LIBVA_DRIVER_NAME GSK_RENDERER",
 		"systemctl --user start hyprland-session.target",
