@@ -20,7 +20,10 @@ mkdir -p ~/.config ~/.local/share ~/.local/state ~/.local/bin ~/.cache
 
 OS="$(uname -s)"
 # Ignore rules live in .stowrc (single source of truth); stow reads it automatically.
-pkglist() { grep -vE '^\s*(#|$)' "$1"; }
+# Trims CR/leading/trailing whitespace so "pkg  " or CRLF checkouts don't
+# become bogus package names; `|| true` keeps empty/comment-only lists from
+# failing the pipeline under `set -euo pipefail` (grep exits 1 on no match).
+pkglist() { sed 's/\r$//' "$1" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' | grep -vE '^(#|$)' || true; }
 
 if [ "$OS" = "Linux" ]; then
     if [ "${EUID:-$(id -u)}" -eq 0 ]; then
