@@ -8,7 +8,7 @@ if [[ -f "$UI_SH" ]]; then
     # shellcheck source=/dev/null
     source "$UI_SH"
 fi
-# slurp styling: apply-ui exports SLURP_ARGS; the fallback matches it exactly.
+# slurp styling: ui.sh defines SLURP_ARGS (sourced in-process; arrays cannot be exported); the fallback matches it exactly.
 SLURP_OPTS=(-d -b "#0d1117b0" -c "#58a6ff" -s "#58a6ff20" -w 2 -B "#00000000")
 if [[ -v SLURP_ARGS[@] ]]; then
     SLURP_OPTS=("${SLURP_ARGS[@]}")
@@ -73,6 +73,11 @@ elif [ "${1:-}" = "window" ]; then
     grim -g "$GEOM" "$FILE"
 else
     FOCUSED_OUTPUT=$(hyprctl monitors -j 2>/dev/null | jq -r '.[] | select(.focused) | .name' 2>/dev/null || true)
+    if [[ -z "${FOCUSED_OUTPUT:-}" ]]; then
+        play_sound dialog-warning
+        notify-send --app-name "Screenshot" "Screenshot" "No focused output found."
+        exit 0
+    fi
     grim -o "$FOCUSED_OUTPUT" "$FILE"
 fi
 

@@ -182,7 +182,7 @@ _disable() {
         local cur_b
         cur_b=$(brightnessctl -c backlight get 2>/dev/null || echo "")
 
-        if [[ -n "$prev_b" ]] && [[ -n "$cur_b" ]] && (( prev_b > cur_b )); then
+        if [[ "$prev_b" =~ ^[0-9]+$ ]] && [[ "$cur_b" =~ ^[0-9]+$ ]] && (( prev_b > cur_b )); then
             bri set "$prev_b"
         else
             bri set +20%
@@ -231,7 +231,10 @@ _auto() {
 
 # Self-seed: on a fresh clone the tracked ghostty config points at this link
 # before it exists. Cheap and idempotent; only ever flips on a real change.
-[[ -e "$GHOSTTY_SHADER" ]] || _ghostty_shader on
+# Skipped for --status: status queries (e.g. bar polling) must be read-only.
+if [[ "${1:-}" != "--status" ]]; then
+    [[ -e "$GHOSTTY_SHADER" ]] || _ghostty_shader on
+fi
 
 case "${1:-}" in
 --status) _status ;;

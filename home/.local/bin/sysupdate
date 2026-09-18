@@ -12,7 +12,7 @@ step() {
 
 echo "==> Updating system & AUR packages..."
 if command -v paru >/dev/null 2>&1; then
-    paru -Syu --devel
+    paru -Syu --devel || true
 fi
 
 echo "\n==> Updating Zsh plugins (zinit)..."

@@ -10,7 +10,9 @@ down) brightnessctl set 10%- >/dev/null 2>&1 ;;
 esac
 
 # "-m" line: <device>,<device>,<current>/<max>,<percent>
-PCT="$(brightnessctl -m | cut -d, -f4 | tr -dc '0-9')"
+# Take the first backlight device only: -m prints one line per device and
+# concatenating all percents (e.g. 50% + 67% -> "5067") breaks the OSD.
+PCT="$(brightnessctl -c backlight -m 2>/dev/null | head -n 1 | cut -d, -f4 | tr -dc '0-9')"
 [[ -z "$PCT" ]] && PCT=0
 
 qs ipc call osd brightness "$PCT"
