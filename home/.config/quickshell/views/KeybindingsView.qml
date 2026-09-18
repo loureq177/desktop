@@ -12,6 +12,8 @@ PanelWindow {
 
 	visible: false
 	color: "transparent"
+	exclusionMode: ExclusionMode.Ignore
+	exclusiveZone: 0
 
 	WlrLayershell.layer: WlrLayer.Overlay
 	WlrLayershell.keyboardFocus: visible ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
@@ -165,24 +167,32 @@ PanelWindow {
 		}
 	}
 
-	// Clicking outside the dialog card closes.
-	MouseArea {
+	// Full-screen dim backdrop matching Hyprland's special workspace dimming effect
+	Rectangle {
+		id: backdrop
 		anchors.fill: parent
-		onClicked: window.close()
+		color: Theme.backdropColor
 
-		Rectangle {
-			id: dialogCard
-			anchors.centerIn: parent
-			width: Theme.windowWidth
-			height: Theme.windowHeight
-			color: Theme.bgMain
-			border.color: Theme.border
-			border.width: Theme.borderSize
-			radius: Theme.roundingWindow
+		MouseArea {
+			anchors.fill: parent
+			onClicked: window.close()
+		}
+	}
 
-			MouseArea {
-				anchors.fill: parent
-			}
+	Rectangle {
+		id: dialogCard
+		anchors.centerIn: parent
+		width: Theme.windowWidth
+		height: Theme.windowHeight
+		color: Theme.bgMain
+		border.color: Theme.border
+		border.width: Theme.borderSize
+		radius: Theme.roundingWindow
+		clip: true
+
+		MouseArea {
+			anchors.fill: parent
+		}
 
 			ColumnLayout {
 				anchors.fill: parent
@@ -308,5 +318,4 @@ PanelWindow {
 				}
 			}
 		}
-	}
 }

@@ -144,7 +144,7 @@ PanelWindow {
 					anchors.horizontalCenter: parent.horizontalCenter
 					width: parent.width - 24
 					height: 6
-					radius: 3
+					radius: Theme.roundingSubtle
 					color: Theme.bgHover
 					visible: win.kind !== "mic"
 
@@ -153,7 +153,7 @@ PanelWindow {
 						anchors.top: parent.top
 						anchors.bottom: parent.bottom
 						width: parent.width * Math.min(100, Math.max(0, win.value)) / 100
-						radius: 3
+						radius: Theme.roundingSubtle
 						color: win.muted ? Theme.textDim : Theme.accentBlue
 					}
 				}

@@ -124,11 +124,12 @@ PanelWindow {
 				}
 
 				width: stack.width
-				implicitHeight: Math.max(cardRow.implicitHeight, 40) + Theme.notifPadV * 2
+				implicitHeight: Math.max(bodyCol.implicitHeight + Theme.notifPadV * 2, toastPic.size + Theme.notifPadV * 2)
 				color: hoverArea.containsMouse ? Theme.bgHover : Theme.bgCard
 				border.color: card.critical ? Theme.critical : Theme.border
-				border.width: 1
+				border.width: Theme.borderSize
 				radius: Theme.roundingElement
+				clip: true
 
 				// Below the content: child button areas stay clickable on top.
 				// Body click runs the default action (opens the app); only
@@ -141,114 +142,122 @@ PanelWindow {
 					onClicked: Notifications.activate(notif.id)
 				}
 
+				// Critical urgency indicator strip on left
 				Rectangle {
 					visible: card.critical
 					anchors.top: parent.top
 					anchors.bottom: parent.bottom
 					anchors.left: parent.left
-					anchors.leftMargin: Theme.borderSize
 					width: 3
 					color: Theme.critical
+					radius: Theme.roundingSubtle
+					z: 3
 				}
 
-				RowLayout {
-					id: cardRow
-					anchors.fill: parent
-					anchors.leftMargin: Theme.notifPadH
-					anchors.rightMargin: Theme.notifPadH
-					anchors.topMargin: Theme.notifPadV
-					anchors.bottomMargin: Theme.notifPadV
-					spacing: 12
+				// Picture on the left side of the toast - fixed size, vertically centered
+				NotificationPicture {
+					id: toastPic
+					anchors.left: parent.left
+					anchors.leftMargin: (card.critical ? 3 : 0) + Theme.notifPadH
+					anchors.verticalCenter: parent.verticalCenter
+					size: 64
+					image: card.notif.image || ""
+					appIcon: card.notif.appIcon || ""
+					appName: card.notif.appName || ""
+					z: 1
+				}
 
-					NotificationPicture {
-						id: toastPic
-						image: card.notif.image || ""
-						appIcon: card.notif.appIcon || ""
-						size: 48
-						Layout.preferredWidth: toastPic.visible ? 48 : 0
-						Layout.preferredHeight: toastPic.visible ? 48 : 0
-						Layout.alignment: Qt.AlignTop
-					}
+				// Main text and actions column, vertically centered
+				ColumnLayout {
+					id: bodyCol
+					anchors.left: toastPic.right
+					anchors.leftMargin: 12
+					anchors.right: closeBtn.left
+					anchors.rightMargin: 8
+					anchors.verticalCenter: parent.verticalCenter
+					spacing: 3
+					z: 2
 
-					ColumnLayout {
-						id: bodyCol
+					RowLayout {
 						Layout.fillWidth: true
-						spacing: 4
-
-						RowLayout {
-							Layout.fillWidth: true
-							spacing: 8
-							Text {
-								Layout.fillWidth: true
-								text: card.notif.appName || ""
-								font.family: Theme.fontMono
-								font.pointSize: Theme.fontSizeSmall
-								font.bold: true
-								color: Theme.textDim
-								elide: Text.ElideRight
-								visible: text !== ""
-							}
-							Text {
-								text: Qt.formatDateTime(new Date(), "hh:mm")
-								font.family: Theme.fontMono
-								font.pointSize: Theme.fontSizeSmall
-								color: Theme.textMuted
-							}
-						}
+						spacing: 8
 						Text {
 							Layout.fillWidth: true
-							text: card.notif.summary || ""
-							font.family: Theme.fontFamily
-							font.pixelSize: Theme.fontSize
+							text: card.notif.appName || ""
+							font.family: Theme.fontMono
+							font.pointSize: Theme.fontSizeSmall
 							font.bold: true
-							color: Theme.textMain
-							wrapMode: Text.WordWrap
+							color: Theme.textDim
+							elide: Text.ElideRight
 							visible: text !== ""
 						}
 						Text {
-							Layout.fillWidth: true
-							text: card.notif.body || ""
-							font.family: Theme.fontFamily
-							font.pixelSize: Theme.fontSizeSmall + 1
-							color: Theme.textDim
-							wrapMode: Text.WordWrap
-							maximumLineCount: 6
-							elide: Text.ElideRight
-							textFormat: Text.PlainText
-							visible: text !== ""
+							text: Qt.formatDateTime(new Date(), "hh:mm")
+							font.family: Theme.fontMono
+							font.pointSize: Theme.fontSizeSmall
+							color: Theme.textMuted
 						}
+					}
+					Text {
+						Layout.fillWidth: true
+						text: card.notif.summary || ""
+						font.family: Theme.fontFamily
+						font.pixelSize: Theme.fontSize
+						font.bold: true
+						color: Theme.textMain
+						wrapMode: Text.WordWrap
+						visible: text !== ""
+					}
+					Text {
+						Layout.fillWidth: true
+						text: card.notif.body || ""
+						font.family: Theme.fontFamily
+						font.pixelSize: Theme.fontSizeSmall + 1
+						color: Theme.textDim
+						wrapMode: Text.WordWrap
+						maximumLineCount: 6
+						elide: Text.ElideRight
+						textFormat: Text.PlainText
+						visible: text !== ""
+					}
 
-						// Actions share one row instead of stacking.
-						RowLayout {
-							visible: card.actionEntries.length > 0
-							Layout.fillWidth: true
-							spacing: 6
-							Repeater {
-								model: card.actionEntries
-								delegate: NotificationActionButton {
-									required property var modelData
-									Layout.fillWidth: true
-									notifId: modelData.toastId
-									identifier: modelData.identifier
-									label: modelData.text
-								}
+					// Actions share one row instead of stacking.
+					RowLayout {
+						visible: card.actionEntries.length > 0
+						Layout.fillWidth: true
+						spacing: 6
+						Repeater {
+							model: card.actionEntries
+							delegate: NotificationActionButton {
+								required property var modelData
+								Layout.fillWidth: true
+								notifId: modelData.toastId
+								identifier: modelData.identifier
+								label: modelData.text
 							}
 						}
 					}
+				}
 
-					Text {
-						Layout.alignment: Qt.AlignTop
-						text: "✕"
-						font.pixelSize: 16
-						color: closeArea.containsMouse ? Theme.critical : Theme.textMuted
+				// Close button in top-right corner
+				Text {
+					id: closeBtn
+					anchors.top: parent.top
+					anchors.topMargin: 8
+					anchors.right: parent.right
+					anchors.rightMargin: 10
+					text: "✕"
+					font.pixelSize: 14
+					color: closeArea.containsMouse ? Theme.critical : Theme.textMuted
+					z: 2
 
-						MouseArea {
-							id: closeArea
-							anchors.fill: parent
-							anchors.margins: -10
-							hoverEnabled: true
-							onClicked: Notifications.safeDismiss(notif)
-						}
+					MouseArea {
+						id: closeArea
+						anchors.fill: parent
+						anchors.margins: -8
+						hoverEnabled: true
+						cursorShape: Qt.PointingHandCursor
+						onClicked: Notifications.safeDismiss(notif)
 					}
 				}
 			}

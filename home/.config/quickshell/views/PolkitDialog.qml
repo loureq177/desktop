@@ -147,6 +147,8 @@ Item {
 
 		visible: root.dialogVisible
 		color: "transparent"
+		exclusionMode: ExclusionMode.Ignore
+		exclusiveZone: 0
 
 		WlrLayershell.layer: WlrLayer.Overlay
 		WlrLayershell.keyboardFocus: visible ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
@@ -161,10 +163,16 @@ Item {
 			right: true
 		}
 
-		// Click outside the card refocuses the password field.
-		MouseArea {
+		// Full-screen dim backdrop matching Hyprland's special workspace dimming effect
+		Rectangle {
+			id: backdrop
 			anchors.fill: parent
-			onClicked: root.refocus()
+			color: Theme.backdropColor
+
+			MouseArea {
+				anchors.fill: parent
+				onClicked: root.refocus()
+			}
 		}
 
 		Rectangle {
@@ -176,7 +184,8 @@ Item {
 			color: Theme.bgCard
 			border.color: root.failed ? Theme.critical : Theme.border
 			border.width: Theme.borderSize
-			radius: Theme.roundingElement
+			radius: Theme.roundingWindow
+			clip: true
 
 			ColumnLayout {
 				id: layout

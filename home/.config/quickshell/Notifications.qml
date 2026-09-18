@@ -224,7 +224,7 @@ Singleton {
 	}
 
 	function status(): string {
-		return JSON.stringify({ count: root.toasts.length, dnd: root.dnd, total: root.history.length });
+		return JSON.stringify({ count: root.toasts.length, dnd: root.dnd, total: root.history.length, history: root.history });
 	}
 
 	// Expiry sweeper: non-critical toasts dismiss themselves after
@@ -292,6 +292,12 @@ Singleton {
 
 		function toggle(): void {
 			root.toggle();
+		}
+		function openCenter(): void {
+			root.centerOpen = true;
+		}
+		function closeCenter(): void {
+			root.closeCenter();
 		}
 		function toggleDnd(): void {
 			root.toggleDnd();

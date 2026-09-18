@@ -13,6 +13,8 @@ PanelWindow {
 
 	visible: false
 	color: "transparent"
+	exclusionMode: ExclusionMode.Ignore
+	exclusiveZone: 0
 
 	WlrLayershell.layer: WlrLayer.Overlay
 	WlrLayershell.keyboardFocus: visible ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
@@ -33,7 +35,6 @@ PanelWindow {
 	property int currentIndex: 0
 	property string lastError: ""
 	property var emojis: []
-	readonly property int emojiLimit: 200
 	property var runCache: []
 	property bool runLoaded: false
 
@@ -148,7 +149,7 @@ PanelWindow {
 			// shell/plugins/emojis/emojis.json: { e: glyph, k: keywords }.
 			var needle = q.toLowerCase();
 			var out = [];
-			for (var j = 0; j < emojis.length && out.length < emojiLimit; j++) {
+			for (var j = 0; j < emojis.length; j++) {
 				var item = emojis[j];
 				if (!item || !item.e)
 					continue;
@@ -336,26 +337,34 @@ PanelWindow {
 		}
 	}
 
-	// Clicking outside the dialog card dismisses the launcher
-	MouseArea {
+	// Full-screen dim backdrop matching Hyprland's special workspace dimming effect
+	Rectangle {
+		id: backdrop
 		anchors.fill: parent
-		onClicked: window.close()
+		color: Theme.backdropColor
 
-		// Centered launcher dialog card
-		Rectangle {
-			id: dialogCard
-			anchors.centerIn: parent
-			width: Theme.windowWidth
-			height: Theme.windowHeight
-			color: Theme.bgMain
-			border.color: Theme.border
-			border.width: Theme.borderSize
-			radius: Theme.roundingWindow
+		MouseArea {
+			anchors.fill: parent
+			onClicked: window.close()
+		}
+	}
 
-			// Absorb mouse clicks inside the dialog card
-			MouseArea {
-				anchors.fill: parent
-			}
+	// Centered launcher dialog card
+	Rectangle {
+		id: dialogCard
+		anchors.centerIn: parent
+		width: Theme.windowWidth
+		height: Theme.windowHeight
+		color: Theme.bgMain
+		border.color: Theme.border
+		border.width: Theme.borderSize
+		radius: Theme.roundingWindow
+		clip: true
+
+		// Absorb mouse clicks inside the dialog card
+		MouseArea {
+			anchors.fill: parent
+		}
 
 			ColumnLayout {
 				anchors.fill: parent
@@ -575,5 +584,4 @@ PanelWindow {
 				}
 			}
 		}
-	}
 }

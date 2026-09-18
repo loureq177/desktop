@@ -1,9 +1,9 @@
 // Status bar: one instance per screen (via shell.qml Variants).
-// Fully transparent window; modules are floating translucent pills with
-// hover highlights and click passthrough. Modules: workspaces / memory /
-// dGPU / power-save on the left, clock centered, record / notifications /
-// screenshare / caffeine / bluetooth / network / battery on the right.
-// Clicks open the matching special workspaces.
+// Fully transparent, minimal bar with clean hover highlights,
+// hand cursors, and click passthrough.
+// Layout: workspaces / memory / dGPU / power-save on the left,
+// minimal time centered, record / screenshare / caffeine / bluetooth /
+// network / battery / notification center on the right.
 import ".."
 import Quickshell
 import Quickshell.Bluetooth
@@ -54,11 +54,7 @@ PanelWindow {
 	}
 
 	// ─── Native status data ─────────────────────────────────────────────
-	// UPower/Networking push updates; the 2s poll timer covers state files
-	// and /proc sources that have no notification mechanism.
 
-	// UPower's aggregate DisplayDevice is broken on some machines (always
-	// 0%); pick the real laptop battery from the device list instead.
 	readonly property var batteryDevice: {
 		var vals = UPower.devices.values;
 		for (var i = 0; i < vals.length; i++)
@@ -88,7 +84,7 @@ PanelWindow {
 	property string gpuDevicePath: ""
 	property bool gpuActive: false
 
-	// 2s-polled states.
+	// 2s/5s-polled states.
 	property string memPercent: ""
 	property bool recording: false
 
@@ -105,9 +101,7 @@ PanelWindow {
 		}
 	}
 
-	// Slower cadence for the two expensive probes: reading /proc/meminfo and
-	// spawning pgrep every 2s costs a process fork every two seconds forever,
-	// and neither value moves fast enough to justify it.
+	// Slower cadence for /proc/meminfo and pgrep wf-recorder.
 	Timer {
 		interval: 5000
 		running: true
@@ -119,7 +113,6 @@ PanelWindow {
 		}
 	}
 
-	// Memory: parse /proc/meminfo into a used-percentage string.
 	FileView {
 		id: memView
 		path: "/proc/meminfo"
@@ -171,25 +164,25 @@ PanelWindow {
 		onExited: code => bar.recording = code === 0
 	}
 
-	// A bar module pill: translucent background, hover highlight, click
-	// passthrough, wheel signal, Nerd Font label. Icon glyphs render in the
-	// Propo family (Nerd Font Mono shrinks glyphs into the fixed cell,
-	// which reads as "too small").
+	// ─── Reusable Pill component ─────────────────────────────────────────
+	// Minimal, borderless, transparent background with smooth hover feedback.
 	component Pill: Rectangle {
 		id: pill
 
 		property string text: ""
 		property string value: ""
 		property color textColor: Theme.textMain
+		property bool isActive: false
+		property alias containsMouse: pillArea.containsMouse
 		signal activated()
 		signal wheeled(bool up)
 
+		Layout.alignment: Qt.AlignVCenter
 		implicitHeight: Theme.barHeight
-		implicitWidth: (text !== "" || value !== "") ? pillRow.implicitWidth + Theme.barPad * 2 : 0
+		implicitWidth: (text !== "" || value !== "") ? pillRow.implicitWidth + 14 : 0
 		visible: text !== "" || value !== ""
-		color: pillArea.containsMouse ? Theme.bgHover : Theme.barStripColor
-		border.color: Theme.border
-		border.width: 1
+		color: pillArea.containsMouse ? Theme.bgHover : (isActive ? Qt.rgba(Theme.accentBlue.r, Theme.accentBlue.g, Theme.accentBlue.b, 0.16) : "transparent")
+		border.width: 0
 		radius: Theme.roundingElement
 
 		Behavior on color {
@@ -199,7 +192,7 @@ PanelWindow {
 		Row {
 			id: pillRow
 			anchors.centerIn: parent
-			spacing: 7
+			spacing: (pill.text !== "" && pill.value !== "") ? 6 : 0
 
 			Text {
 				anchors.verticalCenter: parent.verticalCenter
@@ -226,6 +219,7 @@ PanelWindow {
 			id: pillArea
 			anchors.fill: parent
 			hoverEnabled: true
+			cursorShape: Qt.PointingHandCursor
 			onClicked: pill.activated()
 			onWheel: w => pill.wheeled(w.angleDelta.y > 0)
 		}
@@ -234,73 +228,105 @@ PanelWindow {
 	Item {
 		anchors.fill: parent
 
+		// ─── Left zone: Workspaces + System Resources ─────────────────────
 		RowLayout {
 			id: leftModules
 			anchors.left: parent.left
 			anchors.verticalCenter: parent.verticalCenter
-			spacing: Theme.barSpacing
+			spacing: 6
 
-			// Workspaces of this monitor (specials always start with "special:").
-			Repeater {
-				model: {
-					var ws = Hyprland.workspaces.values.filter(w => w.monitor?.name === bar.screenName && !String(w.name).startsWith("special:"));
-					ws.sort((a, b) => a.id - b.id);
-					return ws;
+			// Workspaces container with wheel switching
+			Rectangle {
+				id: wsContainer
+				Layout.alignment: Qt.AlignVCenter
+				implicitHeight: Theme.barHeight
+				implicitWidth: wsRow.implicitWidth
+				color: "transparent"
+
+				RowLayout {
+					id: wsRow
+					anchors.fill: parent
+					spacing: 2
+
+					Repeater {
+						model: {
+							var ws = Hyprland.workspaces.values.filter(w => w.monitor?.name === bar.screenName && !String(w.name).startsWith("special:"));
+							ws.sort((a, b) => a.id - b.id);
+							return ws;
+						}
+
+						delegate: Rectangle {
+							id: wsButton
+							required property var modelData
+							readonly property bool isActive: modelData.active
+
+							Layout.alignment: Qt.AlignVCenter
+							implicitHeight: Theme.barHeight
+							implicitWidth: wsLabel.implicitWidth + 14
+							color: wsArea.containsMouse ? Theme.bgHover : (isActive ? Qt.rgba(Theme.accentBlue.r, Theme.accentBlue.g, Theme.accentBlue.b, 0.18) : "transparent")
+							border.width: 0
+							radius: Theme.roundingElement
+
+							Behavior on color { ColorAnimation { duration: 120 } }
+
+							Text {
+								id: wsLabel
+								anchors.centerIn: parent
+								text: wsButton.modelData.name
+								font.family: Theme.fontMono
+								font.pixelSize: Theme.fontSizeBar
+								font.bold: true
+								color: wsButton.isActive ? Theme.accentBlue : (wsArea.containsMouse ? Theme.textMain : Theme.textDim)
+							}
+
+							MouseArea {
+								id: wsArea
+								anchors.fill: parent
+								hoverEnabled: true
+								cursorShape: Qt.PointingHandCursor
+								onClicked: Quickshell.execDetached([
+									"hyprctl", "dispatch", "hl.dsp.focus({workspace=" + wsButton.modelData.id + "})"
+								])
+							}
+						}
+					}
 				}
 
-				delegate: Rectangle {
-					id: wsButton
-					required property var modelData
-					readonly property bool isActive: modelData.active
-
-					Layout.alignment: Qt.AlignVCenter
-					implicitHeight: Theme.barHeight
-					implicitWidth: wsLabel.implicitWidth + Theme.paddingItem * 2
-					color: wsArea.containsMouse ? Theme.bgHover : (isActive ? Theme.selectionBg : Theme.barStripColor)
-					border.color: isActive ? Theme.selectionBorder : Theme.border
-					border.width: 1
-					radius: Theme.roundingElement
-
-					Behavior on color {
-						ColorAnimation { duration: 120 }
-					}
-
-					Text {
-						id: wsLabel
-						anchors.centerIn: parent
-						text: wsButton.modelData.name
-						font.family: Theme.fontMono
-						font.pixelSize: Theme.fontSizeBar
-						font.bold: true
-						color: wsButton.isActive ? Theme.accentBlue : Theme.textDim
-					}
-
-					MouseArea {
-						id: wsArea
-						anchors.fill: parent
-						hoverEnabled: true
-						onClicked: Quickshell.execDetached([
-							"hyprctl", "dispatch", "hl.dsp.focus({workspace=" + wsButton.modelData.id + "})"
-						])
+				MouseArea {
+					anchors.fill: parent
+					acceptedButtons: Qt.NoButton
+					onWheel: w => {
+						if (w.angleDelta.y > 0)
+							Quickshell.execDetached(["hyprctl", "dispatch", "hl.dsp.focus({workspace='+1'})"]);
+						else
+							Quickshell.execDetached(["hyprctl", "dispatch", "hl.dsp.focus({workspace='-1'})"]);
 					}
 				}
 			}
 
+			// Memory / RAM pill
 			Pill {
 				visible: bar.memPercent !== ""
 				text: "󰍛"
-				value: bar.memPercent
+				value: bar.memPercent !== "" ? bar.memPercent + "%" : ""
+				textColor: Number(bar.memPercent) >= 90 ? Theme.critical : (Number(bar.memPercent) >= 75 ? Theme.warning : Theme.textDim)
 				onActivated: Quickshell.execDetached([
 					"hyprctl", "dispatch", "hl.dsp.workspace.toggle_special('btop')"
 				])
 			}
 
+			// dGPU pill (NVIDIA) - minimal, icon-only, no "active" text
 			Pill {
 				visible: bar.gpuDevicePath !== ""
 				text: "󰢮"
+				value: ""
 				textColor: bar.gpuActive ? Theme.accentGreen : Theme.textDim
+				onActivated: Quickshell.execDetached([
+					"hyprctl", "dispatch", "hl.dsp.workspace.toggle_special('btop')"
+				])
 			}
 
+			// Power-save mode pill
 			Pill {
 				text: "󰌪"
 				textColor: powerSaveMarker.loaded ? Theme.accentGreen : Theme.textDim
@@ -308,13 +334,14 @@ PanelWindow {
 			}
 		}
 
+		// ─── Center zone: Minimal Time (no date, no calendar icon) ────────
 		Pill {
 			id: clock
 			anchors.centerIn: parent
-			// SystemClock.date is the live timestamp; it is invalid until the
-			// first tick boundary.
 			readonly property bool valid: !isNaN(clockSource.date?.getTime?.() ?? NaN)
+			text: ""
 			value: valid ? Qt.formatDateTime(clockSource.date, "hh:mm") : Qt.formatDateTime(new Date(), "hh:mm")
+			textColor: Theme.textMain
 			onActivated: Quickshell.execDetached([
 				"hyprctl", "dispatch", "hl.dsp.workspace.toggle_special('calendar')"
 			])
@@ -325,45 +352,40 @@ PanelWindow {
 			}
 		}
 
+		// ─── Right zone: Tray / Status ────────────────────────────────────
 		RowLayout {
 			id: rightModules
 			anchors.right: parent.right
 			anchors.verticalCenter: parent.verticalCenter
-			spacing: Theme.barSpacing
+			spacing: 6
 
+			// Screen recording indicator
 			Pill {
 				visible: bar.recording
-				text: visible ? "●" : ""
+				text: "●"
+				value: "REC"
 				textColor: Theme.critical
+				isActive: true
 				onActivated: Quickshell.execDetached(["sh", "-c", "~/.local/bin/record-screen.sh"])
 			}
 
-			Pill {
-				// Notification indicator: reads the notification singleton
-				// directly (no script/IPC round-trip).
-				readonly property int count: Notifications.toasts.length
-				readonly property bool dnd: Notifications.dnd
-
-				text: dnd ? "󰂛" : (count > 0 ? "󰂚" : "󰂜")
-				textColor: count > 0 && !dnd ? Theme.accentBlue : Theme.textDim
-				onActivated: Notifications.toggle()
-			}
-
+			// Screencast indicator
 			Pill {
 				visible: bar.screencasts > 0
-				text: visible ? "󰒎" : ""
+				text: "󰒎"
 				textColor: Theme.accentPurple
+				isActive: true
 			}
 
+			// Caffeine toggle indicator
 			Pill {
-				// Hidden while idle (previous script mode emitted empty text,
-				// which collapsed the module — this only shows while active).
 				visible: caffeineMarker.loaded
-				text: visible ? "󰖦" : ""
-				textColor: Theme.textMain
+				text: "󰖦"
+				textColor: Theme.accentBlue
 				onActivated: Quickshell.execDetached(["sh", "-c", "~/.local/bin/caffeine-toggle.sh"])
 			}
 
+			// Bluetooth indicator
 			Pill {
 				id: bluetooth
 				readonly property var adapter: Bluetooth.defaultAdapter
@@ -379,15 +401,15 @@ PanelWindow {
 					return n;
 				}
 
-				// Distinct from the notification bell glyphs (which share the
-				// 󰂜 icon family); bluetooth uses the bluetooth family.
-				text: connectedCount > 0 ? "󰂲" : "󰂯"
-				textColor: connectedCount > 0 ? Theme.textMain : (adapter?.enabled ? Theme.textMain : Theme.textDim)
+				text: connectedCount > 0 ? "󰂲" : (adapter?.enabled ? "󰂯" : "󰂲")
+				value: connectedCount > 1 ? String(connectedCount) : ""
+				textColor: connectedCount > 0 ? Theme.accentBlue : (adapter?.enabled ? Theme.textMain : Theme.textDim)
 				onActivated: Quickshell.execDetached([
 					"hyprctl", "dispatch", "hl.dsp.workspace.toggle_special('bluetui')"
 				])
 			}
 
+			// Network indicator (Wifi / Ethernet)
 			Pill {
 				readonly property bool wifiUp: bar.wifiDevice?.connected ?? false
 				readonly property bool wiredUp: bar.wiredDevice?.connected ?? false
@@ -399,9 +421,9 @@ PanelWindow {
 				])
 			}
 
+			// Battery indicator
 			Pill {
 				readonly property var device: bar.batteryDevice
-				// Discharge icon bucket by 10% steps; 󰂄 charging, 󰁹 full.
 				readonly property var bucketIcons: [
 					"󰂎", "󰁺", "󰁻", "󰁼", "󰁽", "󰁾", "󰁿", "󰂀", "󰂁", "󰂂", "󰁹"
 				]
@@ -412,7 +434,7 @@ PanelWindow {
 
 				visible: device !== null
 				text: charging ? "󰂄" : (full ? "󰁹" : bucketIcons[Math.min(10, Math.max(0, Math.floor(pct / 10)))])
-				value: visible ? String(pct) : ""
+				value: visible ? String(pct) + "%" : ""
 				textColor: charging || full ? Theme.accentGreen
 					: pct <= 10 ? Theme.critical
 					: pct <= 30 ? Theme.warning
@@ -420,6 +442,20 @@ PanelWindow {
 				onActivated: Quickshell.execDetached([
 					"hyprctl", "dispatch", "hl.dsp.workspace.toggle_special('jolt')"
 				])
+			}
+
+			// Notification center toggle bell
+			Pill {
+				readonly property int unreadCount: Notifications.toasts.length
+				readonly property int historyCount: Notifications.history.length
+				readonly property bool dnd: Notifications.dnd
+				readonly property bool isOpen: Notifications.centerOpen
+
+				text: dnd ? "󰂛" : (unreadCount > 0 ? "󰂚" : (historyCount > 0 ? "󰂚" : "󰂜"))
+				value: !dnd && unreadCount > 0 ? String(unreadCount) : (!dnd && historyCount > 0 ? String(historyCount) : "")
+				textColor: dnd ? Theme.warning : (unreadCount > 0 || isOpen ? Theme.accentBlue : (historyCount > 0 ? Theme.textMain : Theme.textDim))
+				isActive: isOpen || (unreadCount > 0 && !dnd)
+				onActivated: Notifications.toggle()
 			}
 		}
 	}

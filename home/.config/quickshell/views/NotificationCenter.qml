@@ -1,9 +1,8 @@
-// Notification center: replaces the SwayNC control center.
-// Same panel size and placement (500px, top-right below the bar); the panel
-// slides in from the right screen edge like the toasts. Toggle with
-// `qs ipc call notifications toggle` (SUPER + CTRL + comma). ESC closes it;
-// clicking anywhere outside the panel just closes it (toasts stay);
-// the per-card ✕ dismisses a single notification (live or history entry).
+// Notification center: slide-in drawer from top-right.
+// Displays notification history, live action triggers, DND toggle,
+// and individual / bulk dismissal.
+// Toggle via IPC: `qs ipc call notifications toggle` (SUPER + CTRL + comma).
+// ESC or clicking outside dismisses the panel.
 import ".."
 import "../widgets"
 import Quickshell
@@ -11,6 +10,7 @@ import Quickshell.Hyprland
 import Quickshell.Services.Notifications
 import Quickshell.Wayland
 import QtQuick
+import QtQuick.Controls
 import QtQuick.Layouts
 
 PanelWindow {
@@ -24,6 +24,7 @@ PanelWindow {
 
 	visible: shown || slideOut.running
 	color: "transparent"
+	exclusionMode: ExclusionMode.Ignore
 	exclusiveZone: 0
 
 	onShownChanged: {
@@ -36,33 +37,54 @@ PanelWindow {
 		}
 	}
 
-	SequentialAnimation {
+	property real backdropOpacity: 0.0
+
+	ParallelAnimation {
 		id: slideIn
 
 		NumberAnimation {
 			target: win
 			property: "slide"
+			from: Theme.notifWidth + Theme.notifRightMargin
 			to: 0
-			duration: 300
+			duration: 250
+			easing.type: Easing.OutCubic
+		}
+		NumberAnimation {
+			target: win
+			property: "backdropOpacity"
+			from: 0.0
+			to: 1.0
+			duration: 250
 			easing.type: Easing.OutCubic
 		}
 	}
 
-	SequentialAnimation {
+	ParallelAnimation {
 		id: slideOut
 
 		NumberAnimation {
 			target: win
 			property: "slide"
+			from: 0
 			to: Theme.notifWidth + Theme.notifRightMargin
-			duration: 300
+			duration: 220
+			easing.type: Easing.OutCubic
+		}
+		NumberAnimation {
+			target: win
+			property: "backdropOpacity"
+			from: 1.0
+			to: 0.0
+			duration: 220
 			easing.type: Easing.OutCubic
 		}
 	}
 
 	WlrLayershell.layer: WlrLayer.Overlay
-	// Exclusive keyboard focus while open so ESC reaches the center.
-	WlrLayershell.keyboardFocus: visible ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+	// Focus is only requested when hovering inside the drawer card so consecutive
+	// clicks on the bell toggle button immediately register without mouse movement.
+	WlrLayershell.keyboardFocus: cardArea.containsMouse ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
 	WlrLayershell.namespace: "quickshell"
 
 	screen: Quickshell.screens.find(s => s.name === Hyprland.focusedMonitor?.name) ?? Quickshell.screens[0] ?? null
@@ -74,18 +96,24 @@ PanelWindow {
 		right: true
 	}
 
-	// ESC dismisses the center (keyboard arrives via the layershell focus).
+	// ESC dismisses the center.
 	Shortcut {
 		sequences: ["Esc"]
 		enabled: win.visible
 		onActivated: Notifications.closeCenter()
 	}
 
-	// Clicking anywhere outside the panel closes the center
-	// (and dismisses the toasts with it).
-	MouseArea {
+	// Full-screen dim backdrop matching Hyprland's special workspace dimming effect (dim_special = 0.20)
+	Rectangle {
+		id: backdrop
 		anchors.fill: parent
-		onClicked: Notifications.closeCenter()
+		color: Theme.backdropColor
+		opacity: win.backdropOpacity
+
+		MouseArea {
+			anchors.fill: parent
+			onClicked: Notifications.closeCenter()
+		}
 	}
 
 	Rectangle {
@@ -94,101 +122,185 @@ PanelWindow {
 		x: parent.width - width - Theme.notifRightMargin + win.slide
 		y: Theme.notifTopMargin
 		width: Theme.notifWidth
-		height: 600
-		color: Theme.bgMain
+		height: Math.min(680, parent.height - Theme.notifTopMargin - 20)
+		color: Theme.bgCard
 		border.color: Theme.border
 		border.width: Theme.borderSize
 		radius: Theme.roundingWindow
+		clip: true
 
 		// Absorb clicks inside the panel so they don't close the center.
 		MouseArea {
+			id: cardArea
 			anchors.fill: parent
+			hoverEnabled: true
 		}
 
 		ColumnLayout {
 			anchors.fill: parent
 			anchors.margins: Theme.paddingCard
-			spacing: Theme.paddingItem
+			spacing: 12
 
+			// ─── Header Bar ─────────────────────────────────────────────
 			RowLayout {
 				Layout.fillWidth: true
-				spacing: Theme.paddingItem
+				Layout.preferredHeight: 32
+				spacing: 10
 
-				Text {
+				// Title + badge
+				RowLayout {
 					Layout.fillWidth: true
-					text: "Notifications"
-					font.family: Theme.fontFamily
-					font.pixelSize: Theme.fontSize + 1
-					font.bold: true
-					color: Theme.accentBlue
-				}
+					spacing: 8
 
-				Text {
-					text: "DND"
-					font.family: Theme.fontMono
-					font.pointSize: Theme.fontSizeSmall
-					color: Notifications.dnd ? Theme.accentGreen : Theme.textDim
-				}
-				Rectangle {
-					id: dndSwitch
-					implicitWidth: 44
-					implicitHeight: 24
-					radius: Theme.roundingElement
-					color: Notifications.dnd ? Theme.accentGreen : Theme.bgCard
-					border.color: Theme.border
-					border.width: 1
-					Rectangle {
-						anchors.verticalCenter: parent.verticalCenter
-						x: Notifications.dnd ? parent.width - width - 3 : 3
-						width: 18
-						height: 18
-						radius: Theme.roundingElement
+					Text {
+						text: "Notifications"
+						font.family: Theme.fontFamily
+						font.pixelSize: Theme.fontSize + 1
+						font.bold: true
 						color: Theme.textMain
 					}
+
+					Rectangle {
+						visible: Notifications.history.length > 0
+						implicitWidth: countLabel.implicitWidth + 12
+						implicitHeight: 20
+						radius: height / 2
+						color: Theme.selectionBg
+						border.color: Theme.selectionBorder
+						border.width: 1
+
+						Text {
+							id: countLabel
+							anchors.centerIn: parent
+							text: String(Notifications.history.length)
+							font.family: Theme.fontMono
+							font.pixelSize: Theme.fontSizeSmall - 1
+							font.bold: true
+							color: Theme.accentBlue
+						}
+					}
+				}
+
+				// DND toggle pill
+				Rectangle {
+					implicitWidth: dndRow.implicitWidth + 16
+					implicitHeight: 28
+					radius: Theme.roundingElement
+					color: dndArea.containsMouse ? Theme.bgHover : (Notifications.dnd ? Theme.selectionBg : "transparent")
+					border.color: Notifications.dnd ? Theme.warning : Theme.border
+					border.width: 1
+
+					Behavior on color { ColorAnimation { duration: 120 } }
+					Behavior on border.color { ColorAnimation { duration: 120 } }
+
+					RowLayout {
+						id: dndRow
+						anchors.centerIn: parent
+						spacing: 6
+
+						Text {
+							text: Notifications.dnd ? "󰂛" : "󰂚"
+							font.family: Theme.fontFamily
+							font.pixelSize: 14
+							font.bold: true
+							color: Notifications.dnd ? Theme.warning : Theme.textDim
+						}
+
+						Text {
+							text: "DND"
+							font.family: Theme.fontMono
+							font.pixelSize: Theme.fontSizeSmall
+							font.bold: Notifications.dnd
+							color: Notifications.dnd ? Theme.warning : Theme.textDim
+						}
+					}
+
 					MouseArea {
+						id: dndArea
 						anchors.fill: parent
+						hoverEnabled: true
+						cursorShape: Qt.PointingHandCursor
 						onClicked: Notifications.toggleDnd()
 					}
 				}
 
+				// Clear all button
 				Rectangle {
-					implicitWidth: clearLabel.implicitWidth + 20
+					visible: Notifications.history.length > 0
+					implicitWidth: clearRow.implicitWidth + 16
 					implicitHeight: 28
-					color: Theme.bgCard
-					border.color: Theme.border
-					border.width: 1
 					radius: Theme.roundingElement
-					Text {
-						id: clearLabel
+					color: clearArea.containsMouse ? Theme.bgHover : "transparent"
+					border.color: clearArea.containsMouse ? Theme.textDim : Theme.border
+					border.width: 1
+
+					Behavior on color { ColorAnimation { duration: 120 } }
+
+					RowLayout {
+						id: clearRow
 						anchors.centerIn: parent
-						text: "Clear"
-						font.family: Theme.fontMono
-						font.pointSize: Theme.fontSizeSmall
-						color: Theme.textDim
+						spacing: 5
+
+						Text {
+							text: "󰎟"
+							font.family: Theme.fontFamily
+							font.pixelSize: 14
+							color: clearArea.containsMouse ? Theme.textMain : Theme.textDim
+						}
+
+						Text {
+							text: "Clear all"
+							font.family: Theme.fontMono
+							font.pixelSize: Theme.fontSizeSmall
+							color: clearArea.containsMouse ? Theme.textMain : Theme.textDim
+						}
 					}
+
 					MouseArea {
+						id: clearArea
 						anchors.fill: parent
+						hoverEnabled: true
+						cursorShape: Qt.PointingHandCursor
 						onClicked: Notifications.clear()
 					}
 				}
 
-				Text {
-					text: "✕"
-					font.pixelSize: 14
-					color: Theme.textDim
+				// Close (✕) button
+				Rectangle {
+					implicitWidth: 28
+					implicitHeight: 28
+					radius: Theme.roundingElement
+					color: closeCenterArea.containsMouse ? Theme.bgHover : "transparent"
+					border.color: closeCenterArea.containsMouse ? Theme.textDim : Theme.border
+					border.width: 1
+
+					Behavior on color { ColorAnimation { duration: 120 } }
+
+					Text {
+						anchors.centerIn: parent
+						text: "✕"
+						font.pixelSize: 13
+						color: closeCenterArea.containsMouse ? Theme.critical : Theme.textDim
+					}
+
 					MouseArea {
+						id: closeCenterArea
 						anchors.fill: parent
-						onClicked: Notifications.toggle()
+						hoverEnabled: true
+						cursorShape: Qt.PointingHandCursor
+						onClicked: Notifications.closeCenter()
 					}
 				}
 			}
 
+			// Subtle 1px separator
 			Rectangle {
 				Layout.fillWidth: true
 				Layout.preferredHeight: 1
 				color: Theme.border
 			}
 
+			// ─── Notification List ──────────────────────────────────────
 			ListView {
 				id: centerList
 				visible: Notifications.history.length > 0
@@ -198,179 +310,257 @@ PanelWindow {
 				spacing: 8
 				model: Notifications.history
 
-			delegate: Rectangle {
-				id: entry
-				required property var modelData
-				property var snap: modelData
-				property bool critical: snap.urgency === NotificationUrgency.Critical
-				// Action buttons stay visible only while the live
-				// notification still exists (history entries outlive it).
-				// The "default" action is not a button: body clicks invoke it.
-				readonly property var live: Notifications.liveById(snap.id)
-				readonly property var actionEntries: {
-					var t = entry.live;
-					var out = [];
-					if (!t || !t.actions)
+				ScrollBar.vertical: ScrollBar {
+					active: true
+					policy: ScrollBar.AsNeeded
+					contentItem: Rectangle {
+						implicitWidth: 4
+						radius: Theme.roundingSubtle
+						color: parent.hovered ? Theme.textDim : Theme.border
+					}
+				}
+
+				delegate: Item {
+					id: entryWrap
+					required property var modelData
+					property var snap: modelData
+					property bool critical: snap.urgency === NotificationUrgency.Critical
+					property bool dismissing: false
+					readonly property var live: Notifications.liveById(snap.id)
+					readonly property var actionEntries: {
+						var t = entryWrap.live;
+						var out = [];
+						if (!t || !t.actions)
+							return out;
+						for (var i = 0; i < t.actions.length; i++) {
+							if (t.actions[i].identifier === "default")
+								continue;
+							out.push({
+								identifier: t.actions[i].identifier || "",
+								text: t.actions[i].text || "Action",
+								snapId: snap.id
+							});
+						}
 						return out;
-					for (var i = 0; i < t.actions.length; i++) {
-						if (t.actions[i].identifier === "default")
-							continue;
-						out.push({
-							identifier: t.actions[i].identifier || "",
-							text: t.actions[i].text || "Action",
-							snapId: snap.id
-						});
-					}
-					return out;
-				}
-
-				width: ListView.view.width
-				implicitHeight: Math.max(cardRow.implicitHeight, 40) + Theme.notifPadV * 2
-				color: rowArea.containsMouse ? Theme.bgHover : Theme.bgCard
-				border.color: entry.critical ? Theme.critical : Theme.border
-				border.width: 1
-				radius: Theme.roundingElement
-
-				Behavior on color {
-					ColorAnimation { duration: 120 }
-				}
-
-				// Clicking the body invokes the default action (SwayNC parity).
-				MouseArea {
-					id: rowArea
-					anchors.fill: parent
-					hoverEnabled: true
-					enabled: entry.live
-					onClicked: Notifications.activate(entry.snap.id)
-				}
-
-				Rectangle {
-					visible: parent.critical
-					anchors.top: parent.top
-					anchors.bottom: parent.bottom
-					anchors.left: parent.left
-					anchors.leftMargin: Theme.borderSize
-					width: 3
-					color: Theme.critical
-				}
-
-				RowLayout {
-					id: cardRow
-					anchors.left: parent.left
-					anchors.right: parent.right
-					anchors.top: parent.top
-					anchors.leftMargin: Theme.notifPadH
-					anchors.rightMargin: Theme.notifPadH
-					anchors.topMargin: Theme.notifPadV
-					anchors.bottomMargin: Theme.notifPadV
-					spacing: 12
-
-					NotificationPicture {
-						id: centerPic
-						image: entry.snap.image || ""
-						appIcon: entry.snap.appIcon || ""
-						size: 48
-						Layout.preferredWidth: centerPic.visible ? 48 : 0
-						Layout.preferredHeight: centerPic.visible ? 48 : 0
-						Layout.alignment: Qt.AlignTop
 					}
 
-					ColumnLayout {
-						id: centerBody
-						Layout.fillWidth: true
-						spacing: 4
+					width: ListView.view.width
+					implicitHeight: dismissing ? 0 : cardBox.implicitHeight
+					clip: true
 
-						RowLayout {
-							Layout.fillWidth: true
-							Text {
-								Layout.fillWidth: true
-								text: entry.snap.appName || ""
-								font.family: Theme.fontMono
-								font.pointSize: Theme.fontSizeSmall
-								font.bold: true
-								color: Theme.textDim
-								elide: Text.ElideRight
-								visible: text !== ""
-							}
-							Text {
-								text: Qt.formatDateTime(new Date(entry.snap.time), "hh:mm")
-								font.family: Theme.fontMono
-								font.pointSize: Theme.fontSizeSmall
-								color: Theme.textMuted
-							}
-						}
-						Text {
-							Layout.fillWidth: true
-							text: entry.snap.summary || ""
-							font.family: Theme.fontFamily
-							font.pixelSize: Theme.fontSize
-							font.bold: true
-							color: Theme.textMain
-							wrapMode: Text.WordWrap
-							visible: text !== ""
-						}
-						Text {
-							Layout.fillWidth: true
-							text: entry.snap.body || ""
-							font.family: Theme.fontFamily
-							font.pixelSize: Theme.fontSizeSmall + 1
-							color: Theme.textDim
-							wrapMode: Text.WordWrap
-							maximumLineCount: 6
-							elide: Text.ElideRight
-							textFormat: Text.PlainText
-							visible: text !== ""
-						}
-						// Actions share one row instead of stacking, and
-						// only while the live notification still exists.
-						RowLayout {
-							visible: entry.actionEntries.length > 0
-							Layout.fillWidth: true
-							spacing: 6
-							Repeater {
-								model: entry.actionEntries
-								delegate: NotificationActionButton {
-									required property var modelData
-									Layout.fillWidth: true
-									notifId: modelData.snapId
-									identifier: modelData.identifier
-									label: modelData.text
+					Behavior on implicitHeight {
+						NumberAnimation {
+							duration: 200
+							easing.type: Easing.OutCubic
+							onRunningChanged: {
+								if (!running && entryWrap.dismissing) {
+									Notifications.dismissEntry(entryWrap.snap.id);
 								}
 							}
 						}
 					}
 
-					// Per-card close: works on live notifications and
-					// history-only entries alike.
-					Text {
-						Layout.alignment: Qt.AlignTop
-						text: "✕"
-						font.pixelSize: 16
-						color: closeArea.containsMouse ? Theme.critical : Theme.textMuted
+					Rectangle {
+						id: cardBox
+						anchors.left: parent.left
+						anchors.right: parent.right
+						anchors.top: parent.top
+						implicitHeight: Math.max(centerBody.implicitHeight + Theme.notifPadV * 2, centerPic.size + Theme.notifPadV * 2)
+						color: rowArea.containsMouse ? Theme.bgHover : Theme.bgMain
+						border.color: entryWrap.critical ? Theme.critical : (rowArea.containsMouse ? Theme.textDim : Theme.border)
+						border.width: 1
+						radius: Theme.roundingElement
+						clip: true
 
+						opacity: entryWrap.dismissing ? 0.0 : 1.0
+						transform: Translate {
+							x: entryWrap.dismissing ? 60 : 0
+							Behavior on x {
+								NumberAnimation { duration: 180; easing.type: Easing.OutCubic }
+							}
+						}
+
+						Behavior on opacity {
+							NumberAnimation { duration: 180; easing.type: Easing.OutCubic }
+						}
+						Behavior on color {
+							ColorAnimation { duration: 120 }
+						}
+						Behavior on border.color {
+							ColorAnimation { duration: 120 }
+						}
+
+						// Clicking the card body invokes the default action.
 						MouseArea {
-							id: closeArea
+							id: rowArea
 							anchors.fill: parent
-							anchors.margins: -10
 							hoverEnabled: true
-							onClicked: Notifications.dismissEntry(entry.snap.id)
+							cursorShape: Qt.PointingHandCursor
+							onClicked: Notifications.activate(entryWrap.snap.id)
+						}
+
+						// Critical urgency indicator strip on left
+						Rectangle {
+							visible: entryWrap.critical
+							anchors.top: parent.top
+							anchors.bottom: parent.bottom
+							anchors.left: parent.left
+							width: 3
+							color: Theme.critical
+							radius: Theme.roundingSubtle
+							z: 3
+						}
+
+						// Fixed-size picture on the left, vertically centered
+						NotificationPicture {
+							id: centerPic
+							anchors.left: parent.left
+							anchors.leftMargin: (entryWrap.critical ? 3 : 0) + Theme.notifPadH
+							anchors.verticalCenter: parent.verticalCenter
+							size: 64
+							image: entryWrap.snap.image || ""
+							appIcon: entryWrap.snap.appIcon || ""
+							appName: entryWrap.snap.appName || ""
+							z: 1
+						}
+
+						ColumnLayout {
+							id: centerBody
+							anchors.left: centerPic.right
+							anchors.leftMargin: 12
+							anchors.right: parent.right
+							anchors.rightMargin: Theme.notifPadH
+							anchors.verticalCenter: parent.verticalCenter
+							spacing: 3
+							z: 2
+
+								RowLayout {
+									Layout.fillWidth: true
+									spacing: 8
+
+									Text {
+										Layout.fillWidth: true
+										text: entryWrap.snap.appName || "Notification"
+										font.family: Theme.fontMono
+										font.pointSize: Theme.fontSizeSmall
+										font.bold: true
+										color: entryWrap.critical ? Theme.critical : Theme.accentBlue
+										elide: Text.ElideRight
+									}
+
+									Text {
+										text: Qt.formatDateTime(new Date(entryWrap.snap.time), "hh:mm")
+										font.family: Theme.fontMono
+										font.pointSize: Theme.fontSizeSmall - 1
+										color: Theme.textMuted
+									}
+
+									// Per-card close button
+									Rectangle {
+										implicitWidth: 20
+										implicitHeight: 20
+										radius: Theme.roundingElement
+										color: closeItemArea.containsMouse ? Theme.bgCard : "transparent"
+
+										Text {
+											anchors.centerIn: parent
+											text: "✕"
+											font.pixelSize: 11
+											color: closeItemArea.containsMouse ? Theme.critical : Theme.textMuted
+										}
+
+										MouseArea {
+											id: closeItemArea
+											anchors.fill: parent
+											hoverEnabled: true
+											cursorShape: Qt.PointingHandCursor
+											onClicked: {
+												entryWrap.dismissing = true;
+											}
+										}
+									}
+								}
+
+								Text {
+									Layout.fillWidth: true
+									text: entryWrap.snap.summary || ""
+									font.family: Theme.fontFamily
+									font.pixelSize: Theme.fontSize - 1
+									font.bold: true
+									color: Theme.textMain
+									wrapMode: Text.WordWrap
+									visible: text !== ""
+								}
+
+								Text {
+									Layout.fillWidth: true
+									text: entryWrap.snap.body || ""
+									font.family: Theme.fontFamily
+									font.pixelSize: Theme.fontSizeSmall
+									color: Theme.textDim
+									wrapMode: Text.WordWrap
+									maximumLineCount: 5
+									elide: Text.ElideRight
+									textFormat: Text.PlainText
+									visible: text !== ""
+								}
+
+								// Action buttons row
+								RowLayout {
+									visible: entryWrap.actionEntries.length > 0
+									Layout.fillWidth: true
+									spacing: 6
+									Repeater {
+										model: entryWrap.actionEntries
+										delegate: NotificationActionButton {
+											required property var modelData
+											Layout.fillWidth: true
+											notifId: modelData.snapId
+											identifier: modelData.identifier
+											label: modelData.text
+										}
+									}
+								}
+							}
 						}
 					}
 				}
-			}
-			}
 
-			Text {
+			// ─── Empty State ────────────────────────────────────────────
+			Item {
 				visible: Notifications.history.length === 0
 				Layout.fillWidth: true
 				Layout.fillHeight: true
-				horizontalAlignment: Text.AlignHCenter
-				verticalAlignment: Text.AlignVCenter
-				text: "󰂜\nNo notifications"
-				font.family: Theme.fontMono
-				font.pointSize: Theme.fontSizeBar
-				color: Theme.textMuted
-				lineHeight: 1.6
+
+				ColumnLayout {
+					anchors.centerIn: parent
+					spacing: 10
+
+					Text {
+						Layout.alignment: Qt.AlignHCenter
+						text: "󰂜"
+						font.family: Theme.fontFamily
+						font.pixelSize: 44
+						color: Theme.textMuted
+					}
+
+					Text {
+						Layout.alignment: Qt.AlignHCenter
+						text: "No notifications"
+						font.family: Theme.fontFamily
+						font.pixelSize: Theme.fontSize
+						font.bold: true
+						color: Theme.textDim
+					}
+
+					Text {
+						Layout.alignment: Qt.AlignHCenter
+						text: "You're all caught up"
+						font.family: Theme.fontFamily
+						font.pixelSize: Theme.fontSizeSmall
+						color: Theme.textMuted
+					}
+				}
 			}
 		}
 	}
