@@ -3,9 +3,10 @@
 
 return {
     rounding = {
-        window = 0,
-        element = 0,
-        subtle = 0,
+        window = 8,
+        element = 6,
+        subtle = 3,
+        power = 2.0,
     },
     border = {
         size = 2,
@@ -17,6 +18,7 @@ return {
     opacity = {
         active = 1.0,
         inactive = 0.92,
+        dim_special = 0.2,
     },
     font = {
         family = "JetBrainsMono Nerd Font Propo",

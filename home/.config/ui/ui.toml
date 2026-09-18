@@ -10,9 +10,10 @@
 # ==============================================================================
 
 [rounding]
-window = 0          # Hyprland window corners (0 for sharp, 8-12 for rounded)
-element = 0         # Buttons, notifications, menu elements, tooltips
-subtle = 0          # Tooltips, scrollbars, switches
+window = 8          # Hyprland window corners (0 for sharp, 8-12 for rounded)
+element = 6         # Buttons, notifications, menu elements, tooltips
+subtle = 3          # Tooltips, scrollbars, switches
+power = 2.0         # Corner curve power (2.0 = smooth circle, 4.0 = squircle)
 
 [border]
 size = 2            # Border thickness in pixels (Hyprland, Quickshell, Hyprlock)
@@ -35,6 +36,7 @@ menu_item = 8                # Quickshell menu item padding (px)
 [opacity]
 active = 1.0        # Active window opacity in Hyprland
 inactive = 0.92     # Inactive window opacity in Hyprland
+dim_special = 0.20  # Dimming for special workspace in Hyprland & backdrops in Quickshell
 
 [hyprlock]
 # Lockscreen backdrop built from a blurred screenshot. Values land in

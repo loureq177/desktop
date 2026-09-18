@@ -22,15 +22,15 @@ import subprocess
 from pathlib import Path
 
 def hex_to_rgb(hex_str):
-    hex_str = hex_str.lstrip('#')
+    hex_str = hex_str.strip().lstrip('#')
     return tuple(int(hex_str[i:i+2], 16) for i in (0, 2, 4))
 
 def hex_to_hypr_rgba(hex_str, alpha="ee"):
-    hex_str = hex_str.lstrip('#')
+    hex_str = hex_str.strip().lstrip('#')
     return f"rgba({hex_str}{alpha})"
 
 def hex_to_ly(hex_str, style="00"):
-    return f"0x{style}{hex_str.lstrip('#').lower()}"
+    return f"0x{style}{hex_str.strip().lstrip('#').lower()}"
 
 def get_config_path():
     candidates = [
@@ -48,7 +48,7 @@ def safe_write(path: Path, content: str, check_mode: bool = False) -> bool:
     target = path.resolve(strict=False)
     if check_mode:
         if not target.exists():
-            print(f"  \033[31m✗\033[0m Missing file: {target}")
+            print(f"  \033[31m✗\033[0m Missing file: {path} (resolves to {target})")
             return False
         if target.read_text() != content:
             print(f"  \033[31m✗\033[0m Out of sync with ui.toml: {target}")
@@ -102,6 +102,15 @@ def main():
     validate_colors(c, "colors")
     validate_colors(ly, "ly", keys=("matrix_fg", "tty_purple_dark", "tty_cyan_bright", "tty_white"))
 
+    # Normalize: validation allows surrounding whitespace (friendly), so strip
+    # it here so every emit site (Lua, QML, shell, conf, VT palette) agrees.
+    # Without this, direct interpolations like bg_main=" #0d1117 " emit garbage
+    # while helpers that strip would emit clean values.
+    c = {k: (v.strip() if isinstance(v, str) else v) for k, v in c.items()}
+    for _k in ("matrix_fg", "tty_purple_dark", "tty_cyan_bright", "tty_white"):
+        if isinstance(ly.get(_k), str):
+            ly[_k] = ly[_k].strip()
+
     def lua_escape(value):
         # Escape for double-quoted Lua (and QML) string literals.
         return (
@@ -129,10 +138,55 @@ def main():
 
     validate_names(fnt, "font", ("family", "mono", "ui"))
     validate_names(thm, "theme", ("cursor", "icon", "gtk"))
+    # $font in hypr/ui.conf is unquoted: '#' starts a Hypr comment and would
+    # truncate the value (Lua/QML use lua_escape and stay intact). Fail fast.
+    _fam = fnt.get("family")
+    if isinstance(_fam, str) and "#" in _fam:
+        raise SystemExit(
+            f"\033[31m[ERROR]\033[0m ui.toml: [font] family must not contain '#'"
+            f" (truncated as comment in hypr/ui.conf), got {_fam!r}."
+        )
+
+    def _fail_num(label, key, got, want):
+        raise SystemExit(
+            f"\033[31m[ERROR]\033[0m ui.toml: [{label}] {key} must be {want}, got {got!r}."
+        )
+
+    def validate_ints(table, label, keys):
+        for key in keys:
+            v = table.get(key)
+            if v is None:
+                continue
+            if isinstance(v, bool) or not isinstance(v, int):
+                _fail_num(label, key, v, "an integer")
+
+    def validate_nums(table, label, keys):
+        for key in keys:
+            v = table.get(key)
+            if v is None:
+                continue
+            if isinstance(v, bool) or not isinstance(v, (int, float)):
+                _fail_num(label, key, v, "a number")
+
+    # Fail fast before any writes: raw interpolation below would otherwise emit
+    # broken Lua/QML/conf (e.g. `size = evil`) with exit 0.
+    validate_ints(r, "rounding", ("window", "element", "subtle"))
+    validate_nums(r, "rounding", ("power",))
+    validate_ints(b, "border", ("size",))
+    validate_ints(s, "spacing", ("gaps_in", "gaps_out", "bar_height", "bar_spacing", "bar_margin_x", "bar_margin_y"))
+    validate_ints(p, "padding", ("menu_card", "menu_item", "bar_pad", "notif_pad_v", "notif_pad_h"))
+    validate_nums(o, "opacity", ("active", "inactive", "dim_special"))
+    validate_ints(fnt, "font", ("size_bar", "size_menu", "size_notif", "size_cursor", "size_grid", "size_search", "size_bar_icon"))
+    validate_ints(launcher, "launcher", ("width", "height"))
+    validate_ints(notif, "notifications", ("width", "top_margin"))
+    validate_ints(hl_lock, "hyprlock", ("blur_size", "blur_passes"))
+    validate_nums(hl_lock, "hyprlock", ("noise", "contrast", "brightness", "vibrancy", "vibrancy_darkness"))
+    validate_ints(ly, "ly", ("frame_delay",))
 
     r_win = r.get("window", 0)
     r_elem = r.get("element", 0)
     r_subtle = r.get("subtle", 0)
+    r_power = r.get("power", 2.0)
     b_size = b.get("size", 2)
 
     config_dir = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
@@ -146,6 +200,7 @@ return {{
         window = {r_win},
         element = {r_elem},
         subtle = {r_subtle},
+        power = {r_power},
     }},
     border = {{
         size = {b_size},
@@ -157,6 +212,7 @@ return {{
     opacity = {{
         active = {o.get("active", 1.0)},
         inactive = {o.get("inactive", 0.75)},
+        dim_special = {o.get("dim_special", 0.20)},
     }},
     font = {{
         family = "{lua_escape(fnt.get("family", "JetBrainsMono Nerd Font Propo"))}",
@@ -199,6 +255,7 @@ return {{
 
 $font = {fnt.get("family", "JetBrainsMono Nerd Font Propo")}
 $rounding = {r_win}
+$rounding_power = {r_power}
 $outline_thickness = {b_size}
 
 $accent_blue = {hex_to_hypr_rgba(c.get("accent_blue", "#58a6ff"))}
@@ -308,6 +365,21 @@ export UI_FZF_THEME="{fzf_theme}"
             "cmatrix_head_col": _ly_idx(8, bold=True),
             "gameoflife_fg": _ly_idx(5),
         }
+    if not ly_config.exists():
+        # Seed a missing config from the repo template so `generate` converges
+        # to what `--check` expects. Without this, generate prints [OK] while
+        # check can never pass (generate never creates the file).
+        _ly_template = Path.home() / ".files" / "archlinux" / ".config" / "ly" / "config.ini"
+        if not check_mode and _ly_template.is_file():
+            try:
+                _ly_dest = ly_config.resolve(strict=False) if (ly_config.is_symlink() or ly_config.exists()) else ly_config
+                # Don't overwrite the template with itself (XDG_CONFIG_HOME points into repo).
+                if _ly_dest.resolve(strict=False) != _ly_template.resolve(strict=False):
+                    _ly_dest.parent.mkdir(parents=True, exist_ok=True)
+                    _ly_dest.write_text(_ly_template.read_text())
+                    print(f"  \033[32m✓\033[0m Seeded Ly config from: {_ly_template}")
+            except OSError as exc:
+                raise SystemExit(f"\033[31m[ERROR]\033[0m cannot seed {ly_config}: {exc}") from exc
     if ly_config.exists():
         target = ly_config.resolve()
         txt = target.read_text()
@@ -347,6 +419,11 @@ export UI_FZF_THEME="{fzf_theme}"
         # reports success while a whole generated target is absent.
         ly_in_sync = False
         print(f"  \033[31m✗\033[0m Missing file: {ly_config}")
+        if not check_mode:
+            raise SystemExit(
+                f"\033[31m[ERROR]\033[0m {ly_config} not found and no repo template to seed from. "
+                "Stow the archlinux package or create the file, then re-run 'apply-ui'."
+            )
 
     # 5. Ly startup script: remap the 16-color Linux VT palette to the theme.
     # Executed by ly via start_cmd before the TTY is taken over. This is the
@@ -354,7 +431,7 @@ export UI_FZF_THEME="{fzf_theme}"
     # these slots by index, see section 4). Under kmscon the TERM guard below
     # skips it, as kmscon renders truecolor directly.
     def _vt(hex_str):
-        return hex_str.lstrip("#").lower()
+        return hex_str.strip().lstrip("#").lower()
 
     _tty = [
         bg_main,  # P0 black -> theme background (colormix base, box bg)
@@ -392,7 +469,11 @@ fi
     _startup_path = config_dir / "ly" / "startup.sh"
     if check_mode:
         _resolved = _startup_path.resolve() if _startup_path.exists() or _startup_path.is_symlink() else _startup_path
-        if not _resolved.exists() or _resolved.read_text() != ly_startup:
+        if (
+            not _resolved.exists()
+            or _resolved.read_text() != ly_startup
+            or not os.access(_resolved, os.X_OK)
+        ):
             print(f"  \033[31m✗\033[0m Out of sync with ui.toml: {_resolved}")
             ly_startup_in_sync = False
         else:
@@ -542,10 +623,13 @@ Singleton {{
 	readonly property color bgCardColor: bgCard
 	readonly property color barStripColor: Qt.rgba(bgCardColor.r, bgCardColor.g, bgCardColor.b, 0.85)
 	readonly property color overlayColor: Qt.rgba(bgCardColor.r, bgCardColor.g, bgCardColor.b, 0.94)
+	readonly property real backdropDim: {o.get("dim_special", 0.20)}
+	readonly property color backdropColor: Qt.rgba(0, 0, 0, backdropDim)
 
 	readonly property int borderSize: {b_size}
 	readonly property int roundingWindow: {r_win}
 	readonly property int roundingElement: {r_elem}
+	readonly property int roundingSubtle: {r_subtle}
 	readonly property int paddingCard: {int(p.get("menu_card", 16))}
 	readonly property int paddingItem: {int(p.get("menu_item", 8))}
 	readonly property int windowWidth: {launcher.get("width", 960)}

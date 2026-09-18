@@ -130,7 +130,7 @@ hl.on("hyprland.start", function()
 		"wl-paste --type image/png --watch cliphist -max-items 10 store",
 		"wpctl set-volume @DEFAULT_AUDIO_SOURCE@ 0.25",
 		"swaybg -i ~/.config/hypr/wallpapers/hyprland.png",
-		"quickshell -d",
+		"QT_QPA_PLATFORMTHEME=gtk3 quickshell -d",
 		"hyprsunset",
 		"hyprpm reload -n",
 	}
@@ -503,11 +503,12 @@ hl.config({
 	},
 	decoration = {
 		rounding = ui.rounding.window,
-		rounding_power = 0,
+		rounding_power = (ui.rounding and ui.rounding.power) or 2.0,
 		active_opacity = ui.opacity.active,
 		inactive_opacity = ui.opacity.inactive,
 		dim_inactive = true,
 		dim_strength = 0.15,
+		dim_special = ui.opacity.dim_special or 0.20,
 		shadow = {
 			range = 16,
 			render_power = 4,

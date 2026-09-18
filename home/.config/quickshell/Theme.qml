@@ -25,10 +25,13 @@ Singleton {
 	readonly property color bgCardColor: bgCard
 	readonly property color barStripColor: Qt.rgba(bgCardColor.r, bgCardColor.g, bgCardColor.b, 0.85)
 	readonly property color overlayColor: Qt.rgba(bgCardColor.r, bgCardColor.g, bgCardColor.b, 0.94)
+	readonly property real backdropDim: 0.2
+	readonly property color backdropColor: Qt.rgba(0, 0, 0, backdropDim)
 
 	readonly property int borderSize: 2
-	readonly property int roundingWindow: 0
-	readonly property int roundingElement: 0
+	readonly property int roundingWindow: 8
+	readonly property int roundingElement: 6
+	readonly property int roundingSubtle: 3
 	readonly property int paddingCard: 16
 	readonly property int paddingItem: 8
 	readonly property int windowWidth: 960
