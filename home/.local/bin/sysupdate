@@ -10,9 +10,17 @@ step() {
     "$@" || true
 }
 
+# Record position in pacman.log to detect critical updates during this run
+pacman_log_start=0
+if [ -f /var/log/pacman.log ]; then
+    pacman_log_start=$(wc -l < /var/log/pacman.log 2>/dev/null || echo 0)
+fi
+
 echo "==> Updating system & AUR packages..."
 if command -v paru >/dev/null 2>&1; then
-    paru -Syu --devel || true
+    paru -Syu --devel --noconfirm --skipreview --sudo pkexec || true
+elif command -v pacman >/dev/null 2>&1; then
+    pkexec pacman -Syu --noconfirm || true
 fi
 
 echo "\n==> Updating Zsh plugins (zinit)..."
@@ -42,21 +50,59 @@ if command -v pacdiff >/dev/null 2>&1; then
     yes s | DIFFPROG=true pacdiff -s >/dev/null 2>&1 || true
 
     # 2. Check if files with actual changes remain
-    pacnew_files=$(pacdiff -o || true)
+    pacnew_files=$(pacdiff -o 2>/dev/null || true)
     if [ -n "$pacnew_files" ]; then
         echo "⚠️  Detected .pacnew/.pacsave files requiring attention:"
         echo "$pacnew_files"
-        echo
-        read -r "reply?Do you want to merge differences with pacdiff (nvim) now? [y/N] " || reply="n"
-        if [[ "$reply" =~ ^[Yy]$ ]]; then
-            DIFFPROG="nvim -d" pacdiff -s
-        fi
+        echo "\nRun 'DIFFPROG=\"nvim -d\" pacdiff -s' to review and merge."
+        command -v notify-send >/dev/null 2>&1 && notify-send \
+            --app-name="System Update" \
+            --icon="dialog-warning" \
+            --urgency=normal \
+            "Pacnew Files Detected" "Configuration merge needed for:\n$pacnew_files" || true
     else
         echo "✓ No pending .pacnew files."
     fi
 fi
 
-# Check if reboot is recommended (kernel modules changed)
+# Detect if restart or relogin is needed
+reboot_needed=false
+reboot_reasons=()
+
 if [ ! -d "/usr/lib/modules/$(uname -r)" ]; then
-    echo "\n⚠️  Running kernel ($(uname -r)) modules not found on disk. A reboot is recommended!"
+    reboot_needed=true
+    reboot_reasons+=("Running kernel ($(uname -r)) modules not found on disk")
 fi
+
+if [ -f /var/log/pacman.log ] && [ "$pacman_log_start" -gt 0 ]; then
+    upgraded_critical=$(tail -n +$((pacman_log_start + 1)) /var/log/pacman.log 2>/dev/null \
+        | grep -E "\[ALPM\] upgraded (linux|linux-zen|linux-lts|nvidia|nvidia-open|mesa|systemd|glibc|amd-ucode|intel-ucode|linux-firmware)" \
+        | sed -E 's/.*upgraded ([^ ]+) .*/\1/' \
+        | sort -u \
+        | tr '\n' ' ' || true)
+    if [ -n "$upgraded_critical" ]; then
+        reboot_needed=true
+        reboot_reasons+=("Updated core packages: ${upgraded_critical% }")
+    fi
+fi
+
+if [ "$reboot_needed" = true ]; then
+    echo "\n⚠️  A system restart is recommended:"
+    for reason in "${reboot_reasons[@]}"; do
+        echo "   • $reason"
+    done
+    command -v notify-send >/dev/null 2>&1 && notify-send \
+        --app-name="System Update" \
+        --icon="system-reboot" \
+        --urgency=critical \
+        "Reboot Recommended" "$(printf '%s\n' "${reboot_reasons[@]}")" || true
+else
+    echo "\n✓ System update complete. No reboot required."
+    command -v notify-send >/dev/null 2>&1 && notify-send \
+        --app-name="System Update" \
+        --icon="archlinux" \
+        --urgency=normal \
+        "Update Complete" "System update completed successfully." || true
+fi
+
+sleep 3

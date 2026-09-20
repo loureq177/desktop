@@ -79,7 +79,7 @@ if pkill -INT -x wf-recorder; then
         fi
     else
         play_sound dialog-warning
-        notify-send --app-name "Screen Record" -t 5000 "Screen Record" -i "camera-video" "Recording stopped. No file found."
+        notify-send --app-name "Screen Record" -t 5000 "Recording Stopped" -i "camera-video" "Recording stopped. No file found."
     fi
     exit 0
 fi
@@ -97,7 +97,7 @@ elif [ "$MODE" = "window" ]; then
     GEOM=$(hyprctl activewindow -j 2>/dev/null | jq -r 'select(.at != null and .size != null) | "\(.at[0]),\(.at[1]) \(.size[0])x\(.size[1])"' 2>/dev/null || true)
     if [[ -z "${GEOM:-}" || "$GEOM" == "null" ]]; then
         play_sound dialog-warning
-        notify-send --app-name "Screen Record" "Screen Record" "No active window found."
+        notify-send --app-name "Screen Record" -i "dialog-warning" "No Window Found" "Unable to detect active window geometry."
         exit 0
     fi
     TARGET_ARGS=(-g "$GEOM")

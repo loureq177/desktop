@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Screenshots via grim/slurp/hyprpicker with Satty editor integration. Usage: [region|window|output]
+# Screenshots via grim/slurp/hyprpicker with Satty editor integration. Usage: [region|window|fullscreen|output]
 set -euo pipefail
 
 # Source centralized UI variables if available
@@ -62,23 +62,25 @@ if [ "${1:-region}" = "region" ]; then
         exit 0
     fi
 
-    grim -g "$GEOM" "$FILE"
+    timeout 5 grim -g "$GEOM" "$FILE"
 elif [ "${1:-}" = "window" ]; then
     GEOM=$(hyprctl activewindow -j 2>/dev/null | jq -r 'select(.at != null and .size != null) | "\(.at[0]),\(.at[1]) \(.size[0])x\(.size[1])"' 2>/dev/null || true)
     if [[ -z "${GEOM:-}" || "$GEOM" == "null" ]]; then
         play_sound dialog-warning
-        notify-send --app-name "Screenshot" "Screenshot" "No active window found."
+        notify-send --app-name "Screenshot" --icon "dialog-warning" "No Window Found" "Unable to detect active window geometry."
         exit 0
     fi
-    grim -g "$GEOM" "$FILE"
-else
+    timeout 5 grim -g "$GEOM" "$FILE"
+elif [ "${1:-}" = "fullscreen" ] || [ "${1:-}" = "output" ] || [ "${1:-}" = "full" ]; then
     FOCUSED_OUTPUT=$(hyprctl monitors -j 2>/dev/null | jq -r '.[] | select(.focused) | .name' 2>/dev/null || true)
-    if [[ -z "${FOCUSED_OUTPUT:-}" ]]; then
-        play_sound dialog-warning
-        notify-send --app-name "Screenshot" "Screenshot" "No focused output found."
-        exit 0
+    if [[ -n "${FOCUSED_OUTPUT:-}" ]]; then
+        timeout 5 grim -o "$FOCUSED_OUTPUT" "$FILE" || timeout 5 grim "$FILE"
+    else
+        timeout 5 grim "$FILE"
     fi
-    grim -o "$FOCUSED_OUTPUT" "$FILE"
+else
+    echo "screenshot.sh: unknown mode '${1:-}' (want region|window|fullscreen|output)" >&2
+    exit 2
 fi
 
 if [ ! -f "$FILE" ]; then
@@ -92,7 +94,7 @@ wl-copy -t image/png <"$FILE"
 
 # One action, not two identical buttons: "default" is also what a click on the
 # notification body invokes, so it covers both paths without a duplicate.
-ACTION=$(notify-send --app-name "Screenshot" -t 5000 "Screenshot" -i "$FILE" -A "default=Edit with Satty" "Screenshot saved and copied to clipboard.")
+ACTION=$(notify-send --app-name "Screenshot" -t 5000 "Captured" -i "$FILE" -A "default=Edit with Satty" "Saved and copied to clipboard.")
 
 if [ "$ACTION" = "default" ]; then
     satty --filename "$FILE" --fullscreen --output-filename "$FILE"

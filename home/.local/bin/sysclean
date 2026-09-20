@@ -136,24 +136,24 @@ if [ "$AUTO" = 1 ]; then
     skip_sudo
 else
     running_kernel=$(uname -r)
-for dir in /usr/lib/modules/*(N/); do
-    ver=$(basename "$dir")
-    dir="${dir%/}"
-    if [ "$ver" = "$running_kernel" ]; then
-        echo "  Keeping $ver (running kernel)"
-        continue
-    fi
-    # Probe the tree, not just the directory: pacman -Qo is exact-path based,
-    # so a trailing slash or a partially-registered tree makes it report "not
-    # owned" for modules an installed kernel package really does own. Deleting
-    # on that alone removes the modules of a bootable kernel.
-    if [ -e "$dir/modules.dep" ]; then
-        pacman -Qo "$dir/modules.dep" &>/dev/null && continue
-    fi
-    pacman -Qo "$dir" &>/dev/null && continue
-    echo "Removing orphaned modules directory: $dir"
-    sudo rm -rf "$dir"
-done
+    for dir in /usr/lib/modules/*(N/); do
+        ver=$(basename "$dir")
+        dir="${dir%/}"
+        if [ "$ver" = "$running_kernel" ]; then
+            echo "  Keeping $ver (running kernel)"
+            continue
+        fi
+        # Probe the tree, not just the directory: pacman -Qo is exact-path based,
+        # so a trailing slash or a partially-registered tree makes it report "not
+        # owned" for modules an installed kernel package really does own. Deleting
+        # on that alone removes the modules of a bootable kernel.
+        if [ -e "$dir/modules.dep" ]; then
+            pacman -Qo "$dir/modules.dep" &>/dev/null && continue
+        fi
+        pacman -Qo "$dir" &>/dev/null && continue
+        echo "Removing orphaned modules directory: $dir"
+        sudo rm -rf "$dir"
+    done
 fi
 
 echo "\nVacuuming systemd coredumps..."

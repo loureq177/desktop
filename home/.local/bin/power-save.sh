@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Toggles Hyprland power-save mode (refresh rate 60/165Hz, animations, blur, brightness, ghostty shader, opencode anims). Usage: [--status|--enable|--disable|--auto]
+# Toggles Hyprland power-save mode (refresh rate 60/165Hz, animations, blur, brightness, ghostty shader, opencode anims). Usage: [--status|--enable|--disable]
 set -euo pipefail
 
 STATE_FILE="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/powersave_mode"
@@ -80,8 +80,7 @@ _ghostty_shader() { # $1: on|off
     local want tmp
     want="$(_shader_target "$1")"
     [[ -f "$want" ]] || return 0
-    # Already in the wanted state and the link exists: nothing to do, and
-    # crucially no reload (this runs from the 1-minute --auto timer).
+    # Already in the wanted state and the link exists: nothing to do.
     if [[ -e "$GHOSTTY_SHADER" ]] && [[ "$(_shader_state)" == "$1" ]]; then
         return 0
     fi
@@ -116,21 +115,6 @@ _opencode_anims() { # $1: true|false (persists TUI animation state in kv.json fo
     fi
 }
 
-_on_battery() {
-    local f online
-    for f in /sys/class/power_supply/AC*/online /sys/class/power_supply/ADP*/online /sys/class/power_supply/ucsi-source-psy-*/online; do
-        [[ -f "$f" ]] || continue
-        read -r online <"$f" 2>/dev/null || continue
-        [[ "$online" == "1" ]] && return 1
-    done
-    local b
-    for b in /sys/class/power_supply/BAT*/status; do
-        [[ -f "$b" ]] || continue
-        grep -qx "Discharging" "$b" 2>/dev/null && return 0
-    done
-    return 1
-}
-
 _status() {
     if _is_active; then
         printf '%s\n' '{"text": "󰌪", "alt": "on", "class": "on", "tooltip": "Power Saving Mode: ON\n• Refresh rate: 60 Hz\n• Animations &amp; blur: Disabled\n• Ghostty shader: Disabled\n• OpenCode anims: Disabled\n• Brightness: Reduced (-20%)\n• Profile: Power-saver (Lenovo Quiet)\n\nClick to disable"}'
@@ -140,10 +124,6 @@ _status() {
 }
 
 _enable() {
-    # Called as "_enable --no-brightness" from _auto: the EC firmware already
-    # dims on power-source change, so touching brightness there too would
-    # double-step (the "jumping brightness" on battery). Manual toggles keep
-    # the brightness step.
     local with_brightness=true
     [[ "${1:-}" == "--no-brightness" ]] && with_brightness=false
 
@@ -205,30 +185,6 @@ _toggle() {
     fi
 }
 
-# Idempotent sync with actual power source; safe for timer polling.
-_auto() {
-    # Debounce: the power-supply sysfs state flaps briefly around plug/unplug
-    # (and BAT status can read "Unknown" mid-transition). Acting on a single
-    # sample toggles refresh rate / profile / brightness back and forth, which
-    # reads as jumping brightness. Require two agreeing samples.
-    local first=""
-    _on_battery && first="battery" || first="ac"
-    sleep 3
-    local second=""
-    _on_battery && second="battery" || second="ac"
-    [[ "$first" == "$second" ]] || return 0
-
-    if [[ "$second" == "battery" ]]; then
-        if ! _is_active; then
-            _enable --no-brightness
-        fi
-    else
-        if _is_active; then
-            _disable --no-brightness
-        fi
-    fi
-}
-
 # Self-seed: on a fresh clone the tracked ghostty config points at this link
 # before it exists. Cheap and idempotent; only ever flips on a real change.
 # Skipped for --status: status queries (e.g. bar polling) must be read-only.
@@ -244,6 +200,5 @@ case "${1:-}" in
 --disable)
     _disable
     ;;
---auto) _auto ;;
 *) _toggle ;;
 esac
