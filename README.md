@@ -24,7 +24,8 @@ mv ~/.config/starship.toml ~/.files/common/.config/starship/
 stow --restow --target ~ common
 
 # Restow configs after pulling changes
-stow --restow --target ~ common archlinux
+stow --restow --target ~ common
+stow --restow --target ~ archlinux
 ```
 
 ## Layout
@@ -43,9 +44,9 @@ macos/                  macOS-only configs
 
 All executable scripts live in `archlinux/.local/bin/`: session helpers
 (`screenshot.sh`, `ocr.sh`, `record-screen.sh`, `volume.sh`, `brightness.sh`,
-`caffeine-toggle.sh`, `power-save.sh`, `battery-status.sh` for hyprlock,
-`emoji-insert.sh`) and maintenance tools (`apply-ui`, `sysclean`, `sysupdate`,
-`check-updates`, `rclone_sync`, `bedtime.sh`).
+`touchpad.sh`, `caffeine-toggle.sh`, `power-save.sh`, `battery-status.sh` for hyprlock,
+`emoji-insert.sh`) and maintenance tools (`apply-ui`, `firefox-apply`, `sysclean`,
+`sysupdate`, `check-updates`, `rclone-sync`, `bedtime.sh`).
 
 ## UI Configuration & Theming
 

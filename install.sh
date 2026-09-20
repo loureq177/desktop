@@ -59,6 +59,9 @@ if [ "$OS" = "Linux" ]; then
         fi
     fi
 
+    _log_info "Applying common Stow configs..."
+    stow --verbose --restow --target ~ common
+
     _log_info "Applying Arch Linux Stow configs..."
     stow --verbose --restow --target ~ archlinux
 
@@ -77,9 +80,14 @@ if [ "$OS" = "Linux" ]; then
         "$HOME/.local/bin/apply-ui" --no-reload || _log_warn "Failed to apply UI styles."
     fi
 
+    if command -v firefox &>/dev/null && [ -x "$HOME/.local/bin/firefox-apply" ]; then
+        _log_info "Applying Firefox defaults..."
+        "$HOME/.local/bin/firefox-apply" || _log_warn "Failed to apply Firefox defaults."
+    fi
+
     if command -v systemctl &>/dev/null; then
         systemctl --user daemon-reload 2>/dev/null || true
-        # Enable every stowed user timer (check-updates, bedtime, rclone-sync, power-save-auto).
+        # Enable every stowed user timer (check-updates, bedtime, rclone-sync, sysclean).
         for timer in "$HOME"/.config/systemd/user/*.timer; do
             [ -e "$timer" ] || continue
             name="$(basename "$timer")"
@@ -94,21 +102,16 @@ elif [ "$OS" = "Darwin" ]; then
         _log_warn "Homebrew is not installed. Please install Homebrew first."
     fi
 
+    _log_info "Applying common Stow configs..."
+    stow --verbose --restow --target ~ common
+
     _log_info "Applying macOS Stow configs..."
     stow --verbose --restow --target ~ macos
 fi
 
-_log_info "Applying common Stow configs..."
-stow --verbose --restow --target ~ common
-
 if command -v bat &>/dev/null; then
     _log_info "Building bat cache..."
     bat cache --build || _log_warn "bat cache build failed."
-fi
-
-if command -v firefox &>/dev/null && [ -x "$HOME/.local/bin/firefox-apply" ]; then
-    _log_info "Applying Firefox defaults..."
-    "$HOME/.local/bin/firefox-apply" || _log_warn "Failed to apply Firefox defaults."
 fi
 
 _log_ok "Installation completed successfully."
