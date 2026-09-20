@@ -7,4 +7,4 @@ ConditionACPower=true
 
 [Service]
 Type=oneshot
-ExecStart=%h/.local/bin/rclone_sync
+ExecStart=%h/.local/bin/rclone-sync
