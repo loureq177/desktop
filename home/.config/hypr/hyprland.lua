@@ -132,7 +132,6 @@ hl.on("hyprland.start", function()
 		"swaybg -i ~/.config/hypr/wallpapers/hyprland.png",
 		"QT_QPA_PLATFORMTHEME=gtk3 quickshell -d",
 		"hyprsunset",
-		"hyprpm reload -n",
 	}
 
 	for _, cmd in ipairs(cmds) do
@@ -147,7 +146,14 @@ local laptop_mode = "1920x1080@165"
 local laptop_pos = "320x1440"
 local laptop_scale = 1
 
-local external_output = "desc:Iiyama North America PL2792Q 1152011401936"
+-- External monitor is centered above the laptop:
+--   external 2560x1440 at 0x0, laptop 1920x1080 at 320x1440
+--   (320 = (2560 - 1920) / 2). The shared 1920px edge at y=1440 is what
+--   lets the cursor cross. If the desc below stops matching
+--   (check with `hyprctl monitors -j`), the fallback `auto` rule places
+--   DP-1 at 2240x0 which touches the laptop only at the single corner
+--   point (2240,1440) -> cursor cannot cross. Keep desc in sync.
+local external_output = "desc:iiyama Corporation PL2792Q 1152011401936"
 
 hl.monitor({
 	output = laptop_output,
@@ -577,45 +583,6 @@ hl.config({
 	},
 })
 
--- ─── Plugins ─────────────────────────────────────────────────────────────────
-
-if hl.plugin and hl.plugin.dynamic_cursors then
-	hl.config({
-		plugin = {
-			dynamic_cursors = {
-				enabled = true,
-				mode = "tilt",
-				threshold = 2,
-
-				tilt = {
-					limit = 5000,
-					activation = "negative_quadratic",
-					window = 100,
-					full = 60,
-				},
-
-				shake = {
-					enabled = true,
-					threshold = 6.0,
-					base = 4.0,
-					speed = 4.0,
-					influence = 0.0,
-					limit = 0.0,
-					timeout = 2000,
-					effects = false,
-					ipc = false,
-				},
-
-				hyprcursor = {
-					nearest = 0,
-					enabled = true,
-					resolution = 256,
-					fallback = "clientside",
-				},
-			},
-		},
-	})
-end
 
 -- ─── Windows & Workspaces ────────────────────────────────────────────────────
 
@@ -670,7 +637,7 @@ hl.window_rule({
 
 hl.window_rule({
 	match = {
-		class = "^(org.gnome.*|com.saivert.pwvucontrol|pavucontrol|nm-connection-editor|blueman-manager|xdg-desktop-portal-gtk|file-roller)$",
+		class = "^(org.gnome.*|com.saivert.pwvucontrol|pavucontrol|nm-connection-editor|blueman-manager|xdg-desktop-portal-gtk|file-roller|sysupdate)$",
 	},
 	float = true,
 	center = true,
@@ -704,6 +671,7 @@ local cmds = {
 	["SUPER + CTRL + V"] = { "qs ipc call clipboard toggle", "Clipboard history" },
 
 	-- ─── System ─────────────────────────────────────────────────────────────────
+	["SUPER + U"] = { programs.terminal .. " --class=sysupdate -e " .. bin .. "/sysupdate", "System update" },
 	["SUPER + CTRL + Q"] = { "hyprlock", "Lock system" },
 	["SUPER + CTRL + I"] = { "~/.local/bin/caffeine-toggle.sh", "Toggle idle inhibit" },
 	["SUPER + CTRL + P"] = { "hyprpicker -a --notify", "Color picker" },
@@ -711,6 +679,7 @@ local cmds = {
 	["SUPER + period"] = { "qs ipc call shell toggle launcher emoji", "Emoji picker" },
 	["SUPER + CTRL + E"] = { "qs ipc call shell toggle launcher emoji", "Emoji picker" },
 	["SUPER + escape"] = { "qs ipc call shell toggle launcher power", "System menu" },
+	["SUPER + CTRL + M"] = { "~/.local/bin/touchpad.sh toggle", "Toggle touchpad" },
 
 	-- ─── Capture ────────────────────────────────────────────────────────────────
 	["SUPER + CTRL + R"] = {
@@ -815,6 +784,9 @@ local media = {
 	},
 	{ "XF86MonBrightnessUp", "~/.local/bin/brightness.sh up", true, "Brightness up" },
 	{ "XF86MonBrightnessDown", "~/.local/bin/brightness.sh down", true, "Brightness down" },
+	{ "XF86TouchpadToggle", "~/.local/bin/touchpad.sh toggle", nil, "Touchpad toggle" },
+	{ "XF86TouchpadOn", "~/.local/bin/touchpad.sh on", nil, "Touchpad on" },
+	{ "XF86TouchpadOff", "~/.local/bin/touchpad.sh off", nil, "Touchpad off" },
 }
 
 for _, m in ipairs(media) do
@@ -895,19 +867,3 @@ b("SUPER + C", "Copy", universal_shortcut("CTRL", "C", "CTRL", "Insert"))
 b("SUPER + V", "Paste", universal_shortcut("CTRL", "V", "SHIFT", "Insert"))
 b("SUPER + X", "Cut", send_shortcut_once("CTRL", "X"))
 b("SUPER + A", "Select all", universal_shortcut("CTRL", "A", "CTRL+SHIFT", "A"))
-
--- ─── Cursor Magnify (hypr-dynamic-cursors) ───────────────────────────────────
-
-if hl.plugin and hl.plugin.dynamic_cursors and hl.plugin.dynamic_cursors.dsp_magnify then
-	b(
-		"SUPER + CTRL + Z",
-		"Magnify cursor",
-		hl.plugin.dynamic_cursors.dsp_magnify({ duration = 1500, size = 4.0 })
-	)
-else
-	b("SUPER + CTRL + Z", "Magnify cursor", function()
-		if hl.plugin and hl.plugin.dynamic_cursors and hl.plugin.dynamic_cursors.dsp_magnify then
-			hl.plugin.dynamic_cursors.dsp_magnify({ duration = 2000, size = 4.0 })()
-		end
-	end)
-end
