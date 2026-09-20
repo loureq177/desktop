@@ -192,36 +192,30 @@ PanelWindow {
 			anchors.fill: parent
 		}
 
-			ColumnLayout {
-				anchors.fill: parent
-				spacing: 0
+		ColumnLayout {
+			anchors.fill: parent
+			anchors.margins: Theme.paddingCard
+			spacing: 12
 
-				SearchBar {
-					id: search
-					Layout.fillWidth: true
-					Layout.preferredHeight: 64
-					title: "Clip"
-					placeholder: "Search clipboard..."
-					onTextChanged: {
-						win.query = text;
-						win.refilter();
-					}
-					onAccepted: win.activate()
-					onCancelled: win.close()
-					onStepped: delta => win.move(delta)
+			SearchBar {
+				id: search
+				Layout.fillWidth: true
+				Layout.preferredHeight: 48
+				title: "Clip"
+				placeholder: "Search clipboard..."
+				onTextChanged: {
+					win.query = text;
+					win.refilter();
 				}
+				onAccepted: win.activate()
+				onCancelled: win.close()
+				onStepped: delta => win.move(delta)
+			}
 
-				Rectangle {
-					Layout.fillWidth: true
-					Layout.preferredHeight: 1
-					color: Theme.border
-				}
-
-				Item {
-					id: contentBox
-					Layout.fillWidth: true
-					Layout.fillHeight: true
-					Layout.margins: Theme.paddingCard
+			Item {
+				id: contentBox
+				Layout.fillWidth: true
+				Layout.fillHeight: true
 
 					ListView {
 						id: list
@@ -285,16 +279,26 @@ PanelWindow {
 								anchors.rightMargin: 12
 								spacing: 10
 
-								Image {
-									visible: row.isImage && row.thumbReady
-									source: visible ? "file://" + row.thumbPath : ""
-									asynchronous: true
-									fillMode: Image.PreserveAspectFit
-									sourceSize.width: 64
-									sourceSize.height: 64
+								Rectangle {
+									visible: row.isImage
 									Layout.preferredWidth: 32
 									Layout.preferredHeight: 32
 									Layout.alignment: Qt.AlignVCenter
+									radius: Theme.roundingSubtle
+									color: Theme.bgCard
+									border.color: Theme.border
+									border.width: 1
+									clip: true
+
+									Image {
+										anchors.fill: parent
+										visible: row.thumbReady
+										source: visible ? "file://" + row.thumbPath : ""
+										asynchronous: true
+										fillMode: Image.PreserveAspectCrop
+										sourceSize.width: 64
+										sourceSize.height: 64
+									}
 								}
 
 								Text {

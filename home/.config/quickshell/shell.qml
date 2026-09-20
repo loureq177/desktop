@@ -2,12 +2,12 @@
 // notification surfaces (sticky toasts + control center) and the polkit
 // authentication dialog. Started from Hyprland autostart: `quickshell -d`.
 // Control via IPC:
-//   qs ipc call shell summon launcher drun|run|emoji|power
+//   qs ipc call shell summon launcher apps|run|emoji|power
 //   qs ipc call shell summon keybindings ""
-//   qs ipc call shell toggle launcher drun
+//   qs ipc call shell toggle launcher apps
 //   qs ipc call shell hide launcher
 //   qs ipc call notifications toggle|toggleDnd|dndOn|dndOff|clear|dismissLatest|invokeAction|invokeDefault|status
-//   qs ipc call osd volume|brightness|mic
+//   qs ipc call osd volume|brightness|mic|touchpad
 //   qs ipc call clipboard toggle|open|close
 import Quickshell
 import Quickshell.Io

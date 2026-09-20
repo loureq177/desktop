@@ -248,7 +248,7 @@ PanelWindow {
 	}
 
 	function desiredCellWidth() {
-		return mode === "emoji" ? 64 : 144;
+		return mode === "emoji" ? 76 : 144;
 	}
 
 	function gridColumnCount() {
@@ -366,43 +366,37 @@ PanelWindow {
 			anchors.fill: parent
 		}
 
-			ColumnLayout {
-				anchors.fill: parent
-				spacing: 0
+		ColumnLayout {
+			anchors.fill: parent
+			anchors.margins: Theme.paddingCard
+			spacing: 12
 
-				SearchBar {
-					id: search
-					Layout.fillWidth: true
-					Layout.preferredHeight: 64
-					title: window.modeTitle()
-					placeholder: window.modePlaceholder()
-					completeOnTab: window.mode === "run"
-					leftRightNavigate: window.mode === "apps" || window.mode === "emoji"
-					onTextChanged: {
-						window.query = text;
-						window.refilter();
-					}
-					onAccepted: window.activate()
-					onCancelled: window.close()
-					onStepped: delta => window.moveRows(delta, window.gridColumns())
-					onSteppedColumn: delta => window.move(delta)
-					onCompleted: {
-						if (window.mode === "run" && window.filtered.length > 0)
-							search.complete(window.filtered[window.currentIndex].label);
-					}
+			SearchBar {
+				id: search
+				Layout.fillWidth: true
+				Layout.preferredHeight: 48
+				title: window.modeTitle()
+				placeholder: window.modePlaceholder()
+				completeOnTab: window.mode === "run"
+				leftRightNavigate: window.mode === "apps" || window.mode === "emoji"
+				onTextChanged: {
+					window.query = text;
+					window.refilter();
 				}
-
-				Rectangle {
-					Layout.fillWidth: true
-					Layout.preferredHeight: 1
-					color: Theme.border
+				onAccepted: window.activate()
+				onCancelled: window.close()
+				onStepped: delta => window.moveRows(delta, window.gridColumns())
+				onSteppedColumn: delta => window.move(delta)
+				onCompleted: {
+					if (window.mode === "run" && window.filtered.length > 0)
+						search.complete(window.filtered[window.currentIndex].label);
 				}
+			}
 
-				Item {
-					id: contentBox
-					Layout.fillWidth: true
-					Layout.fillHeight: true
-					Layout.margins: Theme.paddingCard
+			Item {
+				id: contentBox
+				Layout.fillWidth: true
+				Layout.fillHeight: true
 
 					GridView {
 						id: grid
@@ -415,7 +409,7 @@ PanelWindow {
 						flickDeceleration: 600
 						maximumFlickVelocity: 4000
 						cellWidth: window.desiredCellWidth()
-						cellHeight: window.mode === "emoji" ? 64 : 132
+						cellHeight: window.mode === "emoji" ? 76 : 132
 						model: window.filtered
 						// Note: GridView positions delegates itself and overrides
 						// their x/y, so gutters must come from inner margins,
@@ -471,7 +465,7 @@ PanelWindow {
 									visible: modelData.kind === "emoji"
 									anchors.centerIn: parent
 									text: modelData.char || ""
-									font.pixelSize: 38
+									font.pixelSize: 46
 								}
 							}
 
@@ -571,8 +565,6 @@ PanelWindow {
 					color: "transparent"
 					Text {
 						anchors.fill: parent
-						anchors.leftMargin: Theme.paddingCard
-						anchors.rightMargin: Theme.paddingCard
 						verticalAlignment: Text.AlignVCenter
 						horizontalAlignment: Text.AlignLeft
 						font.family: Theme.fontMono

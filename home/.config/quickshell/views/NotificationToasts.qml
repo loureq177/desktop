@@ -206,19 +206,19 @@ PanelWindow {
 						font.bold: true
 						color: Theme.textMain
 						wrapMode: Text.WordWrap
-						visible: text !== ""
+						visible: text !== "" && !(text.trim().toLowerCase() === (card.notif.appName || "").trim().toLowerCase() && (card.notif.body || "").trim() !== "")
 					}
 					Text {
 						Layout.fillWidth: true
 						text: card.notif.body || ""
 						font.family: Theme.fontFamily
-						font.pixelSize: Theme.fontSizeSmall + 1
-						color: Theme.textDim
+						font.pixelSize: (card.notif.summary || "").trim().toLowerCase() === (card.notif.appName || "").trim().toLowerCase() ? Theme.fontSize : (Theme.fontSizeSmall + 1)
+						color: (card.notif.summary || "").trim().toLowerCase() === (card.notif.appName || "").trim().toLowerCase() ? Theme.textMain : Theme.textDim
 						wrapMode: Text.WordWrap
 						maximumLineCount: 6
 						elide: Text.ElideRight
 						textFormat: Text.PlainText
-						visible: text !== ""
+						visible: text !== "" && !(text.trim().toLowerCase() === (card.notif.summary || "").trim().toLowerCase())
 					}
 
 					// Actions share one row instead of stacking.
@@ -240,21 +240,28 @@ PanelWindow {
 				}
 
 				// Close button in top-right corner
-				Text {
+				Rectangle {
 					id: closeBtn
 					anchors.top: parent.top
 					anchors.topMargin: 8
 					anchors.right: parent.right
-					anchors.rightMargin: 10
-					text: "✕"
-					font.pixelSize: 14
-					color: closeArea.containsMouse ? Theme.critical : Theme.textMuted
+					anchors.rightMargin: 8
+					implicitWidth: 20
+					implicitHeight: 20
+					radius: Theme.roundingElement
+					color: closeArea.containsMouse ? Theme.bgHover : "transparent"
 					z: 2
+
+					Text {
+						anchors.centerIn: parent
+						text: "✕"
+						font.pixelSize: 11
+						color: closeArea.containsMouse ? Theme.critical : Theme.textMuted
+					}
 
 					MouseArea {
 						id: closeArea
 						anchors.fill: parent
-						anchors.margins: -8
 						hoverEnabled: true
 						cursorShape: Qt.PointingHandCursor
 						onClicked: Notifications.safeDismiss(notif)

@@ -489,20 +489,20 @@ PanelWindow {
 									font.bold: true
 									color: Theme.textMain
 									wrapMode: Text.WordWrap
-									visible: text !== ""
+									visible: text !== "" && !(text.trim().toLowerCase() === (entryWrap.snap.appName || "").trim().toLowerCase() && (entryWrap.snap.body || "").trim() !== "")
 								}
 
 								Text {
 									Layout.fillWidth: true
 									text: entryWrap.snap.body || ""
 									font.family: Theme.fontFamily
-									font.pixelSize: Theme.fontSizeSmall
-									color: Theme.textDim
+									font.pixelSize: (entryWrap.snap.summary || "").trim().toLowerCase() === (entryWrap.snap.appName || "").trim().toLowerCase() ? (Theme.fontSize - 1) : Theme.fontSizeSmall
+									color: (entryWrap.snap.summary || "").trim().toLowerCase() === (entryWrap.snap.appName || "").trim().toLowerCase() ? Theme.textMain : Theme.textDim
 									wrapMode: Text.WordWrap
 									maximumLineCount: 5
 									elide: Text.ElideRight
 									textFormat: Text.PlainText
-									visible: text !== ""
+									visible: text !== "" && !(text.trim().toLowerCase() === (entryWrap.snap.summary || "").trim().toLowerCase())
 								}
 
 								// Action buttons row

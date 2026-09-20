@@ -1,5 +1,4 @@
-// Polkit authentication dialog (Quattro-style): theme-aware password prompt
-// hosted inside the long-running quickshell process.
+// Polkit authentication dialog: pure hyprlock minimalist style.
 // Test with: pkexec true
 import ".."
 import Quickshell
@@ -13,9 +12,6 @@ Item {
 	id: root
 
 	property string currentMessage: ""
-	property string currentPrompt: ""
-	property string currentSupplementary: ""
-	property bool supplementaryIsError: false
 	property bool responseRequired: false
 	property bool responseVisible: false
 	property bool failed: false
@@ -24,19 +20,49 @@ Item {
 
 	readonly property bool dialogVisible: agent.isActive || closing
 
+	property string displayCommand: ""
+
+	function updateCommandInfo() {
+		if (!currentMessage) {
+			displayCommand = "Authentication";
+			return;
+		}
+		var m = currentMessage.trim();
+		var matchRun = m.match(/to run ['"`]([^'"`]+)['"`]/i);
+		if (matchRun) {
+			var cmd = matchRun[1].trim();
+			var parts = cmd.split(/\s+/);
+			var exe = parts[0];
+			parts[0] = exe.substring(exe.lastIndexOf('/') + 1);
+			displayCommand = parts.join(" ").replace(/\s+--$/, "");
+			return;
+		}
+		var matchSvc = m.match(/to (?:restart|start|stop|reload) ['"`]([^'"`]+)['"`]/i);
+		if (matchSvc) {
+			displayCommand = "systemctl " + matchSvc[1] + " " + matchSvc[2];
+			return;
+		}
+		if (m.startsWith("Authentication is required to ")) {
+			var act = m.slice("Authentication is required to ".length);
+			if (act.endsWith("."))
+				act = act.slice(0, -1);
+			displayCommand = act.charAt(0).toUpperCase() + act.slice(1);
+		} else {
+			displayCommand = m;
+		}
+	}
+
 	function syncFromFlow() {
 		var flow = agent.flow;
 		if (!flow)
 			return;
-		currentMessage = String(flow.message || "Authentication is required");
-		currentPrompt = String(flow.inputPrompt || "");
-		currentSupplementary = String(flow.supplementaryMessage || "");
-		supplementaryIsError = !!flow.supplementaryIsError;
+		currentMessage = String(flow.message || "");
 		responseRequired = !!flow.isResponseRequired;
 		responseVisible = !!flow.responseVisible;
 		failed = !!flow.failed;
 		if (responseRequired)
 			submitted = false;
+		updateCommandInfo();
 	}
 
 	function beginFlow() {
@@ -45,6 +71,7 @@ Item {
 		submitted = false;
 		failed = false;
 		passwordInput.text = "";
+		cardTrans.x = 0;
 		syncFromFlow();
 		Qt.callLater(refocus);
 	}
@@ -74,13 +101,12 @@ Item {
 
 	Timer {
 		id: closeTimer
-		interval: 250
+		interval: 160
 		repeat: false
 		onTriggered: {
 			closing = false;
 			currentMessage = "";
-			currentPrompt = "";
-			currentSupplementary = "";
+			displayCommand = "";
 			responseRequired = false;
 			failed = false;
 			submitted = false;
@@ -94,16 +120,12 @@ Item {
 
 		onAuthenticationRequestStarted: root.beginFlow()
 		onIsActiveChanged: {
-			if (isActive)
+			if (isActive) {
 				root.syncFromFlow();
-			else if (!root.closing)
+			} else if (!root.closing) {
+				root.closing = true;
 				closeTimer.restart();
-		}
-		onIsRegisteredChanged: {
-			if (isRegistered)
-				console.log("quickshell polkit agent registered");
-			else
-				console.warn("quickshell polkit agent not registered; another agent may be running");
+			}
 		}
 	}
 
@@ -114,22 +136,16 @@ Item {
 			root.syncFromFlow();
 			Qt.callLater(root.refocus);
 		}
-		function onInputPromptChanged() {
-			root.syncFromFlow();
-		}
-		function onResponseVisibleChanged() {
-			root.syncFromFlow();
-		}
-		function onSupplementaryMessageChanged() {
-			root.syncFromFlow();
-		}
 		function onFailedChanged() {
 			root.syncFromFlow();
+			if (root.failed)
+				shakeAnim.restart();
 		}
 		function onAuthenticationFailed() {
 			root.syncFromFlow();
 			root.submitted = false;
 			passwordInput.text = "";
+			shakeAnim.restart();
 			Qt.callLater(root.refocus);
 		}
 		function onAuthenticationSucceeded() {
@@ -140,6 +156,18 @@ Item {
 			root.closing = true;
 			closeTimer.restart();
 		}
+	}
+
+	SequentialAnimation {
+		id: shakeAnim
+
+		NumberAnimation { target: cardTrans; property: "x"; to: -14; duration: 40; easing.type: Easing.OutQuad }
+		NumberAnimation { target: cardTrans; property: "x"; to: 14; duration: 50; easing.type: Easing.InOutQuad }
+		NumberAnimation { target: cardTrans; property: "x"; to: -10; duration: 40; easing.type: Easing.InOutQuad }
+		NumberAnimation { target: cardTrans; property: "x"; to: 10; duration: 50; easing.type: Easing.InOutQuad }
+		NumberAnimation { target: cardTrans; property: "x"; to: -4; duration: 35; easing.type: Easing.InOutQuad }
+		NumberAnimation { target: cardTrans; property: "x"; to: 4; duration: 35; easing.type: Easing.InOutQuad }
+		NumberAnimation { target: cardTrans; property: "x"; to: 0; duration: 30; easing.type: Easing.OutQuad }
 	}
 
 	PanelWindow {
@@ -163,11 +191,16 @@ Item {
 			right: true
 		}
 
-		// Full-screen dim backdrop matching Hyprland's special workspace dimming effect
+		// Darkened backdrop matching hyprlock dimming
 		Rectangle {
 			id: backdrop
 			anchors.fill: parent
-			color: Theme.backdropColor
+			color: Qt.rgba(0, 0, 0, 0.45)
+			opacity: root.dialogVisible && !root.closing ? 1.0 : 0.0
+
+			Behavior on opacity {
+				NumberAnimation { duration: 150 }
+			}
 
 			MouseArea {
 				anchors.fill: parent
@@ -179,54 +212,73 @@ Item {
 			id: card
 
 			anchors.centerIn: parent
-			width: Math.min(440, panel.width - 40)
-			implicitHeight: layout.implicitHeight + Theme.paddingCard * 2
-			color: Theme.bgCard
-			border.color: root.failed ? Theme.critical : Theme.border
+			width: Math.min(460, panel.width - 40)
+			implicitHeight: cardLayout.implicitHeight + 48
+			color: Qt.rgba(Theme.bgCardColor.r, Theme.bgCardColor.g, Theme.bgCardColor.b, 0.92)
+			border.color: root.failed ? Theme.critical : (root.submitted ? Theme.accentGreen : Theme.border)
 			border.width: Theme.borderSize
 			radius: Theme.roundingWindow
 			clip: true
 
+			opacity: root.dialogVisible && !root.closing ? 1.0 : 0.0
+			scale: root.dialogVisible && !root.closing ? 1.0 : 0.96
+
+			Behavior on opacity {
+				NumberAnimation { duration: 150 }
+			}
+			Behavior on scale {
+				NumberAnimation { duration: 150; easing.type: Easing.OutCubic }
+			}
+			Behavior on border.color {
+				ColorAnimation { duration: 150 }
+			}
+
+			transform: Translate {
+				id: cardTrans
+				x: 0
+			}
+
 			ColumnLayout {
-				id: layout
+				id: cardLayout
 
 				anchors.left: parent.left
 				anchors.right: parent.right
 				anchors.top: parent.top
-				anchors.margins: Theme.paddingCard
-				spacing: 10
+				anchors.margins: 24
+				spacing: 20
 
+				// 1. Command label: clean, prominent, large mono text (16px)
 				RowLayout {
+					Layout.fillWidth: true
 					spacing: 10
 
 					Text {
-						text: ""
-						color: root.failed ? Theme.critical : Theme.accentBlue
+						text: ""
+						color: root.failed ? Theme.critical : (root.submitted ? Theme.accentGreen : Theme.accentBlue)
 						font.family: Theme.fontFamily
 						font.pixelSize: 18
+						Layout.alignment: Qt.AlignTop
+
+						Behavior on color {
+							ColorAnimation { duration: 150 }
+						}
 					}
+
 					Text {
-						text: "Authentication required"
-						color: Theme.textMain
-						font.family: Theme.fontFamily
-						font.pixelSize: 15
-						font.bold: true
 						Layout.fillWidth: true
+						text: root.displayCommand
+						color: Theme.textMain
+						font.family: Theme.fontMono
+						font.pixelSize: 16
+						font.bold: true
+						wrapMode: Text.WrapAnywhere
+						maximumLineCount: 3
+						elide: Text.ElideRight
+						lineHeight: 1.2
 					}
 				}
 
-				Text {
-					text: root.currentMessage
-					textFormat: Text.PlainText
-					color: Theme.textDim
-					font.family: Theme.fontFamily
-					font.pixelSize: Theme.fontSizeSmall
-					wrapMode: Text.Wrap
-					visible: text.length > 0
-					Layout.fillWidth: true
-				}
-
-				// Identity picker, only when polkit offers more than one.
+				// 2. Identity picker (only if >1 identity)
 				ColumnLayout {
 					spacing: 4
 					visible: agent.flow && agent.flow.identities.length > 1
@@ -237,25 +289,19 @@ Item {
 
 						delegate: Rectangle {
 							required property var modelData
-							required property int index
-
 							Layout.fillWidth: true
-							implicitHeight: 28
+							implicitHeight: 32
 							color: agent.flow && agent.flow.selectedIdentity === modelData ? Theme.selectionBg : "transparent"
-							border.color: agent.flow && agent.flow.selectedIdentity === modelData ? Theme.selectionBorder : "transparent"
+							border.color: agent.flow && agent.flow.selectedIdentity === modelData ? Theme.accentBlue : Theme.border
 							border.width: 1
 							radius: Theme.roundingElement
 
 							Text {
-								anchors.fill: parent
-								anchors.leftMargin: 8
+								anchors.centerIn: parent
 								text: String(modelData.displayName || "")
-								textFormat: Text.PlainText
 								color: Theme.textMain
 								font.family: Theme.fontFamily
-								font.pixelSize: Theme.fontSizeSmall
-								verticalAlignment: Text.AlignVCenter
-								elide: Text.ElideRight
+								font.pixelSize: 15
 							}
 
 							MouseArea {
@@ -266,27 +312,33 @@ Item {
 					}
 				}
 
+				// 3. Hyprlock input field
 				Rectangle {
 					Layout.fillWidth: true
-					implicitHeight: 36
+					implicitHeight: 54
 					color: Theme.bgMain
-					border.color: root.failed ? Theme.critical : (passwordInput.activeFocus ? Theme.accentBlue : Theme.border)
-					border.width: 1
-					radius: Theme.roundingElement
+					border.color: root.failed ? Theme.critical : (root.submitted ? Theme.accentGreen : (passwordInput.activeFocus ? Theme.accentBlue : Theme.border))
+					border.width: Theme.borderSize
+					radius: Theme.roundingWindow
+
+					Behavior on border.color {
+						ColorAnimation { duration: 150 }
+					}
 
 					TextInput {
 						id: passwordInput
 
 						anchors.fill: parent
-						anchors.leftMargin: 10
-						anchors.rightMargin: 10
+						anchors.leftMargin: 18
+						anchors.rightMargin: 18
 						verticalAlignment: TextInput.AlignVCenter
 						clip: true
 						color: Theme.textMain
-						selectionColor: Theme.accent
+						selectionColor: Theme.selectionBg
 						selectedTextColor: Theme.textMain
-						font.family: Theme.fontFamily
-						font.pixelSize: 14
+						font.family: Theme.fontMono
+						font.pixelSize: 20
+						font.letterSpacing: root.responseVisible ? 0 : 4
 						echoMode: root.responseVisible ? TextInput.Normal : TextInput.Password
 						passwordCharacter: "•"
 						activeFocusOnPress: true
@@ -302,88 +354,60 @@ Item {
 
 					Text {
 						anchors.fill: parent
-						anchors.leftMargin: 10
-						anchors.rightMargin: 10
+						anchors.leftMargin: 18
+						anchors.rightMargin: 18
 						verticalAlignment: Text.AlignVCenter
-						text: root.failed ? "Wrong password, try again" : (root.submitted ? "Checking…" : (root.currentPrompt.length > 0 ? root.currentPrompt : "Password"))
+						text: root.failed ? "Wrong password, try again" : (root.submitted ? "Checking…" : "Password…")
 						textFormat: Text.PlainText
-						color: root.failed ? Theme.critical : Theme.textMuted
+						color: root.failed ? Theme.critical : (root.submitted ? Theme.accentGreen : Theme.textMuted)
 						font.family: Theme.fontFamily
-						font.pixelSize: 14
+						font.pixelSize: 17
 						elide: Text.ElideRight
 						visible: passwordInput.text.length === 0
+
+						Behavior on color {
+							ColorAnimation { duration: 150 }
+						}
 					}
 				}
 
-				Text {
-					text: root.currentSupplementary
-					textFormat: Text.PlainText
-					color: (root.supplementaryIsError || root.failed) ? Theme.critical : Theme.textDim
-					font.family: Theme.fontFamily
-					font.pixelSize: Theme.fontSizeSmall
-					wrapMode: Text.Wrap
-					visible: text.length > 0
-					Layout.fillWidth: true
-				}
-
+				// 4. Subtle footer hints: esc to cancel • enter to submit
 				RowLayout {
 					Layout.fillWidth: true
-					spacing: 8
 
-					Item {
+					MouseArea {
 						Layout.fillWidth: true
-					}
-
-					Rectangle {
-						implicitWidth: cancelLabel.implicitWidth + 24
-						implicitHeight: 32
-						color: cancelArea.containsMouse ? Theme.bgHover : "transparent"
-						border.color: Theme.border
-						border.width: 1
-						radius: Theme.roundingElement
+						implicitHeight: 28
+						hoverEnabled: true
+						cursorShape: Qt.PointingHandCursor
+						onClicked: root.cancelRequest()
 
 						Text {
-							id: cancelLabel
-							anchors.centerIn: parent
-							text: "Cancel"
-							color: Theme.textDim
-							font.family: Theme.fontFamily
-							font.pixelSize: Theme.fontSizeSmall
-						}
-
-						MouseArea {
-							id: cancelArea
-							anchors.fill: parent
-							hoverEnabled: true
-							onClicked: root.cancelRequest()
+							anchors.left: parent.left
+							anchors.verticalCenter: parent.verticalCenter
+							text: "esc  cancel"
+							color: parent.containsMouse ? Theme.textMain : Theme.textMuted
+							font.family: Theme.fontMono
+							font.pixelSize: 14
 						}
 					}
 
-					Rectangle {
-						implicitWidth: authLabel.implicitWidth + 24
-						implicitHeight: 32
-						color: !authEnabled ? Theme.bgHover : (authArea.containsMouse ? Theme.accentPurple : Theme.accentBlue)
-						radius: Theme.roundingElement
-						opacity: !authEnabled ? 0.5 : 1.0
-
-						property bool authEnabled: passwordInput.text.length > 0 && !root.submitted
+					MouseArea {
+						Layout.fillWidth: true
+						implicitHeight: 28
+						hoverEnabled: true
+						enabled: passwordInput.text.length > 0 && !root.submitted
+						cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+						onClicked: root.submitResponse()
 
 						Text {
-							id: authLabel
-							anchors.centerIn: parent
-							text: root.submitted ? "Checking…" : "Authenticate"
-							color: Theme.bgMain
-							font.family: Theme.fontFamily
-							font.pixelSize: Theme.fontSizeSmall
-							font.bold: true
-						}
-
-						MouseArea {
-							id: authArea
-							anchors.fill: parent
-							hoverEnabled: true
-							enabled: parent.authEnabled
-							onClicked: root.submitResponse()
+							anchors.right: parent.right
+							anchors.verticalCenter: parent.verticalCenter
+							text: root.submitted ? "checking…" : "enter  submit ↵"
+							color: !parent.enabled ? Theme.textMuted : (parent.containsMouse ? Theme.accentPurple : Theme.accentBlue)
+							font.family: Theme.fontMono
+							font.pixelSize: 14
+							font.bold: parent.enabled
 						}
 					}
 				}

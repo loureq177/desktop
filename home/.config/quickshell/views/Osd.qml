@@ -3,6 +3,7 @@
 //   qs ipc call osd volume <0-100> [muted]
 //   qs ipc call osd brightness <0-100>
 //   qs ipc call osd mic <muted>
+//   qs ipc call osd touchpad <enabled>
 // Fades in and out instead of popping; overlapping updates (held keys) just
 // restart the hide timer, and re-shows mid-fade animate smoothly back up.
 import ".."
@@ -15,7 +16,7 @@ import QtQuick
 PanelWindow {
 	id: win
 
-	property string kind: "" // volume | brightness | mic
+	property string kind: "" // volume | brightness | mic | touchpad
 	property int value: 0
 	property bool muted: false
 	// Surface unmap is deferred through `shown` so hides can fade out first.
@@ -23,6 +24,7 @@ PanelWindow {
 
 	readonly property string icon: kind === "brightness" ? "󰃟"
 		: kind === "mic" ? (muted ? "󰍭" : "󰍬")
+		: kind === "touchpad" ? "󰟸"
 		: (muted ? "󰝟" : value === 0 ? "󰕿" : value <= 50 ? "󰖀" : "󰕾")
 
 	// Overlapping updates restart the hide timer; values update in place.
@@ -132,7 +134,7 @@ PanelWindow {
 					horizontalAlignment: Text.AlignHCenter
 					verticalAlignment: Text.AlignVCenter
 					// Mic has no level: show state instead of a bar.
-					text: win.kind === "mic" ? (win.muted ? "Muted" : "On") : win.value + "%"
+					text: win.kind === "mic" ? (win.muted ? "Muted" : "On") : win.kind === "touchpad" ? (win.muted ? "Off" : "On") : win.value + "%"
 					font.family: Theme.fontMono
 					font.pixelSize: Theme.fontSizeSmall
 					font.bold: true
@@ -146,7 +148,7 @@ PanelWindow {
 					height: 6
 					radius: Theme.roundingSubtle
 					color: Theme.bgHover
-					visible: win.kind !== "mic"
+					visible: win.kind !== "mic" && win.kind !== "touchpad"
 
 					Rectangle {
 						anchors.left: parent.left
@@ -172,6 +174,9 @@ PanelWindow {
 		}
 		function mic(isMuted: bool): void {
 			win.show("mic", undefined, isMuted);
+		}
+		function touchpad(isEnabled: bool): void {
+			win.show("touchpad", 0, !isEnabled);
 		}
 	}
 }

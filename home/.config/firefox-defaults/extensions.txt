@@ -1,0 +1,11 @@
+# Firefox extensions, one AMO URL per line. firefox-apply --extensions
+# prints them; install via about:addons (paste URL) or combine with
+# policies.json ExtensionSettings for fully automated install.
+https://addons.mozilla.org/firefox/downloads/latest/ublock-origin/addon-722-latest.xpi
+https://addons.mozilla.org/firefox/downloads/latest/sponsorblock/latest.xpi
+https://addons.mozilla.org/firefox/downloads/latest/vimium-c/latest.xpi
+https://addons.mozilla.org/firefox/downloads/latest/tabliss/latest.xpi
+https://addons.mozilla.org/firefox/downloads/latest/adaptive-tab-bar-colour/latest.xpi
+https://addons.mozilla.org/firefox/downloads/latest/unhook-youtube/latest.xpi
+https://addons.mozilla.org/firefox/downloads/latest/refined-github-/latest.xpi
+https://addons.mozilla.org/firefox/downloads/latest/bitwarden-password-manager/latest.xpi

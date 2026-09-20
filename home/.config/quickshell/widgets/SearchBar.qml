@@ -32,12 +32,21 @@ Rectangle {
 	}
 
 	color: Theme.bgCard
-	implicitHeight: 64
+	border.color: Theme.border
+	border.width: 1
+	radius: Theme.roundingElement
+	implicitHeight: 48
+
+	MouseArea {
+		anchors.fill: parent
+		cursorShape: Qt.IBeamCursor
+		onClicked: bar.focusInput()
+	}
 
 	RowLayout {
 		anchors.fill: parent
-		anchors.leftMargin: Theme.paddingCard
-		anchors.rightMargin: Theme.paddingCard
+		anchors.leftMargin: 14
+		anchors.rightMargin: 14
 		spacing: Theme.paddingItem
 
 		Text {

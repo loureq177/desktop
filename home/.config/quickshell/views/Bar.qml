@@ -437,7 +437,7 @@ PanelWindow {
 				value: visible ? String(pct) + "%" : ""
 				textColor: charging || full ? Theme.accentGreen
 					: pct <= 10 ? Theme.critical
-					: pct <= 30 ? Theme.warning
+					: pct <= 20 ? Theme.warning
 					: Theme.textMain
 				onActivated: Quickshell.execDetached([
 					"hyprctl", "dispatch", "hl.dsp.workspace.toggle_special('jolt')"
