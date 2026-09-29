@@ -684,6 +684,7 @@ local cmds = {
 	["SUPER + period"] = { "qs ipc call shell toggle launcher emoji", "Emoji picker" },
 	["SUPER + escape"] = { "qs ipc call shell toggle launcher power", "System menu" },
 	["SUPER + CTRL + M"] = { "~/.local/bin/touchpad.sh toggle", "Toggle touchpad" },
+	["SUPER + A"] = { "qs ipc call quicksettings toggle", "Quick settings" },
 
 	-- ─── Capture ────────────────────────────────────────────────────────────────
 	["SUPER + print"] = {
@@ -871,4 +872,3 @@ end
 b("SUPER + C", "Copy", universal_shortcut("CTRL", "C", "CTRL", "Insert"))
 b("SUPER + V", "Paste", universal_shortcut("CTRL", "V", "SHIFT", "Insert"))
 b("SUPER + X", "Cut", send_shortcut_once("CTRL", "X"))
-b("SUPER + A", "Select all", universal_shortcut("CTRL", "A", "CTRL+SHIFT", "A"))

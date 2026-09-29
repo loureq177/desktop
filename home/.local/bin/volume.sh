@@ -46,6 +46,9 @@ output)
     *) echo "volume.sh: unknown action '$ACTION'" >&2; exit 2 ;;
     esac
     _report SINK
+    # Keep the QuickSettings slider in sync: it polls every 3s, so push a
+    # refresh instead of letting it lag behind hardware keys.
+    qs ipc call quicksettings refresh >/dev/null 2>&1 || true
     # Muted speakers cannot play feedback; silence is the confirmation.
     if [[ "$ACTION" == mute* ]] && wpctl get-volume @DEFAULT_AUDIO_SINK@ 2>/dev/null | grep -q '\[MUTED\]'; then
         exit 0

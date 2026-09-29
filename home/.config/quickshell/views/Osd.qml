@@ -25,11 +25,17 @@ PanelWindow {
 	readonly property string icon: kind === "brightness" ? "󰃟"
 		: kind === "mic" ? (muted ? "󰍭" : "󰍬")
 		: kind === "touchpad" ? "󰟸"
-		: (muted ? "󰝟" : value === 0 ? "󰕿" : value <= 50 ? "󰖀" : "󰕾")
+		: (muted ? "󰝟" : value <= 1 ? "󰕿" : value <= 50 ? "󰖀" : "󰕾")
 
 	// Overlapping updates restart the hide timer; values update in place.
 	// Fades the card, not the window: QsWindow has no `opacity`.
 	function show(newKind, newValue, newMuted) {
+		// The QuickSettings panel already shows volume/brightness sliders,
+		// and scripts push it a refresh alongside the OSD call: showing the
+		// OSD on top would duplicate the feedback. Mic/touchpad have no
+		// panel surface, so they always pop.
+		if ((newKind === "volume" || newKind === "brightness") && QuickSettings.panelOpen)
+			return;
 		fadeOut.stop();
 		if (!win.visible) {
 			card.opacity = 0;

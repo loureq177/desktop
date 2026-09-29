@@ -13,139 +13,17 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 
-PanelWindow {
+SideDrawer {
 	id: win
 
-	// Shown while the center is open; unmap is deferred until the
-	// slide-out animation finishes.
-	property bool shown: Notifications.centerOpen
-	// 0 = on screen; width + margin = fully off the right edge.
-	property int slide: Theme.notifWidth + Theme.notifRightMargin
+	shown: Notifications.centerOpen
+	cardHeight: Math.min(680, win.height - Theme.notifTopMargin - 20)
+	onOpened: QuickSettings.close()
+	onDismissed: Notifications.closeCenter()
 
-	visible: shown || slideOut.running
-	color: "transparent"
-	exclusionMode: ExclusionMode.Ignore
-	exclusiveZone: 0
-
-	onShownChanged: {
-		if (shown) {
-			slideOut.stop();
-			slideIn.restart();
-			card.forceActiveFocus();
-		} else {
-			slideIn.stop();
-			slideOut.restart();
-		}
-	}
-
-	property real backdropOpacity: 0.0
-
-	ParallelAnimation {
-		id: slideIn
-
-		NumberAnimation {
-			target: win
-			property: "slide"
-			from: Theme.notifWidth + Theme.notifRightMargin
-			to: 0
-			duration: 250
-			easing.type: Easing.OutCubic
-		}
-		NumberAnimation {
-			target: win
-			property: "backdropOpacity"
-			from: 0.0
-			to: 1.0
-			duration: 250
-			easing.type: Easing.OutCubic
-		}
-	}
-
-	ParallelAnimation {
-		id: slideOut
-
-		NumberAnimation {
-			target: win
-			property: "slide"
-			from: 0
-			to: Theme.notifWidth + Theme.notifRightMargin
-			duration: 220
-			easing.type: Easing.OutCubic
-		}
-		NumberAnimation {
-			target: win
-			property: "backdropOpacity"
-			from: 1.0
-			to: 0.0
-			duration: 220
-			easing.type: Easing.OutCubic
-		}
-	}
-
-	WlrLayershell.layer: WlrLayer.Overlay
-	WlrLayershell.keyboardFocus: shown ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
-	WlrLayershell.namespace: "quickshell"
-
-	screen: Quickshell.screens.find(s => s.name === Hyprland.focusedMonitor?.name) ?? Quickshell.screens[0] ?? null
-
-	anchors {
-		top: true
-		bottom: true
-		left: true
-		right: true
-	}
-
-	// ESC dismisses the center.
-	Shortcut {
-		sequences: ["Esc"]
-		enabled: win.visible
-		onActivated: Notifications.closeCenter()
-	}
-
-	// Full-screen dim backdrop matching Hyprland's special workspace dimming effect (dim_special = 0.20)
-	Rectangle {
-		id: backdrop
+	ColumnLayout {
 		anchors.fill: parent
-		color: Theme.backdropColor
-		opacity: win.backdropOpacity
-
-		MouseArea {
-			anchors.fill: parent
-			enabled: win.shown
-			onClicked: Notifications.closeCenter()
-		}
-	}
-
-	Rectangle {
-		id: card
-
-		x: parent.width - width - Theme.notifRightMargin + win.slide
-		y: Theme.notifTopMargin
-		width: Theme.notifWidth
-		height: Math.min(680, parent.height - Theme.notifTopMargin - 20)
-		color: Theme.bgCard
-		border.color: Theme.border
-		border.width: Theme.borderSize
-		radius: Theme.roundingWindow
-		clip: true
-		focus: true
-
-		Keys.onEscapePressed: event => {
-			Notifications.closeCenter();
-			event.accepted = true;
-		}
-
-		// Absorb clicks inside the panel so they don't close the center.
-		MouseArea {
-			id: cardArea
-			anchors.fill: parent
-			hoverEnabled: true
-		}
-
-		ColumnLayout {
-			anchors.fill: parent
-			anchors.margins: Theme.paddingCard
-			spacing: 12
+		spacing: 12
 
 			// ─── Header Bar ─────────────────────────────────────────────
 			RowLayout {
@@ -205,7 +83,7 @@ PanelWindow {
 						spacing: 6
 
 						Text {
-							text: Notifications.dnd ? "󰂛" : "󰂚"
+							text: Notifications.dnd ? "󰂛" : "󰂜"
 							font.family: Theme.fontFamily
 							font.pixelSize: 14
 							font.bold: true
@@ -570,6 +448,5 @@ PanelWindow {
 					}
 				}
 			}
-		}
 	}
 }

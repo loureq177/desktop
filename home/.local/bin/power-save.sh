@@ -21,6 +21,14 @@ bri() {
     brightnessctl -c backlight "$@" >/dev/null 2>&1 || true
 }
 
+_report_brightness() { # push current backlight state to the OSD + QuickSettings slider
+    local pct
+    pct="$(brightnessctl -c backlight -m 2>/dev/null | head -n 1 | cut -d, -f4 | tr -dc '0-9' || true)"
+    [[ -z "${pct:-}" ]] && return 0
+    qs ipc call osd brightness "$pct" >/dev/null 2>&1 || true
+    qs ipc call quicksettings refresh >/dev/null 2>&1 || true
+}
+
 prof() {
     command -v powerprofilesctl >/dev/null 2>&1 || return 0
     powerprofilesctl set "$1" >/dev/null 2>&1 || true
@@ -136,6 +144,7 @@ _enable() {
             echo "$cur_b" >"$PREV_BRIGHTNESS_FILE"
         fi
         bri --min-value=5 set 20%-
+        _report_brightness
     fi
 
     _set_refresh_rate 60
@@ -167,6 +176,7 @@ _disable() {
         else
             bri set +20%
         fi
+        _report_brightness
     fi
 
     _set_refresh_rate 165
@@ -183,6 +193,9 @@ _toggle() {
     else
         _enable
     fi
+    # Marker file flipped even with --no-brightness: nudge the QuickSettings
+    # tiles (they poll markers every 3s otherwise).
+    qs ipc call quicksettings refresh >/dev/null 2>&1 || true
 }
 
 # Self-seed: on a fresh clone the tracked ghostty config points at this link

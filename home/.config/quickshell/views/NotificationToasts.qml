@@ -18,9 +18,9 @@ import QtQuick.Layouts
 PanelWindow {
 	id: win
 
-	// Shown while toasts exist and the control center is closed; unmap is
+	// Shown while toasts exist and neither drawer is open; unmap is
 	// deferred until the slide-out animation finishes.
-	property bool shown: Notifications.toasts.length > 0 && !Notifications.centerOpen
+	property bool shown: Notifications.toasts.length > 0 && !Notifications.centerOpen && !QuickSettings.panelOpen
 	// 0 = on screen; width + margin = fully off the right edge (the toast
 	// slides in leftward from the right screen edge into its corner; the
 	// margin goes negative to push the window past the screen edge).
@@ -199,7 +199,10 @@ PanelWindow {
 							visible: text !== ""
 						}
 						Text {
-							text: Qt.formatDateTime(new Date(), "hh:mm")
+							text: {
+								var t = Notifications.historyTimeById(card.notif.id);
+								return Qt.formatDateTime(t ? new Date(t) : new Date(), "hh:mm");
+							}
 							font.family: Theme.fontMono
 							font.pointSize: Theme.fontSizeSmall
 							color: Theme.textMuted

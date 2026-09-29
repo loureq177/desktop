@@ -16,3 +16,5 @@ PCT="$(brightnessctl -c backlight -m 2>/dev/null | head -n 1 | cut -d, -f4 | tr 
 [[ -z "$PCT" ]] && PCT=0
 
 qs ipc call osd brightness "$PCT"
+# Keep the QuickSettings slider in sync (it polls every 3s).
+qs ipc call quicksettings refresh >/dev/null 2>&1 || true

@@ -189,6 +189,17 @@ Singleton {
 		return root.liveById(id) !== null;
 	}
 
+	// Arrival timestamp of a notification by id, from the history snapshot.
+	// Toasts use it so the toast and the center card show the same time
+	// (the toast would otherwise show its render time).
+	function historyTimeById(id: int): var {
+		for (var i = 0; i < root.history.length; i++) {
+			if (root.history[i] && root.history[i].id === id)
+				return root.history[i].time;
+		}
+		return null;
+	}
+
 	// Shared action invocation for toasts, center buttons and keybinds.
 	// Index-based for keybinds (SUPER+ALT+1..3 act on the latest toast,
 	// indexing the visible actions); identifier-based for buttons.

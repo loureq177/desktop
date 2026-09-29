@@ -118,7 +118,7 @@ PanelWindow {
 			|| d.indexOf("color picker") !== -1 || d.indexOf("run commands") !== -1 || d.indexOf("emoji") !== -1
 			|| d.indexOf("audio controls") !== -1 || d.indexOf("bluetooth") !== -1 || d.indexOf("calculator") !== -1
 			|| d.indexOf("wifi") !== -1 || d.indexOf("power") !== -1 || d.indexOf("battery") !== -1 || d.indexOf("jolt") !== -1
-			|| d.indexOf("activity monitor") !== -1 || d.indexOf("touchpad") !== -1)
+			|| d.indexOf("activity monitor") !== -1 || d.indexOf("touchpad") !== -1 || d.indexOf("quick settings") !== -1)
 			return "System & Tools";
 		if (d.indexOf("close window") !== -1 || d.indexOf("fullscreen") !== -1 || d.indexOf("split") !== -1
 			|| d.indexOf("floating") !== -1 || d.indexOf("swap window") !== -1 || d.indexOf("resize window") !== -1

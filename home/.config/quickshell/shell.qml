@@ -44,6 +44,10 @@ ShellRoot {
 		id: clipboardView
 	}
 
+	QuickSettingsView {
+		id: quickSettingsView
+	}
+
 	Osd {
 		id: osd
 	}
@@ -57,6 +61,7 @@ ShellRoot {
 
 		function summon(name: string, mode: string): void {
 			Notifications.closeCenter();
+			QuickSettings.close();
 			if (name === "launcher") {
 				keysView.close();
 				launcherView.open(mode);
@@ -68,6 +73,7 @@ ShellRoot {
 
 		function hide(name: string): void {
 			Notifications.closeCenter();
+			QuickSettings.close();
 			if (name === "launcher")
 				launcherView.close();
 			else if (name === "keybindings")
@@ -76,6 +82,7 @@ ShellRoot {
 
 		function toggle(name: string, mode: string): void {
 			Notifications.closeCenter();
+			QuickSettings.close();
 			if (name === "launcher") {
 				keysView.close();
 				launcherView.toggle(mode);
