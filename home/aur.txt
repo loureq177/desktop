@@ -3,4 +3,3 @@ cmatrix-git
 localsend-bin
 pwvucontrol
 shellcheck-bin
-zsh-fast-syntax-highlighting

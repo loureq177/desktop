@@ -117,4 +117,3 @@ yazi
 zip
 zoxide
 zsh
-zsh-autosuggestions
