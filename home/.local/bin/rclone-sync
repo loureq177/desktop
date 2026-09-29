@@ -9,8 +9,11 @@ if ! flock -n 200; then
     exit 0
 fi
 
-source_root="$HOME"
-remote_root="google-drive-backup:mlorenc-backup"
+CONFIG_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/rclone/backup.conf"
+[[ -f "$CONFIG_FILE" ]] && source "$CONFIG_FILE"
+
+source_root="${RCLONE_BACKUP_SOURCE:-$HOME}"
+remote_root="${RCLONE_BACKUP_REMOTE:-google-drive-backup:mlorenc-backup}"
 
 excludes=(
     "--exclude=.*/**"

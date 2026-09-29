@@ -624,6 +624,7 @@ SideDrawer {
 				Layout.fillWidth: true
 				Layout.preferredHeight: 48
 				spacing: 12
+				visible: win.brightnessReady
 
 				Rectangle {
 					Layout.preferredWidth: 48

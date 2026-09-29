@@ -46,17 +46,28 @@ _set_look() { # $1: true|false
 _set_refresh_rate() {
     local target_hz="$1"
     local mon_info
-    mon_info=$(hyprctl monitors -j 2>/dev/null | jq -r '.[] | select((.description // "" | contains("BOE")) or .name == "eDP-2") | "\(if .description and (.description | length > 0) then "desc:\(.description)" else .name end)|\(.x)x\(.y)|\(.scale)"' 2>/dev/null | head -n 1 || true)
+    mon_info=$(hyprctl monitors -j 2>/dev/null | jq -r '
+        .[] | select(.name | startswith("eDP")) |
+        "\(if .description and (.description | length > 0) then "desc:\(.description)" else .name end)|\(.width)|\(.height)|\(.x)x\(.y)|\(.scale)"
+    ' 2>/dev/null | head -n 1 || true)
 
-    local desc="desc:BOE 0x0998"
-    local pos="320x1440"
-    local scale="1"
+    [[ -z "$mon_info" ]] && return 0
 
-    if [[ -n "$mon_info" ]]; then
-        IFS="|" read -r desc pos scale <<<"$mon_info"
+    local desc width height pos scale
+    IFS="|" read -r desc width height pos scale <<<"$mon_info"
+
+    local hz="$target_hz"
+    if [[ "$target_hz" == "max" || "$target_hz" == "high" ]]; then
+        local detected_max
+        detected_max=$(hyprctl monitors -j 2>/dev/null | jq -r '
+            .[] | select(.name | startswith("eDP")) |
+            .availableModes[]? | select(startswith("'"${width}x${height}"'"))
+        ' 2>/dev/null | sed -E 's/.*@([0-9]+(\.[0-9]+)?).*/\1/' | sort -n | tail -n 1 || true)
+        detected_max="${detected_max%%.*}"
+        hz="${detected_max:-165}"
     fi
 
-    hyprctl eval "hl.monitor({ output = '${desc}', mode = '1920x1080@${target_hz}', position = '${pos}', scale = ${scale} })" >/dev/null 2>&1 || true
+    hyprctl eval "hl.monitor({ output = '${desc}', mode = '${width}x${height}@${hz}', position = '${pos}', scale = ${scale} })" >/dev/null 2>&1 || true
 }
 
 _ghostty_reload() {
@@ -124,10 +135,15 @@ _opencode_anims() { # $1: true|false (persists TUI animation state in kv.json fo
 }
 
 _status() {
+    local max_hz="High"
+    local detected_max
+    detected_max=$(hyprctl monitors -j 2>/dev/null | jq -r '.[] | select(.name | startswith("eDP")) | .availableModes[0] // ""' 2>/dev/null | sed -E 's/.*@([0-9]+).*/\1/' || true)
+    [[ -n "$detected_max" ]] && max_hz="${detected_max} Hz"
+
     if _is_active; then
-        printf '%s\n' '{"text": "󰌪", "alt": "on", "class": "on", "tooltip": "Power Saving Mode: ON\n• Refresh rate: 60 Hz\n• Animations &amp; blur: Disabled\n• Ghostty shader: Disabled\n• OpenCode anims: Disabled\n• Brightness: Reduced (-20%)\n• Profile: Power-saver (Lenovo Quiet)\n\nClick to disable"}'
+        printf '%s\n' '{"text": "󰌪", "alt": "on", "class": "on", "tooltip": "Power Saving Mode: ON\n• Refresh rate: 60 Hz\n• Animations &amp; blur: Disabled\n• Ghostty shader: Disabled\n• OpenCode anims: Disabled\n• Brightness: Reduced (-20%)\n• Profile: Power-saver\n\nClick to disable"}'
     else
-        printf '%s\n' '{"text": "󰌪", "alt": "off", "class": "off", "tooltip": "Power Saving Mode: OFF\n• Refresh rate: 165 Hz\n• Animations &amp; blur: Enabled\n• Ghostty shader: Enabled\n• OpenCode anims: Enabled\n\nClick to enable"}'
+        printf '%s\n' '{"text": "󰌪", "alt": "off", "class": "off", "tooltip": "Power Saving Mode: OFF\n• Refresh rate: '"$max_hz"'\n• Animations &amp; blur: Enabled\n• Ghostty shader: Enabled\n• OpenCode anims: Enabled\n\nClick to enable"}'
     fi
 }
 
@@ -179,12 +195,12 @@ _disable() {
         _report_brightness
     fi
 
-    _set_refresh_rate 165
+    _set_refresh_rate max
     _set_look true
     _ghostty_shader on
     _opencode_anims true
     prof balanced
-    note -i battery-profile-balanced "Power Saver" "Disabled: 165Hz, animations on, opencode anims on, balanced profile"
+    note -i battery-profile-balanced "Power Saver" "Disabled: max refresh rate, animations on, opencode anims on, balanced profile"
 }
 
 _toggle() {

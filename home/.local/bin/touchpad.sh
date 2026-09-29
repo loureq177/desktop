@@ -21,8 +21,11 @@ devices_json="$(hyprctl devices -j 2>/dev/null)" || {
 }
 mapfile -t DEVICES < <(jq -r '.mice[]? | select(.name | test("touchpad"; "i")) | .name' <<<"$devices_json")
 if ((${#DEVICES[@]} == 0)); then
-    echo "touchpad.sh: no touchpad device found" >&2
-    exit 1
+    if [[ "$ACTION" == status ]]; then
+        echo "none"
+        exit 0
+    fi
+    exit 0
 fi
 
 current=1

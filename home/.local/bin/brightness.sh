@@ -2,6 +2,9 @@
 # Brightness control with the quickshell OSD. Usage: [up|down]
 set -euo pipefail
 
+command -v brightnessctl >/dev/null 2>&1 || exit 0
+brightnessctl -c backlight -m 2>/dev/null | grep -q . || exit 0
+
 ACTION="${1:-}"
 case "$ACTION" in
 up) brightnessctl set +10% >/dev/null 2>&1 ;;
