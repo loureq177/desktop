@@ -2,8 +2,8 @@
 atac
 adwaita-fonts
 bat
+bazaar
 bluetui
-brightnessctl
 btop
 bun
 chafa
@@ -45,6 +45,7 @@ hyprsunset
 impala
 jolt
 jq
+keyd
 lazygit
 libcanberra
 libnotify
@@ -54,6 +55,7 @@ lolcat
 loupe
 ly
 man-db
+nautilus
 neovim
 networkmanager
 network-manager-applet
@@ -72,7 +74,6 @@ pipewire-audio
 pipewire-jack
 pipewire-pulse
 podman
-power-profiles-daemon
 profile-sync-daemon
 python-pynvim
 qt5-wayland
@@ -104,7 +105,6 @@ tesseract-data-pol
 ttf-jetbrains-mono-nerd
 ufw
 unzip
-upower
 uv
 wev
 wf-recorder

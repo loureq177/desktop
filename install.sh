@@ -45,6 +45,14 @@ if [ "$OS" = "Linux" ]; then
     pkglist archlinux/packages.txt | sudo pacman -S --noconfirm --needed -
     _log_ok "Pacman packages installed."
 
+    if compgen -G "/sys/class/power_supply/BAT*" >/dev/null 2>&1; then
+        if [ -f archlinux/packages-laptop.txt ]; then
+            _log_info "Detected laptop hardware (battery found). Installing laptop packages..."
+            pkglist archlinux/packages-laptop.txt | sudo pacman -S --noconfirm --needed -
+            _log_ok "Laptop packages installed."
+        fi
+    fi
+
     if command -v flatpak &>/dev/null && [ -f archlinux/flatpak.txt ]; then
         _log_info "Configuring Flatpak and installing applications..."
         flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
@@ -77,6 +85,13 @@ if [ "$OS" = "Linux" ]; then
         if [ -f "archlinux/.config/ly/startup.sh" ]; then
             sudo ln -sfv "$HOME/.config/ly/startup.sh" /etc/ly/startup.sh
         fi
+    fi
+
+    if [ -f "archlinux/.config/keyd/default.conf" ]; then
+        _log_info "Configuring keyd keyboard remapper..."
+        sudo mkdir -p /etc/keyd
+        sudo ln -sfv "$HOME/.config/keyd/default.conf" /etc/keyd/default.conf
+        sudo systemctl enable --now keyd 2>/dev/null || _log_warn "Failed to enable keyd."
     fi
 
     if [ -x "$HOME/.local/bin/apply-ui" ]; then
