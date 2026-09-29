@@ -9,7 +9,7 @@ if not ui_ok then
 		rounding = { window = 0, element = 0, subtle = 0 },
 		border = { size = 2 },
 		spacing = { gaps_in = 10, gaps_out = 20 },
-		opacity = { active = 1.0, inactive = 0.75 },
+		opacity = { active = 1.0, inactive = 0.92 },
 		theme = { cursor = "Bibata-Modern-Classic", icon = "Papirus-Dark", gtk = "Adwaita-dark" },
 		font = {
 			family = "JetBrainsMono Nerd Font Propo",
@@ -559,8 +559,11 @@ hl.animation({ leaf = "fadeIn", speed = 1.73, bezier = "almostLinear" })
 hl.animation({ leaf = "fadeOut", speed = 1.46, bezier = "almostLinear" })
 hl.animation({ leaf = "fade", speed = 4, bezier = "default" })
 hl.animation({ leaf = "layers", speed = 3.81, bezier = "easeOutQuint" })
-hl.animation({ leaf = "layersIn", speed = 4, bezier = "myBezier", style = "popin 90%" })
-hl.animation({ leaf = "layersOut", speed = 5, bezier = "myBezier", style = "popin 90%" })
+-- Layer open/close: style "fade" only fades the surface in place. The default
+-- "popin" scaled the whole surface around its centre, which read as the dim
+-- spreading out from the middle of the screen on every quickshell backdrop.
+hl.animation({ leaf = "layersIn", speed = 1.79, bezier = "almostLinear", style = "fade" })
+hl.animation({ leaf = "layersOut", speed = 1.39, bezier = "almostLinear", style = "fade" })
 hl.animation({ leaf = "fadeLayersIn", speed = 1.79, bezier = "almostLinear" })
 hl.animation({ leaf = "fadeLayersOut", speed = 1.39, bezier = "almostLinear" })
 hl.animation({ leaf = "workspaces", speed = 5, bezier = "quick", style = "slidevert" })
@@ -646,6 +649,8 @@ hl.window_rule({
 -- ─── Keybindings ────────────────────────────────────────────────────────────────
 -- Every bind carries a description so the SUPER + ? cheatsheet
 -- (quickshell keybindings menu, fed by `hyprctl binds`) can list it.
+-- Prefer one-key SUPER chords for frequent actions; keep app launches on the
+-- SUPER + SHIFT layer and use SUPER + CTRL where an intuitive direct key is taken.
 
 local function b(keys, desc, dispatcher, opts)
 	opts = opts or {}
@@ -666,31 +671,30 @@ local cmds = {
 	["SUPER + ALT + 1"] = { "qs ipc call notifications invokeAction 0", "Notification action 1" },
 	["SUPER + ALT + 2"] = { "qs ipc call notifications invokeAction 1", "Notification action 2" },
 	["SUPER + ALT + 3"] = { "qs ipc call notifications invokeAction 2", "Notification action 3" },
-	["SUPER + CTRL + D"] = { "qs ipc call notifications toggleDnd", "Toggle Do Not Disturb" },
-	["SUPER + CTRL + comma"] = { "qs ipc call notifications toggle", "Toggle notification center" },
+	["SUPER + D"] = { "qs ipc call notifications toggleDnd", "Toggle Do Not Disturb" },
+	["SUPER + N"] = { "qs ipc call notifications toggle", "Toggle notification center" },
 	["SUPER + CTRL + V"] = { "qs ipc call clipboard toggle", "Clipboard history" },
 
 	-- ─── System ─────────────────────────────────────────────────────────────────
 	["SUPER + U"] = { programs.terminal .. " --class=sysupdate -e " .. bin .. "/sysupdate", "System update" },
 	["SUPER + CTRL + Q"] = { "hyprlock", "Lock system" },
-	["SUPER + CTRL + I"] = { "~/.local/bin/caffeine-toggle.sh", "Toggle idle inhibit" },
-	["SUPER + CTRL + P"] = { "hyprpicker -a --notify", "Color picker" },
-	["SUPER + CTRL + space"] = { "qs ipc call shell toggle launcher run", "Run commands" },
+	["SUPER + I"] = { "~/.local/bin/caffeine-toggle.sh", "Toggle idle inhibit" },
+	["SUPER + P"] = { "hyprpicker -a --notify", "Color picker" },
+	["SUPER + R"] = { "qs ipc call shell toggle launcher run", "Run commands" },
 	["SUPER + period"] = { "qs ipc call shell toggle launcher emoji", "Emoji picker" },
-	["SUPER + CTRL + E"] = { "qs ipc call shell toggle launcher emoji", "Emoji picker" },
 	["SUPER + escape"] = { "qs ipc call shell toggle launcher power", "System menu" },
 	["SUPER + CTRL + M"] = { "~/.local/bin/touchpad.sh toggle", "Toggle touchpad" },
 
 	-- ─── Capture ────────────────────────────────────────────────────────────────
-	["SUPER + CTRL + R"] = {
+	["SUPER + print"] = {
 		"~/.local/bin/record-screen.sh region",
 		"Screen recording (region)",
 	},
-	["SUPER + CTRL + SHIFT + R"] = {
+	["SUPER + SHIFT + print"] = {
 		"~/.local/bin/record-screen.sh fullscreen",
 		"Screen recording (fullscreen)",
 	},
-	["SUPER + CTRL + O"] = { "~/.local/bin/ocr.sh", "OCR from screen" },
+	["SUPER + O"] = { "~/.local/bin/ocr.sh", "OCR from screen" },
 	["SHIFT + print"] = {
 		"~/.local/bin/screenshot.sh fullscreen",
 		"Screenshot (fullscreen)",
@@ -719,6 +723,7 @@ local special_apps = {
 	["SUPER + CTRL + B"] = { "bluetui", "Bluetooth controls" },
 	["SUPER + CTRL + C"] = { "calculator", "Calculator" },
 	["SUPER + CTRL + W"] = { "impala", "Wifi controls" },
+	["SUPER + CTRL + J"] = { "jolt", "Power controls" },
 	["SUPER + CTRL + T"] = { "btop", "Activity Monitor" },
 }
 
