@@ -3,8 +3,11 @@
 --ignore=__pycache__
 --ignore=\.pyc$
 --ignore=\.venv
---ignore=\.zcompdump.*
+--ignore=\.zcompdump
 --ignore=\.zsh_history
+--ignore=\.zshrc\.local
+--ignore=\.fzf\.zsh
+--ignore=service\.json
 --ignore=\.zwc$
 --ignore=packages\.txt
 --ignore=aur\.txt

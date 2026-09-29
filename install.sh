@@ -7,7 +7,11 @@ YELLOW='\033[0;33m'
 RED='\033[0;31m'
 NC='\033[0m'
 
-_log() { local color=$1; shift; echo -e "${color}$*${NC}"; }
+_log() {
+    local color=$1
+    shift
+    echo -e "${color}$*${NC}"
+}
 _log_info() { _log "${BLUE}\n[INFO]" "$@"; }
 _log_ok() { _log "${GREEN}[OK]" "$@"; }
 _log_warn() { _log "${YELLOW}[WARN]" "$@"; }
@@ -54,8 +58,8 @@ if [ "$OS" = "Linux" ]; then
             pkglist archlinux/aur.txt | xargs -r -d '\n' paru -S --noconfirm --needed
             _log_ok "AUR packages installed."
         else
-            _log_warn "paru not found - skipping AUR packages from archlinux/aur.txt (pwvucontrol, cursor theme)."
-            _log_warn "Install paru first (see FreshArchLinux install_and_setup_paru) and re-run this script."
+            _log_warn "paru not found - skipping AUR packages"
+            _log_warn "Install paru first."
         fi
     fi
 

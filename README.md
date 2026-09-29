@@ -19,19 +19,23 @@ mirror your home directory directly:
 
 ```bash
 # Add a new common config (e.g. starship)
-mkdir -p ~/.files/common/.config/starship
-mv ~/.config/starship.toml ~/.files/common/.config/starship/
+mv ~/.config/starship.toml ~/.files/common/.config/starship.toml
 stow --restow --target ~ common
 
-# Restow configs after pulling changes
+# Restow configs after pulling changes (Arch Linux)
 stow --restow --target ~ common
 stow --restow --target ~ archlinux
+
+# ...or on macOS
+stow --restow --target ~ common
+stow --restow --target ~ macos
 ```
 
 ## Layout
 
 ```text
-archlinux/.local/bin/   every executable script (on PATH)
+archlinux/.local/bin/   Arch-only executable scripts (on PATH)
+macos/.local/bin/       macOS-only scripts (sysclean, sysupdate)
 archlinux/.config/
   ui/                   ui.toml (theme source) + generated ui.sh
   hypr/                 hyprland.lua, hyprlock.conf, hypridle.conf, generated ui.{lua,conf}
@@ -42,7 +46,8 @@ common/                 cross-platform shell, editor, tools
 macos/                  macOS-only configs
 ```
 
-All executable scripts live in `archlinux/.local/bin/`: session helpers
+Arch executable scripts live in `archlinux/.local/bin/` (with macOS
+equivalents in `macos/.local/bin/`): session helpers
 (`screenshot.sh`, `ocr.sh`, `record-screen.sh`, `volume.sh`, `brightness.sh`,
 `touchpad.sh`, `caffeine-toggle.sh`, `power-save.sh`, `battery-status.sh` for hyprlock,
 `emoji-insert.sh`) and maintenance tools (`apply-ui`, `firefox-apply`, `sysclean`,
