@@ -44,7 +44,7 @@ if [ "${1:-region}" = "region" ]; then
             ((.workspace.id as $w | $fs_ws | index($w) | not) or .fullscreen != 0 or .floating)
           ) |
           "\(.at[0]),\(.at[1]) \(.size[0])x\(.size[1])"
-        ' <<< "$(hyprctl clients -j 2>/dev/null || echo "[]")" 2>/dev/null || true
+        ' <<<"$(hyprctl clients -j 2>/dev/null || echo "[]")" 2>/dev/null || true
     )
 
     hyprpicker -r -z &
@@ -94,7 +94,7 @@ wl-copy -t image/png <"$FILE"
 
 # One action, not two identical buttons: "default" is also what a click on the
 # notification body invokes, so it covers both paths without a duplicate.
-ACTION=$(notify-send --app-name "Screenshot" -t 5000 "Captured" -i "$FILE" -A "default=Edit with Satty" "Saved and copied to clipboard.")
+ACTION=$(notify-send --app-name "Screenshot" -t 5000 "Captured" -i "$FILE" -A "default=Edit" "Saved and copied to clipboard.")
 
 if [ "$ACTION" = "default" ]; then
     satty --filename "$FILE" --fullscreen --output-filename "$FILE"
