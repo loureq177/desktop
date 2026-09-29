@@ -10,7 +10,10 @@
 --ignore=service\.json
 --ignore=\.zwc$
 --ignore=packages\.txt
+--ignore=packages-.*\.txt
 --ignore=aur\.txt
 --ignore=flatpak\.txt
 --ignore=Brewfile
+--ignore=local\.lua
+--ignore=config\.local
 

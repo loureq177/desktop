@@ -1,0 +1,45 @@
+-- ~/.config/hypr/local.lua
+-- Machine-specific configuration (GPU/DRM, monitors, device-specific binds/overrides).
+-- This file is gitignored and stow-ignored. Copy to ~/.config/hypr/local.lua to use.
+
+return {
+	-- Hardware / GPU environment variables
+	env = function()
+		-- Example for hybrid graphics (AMD iGPU + NVIDIA dGPU on Lenovo Legion):
+		-- hl.env("AQ_DRM_DEVICES", "/dev/dri/amd-igpu:/dev/dri/nvidia-dgpu")
+		-- local vulkan_icd = "/usr/share/vulkan/icd.d/radeon_icd.json"
+		-- hl.env("VK_DRIVER_FILES", vulkan_icd)
+		-- hl.env("VK_ICD_FILENAMES", vulkan_icd)
+		-- hl.env("LIBVA_DRIVER_NAME", "radeonsi")
+	end,
+
+	-- Monitor layout & refresh rates
+	monitors = function()
+		-- Example: Laptop display + external monitor
+		-- local laptop_output = "desc:BOE 0x0998"
+		-- local external_output = "desc:iiyama Corporation PL2792Q 1152011401936"
+		--
+		-- hl.monitor({
+		-- 	output = laptop_output,
+		-- 	mode = "1920x1080@165",
+		-- 	position = "320x1440",
+		-- 	scale = 1,
+		-- })
+		-- hl.monitor({
+		-- 	output = external_output,
+		-- 	mode = "2560x1440@59.95",
+		-- 	position = "0x0",
+		-- 	scale = 1,
+		-- })
+	end,
+
+	-- Set to true if you define custom Lid Switch handling in monitors()
+	custom_lid_switch = false,
+
+	-- Input overrides (optional)
+	input = {
+		-- kb_layout = "pl",
+		-- kb_options = "caps:escape,altwin:swap_lalt_lwin",
+		-- sensitivity = 0.2,
+	},
+}

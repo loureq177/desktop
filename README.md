@@ -76,3 +76,11 @@ Components synchronized:
 - **Yazi**: theme.toml
 - **Shell** (generated `ui.sh`): only variables with real consumers
   (screenshot colors, fzf theme)
+
+## Host-Specific Configuration
+
+Machine-local configurations are gitignored and safe from Stow:
+
+- **Hyprland** (`~/.config/hypr/local.lua`): GPU DRM devices, monitor layouts, input overrides. See [`archlinux/.config/hypr/local.lua.example`](archlinux/.config/hypr/local.lua.example).
+- **Git** (`~/.config/git/config.local`): Local name, email, GPG signing key. See [`common/.config/git/config.local.example`](common/.config/git/config.local.example).
+- **Shell** (`~/.config/zsh/.zshrc.local`): Machine-specific environment variables, tokens, and aliases.

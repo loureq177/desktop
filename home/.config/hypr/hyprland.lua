@@ -26,6 +26,11 @@ if not ui_ok then
 	}
 end
 
+local local_ok, local_cfg = pcall(dofile, hypr .. "/local.lua")
+if not local_ok or type(local_cfg) ~= "table" then
+	local_cfg = {}
+end
+
 local programs = {
 	terminal = "ghostty",
 	browser = "firefox",
@@ -49,7 +54,7 @@ local programs = {
 		notes = {
 			exe = "ghostty --class=notes --working-directory="
 				.. os.getenv("HOME")
-				.. "/Notes -e nvim",
+				.. "/Notes -e nvim .",
 			class = "notes",
 			ws = "notes",
 		},
@@ -74,16 +79,12 @@ local programs = {
 
 -- ─── Environment ─────────────────────────────────────────────────────────────
 
--- Both GPUs: external USB-C/DP ports on this Legion are wired to the NVIDIA
--- dGPU, so it must be listed for the external monitor to work (relogin
--- after change). iGPU stays primary; dGPU on demand via prime-run.
-hl.env("AQ_DRM_DEVICES", "/dev/dri/amd-igpu:/dev/dri/nvidia-dgpu")
+if type(local_cfg.env) == "function" then
+	local_cfg.env()
+end
+
 hl.env("GSK_RENDERER", "gl")
 hl.env("GTK_A11Y", "none")
-local vulkan_icd = "/usr/share/vulkan/icd.d/radeon_icd.json"
-hl.env("VK_DRIVER_FILES", vulkan_icd)
-hl.env("VK_ICD_FILENAMES", vulkan_icd)
-hl.env("LIBVA_DRIVER_NAME", "radeonsi")
 hl.env("XDG_SESSION_TYPE", "wayland")
 for _, var in ipairs({ "XDG_CURRENT_DESKTOP", "XDG_SESSION_DESKTOP" }) do
 	hl.env(var, "Hyprland")
@@ -141,32 +142,10 @@ end)
 
 -- ─── Monitors ────────────────────────────────────────────────────────────────
 
-local laptop_output = "desc:BOE 0x0998"
-local laptop_mode = "1920x1080@165"
-local laptop_pos = "320x1440"
-local laptop_scale = 1
+if type(local_cfg.monitors) == "function" then
+	local_cfg.monitors()
+end
 
--- External monitor is centered above the laptop:
---   external 2560x1440 at 0x0, laptop 1920x1080 at 320x1440
---   (320 = (2560 - 1920) / 2). The shared 1920px edge at y=1440 is what
---   lets the cursor cross. If the desc below stops matching
---   (check with `hyprctl monitors -j`), the fallback `auto` rule places
---   DP-1 at 2240x0 which touches the laptop only at the single corner
---   point (2240,1440) -> cursor cannot cross. Keep desc in sync.
-local external_output = "desc:iiyama Corporation PL2792Q 1152011401936"
-
-hl.monitor({
-	output = laptop_output,
-	mode = laptop_mode,
-	position = laptop_pos,
-	scale = laptop_scale,
-})
-hl.monitor({
-	output = external_output,
-	mode = "2560x1440@59.95",
-	position = "0x0",
-	scale = 1,
-})
 hl.monitor({
 	output = "",
 	mode = "preferred",
@@ -174,30 +153,37 @@ hl.monitor({
 	scale = 1,
 })
 
-hl.bind("switch:on:Lid Switch", function()
-	local mons = hl.get_monitors()
-	if #mons > 1 then
-		hl.dsp.dpms({ action = "off", monitor = laptop_output })
-	end
-end, { locked = true })
+if local_cfg.lid_switch ~= false and not local_cfg.custom_lid_switch then
+	hl.bind("switch:on:Lid Switch", function()
+		local mons = hl.get_monitors()
+		if #mons > 1 then
+			for _, m in ipairs(mons) do
+				if (m.name or ""):find("^eDP") then
+					hl.dsp.dpms({ action = "off", monitor = m.name })
+					break
+				end
+			end
+		end
+	end, { locked = true })
 
-hl.bind("switch:off:Lid Switch", function()
-	hl.dsp.dpms({ action = "on" })
-end, { locked = true })
+	hl.bind("switch:off:Lid Switch", function()
+		hl.dsp.dpms({ action = "on" })
+	end, { locked = true })
+end
 
 -- ─── Input & Gestures ────────────────────────────────────────────────────────
 
 hl.config({
 	input = {
-		kb_layout = "pl",
-		kb_variant = "",
-		kb_model = "",
-		kb_options = "caps:escape,altwin:swap_lalt_lwin",
+		kb_layout = (local_cfg.input and local_cfg.input.kb_layout) or "pl",
+		kb_variant = (local_cfg.input and local_cfg.input.kb_variant) or "",
+		kb_model = (local_cfg.input and local_cfg.input.kb_model) or "",
+		kb_options = (local_cfg.input and local_cfg.input.kb_options) or "altwin:swap_lalt_lwin",
 		kb_rules = "",
 		repeat_delay = 200,
 		repeat_rate = 20,
 		follow_mouse = 1,
-		sensitivity = 0.2,
+		sensitivity = (local_cfg.input and local_cfg.input.sensitivity) or 0.2,
 		touchpad = {
 			natural_scroll = true,
 			tap_to_click = true,
@@ -586,7 +572,6 @@ hl.config({
 	},
 })
 
-
 -- ─── Windows & Workspaces ────────────────────────────────────────────────────
 
 hl.layer_rule({
@@ -649,8 +634,6 @@ hl.window_rule({
 -- ─── Keybindings ────────────────────────────────────────────────────────────────
 -- Every bind carries a description so the SUPER + ? cheatsheet
 -- (quickshell keybindings menu, fed by `hyprctl binds`) can list it.
--- Prefer one-key SUPER chords for frequent actions; keep app launches on the
--- SUPER + SHIFT layer and use SUPER + CTRL where an intuitive direct key is taken.
 
 local function b(keys, desc, dispatcher, opts)
 	opts = opts or {}
@@ -668,38 +651,34 @@ local cmds = {
 	--  ─── Notifications (quickshell) ────────────────────────────────────────────
 	["SUPER + comma"] = { "qs ipc call notifications dismissLatest", "Close latest notification" },
 	["SUPER + SHIFT + comma"] = { "qs ipc call notifications invokeDefault", "Notification action" },
-	["SUPER + ALT + 1"] = { "qs ipc call notifications invokeAction 0", "Notification action 1" },
-	["SUPER + ALT + 2"] = { "qs ipc call notifications invokeAction 1", "Notification action 2" },
-	["SUPER + ALT + 3"] = { "qs ipc call notifications invokeAction 2", "Notification action 3" },
 	["SUPER + D"] = { "qs ipc call notifications toggleDnd", "Toggle Do Not Disturb" },
 	["SUPER + N"] = { "qs ipc call notifications toggle", "Toggle notification center" },
-	["SUPER + CTRL + V"] = { "qs ipc call clipboard toggle", "Clipboard history" },
+	["SUPER + V"] = { "qs ipc call clipboard toggle", "Clipboard history" },
 
 	-- ─── System ─────────────────────────────────────────────────────────────────
-	["SUPER + U"] = { programs.terminal .. " --class=sysupdate -e " .. bin .. "/sysupdate", "System update" },
-	["SUPER + CTRL + Q"] = { "hyprlock", "Lock system" },
+	["SUPER + A"] = { "qs ipc call quicksettings toggle", "Quick settings" },
+	["SUPER + E"] = { "qs ipc call shell toggle launcher emoji", "Emoji picker" },
 	["SUPER + I"] = { "~/.local/bin/caffeine-toggle.sh", "Toggle idle inhibit" },
 	["SUPER + P"] = { "hyprpicker -a --notify", "Color picker" },
-	["SUPER + R"] = { "qs ipc call shell toggle launcher run", "Run commands" },
-	["SUPER + period"] = { "qs ipc call shell toggle launcher emoji", "Emoji picker" },
-	["SUPER + escape"] = { "qs ipc call shell toggle launcher power", "System menu" },
-	["SUPER + CTRL + M"] = { "~/.local/bin/touchpad.sh toggle", "Toggle touchpad" },
-	["SUPER + A"] = { "qs ipc call quicksettings toggle", "Quick settings" },
+	["SUPER + C"] = { "qs ipc call shell toggle launcher run", "Run commands" },
+	["SUPER + escape"] = { "hyprlock", "Lock system" },
+	["SUPER + SHIFT + escape"] = { "qs ipc call shell toggle launcher power", "System menu" },
 
 	-- ─── Capture ────────────────────────────────────────────────────────────────
-	["SUPER + print"] = {
+	["SUPER + R"] = {
 		"~/.local/bin/record-screen.sh region",
 		"Screen recording (region)",
 	},
-	["SUPER + SHIFT + print"] = {
+	["SUPER + CTRL + R"] = {
 		"~/.local/bin/record-screen.sh fullscreen",
 		"Screen recording (fullscreen)",
 	},
 	["SUPER + O"] = { "~/.local/bin/ocr.sh", "OCR from screen" },
-	["SHIFT + print"] = {
+	["SUPER + CTRL + S"] = {
 		"~/.local/bin/screenshot.sh fullscreen",
 		"Screenshot (fullscreen)",
 	},
+	["SUPER + S"] = { "~/.local/bin/screenshot.sh region", "Screenshot (region)" },
 	["print"] = { "~/.local/bin/screenshot.sh region", "Screenshot (region)" },
 }
 
@@ -717,15 +696,15 @@ local special_apps = {
 	["SUPER + SHIFT + A"] = { "gemini", "Gemini" },
 	["SUPER + SHIFT + F"] = { "yazi", "File manager (yazi)" },
 	["SUPER + SHIFT + N"] = { "notes", "Notes" },
+	["SUPER + SHIFT + Q"] = { "calculator", "Calculator" },
+	["SUPER + SHIFT + B"] = { "btop", "Activity Monitor" },
 
-	-- ─── "System" Apps ──────────────────────────────────────────────────────────
+	-- ─── Action menu controls ──────────────────────────────────────────────────────────
 
+	-- TODO: Przerobić na submap w action menu
 	["SUPER + CTRL + A"] = { "audio", "Audio controls" },
 	["SUPER + CTRL + B"] = { "bluetui", "Bluetooth controls" },
-	["SUPER + CTRL + C"] = { "calculator", "Calculator" },
 	["SUPER + CTRL + W"] = { "impala", "Wifi controls" },
-	["SUPER + CTRL + J"] = { "jolt", "Power controls" },
-	["SUPER + CTRL + T"] = { "btop", "Activity Monitor" },
 }
 
 for bind, entry in pairs(special_apps) do
@@ -735,7 +714,6 @@ end
 b("SUPER + Q", "Close window", hl.dsp.window.close())
 b("SUPER + F", "Toggle fullscreen", hl.dsp.window.fullscreen())
 b("SUPER + T", "Toggle window split", hl.dsp.layout("togglesplit"))
-b("SUPER + CTRL + F", "Toggle floating", hl.dsp.window.float())
 
 local directions = { H = "left", L = "right", K = "up", J = "down" }
 local step = 25
@@ -762,11 +740,6 @@ for i = 1, 9 do
 		"SUPER + SHIFT + " .. i,
 		"Move window to workspace " .. i,
 		hl.dsp.window.move({ workspace = i })
-	)
-	b(
-		"SUPER + CTRL + SHIFT + " .. i,
-		"Move window silently to workspace " .. i,
-		hl.dsp.window.move({ workspace = i, follow = false })
 	)
 end
 
@@ -798,77 +771,3 @@ local media = {
 for _, m in ipairs(media) do
 	b(m[1], m[4], hl.dsp.exec_cmd(m[2]), { locked = true, repeating = m[3] })
 end
-
--- ─── Universal Clipboard & Selection ────────────────────────────────────────
-
-local function send_shortcut_once(mods, key)
-	return function()
-		hl.dispatch(hl.dsp.send_key_state({ mods = mods, key = key, state = "down" }))
-		hl.timer(function()
-			hl.dispatch(hl.dsp.send_key_state({ mods = mods, key = key, state = "up" }))
-		end, { timeout = 50, type = "oneshot" })
-	end
-end
-
-local function active_window_is_terminal()
-	local window = hl.get_active_window()
-	if not window then
-		return false
-	end
-
-	for _, tag in ipairs(window.tags or {}) do
-		if tag:gsub("%*$", "") == "terminal" then
-			return true
-		end
-	end
-
-	local class = (window.class or ""):lower()
-	local initial_class = (window.initial_class or ""):lower()
-	if
-		class:find("ghostty")
-		or initial_class:find("ghostty")
-		or class:find("kitty")
-		or initial_class:find("kitty")
-		or class:find("alacritty")
-		or initial_class:find("alacritty")
-		or class:find("foot")
-		or initial_class:find("foot")
-		or class:find("wezterm")
-		or initial_class:find("wezterm")
-	then
-		return true
-	end
-
-	if window.pid and window.pid > 0 then
-		local f = io.open("/proc/" .. window.pid .. "/comm", "r")
-		if f then
-			local comm = (f:read("*l") or ""):lower():gsub("%s+", "")
-			f:close()
-			if
-				comm == "ghostty"
-				or comm == "kitty"
-				or comm == "alacritty"
-				or comm == "foot"
-				or comm == "wezterm"
-			then
-				return true
-			end
-		end
-	end
-
-	return false
-end
-
-local function universal_shortcut(gui_mods, gui_key, term_mods, term_key)
-	return function()
-		if active_window_is_terminal() then
-			send_shortcut_once(term_mods, term_key)()
-		else
-			send_shortcut_once(gui_mods, gui_key)()
-		end
-	end
-end
-
-b("SUPER + C", "Copy", universal_shortcut("CTRL", "C", "CTRL", "Insert"))
-b("SUPER + V", "Paste", universal_shortcut("CTRL", "V", "SHIFT", "Insert"))
-b("SUPER + X", "Cut", send_shortcut_once("CTRL", "X"))
