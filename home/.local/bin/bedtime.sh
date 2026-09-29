@@ -26,12 +26,12 @@ hour=$((10#$(date +%H)))
 minute=$((10#$(date +%M)))
 now=$((hour * 60 + minute))
 curfew=$((22 * 60))
-morning=$((7 * 60))
 
-if [ "$now" -ge "$curfew" ] || [ "$now" -lt "$morning" ]; then
-    # Warn only shortly after curfew: Persistent=true catch-up runs (after
-    # sleep/boot) must not re-notify in the middle of the night.
-    if [ "$now" -ge "$curfew" ] && [ "$now" -lt $((curfew + 15)) ]; then
+if [ "$now" -ge "$curfew" ]; then
+    # Enforcement is anchored to the evening (22:00–24:00). A Persistent=true
+    # catch-up replay of a missed 22:00 trigger landing here is what ideally
+    # keeps the curfew; but as soon as the clock passes midnight, we are done.
+    if [ "$now" -lt $((curfew + 15)) ]; then
         notify_bed "WiFi has been turned off."
     fi
     set_wifi "off"
@@ -41,5 +41,10 @@ elif [ "$hour" -eq 21 ] && [ "$minute" -ge 45 ]; then
     notify_bed "WiFi will turn off in $((curfew - now)) minutes."
     set_wifi "on"
 else
+    # All other times (the whole day, plus the [00:00, 07:00) window): make
+    # sure the WiFi is on. A stale evening replay landing after midnight or at
+    # an early-morning login must never cut the network — meanwhile, on a
+    # machine that ran through the 22:00 enforcement, the WiFi simply stays
+    # off because nothing runs again until the 07:00 timer slot.
     set_wifi "on"
 fi
