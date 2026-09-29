@@ -26,6 +26,7 @@ git
 git-delta
 github-cli
 gnome-calculator
+gnome-clocks
 gnome-keyring
 grim
 gst-plugins-bad
@@ -49,6 +50,7 @@ libcanberra
 libnotify
 libreoffice-fresh
 libreoffice-fresh-pl
+lolcat
 loupe
 ly
 man-db

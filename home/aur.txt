@@ -1,5 +1,6 @@
 bibata-cursor-git
 cmatrix-git
 localsend-bin
+mkinitcpio-firmware
 pwvucontrol
 shellcheck-bin
