@@ -117,20 +117,76 @@ Singleton {
 
 	function dismissEntry(id: int): void {
 		root.safeDismiss(root.liveById(id));
+		root.removeToast(id);
 		root.removeHistory(id);
 	}
 
-	// Actions shown as buttons: everything except the "default" action,
-	// which a body click invokes directly (open/reply semantics).
+	// Actions shown as buttons: mirrors entriesFromActions (noise identifiers
+	// like "settings" are dropped, real "default" labels are kept) so the
+	// keybind actions operate on exactly the rendered buttons.
 	function visibleActions(n): var {
+		var entries = root.entriesFromActions(n ? n.id : -1, n ? n.actions : []);
+		var want = {};
+		for (var i = 0; i < entries.length; i++)
+			want[entries[i].identifier] = true;
 		var out = [];
 		if (!n || !n.actions)
 			return out;
-		for (var i = 0; i < n.actions.length; i++) {
-			if (n.actions[i].identifier !== "default")
-				out.push(n.actions[i]);
+		for (var j = 0; j < n.actions.length; j++) {
+			if (n.actions[j] && want[(n.actions[j].identifier || "")] === true)
+				out.push(n.actions[j]);
 		}
 		return out;
+	}
+
+	// Buttons for one action row: every non-"default" action. Chromium's
+	// "settings" action (opens browser notification settings on web apps
+	// like WhatsApp Web) is dropped as noise. When the ONLY action is
+	// "default", it becomes a visible button — but only for real labels
+	// (scripts like screenshot use -A "default=Edit with Satty"); generic
+	// auto-labels ("Action", "Activate") stay off, body clicks cover them.
+	function entriesFromActions(id, acts): var {
+		var out = [];
+		var all = acts || [];
+		var plain = [];
+		for (var i = 0; i < all.length; i++) {
+			var mid = (all[i] && all[i].identifier) || "";
+			if (mid === "default" || mid === "settings")
+				continue;
+			plain.push(all[i]);
+		}
+		if (plain.length === 0) {
+			for (var j = 0; j < all.length; j++) {
+				var did = (all[j] && all[j].identifier) || "";
+				if (did !== "default")
+					continue;
+				var label = ((all[j] && all[j].text) || "").trim();
+				var lower = label.toLowerCase();
+				if (label === "" || lower === "action" || lower === "activate")
+					continue;
+				out.push({ identifier: did, text: label, snapId: id, toastId: id });
+			}
+			return out;
+		}
+		for (var k = 0; k < plain.length; k++) {
+			var entry = plain[k];
+			out.push({ identifier: (entry && entry.identifier) || "", text: (entry && entry.text) || "Action", snapId: id, toastId: id });
+		}
+		return out;
+	}
+
+	// Action entries for a history/snapshot card, snapshot.actions as the
+	// stable source (plain data). Buttons render even when the live
+	// notification is gone; invokeByIdentifier safely no-ops then and the
+	// button disables itself via invitesLive.
+	function historyActionEntries(snap): var {
+		return root.entriesFromActions(snap.id, snap.actions);
+	}
+
+	// Whether the live notification backing a snapshot still exists.
+	// History cards use it to disable dead notification actions.
+	function isLive(id: int): bool {
+		return root.liveById(id) !== null;
 	}
 
 	// Shared action invocation for toasts, center buttons and keybinds.
@@ -220,15 +276,27 @@ Singleton {
 	}
 
 	function dismissLatest(): void {
-		root.safeDismiss(root.latestToast());
+		var targetId = -1;
+		var t = root.latestToast();
+		if (t) {
+			targetId = t.id;
+		} else if (root.history.length > 0 && root.history[0]) {
+			targetId = root.history[0].id;
+		}
+		if (targetId >= 0) {
+			root.dismissEntry(targetId);
+		}
 	}
 
 	function status(): string {
-		return JSON.stringify({ count: root.toasts.length, dnd: root.dnd, total: root.history.length, history: root.history });
+		return JSON.stringify({ count: root.toasts.length, dnd: root.dnd, total: root.history.length, history: root.history, centerOpen: root.centerOpen });
 	}
 
-	// Expiry sweeper: non-critical toasts dismiss themselves after
+	// Expiry sweeper: non-critical toasts drop off the visual stack after
 	// toastTimeoutMs so a forgotten stack cannot block its corner forever.
+	// The underlying notification is intentionally NOT closed here: it stays
+	// tracked until it leaves the history (pruneHistory) or the user dismisses
+	// it, which keeps action buttons / inline reply working from the center.
 	// Ticks only while toasts exist.
 	Timer {
 		interval: 1000
@@ -251,12 +319,26 @@ Singleton {
 					continue;
 				}
 				if (now - at >= root.toastTimeoutMs)
-					root.safeDismiss(t);
+					root.removeToast(t.id);
 			}
 			for (var key in root.toastArrivedAt) {
 				if (!liveIds[key])
 					delete root.toastArrivedAt[key];
 			}
+		}
+	}
+
+	// Close live notifications that fell out of the history cap so tracked
+	// state cannot grow without bound (toast expiry keeps them alive on
+	// purpose — see the sweeper note above).
+	function pruneHistory(): void {
+		if (root.history.length <= root.historyLimit)
+			return;
+		var dropped = root.history.slice(root.historyLimit);
+		root.history = root.history.slice(0, root.historyLimit);
+		for (var i = 0; i < dropped.length; i++) {
+			if (dropped[i])
+				root.safeDismiss(root.liveById(dropped[i].id));
 		}
 	}
 
@@ -268,12 +350,13 @@ Singleton {
 		actionsSupported: true
 		imageSupported: true
 		persistenceSupported: false
-		inlineReplySupported: false
+		inlineReplySupported: true
 
 		onNotification: n => {
 			n.tracked = true;
 			var now = Date.now();
 			root.history = [root.snapshot(n, now)].concat(root.history).slice(0, root.historyLimit);
+			root.pruneHistory();
 			root.toastArrivedAt[n.id] = now;
 			var critical = (n.urgency === NotificationUrgency.Critical);
 			if (!root.dnd || critical)

@@ -31,6 +31,7 @@ PanelWindow {
 		if (shown) {
 			slideOut.stop();
 			slideIn.restart();
+			card.forceActiveFocus();
 		} else {
 			slideIn.stop();
 			slideOut.restart();
@@ -82,9 +83,7 @@ PanelWindow {
 	}
 
 	WlrLayershell.layer: WlrLayer.Overlay
-	// Focus is only requested when hovering inside the drawer card so consecutive
-	// clicks on the bell toggle button immediately register without mouse movement.
-	WlrLayershell.keyboardFocus: cardArea.containsMouse ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
+	WlrLayershell.keyboardFocus: shown ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
 	WlrLayershell.namespace: "quickshell"
 
 	screen: Quickshell.screens.find(s => s.name === Hyprland.focusedMonitor?.name) ?? Quickshell.screens[0] ?? null
@@ -112,6 +111,7 @@ PanelWindow {
 
 		MouseArea {
 			anchors.fill: parent
+			enabled: win.shown
 			onClicked: Notifications.closeCenter()
 		}
 	}
@@ -128,6 +128,12 @@ PanelWindow {
 		border.width: Theme.borderSize
 		radius: Theme.roundingWindow
 		clip: true
+		focus: true
+
+		Keys.onEscapePressed: event => {
+			Notifications.closeCenter();
+			event.accepted = true;
+		}
 
 		// Absorb clicks inside the panel so they don't close the center.
 		MouseArea {
@@ -327,22 +333,13 @@ PanelWindow {
 					property bool critical: snap.urgency === NotificationUrgency.Critical
 					property bool dismissing: false
 					readonly property var live: Notifications.liveById(snap.id)
-					readonly property var actionEntries: {
-						var t = entryWrap.live;
-						var out = [];
-						if (!t || !t.actions)
-							return out;
-						for (var i = 0; i < t.actions.length; i++) {
-							if (t.actions[i].identifier === "default")
-								continue;
-							out.push({
-								identifier: t.actions[i].identifier || "",
-								text: t.actions[i].text || "Action",
-								snapId: snap.id
-							});
-						}
-						return out;
-					}
+					readonly property bool invitingLive: Notifications.isLive(snap.id)
+					// Buttons come from the snapshot, not the live object: the
+					// live notification dies when its toast expires, which used
+					// to leave center cards without any action buttons. A click
+					// on a dead notification is a safe no-op in the singleton.
+					readonly property var actionEntries: Notifications.historyActionEntries(snap)
+					readonly property bool canReply: entryWrap.live !== null && entryWrap.live.hasInlineReply
 
 					width: ListView.view.width
 					implicitHeight: dismissing ? 0 : cardBox.implicitHeight
@@ -518,8 +515,19 @@ PanelWindow {
 											notifId: modelData.snapId
 											identifier: modelData.identifier
 											label: modelData.text
+											enabled: entryWrap.invitingLive
+											opacity: entryWrap.invitingLive ? 1.0 : 0.4
 										}
 									}
+								}
+
+								// Inline reply row (live notifications only).
+								NotificationReplyField {
+									visible: entryWrap.canReply
+									Layout.fillWidth: true
+									notif: entryWrap.live
+									placeholder: entryWrap.live ? entryWrap.live.inlineReplyPlaceholder : ""
+									onReplied: Notifications.dismissEntry(entryWrap.snap.id)
 								}
 							}
 						}

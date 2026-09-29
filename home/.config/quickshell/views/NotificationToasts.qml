@@ -30,6 +30,25 @@ PanelWindow {
 	color: "transparent"
 	exclusiveZone: 0
 
+	// Global inline-reply keyboard focus state: the count of toast focus
+	// scopes whose TextInput currently has active focus (increases on focus
+	// gained, decreases on focus lost, clamped at 0). The window reacts by
+	// taking KeyboardFocus.Exclusive while a reply is being typed.
+	QtObject {
+		id: replyFocus
+
+		property int count: 0
+		readonly property bool active: count > 0
+
+		function bump(delta: int): void {
+			count = Math.max(0, count + delta);
+			// Release focus so the layer keyboard lock drops cleanly when
+			// the count hits zero.
+			if (count === 0 && win.visible)
+				stack.forceActiveFocus();
+		}
+	}
+
 	// Input follows the content: clicks outside the stacked cards fall
 	// through to the windows below instead of hitting this overlay.
 	mask: Region {
@@ -71,6 +90,9 @@ PanelWindow {
 	}
 
 	WlrLayershell.layer: WlrLayer.Overlay
+	// Keyboard focus only while an inline reply field owns focus, so typing
+	// into a toast works while normal app shortcuts stay untouched.
+	WlrLayershell.keyboardFocus: replyFocus.active !== true ? WlrKeyboardFocus.None : WlrKeyboardFocus.Exclusive
 	WlrLayershell.namespace: "quickshell"
 
 	screen: Quickshell.screens.find(s => s.name === Hyprland.focusedMonitor?.name) ?? Quickshell.screens[0] ?? null
@@ -106,22 +128,7 @@ PanelWindow {
 				// receive the outer `modelData`, so each entry carries the
 				// stable notification id + identifier for singleton lookup.
 				// The "default" action is not a button: body clicks invoke it.
-				readonly property var actionEntries: {
-					var out = [];
-					if (!notif || !notif.actions)
-						return out;
-					for (var i = 0; i < notif.actions.length; i++) {
-						var a = notif.actions[i];
-						if (a.identifier === "default")
-							continue;
-						out.push({
-							identifier: a.identifier || "",
-							text: a.text || "Action",
-							toastId: notif.id
-						});
-					}
-					return out;
-				}
+				readonly property var actionEntries: Notifications.entriesFromActions(notif.id, notif.actions)
 
 				width: stack.width
 				implicitHeight: Math.max(bodyCol.implicitHeight + Theme.notifPadV * 2, toastPic.size + Theme.notifPadV * 2)
@@ -132,8 +139,8 @@ PanelWindow {
 				clip: true
 
 				// Below the content: child button areas stay clickable on top.
-				// Body click runs the default action (opens the app); only
-				// actionless notifications fall back to plain dismissal.
+				// Body click activates "default" (open chat / custom action);
+				// notifications without one are dismissed on click.
 				MouseArea {
 					id: hoverArea
 					anchors.fill: parent
@@ -170,13 +177,13 @@ PanelWindow {
 				// Main text and actions column, vertically centered
 				ColumnLayout {
 					id: bodyCol
+					z: 2
 					anchors.left: toastPic.right
 					anchors.leftMargin: 12
 					anchors.right: closeBtn.left
 					anchors.rightMargin: 8
 					anchors.verticalCenter: parent.verticalCenter
 					spacing: 3
-					z: 2
 
 					RowLayout {
 						Layout.fillWidth: true
@@ -237,6 +244,18 @@ PanelWindow {
 							}
 						}
 					}
+
+					// Inline reply row (only for inline-reply capable senders).
+					NotificationReplyField {
+						id: replyField
+						visible: card.notif !== null && card.notif.hasInlineReply
+						Layout.fillWidth: true
+						notif: card.notif
+						placeholder: card.notif ? card.notif.inlineReplyPlaceholder : ""
+						onReplied: Notifications.dismissEntry(card.notif.id)
+						onFocusLost: replyFocus.bump(-1)
+						onFocusGained: replyFocus.bump(1)
+					}
 				}
 
 				// Close button in top-right corner
@@ -264,7 +283,7 @@ PanelWindow {
 						anchors.fill: parent
 						hoverEnabled: true
 						cursorShape: Qt.PointingHandCursor
-						onClicked: Notifications.safeDismiss(notif)
+						onClicked: Notifications.dismissEntry(notif.id)
 					}
 				}
 			}
