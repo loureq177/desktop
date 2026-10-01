@@ -1,0 +1,17 @@
+#!/bin/sh
+# Paste a cliphist entry into the focused app via clipboard + Shift+Insert.
+# Same mechanism as emoji-insert: copy first, close the picker, give the
+# compositor a moment to restore focus, then paste. Shift+Insert (like in the
+# emoji picker) works in both GUI apps and terminals, unlike Ctrl+V.
+# Usage: clipboard-insert <cliphist-id> [mime-type]
+set -eu
+id="${1:-}"
+mime="${2:-}"
+[ -n "$id" ] || exit 0
+if [ -n "$mime" ]; then
+    cliphist decode "$id" | wl-copy --type "$mime"
+else
+    cliphist decode "$id" | wl-copy
+fi
+sleep 0.05
+wtype -M shift -k Insert -m shift 2>/dev/null || true

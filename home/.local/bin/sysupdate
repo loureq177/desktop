@@ -30,6 +30,19 @@ fi
 echo "\n==> Updating Zsh plugins (zinit)..."
 zsh -ic "zinit self-update && zinit update --all" || true
 
+if command -v aur-sync-vote >/dev/null 2>&1; then
+    echo "\n==> Syncing AUR votes..."
+    # Non-interactive gate: only vote when credentials are already stored
+    # (`aur-sync-vote --remember` once); otherwise aur-sync-vote would block
+    # the whole update asking for the AUR login on stdin.
+    if python3 -c "import keyring, sys; sys.exit(0 if keyring.get_credential('aur-sync-vote', None) else 1)" >/dev/null 2>&1; then
+        aur-sync-vote || true
+    else
+        echo "Skipping vote sync: no saved AUR credentials."
+        echo "Run 'aur-sync-vote --remember' once to enable it."
+    fi
+fi
+
 if command -v fwupdmgr >/dev/null 2>&1; then
     echo "\n==> Checking firmware updates..."
     # refresh only pulls metadata (no auth needed); run the update itself as

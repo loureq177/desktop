@@ -1,56 +1,50 @@
 #!/usr/bin/env bash
 # Checks for official, AUR, and .pacnew updates; sends a desktop notification with update action.
+# Runs at most once per calendar day: boot, resume and timer triggers all
+# funnel through the stamp below. Bypass with --force.
 set -euo pipefail
 
-# Check if network is reachable. ICMP is blocked on plenty of networks, and a
-# hardcoded echo host says nothing about the mirror checkupdates talks to, so
-# probe the first pacman mirror instead: any HTTP response means online, while
-# curl's 6/7/28 (no DNS / refused / timeout) mean offline.
-if command -v curl >/dev/null 2>&1; then
-    mirror="$(sed -n 's|^[[:space:]]*Server[[:space:]]*=[[:space:]]*||p' /etc/pacman.d/mirrorlist 2>/dev/null | head -n 1)"
-    if [ -z "$mirror" ] || ! curl -sS -m 5 -o /dev/null "${mirror%%/\$repo*}/" >/dev/null 2>&1; then
-        exit 0
-    fi
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/check-updates"
+STAMP="$STATE_DIR/last-check"
+TODAY="$(date +%F)"
+
+for arg in "$@"; do
+    case "$arg" in
+        -f|--force) TODAY="" ;;
+    esac
+done
+
+if [[ -n "$TODAY" && -f "$STAMP" ]] && [[ "$(<"$STAMP")" == "$TODAY" ]]; then
+    exit 0
 fi
 
-# Count official Arch updates
+# Count updates
 official_count=$(checkupdates 2>/dev/null | grep -c . || true)
-
-# Count AUR updates via paru
-aur_count=0
-if command -v paru >/dev/null 2>&1; then
-    aur_count=$(paru -Qum 2>/dev/null | grep -c . || true)
-fi
-
-pacnew_count=0
-if command -v pacdiff >/dev/null 2>&1; then
-    pacnew_count=$(pacdiff -o 2>/dev/null | grep -c . || true)
-fi
-
+aur_count=$(paru -Qum 2>/dev/null | grep -c . || true)
+pacnew_count=$(pacdiff -o 2>/dev/null | grep -c . || true)
 total=$((official_count + aur_count))
 
-if [ "$total" -gt 0 ] || [ "$pacnew_count" -gt 0 ]; then
-    if [ "$total" -gt 0 ]; then
+mkdir -p "$STATE_DIR"
+printf '%s\n' "$(date +%F)" >"$STAMP"
+
+if (( total > 0 || pacnew_count > 0 )); then
+    if (( total > 0 )); then
         summary="Available updates ($total)"
-        body="Official packages: $official_count\nAUR packages: $aur_count"
-        if [ "$pacnew_count" -gt 0 ]; then
-            body="$body\n.pacnew files: $pacnew_count"
-        fi
+        body=$(printf 'Official packages: %s\nAUR packages: %s' "$official_count" "$aur_count")
+        (( pacnew_count > 0 )) && body=$(printf '%s\n.pacnew files: %s' "$body" "$pacnew_count")
     else
         summary=".pacnew files detected ($pacnew_count)"
         body="System configuration merge required."
     fi
-    body="$body\n\nClick the button below to update."
+    body=$(printf '%s\n\nClick Update to start the upgrade.' "$body")
 
-    action=$(notify-send \
-        --app-name="System Update" \
-        --icon="archlinux" \
-        --urgency=normal \
-        -A "update=Update system" \
-        "$summary" "$body" || true)
-
-    if [ "$action" = "update" ]; then
-        "${TERMINAL:-ghostty}" --class=sysupdate -e "$HOME/.local/bin/sysupdate" >/dev/null 2>&1 &
-        disown || true
-    fi
+    gdbus call --session \
+        --dest org.freedesktop.Notifications \
+        --object-path /org/freedesktop/Notifications \
+        --method org.freedesktop.Notifications.Notify \
+        -- \
+        "System Update" 0 "archlinux" \
+        "$summary" "$body" \
+        '["update", "Update system"]' \
+        '{}' -1 >/dev/null 2>&1 || true
 fi

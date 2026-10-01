@@ -89,18 +89,19 @@ def main():
     # Fail fast on malformed colours: the converters below slice a 6-digit hex
     # and would otherwise die mid-generation with an opaque ValueError, after
     # some files were already rewritten.
-    def validate_colors(table, label, keys=None):
-        for key, value in table.items():
-            if keys is not None and key not in keys:
+    _hex_re = re.compile(r"#[0-9a-fA-F]{6}")
+    for _label, _table, _keys in (
+        ("colors", c, None),
+        ("ly", ly, ("matrix_fg", "tty_purple_dark", "tty_cyan_bright", "tty_white")),
+    ):
+        for _key, _value in _table.items():
+            if _keys is not None and _key not in _keys:
                 continue
-            if not isinstance(value, str) or not re.fullmatch(r"#[0-9a-fA-F]{6}", value.strip()):
+            if not isinstance(_value, str) or not _hex_re.fullmatch(_value.strip()):
                 raise SystemExit(
-                    f"\033[31m[ERROR]\033[0m ui.toml: [{label}] {key} must be a "
-                    f'6-digit hex colour like "#0d1117", got {value!r}.'
+                    f"\033[31m[ERROR]\033[0m ui.toml: [{_label}] {_key} must be a "
+                    f'6-digit hex colour like "#0d1117", got {_value!r}.'
                 )
-
-    validate_colors(c, "colors")
-    validate_colors(ly, "ly", keys=("matrix_fg", "tty_purple_dark", "tty_cyan_bright", "tty_white"))
 
     # Normalize: validation allows surrounding whitespace (friendly), so strip
     # it here so every emit site (Lua, QML, shell, conf, VT palette) agrees.
@@ -121,23 +122,23 @@ def main():
             .replace("\t", "\\t")
         )
 
-    def validate_names(table, label, keys):
-        # Free-form names (fonts, themes) flow into Lua, QML, Hypr conf and
-        # shell single-quoted strings downstream. Quotes and backslashes are
-        # escaped at each emit site, but control characters and newlines
-        # would break line-oriented formats, so reject them fail-fast here.
-        for key in keys:
-            value = table.get(key)
-            if value is None:
+    # Free-form names (fonts, themes) flow into Lua, QML, Hypr conf and
+    # shell single-quoted strings downstream. Quotes and backslashes are
+    # escaped at each emit site, but control characters and newlines
+    # would break line-oriented formats, so reject them fail-fast here.
+    for _label, _table, _keys in (
+        ("font", fnt, ("family", "mono", "ui")),
+        ("theme", thm, ("cursor", "icon", "gtk")),
+    ):
+        for _key in _keys:
+            _value = _table.get(_key)
+            if _value is None:
                 continue
-            if not isinstance(value, str) or re.search(r"[\x00-\x1f\x7f]", value):
+            if not isinstance(_value, str) or re.search(r"[\x00-\x1f\x7f]", _value):
                 raise SystemExit(
-                    f"\033[31m[ERROR]\033[0m ui.toml: [{label}] {key} must be a "
-                    f"single-line string, got {value!r}."
+                    f"\033[31m[ERROR]\033[0m ui.toml: [{_label}] {_key} must be a "
+                    f"single-line string, got {_value!r}."
                 )
-
-    validate_names(fnt, "font", ("family", "mono", "ui"))
-    validate_names(thm, "theme", ("cursor", "icon", "gtk"))
     # $font in hypr/ui.conf is unquoted: '#' starts a Hypr comment and would
     # truncate the value (Lua/QML use lua_escape and stay intact). Fail fast.
     _fam = fnt.get("family")
@@ -152,36 +153,33 @@ def main():
             f"\033[31m[ERROR]\033[0m ui.toml: [{label}] {key} must be {want}, got {got!r}."
         )
 
-    def validate_ints(table, label, keys):
-        for key in keys:
-            v = table.get(key)
-            if v is None:
-                continue
-            if isinstance(v, bool) or not isinstance(v, int):
-                _fail_num(label, key, v, "an integer")
-
-    def validate_nums(table, label, keys):
-        for key in keys:
-            v = table.get(key)
-            if v is None:
-                continue
-            if isinstance(v, bool) or not isinstance(v, (int, float)):
-                _fail_num(label, key, v, "a number")
-
     # Fail fast before any writes: raw interpolation below would otherwise emit
     # broken Lua/QML/conf (e.g. `size = evil`) with exit 0.
-    validate_ints(r, "rounding", ("window", "element", "subtle"))
-    validate_nums(r, "rounding", ("power",))
-    validate_ints(b, "border", ("size",))
-    validate_ints(s, "spacing", ("gaps_in", "gaps_out", "bar_height", "bar_spacing", "bar_margin_x", "bar_margin_y"))
-    validate_ints(p, "padding", ("menu_card", "menu_item", "bar_pad", "notif_pad_v", "notif_pad_h"))
-    validate_nums(o, "opacity", ("active", "inactive", "dim_special"))
-    validate_ints(fnt, "font", ("size_bar", "size_menu", "size_notif", "size_cursor", "size_grid", "size_search", "size_bar_icon"))
-    validate_ints(launcher, "launcher", ("width", "height"))
-    validate_ints(notif, "notifications", ("width", "top_margin"))
-    validate_ints(hl_lock, "hyprlock", ("blur_size", "blur_passes"))
-    validate_nums(hl_lock, "hyprlock", ("noise", "contrast", "brightness", "vibrancy", "vibrancy_darkness"))
-    validate_ints(ly, "ly", ("frame_delay",))
+    # (table, label, key, kind) — kind is "int" or "num" (int/float).
+    _num_specs = (
+        (r, "rounding", (("window", "int"), ("element", "int"), ("subtle", "int"), ("power", "num"))),
+        (b, "border", (("size", "int"),)),
+        (s, "spacing", (("gaps_in", "int"), ("gaps_out", "int"), ("bar_height", "int"), ("bar_spacing", "int"), ("bar_margin_x", "int"), ("bar_margin_y", "int"))),
+        (p, "padding", (("menu_card", "int"), ("menu_item", "int"), ("bar_pad", "int"), ("notif_pad_v", "int"), ("notif_pad_h", "int"))),
+        (o, "opacity", (("active", "num"), ("inactive", "num"), ("dim_special", "num"))),
+        (fnt, "font", (("size_bar", "int"), ("size_menu", "int"), ("size_notif", "int"), ("size_cursor", "int"), ("size_grid", "int"), ("size_search", "int"), ("size_bar_icon", "int"))),
+        (launcher, "launcher", (("width", "int"), ("height", "int"))),
+        (notif, "notifications", (("width", "int"), ("top_margin", "int"))),
+        (hl_lock, "hyprlock", (("blur_size", "int"), ("blur_passes", "int"), ("noise", "num"), ("contrast", "num"), ("brightness", "num"), ("vibrancy", "num"), ("vibrancy_darkness", "num"))),
+        (ly, "ly", (("frame_delay", "int"),)),
+    )
+    for _table, _label, _keys in _num_specs:
+        for _key, _kind in _keys:
+            _v = _table.get(_key)
+            if _v is None:
+                continue
+            if isinstance(_v, bool):
+                _fail_num(_label, _key, _v, "an integer" if _kind == "int" else "a number")
+            if _kind == "int":
+                if not isinstance(_v, int):
+                    _fail_num(_label, _key, _v, "an integer")
+            elif not isinstance(_v, (int, float)):
+                _fail_num(_label, _key, _v, "a number")
 
     r_win = r.get("window", 0)
     r_elem = r.get("element", 0)
@@ -333,38 +331,28 @@ export UI_FZF_THEME="{fzf_theme}"
             v |= 0x40000000
         return f"0x{v:08x}"
 
+    # One ordered spec drives both console modes, so truecolor and 8-color
+    # maps can never drift apart when a key is added. Each entry is
+    # (key, truecolor-value, (index, bright, bold)).
+    _ly_spec = (
+        ("bg", hex_to_ly(bg_main), (1, False, False)),
+        ("border_fg", hex_to_ly(border_color), (1, True, False)),
+        ("fg", hex_to_ly(text_main), (8, False, False)),
+        ("error_fg", hex_to_ly(c.get("critical", "#f85149"), style="01"), (2, True, True)),
+        ("colormix_col1", hex_to_ly(bg_main), (1, False, False)),
+        ("colormix_col2", hex_to_ly(accent_blue), (5, True, False)),
+        ("colormix_col3", hex_to_ly(c.get("accent_purple", "#bc8cff")), (6, True, False)),
+        ("doom_top_color", hex_to_ly(ly.get("tty_purple_dark", "#8957e5")), (6, False, False)),
+        ("doom_middle_color", hex_to_ly(accent_blue), (5, True, False)),
+        ("doom_bottom_color", hex_to_ly(text_main), (8, False, False)),
+        ("cmatrix_fg", hex_to_ly(ly_glyph), (5, False, False)),
+        ("cmatrix_head_col", hex_to_ly(text_main, style="01"), (8, False, True)),
+        ("gameoflife_fg", hex_to_ly(ly_glyph), (5, False, False)),
+    )
     if ly_truecolor:
-        _ly_colors = {
-            "bg": hex_to_ly(bg_main),
-            "border_fg": hex_to_ly(border_color),
-            "fg": hex_to_ly(text_main),
-            "error_fg": hex_to_ly(c.get("critical", "#f85149"), style="01"),
-            "colormix_col1": hex_to_ly(bg_main),
-            "colormix_col2": hex_to_ly(accent_blue),
-            "colormix_col3": hex_to_ly(c.get("accent_purple", "#bc8cff")),
-            "doom_top_color": hex_to_ly(ly.get("tty_purple_dark", "#8957e5")),
-            "doom_middle_color": hex_to_ly(accent_blue),
-            "doom_bottom_color": hex_to_ly(text_main),
-            "cmatrix_fg": hex_to_ly(ly_glyph),
-            "cmatrix_head_col": hex_to_ly(text_main, style="01"),
-            "gameoflife_fg": hex_to_ly(ly_glyph),
-        }
+        _ly_colors = {k: true for k, true, _idx in _ly_spec}
     else:
-        _ly_colors = {
-            "bg": _ly_idx(1),
-            "border_fg": _ly_idx(1, bright=True),
-            "fg": _ly_idx(8),
-            "error_fg": _ly_idx(2, bright=True, bold=True),
-            "colormix_col1": _ly_idx(1),
-            "colormix_col2": _ly_idx(5, bright=True),
-            "colormix_col3": _ly_idx(6, bright=True),
-            "doom_top_color": _ly_idx(6),
-            "doom_middle_color": _ly_idx(5, bright=True),
-            "doom_bottom_color": _ly_idx(8),
-            "cmatrix_fg": _ly_idx(5),
-            "cmatrix_head_col": _ly_idx(8, bold=True),
-            "gameoflife_fg": _ly_idx(5),
-        }
+        _ly_colors = {k: _ly_idx(*idx) for k, _true, idx in _ly_spec}
     if not ly_config.exists():
         # Seed a missing config from the repo template so `generate` converges
         # to what `--check` expects. Without this, generate prints [OK] while
@@ -384,7 +372,6 @@ export UI_FZF_THEME="{fzf_theme}"
         target = ly_config.resolve()
         txt = target.read_text()
         new_txt = txt
-        ly_colors = _ly_colors
         new_txt = re.sub(
             rf"^(animation_frame_delay\s*=\s*)\d+",
             rf"\g<1>{ly_frame_delay}",
@@ -397,7 +384,7 @@ export UI_FZF_THEME="{fzf_theme}"
             new_txt,
             flags=re.MULTILINE,
         )
-        for key, value in ly_colors.items():
+        for key, value in _ly_colors.items():
             new_txt = re.sub(
                 rf"^({key}\s*=\s*).*$",
                 rf"\g<1>{value}",
@@ -653,14 +640,14 @@ Singleton {{
 
 	// Notification surfaces: top-right panel below the bar.
 	readonly property int notifWidth: {notif.get("width", 500)}
-	readonly property int notifTopMargin: {notif.get("top_margin", 58)}
+	readonly property int notifTopMargin: {notif.get("top_margin", 54)}
 	readonly property int notifRightMargin: {s.get("gaps_out", 20)}
 	readonly property int notifPadV: {int(p.get("notif_pad_v", 8))}
 	readonly property int notifPadH: {int(p.get("notif_pad_h", 12))}
 
 	readonly property color accent: accentBlue
-	readonly property color selectionBg: Qt.rgba(accent.r, accent.g, accent.b, 0.25)
-	readonly property color selectionBorder: Qt.rgba(accent.r, accent.g, accent.b, 0.70)
+	readonly property color selectionBg: Qt.rgba(accent.r, accent.g, accent.b, 0.12)
+	readonly property color selectionBorder: Qt.rgba(accent.r, accent.g, accent.b, 0.45)
 }}
 """
     r7 = safe_write(config_dir / "quickshell" / "Theme.qml", qs_theme, check_mode)

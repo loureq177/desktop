@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# Toggles idle inhibition via systemd-inhibit and signals quickshell.
+set -euo pipefail
+
+INHIBIT_PID_FILE="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/caffeine_inhibit.pid"
+
+_is_active() {
+    [[ -f "$INHIBIT_PID_FILE" ]] && kill -0 "$(<"$INHIBIT_PID_FILE")" 2>/dev/null
+}
+
+if [[ "${1:-}" == "--status" ]]; then
+    _is_active && echo "on" || echo "off"
+    exit 0
+fi
+
+if _is_active; then
+    kill "$(<"$INHIBIT_PID_FILE")" 2>/dev/null || true
+    rm -f "$INHIBIT_PID_FILE"
+else
+    setsid systemd-inhibit --what=idle --who=caffeine \
+        --why="User requested stay awake" --mode=block \
+        sh -c 'echo $$ >"$1.tmp"; mv -f "$1.tmp" "$1"; exec sleep infinity' \
+        sh "$INHIBIT_PID_FILE" >/dev/null 2>&1 &
+    disown
+    for _ in {1..10}; do
+        [[ -f "$INHIBIT_PID_FILE" ]] && break
+        sleep 0.005
+    done
+fi
+
+qs ipc call quicksettings refresh >/dev/null 2>&1 || true

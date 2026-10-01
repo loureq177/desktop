@@ -16,26 +16,21 @@ _is_active() {
 }
 
 bri() {
-    command -v brightnessctl >/dev/null 2>&1 || return 0
-    # Pin to the backlight class so LED devices are never touched.
     brightnessctl -c backlight "$@" >/dev/null 2>&1 || true
 }
 
-_report_brightness() { # push current backlight state to the OSD + QuickSettings slider
+_report_brightness() {
     local pct
     pct="$(brightnessctl -c backlight -m 2>/dev/null | head -n 1 | cut -d, -f4 | tr -dc '0-9' || true)"
-    [[ -z "${pct:-}" ]] && return 0
-    qs ipc call osd brightness "$pct" >/dev/null 2>&1 || true
+    [[ -n "${pct:-}" ]] && qs ipc call osd brightness "$pct" >/dev/null 2>&1 || true
     qs ipc call quicksettings refresh >/dev/null 2>&1 || true
 }
 
 prof() {
-    command -v powerprofilesctl >/dev/null 2>&1 || return 0
     powerprofilesctl set "$1" >/dev/null 2>&1 || true
 }
 
 note() {
-    command -v notify-send >/dev/null 2>&1 || return 0
     notify-send -u low "$@" >/dev/null 2>&1 || true
 }
 

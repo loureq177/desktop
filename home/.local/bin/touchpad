@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# Touchpad on/off toggle with the quickshell OSD. Usage: [toggle|on|off|status]
+set -euo pipefail
+
+STATE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/touchpad"
+STATE_FILE="$STATE_DIR/enabled" # 1 = on, 0 = off; absent means on
+ACTION="${1:-toggle}"
+
+case "$ACTION" in
+    toggle|on|off|status) ;;
+    *) echo "touchpad: want toggle|on|off|status" >&2; exit 2 ;;
+esac
+
+devices_json="$(hyprctl devices -j 2>/dev/null)" || exit 1
+mapfile -t DEVICES < <(jq -r '.mice[]? | select(.name | test("touchpad"; "i")) | .name' <<<"$devices_json")
+
+if ((${#DEVICES[@]} == 0)); then
+    [[ "$ACTION" == status ]] && echo "none"
+    exit 0
+fi
+
+current=1
+[[ -f "$STATE_FILE" ]] && current=$(<"$STATE_FILE")
+[[ "$current" =~ ^[01]$ ]] || current=1
+
+if [[ "$ACTION" == status ]]; then
+    [[ "$current" == 1 ]] && echo "on" || echo "off"
+    exit 0
+fi
+
+case "$ACTION" in
+    on)     target=1 ;;
+    off)    target=0 ;;
+    toggle) target=$((1 - current)) ;;
+esac
+
+lua_bool="false"
+[[ "$target" == 1 ]] && lua_bool="true"
+
+for dev in "${DEVICES[@]}"; do
+    esc="${dev//\\/\\\\}"
+    esc="${esc//\"/\\\"}"
+    hyprctl eval "hl.device({ name = \"$esc\", enabled = $lua_bool })" >/dev/null 2>&1 || true
+done
+
+mkdir -p "$STATE_DIR"
+echo "$target" >"$STATE_FILE"
+qs ipc call osd touchpad "$lua_bool" >/dev/null 2>&1 || true

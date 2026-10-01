@@ -13,3 +13,7 @@ service.json
 local.lua
 config.local
 *.local
+
+# Re-include XDG .local/ dirs (pattern *.local above would ignore them,
+# breaking new files under archlinux/.local/bin/)
+!**/.local/

@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 # Volume control via wpctl with the quickshell OSD. GNOME-like sound feedback.
-# Usage: volume.sh output raise|lower|mute-toggle|mute|unmute
-#        volume.sh input mute-toggle|mute|unmute
+# Usage: volume output raise|lower|mute-toggle|mute|unmute
+#        volume input mute-toggle|mute|unmute
 set -euo pipefail
 
 TARGET="${1:-output}"
 ACTION="${2:-}"
 if [[ -z "$ACTION" ]]; then
-    echo "Usage: volume.sh output raise|lower|mute-toggle|mute|unmute" >&2
-    echo "       volume.sh input mute-toggle|mute|unmute" >&2
+    echo "Usage: volume output raise|lower|mute-toggle|mute|unmute" >&2
+    echo "       volume input mute-toggle|mute|unmute" >&2
     exit 2
 fi
 
@@ -38,12 +38,12 @@ _report() { # $1: SINK|SOURCE — push the current state to the OSD
 case "$TARGET" in
 output)
     case "$ACTION" in
-    raise) wpctl set-volume -l 1.5 @DEFAULT_AUDIO_SINK@ 5%+ ;;
+    raise) wpctl set-volume -l 1.0 @DEFAULT_AUDIO_SINK@ 5%+ ;;
     lower) wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%- ;;
     mute-toggle) wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle ;;
     mute) wpctl set-mute @DEFAULT_AUDIO_SINK@ 1 ;;
     unmute) wpctl set-mute @DEFAULT_AUDIO_SINK@ 0 ;;
-    *) echo "volume.sh: unknown action '$ACTION'" >&2; exit 2 ;;
+    *) echo "volume: unknown action '$ACTION'" >&2; exit 2 ;;
     esac
     _report SINK
     # Keep the QuickSettings slider in sync: it polls every 3s, so push a
@@ -60,7 +60,7 @@ input)
     mute-toggle) wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle ;;
     mute) wpctl set-mute @DEFAULT_AUDIO_SOURCE@ 1 ;;
     unmute) wpctl set-mute @DEFAULT_AUDIO_SOURCE@ 0 ;;
-    *) echo "volume.sh: unknown action '$ACTION'" >&2; exit 2 ;;
+    *) echo "volume: unknown action '$ACTION'" >&2; exit 2 ;;
     esac
     if wpctl get-volume @DEFAULT_AUDIO_SOURCE@ 2>/dev/null | grep -q '\[MUTED\]'; then
         qs ipc call osd mic true
@@ -70,7 +70,7 @@ input)
     sound --replace audio-volume-change
     ;;
 *)
-    echo "volume.sh: unknown target '$TARGET' (want output|input)" >&2
+    echo "volume: unknown target '$TARGET' (want output|input)" >&2
     exit 2
     ;;
 esac
