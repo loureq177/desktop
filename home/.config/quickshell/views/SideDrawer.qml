@@ -16,13 +16,14 @@ PanelWindow {
 
 	// Controlled by the caller (e.g. Notifications.centerOpen).
 	property bool shown: false
-	// Fixed card height; callers with dynamic content override it.
+	// Fixed card dimensions; callers with dynamic content override them.
+	property int cardWidth: Theme.notifWidth
 	property int cardHeight: Math.min(680, root.height - Theme.notifTopMargin - 20)
 	signal opened()
 	signal dismissed()
 
 	// 0 = on screen; width + margin = fully off the right edge.
-	property int slide: Theme.notifWidth + Theme.notifRightMargin
+	property int slide: root.cardWidth + Theme.notifRightMargin
 	property real backdropOpacity: 0.0
 
 	default property alias body: bodySlot.data
@@ -50,7 +51,7 @@ PanelWindow {
 		NumberAnimation {
 			target: root
 			property: "slide"
-			from: Theme.notifWidth + Theme.notifRightMargin
+			from: root.cardWidth + Theme.notifRightMargin
 			to: 0
 			duration: 250
 			easing.type: Easing.OutCubic
@@ -72,7 +73,7 @@ PanelWindow {
 			target: root
 			property: "slide"
 			from: 0
-			to: Theme.notifWidth + Theme.notifRightMargin
+			to: root.cardWidth + Theme.notifRightMargin
 			duration: 220
 			easing.type: Easing.OutCubic
 		}
@@ -86,8 +87,10 @@ PanelWindow {
 		}
 	}
 
+	property int keyboardFocusMode: WlrKeyboardFocus.Exclusive
+
 	WlrLayershell.layer: WlrLayer.Overlay
-	WlrLayershell.keyboardFocus: shown ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+	WlrLayershell.keyboardFocus: shown ? keyboardFocusMode : WlrKeyboardFocus.None
 	WlrLayershell.namespace: "quickshell"
 
 	screen: Quickshell.screens.find(s => s.name === Hyprland.focusedMonitor?.name) ?? Quickshell.screens[0] ?? null
@@ -99,10 +102,19 @@ PanelWindow {
 		right: true
 	}
 
+	property bool dismissOnEsc: true
+
+	Behavior on cardHeight {
+		NumberAnimation {
+			duration: 200
+			easing.type: Easing.OutCubic
+		}
+	}
+
 	// ESC dismisses the drawer.
 	Shortcut {
 		sequences: ["Esc"]
-		enabled: root.visible
+		enabled: root.visible && root.dismissOnEsc
 		onActivated: root.dismissed()
 	}
 
@@ -125,7 +137,7 @@ PanelWindow {
 
 		x: parent.width - width - Theme.notifRightMargin + root.slide
 		y: Theme.notifTopMargin
-		width: Theme.notifWidth
+		width: root.cardWidth
 		height: root.cardHeight
 		color: Theme.bgCard
 		border.color: Theme.border
@@ -135,8 +147,10 @@ PanelWindow {
 		focus: true
 
 		Keys.onEscapePressed: event => {
-			root.dismissed();
-			event.accepted = true;
+			if (root.dismissOnEsc) {
+				root.dismissed();
+				event.accepted = true;
+			}
 		}
 
 		// Absorb clicks inside the panel so they don't reach the backdrop.

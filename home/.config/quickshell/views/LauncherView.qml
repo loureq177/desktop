@@ -8,25 +8,27 @@ import Quickshell.Io
 import QtQuick
 import QtQuick.Layouts
 
-PanelWindow {
+CenterModal {
 	id: window
 
-	visible: false
-	color: "transparent"
-	exclusionMode: ExclusionMode.Ignore
-	exclusiveZone: 0
+	searchTitle: window.modeTitle()
+	searchPlaceholder: window.modePlaceholder()
+	searchCompleteOnTab: window.mode === "run"
+	searchLeftRightNavigate: window.mode === "apps" || window.mode === "emoji"
+	statusText: window.statusText()
+	errorText: window.lastError
+	showFooter: window.mode === "emoji" || window.lastError !== ""
 
-	WlrLayershell.layer: WlrLayer.Overlay
-	WlrLayershell.keyboardFocus: visible ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
-	WlrLayershell.namespace: "quickshell"
-
-	screen: Quickshell.screens.find(s => s.name === Hyprland.focusedMonitor?.name) ?? Quickshell.screens[0] ?? null
-
-	anchors {
-		top: true
-		bottom: true
-		left: true
-		right: true
+	onSearchQueryChanged: {
+		window.query = searchQuery;
+		window.refilter();
+	}
+	onSearchAccepted: window.activate()
+	onSearchStepped: delta => window.moveRows(delta, window.gridColumns())
+	onSearchSteppedColumn: delta => window.move(delta)
+	onSearchCompleted: {
+		if (window.mode === "run" && window.filtered.length > 0)
+			searchBar.complete(window.filtered[window.currentIndex].label);
 	}
 
 	property string mode: "apps"
@@ -86,42 +88,59 @@ PanelWindow {
 		if (mode === "run" && !runLoaded && !runLoader.running)
 			runLoader.running = true;
 		query = "";
-		search.clear();
+		searchBar.clear();
 		refilter();
-		window.visible = true;
-		search.focusInput();
+		window.shown = true;
+		searchBar.focusInput();
 	}
 
 	function close() {
-		window.visible = false;
+		window.shown = false;
 	}
 
 	function toggle(newMode) {
-		if (window.visible && (newMode === undefined || newMode === null || newMode === "" || newMode === mode))
+		if (window.shown && (newMode === undefined || newMode === null || newMode === "" || newMode === mode))
 			close();
 		else
 			open(newMode);
 	}
 
-	function appMatchScore(haystack, q) {
-		var h = haystack.toLowerCase();
-		var ql = q.toLowerCase();
-		if (ql === "") return 0;
-		if (h.startsWith(ql)) return 0;
-		var idx = h.indexOf(ql);
-		if (idx !== -1) return 1 + idx / 1000;
-		var hi = 0;
-		for (var qi = 0; qi < ql.length; qi++) {
-			hi = h.indexOf(ql[qi], hi);
-			if (hi === -1) return -1;
-			hi++;
+	// Ranked substring match, name first.
+	function fieldScore(text, ql) {
+		var h = (text || "").toLowerCase();
+		if (h === "" || ql === "")
+			return -1;
+		if (h.startsWith(ql))
+			return 0;
+		var words = h.split(/[^a-z0-9]+/);
+		for (var i = 0; i < words.length; i++) {
+			if (words[i].startsWith(ql))
+				return 1;
 		}
-		return 2;
+		if (h.indexOf(ql) !== -1)
+			return 2;
+		return -1;
 	}
 
-	function appText(e) {
-		return (e.name || "") + " " + (e.genericName || "") + " " + (e.comment || "") + " "
-			+ (e.keywords ? e.keywords.join(" ") : "") + " " + (e.id || "");
+	function appMatchScore(e, q) {
+		var ql = q.toLowerCase().trim();
+		if (ql === "")
+			return 0;
+		var s = fieldScore(e.name, ql);
+		if (s !== -1)
+			return s;
+		s = fieldScore(e.genericName, ql);
+		if (s !== -1)
+			return 3 + s;
+		s = fieldScore(e.keywords ? e.keywords.join(" ") : "", ql);
+		if (s !== -1)
+			return 6 + s;
+		if (((e.id || "").toLowerCase().indexOf(ql)) !== -1)
+			return 9;
+		s = fieldScore(e.comment, ql);
+		if (s !== -1)
+			return 10 + s;
+		return -1;
 	}
 
 	function refilter() {
@@ -132,7 +151,7 @@ PanelWindow {
 			var apps = DesktopEntries.applications.values || [];
 			var scored = [];
 			for (var i = 0; i < apps.length; i++) {
-				var s = appMatchScore(appText(apps[i]), q);
+				var s = appMatchScore(apps[i], q);
 				if (q === "" || s !== -1)
 					scored.push({ score: s, item: apps[i] });
 			}
@@ -145,8 +164,6 @@ PanelWindow {
 				return { kind: "app", entry: s2.item, label: s2.item.name || s2.item.id };
 			});
 		} else if (mode === "emoji") {
-			// emojis.json is vendored from omarchy@quattro
-			// shell/plugins/emojis/emojis.json: { e: glyph, k: keywords }.
 			var needle = q.toLowerCase();
 			var out = [];
 			for (var j = 0; j < emojis.length; j++) {
@@ -216,7 +233,7 @@ PanelWindow {
 		}
 		if (item.kind === "emoji") {
 			close();
-			Quickshell.execDetached([Quickshell.env("HOME") + "/.local/bin/emoji-insert.sh", item.char]);
+			Quickshell.execDetached([Quickshell.env("HOME") + "/.local/bin/emoji-insert", item.char]);
 			return true;
 		}
 		if (item.kind === "power") {
@@ -331,249 +348,158 @@ PanelWindow {
 				}
 				window.runCache = clean;
 				window.runLoaded = true;
-				if (window.mode === "run" && window.visible)
+				if (window.mode === "run" && window.shown)
 					window.refilter();
 			}
 		}
 	}
 
-	// Full-screen dim backdrop matching Hyprland's special workspace dimming effect
-	Rectangle {
-		id: backdrop
+	// Main body slot for CenterModal
+	Item {
+		id: contentBox
 		anchors.fill: parent
-		color: Theme.backdropColor
 
-		MouseArea {
-			anchors.fill: parent
-			onClicked: window.close()
-		}
-	}
+		GridView {
+			id: grid
+			visible: window.mode === "apps" || window.mode === "emoji"
+			anchors.top: parent.top
+			anchors.bottom: parent.bottom
+			anchors.horizontalCenter: parent.horizontalCenter
+			width: window.gridColumnCount() * window.desiredCellWidth()
+			clip: true
+			flickDeceleration: 600
+			maximumFlickVelocity: 4000
+			cellWidth: window.desiredCellWidth()
+			cellHeight: window.mode === "emoji" ? 76 : 132
+			model: window.filtered
 
-	// Centered launcher dialog card
-	Rectangle {
-		id: dialogCard
-		anchors.centerIn: parent
-		width: Theme.windowWidth
-		height: Theme.windowHeight
-		color: Theme.bgMain
-		border.color: Theme.border
-		border.width: Theme.borderSize
-		radius: Theme.roundingWindow
-		clip: true
+			delegate: Item {
+				width: grid.cellWidth
+				height: grid.cellHeight
 
-		// Absorb mouse clicks inside the dialog card
-		MouseArea {
-			anchors.fill: parent
-		}
+				Rectangle {
+					anchors.fill: parent
+					anchors.margins: window.mode === "emoji" ? 3 : 6
+					color: index === window.currentIndex ? Theme.selectionBg : "transparent"
+					border.color: index === window.currentIndex ? Theme.selectionBorder : "transparent"
+					border.width: 1
+					radius: Theme.roundingElement
 
-		ColumnLayout {
-			anchors.fill: parent
-			anchors.margins: Theme.paddingCard
-			spacing: 12
+					Behavior on color { ColorAnimation { duration: 100 } }
 
-			SearchBar {
-				id: search
-				Layout.fillWidth: true
-				Layout.preferredHeight: 48
-				title: window.modeTitle()
-				placeholder: window.modePlaceholder()
-				completeOnTab: window.mode === "run"
-				leftRightNavigate: window.mode === "apps" || window.mode === "emoji"
-				onTextChanged: {
-					window.query = text;
-					window.refilter();
-				}
-				onAccepted: window.activate()
-				onCancelled: window.close()
-				onStepped: delta => window.moveRows(delta, window.gridColumns())
-				onSteppedColumn: delta => window.move(delta)
-				onCompleted: {
-					if (window.mode === "run" && window.filtered.length > 0)
-						search.complete(window.filtered[window.currentIndex].label);
-				}
-			}
+					// App icon & title for apps mode
+					ColumnLayout {
+						visible: modelData.kind === "app"
+						anchors.fill: parent
+						anchors.margins: Theme.paddingItem
+						spacing: 4
 
-			Item {
-				id: contentBox
-				Layout.fillWidth: true
-				Layout.fillHeight: true
+						IconImage {
+							Layout.alignment: Qt.AlignHCenter
+							implicitSize: 48
+							source: modelData.entry && modelData.entry.icon ? Quickshell.iconPath(modelData.entry.icon, true) : ""
+							asynchronous: true
+						}
 
-					GridView {
-						id: grid
-						visible: window.mode === "apps" || window.mode === "emoji"
-						anchors.top: parent.top
-						anchors.bottom: parent.bottom
-						anchors.horizontalCenter: parent.horizontalCenter
-						width: window.gridColumnCount() * window.desiredCellWidth()
-						clip: true
-						flickDeceleration: 600
-						maximumFlickVelocity: 4000
-						cellWidth: window.desiredCellWidth()
-						cellHeight: window.mode === "emoji" ? 76 : 132
-						model: window.filtered
-						// Note: GridView positions delegates itself and overrides
-						// their x/y, so gutters must come from inner margins,
-						// not delegate offsets (an x offset here would silently
-						// do nothing and pile dead space on the right edge).
-						delegate: Item {
-							width: grid.cellWidth
-							height: grid.cellHeight
-
-							Rectangle {
-								anchors.fill: parent
-								anchors.margins: window.mode === "emoji" ? 3 : 6
-								color: index === window.currentIndex ? Theme.selectionBg : "transparent"
-								border.color: index === window.currentIndex ? Theme.selectionBorder : "transparent"
-								border.width: 1
-								radius: Theme.roundingElement
-
-								Behavior on color {
-									ColorAnimation { duration: 100 }
-								}
-
-								// App icon & title for apps mode
-								ColumnLayout {
-									visible: modelData.kind === "app"
-									anchors.fill: parent
-									anchors.margins: Theme.paddingItem
-									spacing: 4
-
-									IconImage {
-										Layout.alignment: Qt.AlignHCenter
-										implicitSize: 48
-										source: modelData.entry && modelData.entry.icon ? Quickshell.iconPath(modelData.entry.icon, true) : ""
-										asynchronous: true
-									}
-
-									Text {
-										Layout.fillWidth: true
-										Layout.fillHeight: true
-										horizontalAlignment: Text.AlignHCenter
-										verticalAlignment: Text.AlignVCenter
-										wrapMode: Text.Wrap
-										maximumLineCount: 2
-										elide: Text.ElideRight
-										font.family: Theme.fontMono
-										font.pointSize: Theme.fontSizeGrid
-										color: index === window.currentIndex ? Theme.accentBlue : Theme.textMain
-										text: modelData.label || ""
-									}
-								}
-
-								// Emoji glyph for emoji mode
-								Text {
-									visible: modelData.kind === "emoji"
-									anchors.centerIn: parent
-									text: modelData.char || ""
-									font.pixelSize: 46
-								}
-							}
-
-							MouseArea {
-								anchors.fill: parent
-								hoverEnabled: true
-								onEntered: window.currentIndex = index
-								onClicked: {
-									window.currentIndex = index;
-									window.activate();
-								}
-							}
+						Text {
+							Layout.fillWidth: true
+							Layout.fillHeight: true
+							horizontalAlignment: Text.AlignHCenter
+							verticalAlignment: Text.AlignVCenter
+							wrapMode: Text.Wrap
+							maximumLineCount: 2
+							elide: Text.ElideRight
+							font.family: Theme.fontMono
+							font.pointSize: Theme.fontSizeGrid
+							color: index === window.currentIndex ? Theme.accentBlue : Theme.textMain
+							text: modelData.label || ""
 						}
 					}
 
-					ListView {
-						id: list
-						visible: window.mode === "run" || window.mode === "power"
-						anchors.fill: parent
-						clip: true
-						flickDeceleration: 600
-						maximumFlickVelocity: 4000
-						spacing: 4
-						model: window.filtered
-						delegate: Rectangle {
-							width: list.width
-							height: 52
-							color: index === window.currentIndex ? Theme.selectionBg : "transparent"
-							border.color: index === window.currentIndex ? Theme.selectionBorder : "transparent"
-							border.width: 1
-							radius: Theme.roundingElement
+					// Emoji glyph for emoji mode
+					Text {
+						visible: modelData.kind === "emoji"
+						anchors.centerIn: parent
+						text: modelData.char || ""
+						font.pixelSize: 46
+					}
+				}
 
-							Behavior on color {
-								ColorAnimation { duration: 100 }
-							}
+				MouseArea {
+					anchors.fill: parent
+					hoverEnabled: true
+					onEntered: window.currentIndex = index
+					onClicked: {
+						window.currentIndex = index;
+						window.activate();
+					}
+				}
+			}
+		}
 
-							RowLayout {
-								anchors.fill: parent
-								anchors.leftMargin: 14
-								anchors.rightMargin: 14
-								spacing: 14
+		ListView {
+			id: list
+			visible: window.mode === "run" || window.mode === "power"
+			anchors.fill: parent
+			clip: true
+			flickDeceleration: 600
+			maximumFlickVelocity: 4000
+			spacing: 4
+			model: window.filtered
+			delegate: Rectangle {
+				width: list.width
+				height: 52
+				color: index === window.currentIndex ? Theme.selectionBg : "transparent"
+				border.color: index === window.currentIndex ? Theme.selectionBorder : "transparent"
+				border.width: 1
+				radius: Theme.roundingElement
 
-								IconImage {
-									visible: modelData.kind === "power"
-									Layout.alignment: Qt.AlignVCenter
-									implicitSize: 24
-									source: modelData.kind === "power" ? Quickshell.iconPath(modelData.icon, true) : ""
-									asynchronous: true
-								}
+				Behavior on color { ColorAnimation { duration: 100 } }
 
-								Text {
-									Layout.fillWidth: true
-									Layout.alignment: Qt.AlignVCenter
-									font.family: Theme.fontMono
-									font.pointSize: Theme.fontSizeBar
-									color: index === window.currentIndex ? Theme.accentBlue : Theme.textMain
-									elide: Text.ElideRight
-									text: modelData.label || ""
-								}
-							}
+				RowLayout {
+					anchors.fill: parent
+					anchors.leftMargin: 14
+					anchors.rightMargin: 14
+					spacing: 14
 
-							MouseArea {
-								anchors.fill: parent
-								hoverEnabled: true
-								onEntered: window.currentIndex = index
-								onClicked: {
-									window.currentIndex = index;
-									window.activate();
-								}
-							}
-						}
+					IconImage {
+						visible: modelData.kind === "power"
+						Layout.alignment: Qt.AlignVCenter
+						implicitSize: 24
+						source: modelData.icon ? Quickshell.iconPath(modelData.icon, true) : ""
+						asynchronous: true
 					}
 
 					Text {
-						visible: window.filtered.length === 0
-						anchors.centerIn: parent
+						Layout.fillWidth: true
+						Layout.alignment: Qt.AlignVCenter
 						font.family: Theme.fontMono
 						font.pointSize: Theme.fontSizeBar
-						color: Theme.textDim
-						text: window.emptyText()
+						color: index === window.currentIndex ? Theme.accentBlue : Theme.textMain
+						elide: Text.ElideRight
+						text: modelData.label || ""
 					}
 				}
 
-				Rectangle {
-					// Footer only exists where it carries content: the emoji
-					// picker's name line and error reporting.
-					Layout.fillWidth: true
-					Layout.preferredHeight: 1
-					color: Theme.border
-					visible: window.mode === "emoji" || window.lastError !== ""
-				}
-
-				Rectangle {
-					Layout.fillWidth: true
-					Layout.preferredHeight: 36
-					visible: window.mode === "emoji" || window.lastError !== ""
-					color: "transparent"
-					Text {
-						anchors.fill: parent
-						verticalAlignment: Text.AlignVCenter
-						horizontalAlignment: Text.AlignLeft
-						font.family: Theme.fontMono
-						font.pointSize: window.mode === "emoji" ? Theme.fontSizeBar : Theme.fontSizeSmall
-						color: window.lastError !== "" ? Theme.critical : (window.mode === "emoji" ? Theme.accentBlue : Theme.textDim)
-						elide: Text.ElideRight
-						text: window.lastError !== "" ? window.lastError : window.statusText()
+				MouseArea {
+					anchors.fill: parent
+					hoverEnabled: true
+					onEntered: window.currentIndex = index
+					onClicked: {
+						window.currentIndex = index;
+						window.activate();
 					}
 				}
 			}
 		}
+
+		Text {
+			visible: window.filtered.length === 0
+			anchors.centerIn: parent
+			font.family: Theme.fontMono
+			font.pointSize: Theme.fontSizeBar
+			color: Theme.textDim
+			text: window.emptyText()
+		}
+	}
 }

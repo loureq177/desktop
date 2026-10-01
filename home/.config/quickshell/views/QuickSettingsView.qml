@@ -4,6 +4,8 @@
 // Toggle via IPC: `qs ipc call quicksettings toggle` (SUPER + A).
 // ESC or clicking outside dismisses the panel.
 import ".."
+import "../widgets"
+import "./quicksettings"
 import Quickshell
 import Quickshell.Bluetooth
 import Quickshell.Hyprland
@@ -17,25 +19,89 @@ SideDrawer {
 	id: win
 
 	shown: QuickSettings.panelOpen
-	cardHeight: Math.min(contentCol.implicitHeight + Theme.paddingCard * 2, win.height - Theme.notifTopMargin - 20)
+	dismissOnEsc: QuickSettings.subView === "main"
+	cardWidth: 520
+	keyboardFocusMode: WlrKeyboardFocus.Exclusive
+	readonly property int mainContentHeight: Math.min((contentCol.implicitHeight > 0 ? contentCol.implicitHeight : 430) + Theme.paddingCard * 2, win.height - Theme.notifTopMargin - 20)
+	readonly property int currentSubViewHeight: {
+		if (QuickSettings.subView === "wifi")
+			return wifiSubView.preferredHeight + Theme.paddingCard * 2;
+		if (QuickSettings.subView === "bluetooth")
+			return btSubView.preferredHeight + Theme.paddingCard * 2;
+		return 540;
+	}
+	readonly property int subViewHeight: Math.min(currentSubViewHeight, Math.min(680, win.height - Theme.notifTopMargin - 20))
+	cardHeight: QuickSettings.subView === "main" ? mainContentHeight : subViewHeight
+
+	// ─── 2D Navigation state ─────────────────────────────────────────
+	readonly property int rowVolume: 0
+	readonly property int rowBrightness: win.brightnessReady ? 1 : -1
+	readonly property int rowTilesStart: win.brightnessReady ? 2 : 1
+	readonly property int rowWifiBt: rowTilesStart
+	readonly property int rowBatteryNight: rowTilesStart + 1
+	readonly property int rowDndAwake: rowTilesStart + 2
+	readonly property int rowRecord: rowTilesStart + 3
+	readonly property int maxRow: rowRecord
+
+	property int navRow: 0
+	property int navCol: 0
+
+	function isCurrent(r, c) {
+		return navRow === r && (c === undefined || navCol === c);
+	}
+
+	function select(r, c) {
+		navRow = r;
+		navCol = c !== undefined ? c : 0;
+	}
+
 	onOpened: {
 		Notifications.closeCenter();
+		Weather.close();
 		refreshVolume();
 		refreshBrightness();
+		if (QuickSettings.subView === "main") {
+			select(0, 0);
+			contentCol.forceActiveFocus();
+		} else if (QuickSettings.subView === "wifi") {
+			wifiSubView.forceActiveFocus();
+		} else if (QuickSettings.subView === "bluetooth") {
+			btSubView.forceActiveFocus();
+		}
 	}
-	onDismissed: QuickSettings.close()
+	onDismissed: {
+		if (QuickSettings.subView !== "main") {
+			QuickSettings.subView = "main";
+			contentCol.forceActiveFocus();
+		} else {
+			QuickSettings.close();
+		}
+	}
+
+	Connections {
+		target: QuickSettings
+		function onSubViewChanged() {
+			if (QuickSettings.subView === "main") {
+				contentCol.forceActiveFocus();
+			} else if (QuickSettings.subView === "wifi") {
+				wifiSubView.forceActiveFocus();
+			} else if (QuickSettings.subView === "bluetooth") {
+				btSubView.forceActiveFocus();
+			}
+		}
+	}
 
 	// ─── Backend state ──────────────────────────────────────────────
 
 	// Audio output via wpctl (polled): the Pipewire QML node for the
 	// default sink stays unbound (writes fail with "not bound"), so the
-	// panel shells out exactly like volume.sh instead.
+	// panel shells out exactly like volume instead.
 	property real volPct: 20
 	property bool volMuted: false
 	property bool volReady: false
-	// wpctl allows boosting to 150% (`-l 1.5`); the slider spans the same
-	// range as the OSD instead of clipping at 100.
-	property int volMax: 150
+	// Volume capped at 100% (`-l 1.0`); the slider, OSD and
+	// PipeWire stay in the same range instead of boosting to 150%.
+	property int volMax: 100
 	// Thumb position: follows the finger while dragging, the backend
 	// readout otherwise (avoids snap-back between polls).
 	property real volShown: 20
@@ -46,9 +112,15 @@ SideDrawer {
 			volQuery.running = true;
 	}
 
+	function playVolumeSound(): void {
+		if (!win.volMuted)
+			Quickshell.execDetached(["canberra-gtk-play", "-i", "audio-volume-change"]);
+	}
+
 	function commitVolume(): void {
-		volSet.command = ["wpctl", "set-volume", "-l", "1.5", "@DEFAULT_AUDIO_SINK@", String(Math.round(win.volShown)) + "%"];
+		volSet.command = ["wpctl", "set-volume", "-l", "1.0", "@DEFAULT_AUDIO_SINK@", String(Math.round(win.volShown)) + "%"];
 		volSet.running = true;
+		win.playVolumeSound();
 	}
 
 	function toggleMute(): void {
@@ -177,38 +249,22 @@ SideDrawer {
 			return "No adapter";
 		if (win.btConnected > 1)
 			return win.btConnected + " connected";
-		if (win.btConnected === 1)
+		if (win.btConnected === 1) {
+			var vals = win.btAdapter.devices.values;
+			for (var i = 0; i < vals.length; i++) {
+				if (vals[i].connected)
+					return vals[i].name || vals[i].deviceName || "Connected";
+			}
 			return "Connected";
+		}
 		return win.btEnabled ? "On" : "Off";
 	}
 
 	// Caffeine / power-save toggles leave marker files in XDG_RUNTIME_DIR;
-	// their existence is the state (loadFailed = absent = off).
-	FileView {
-		id: caffeineMarker
-		path: Quickshell.env("XDG_RUNTIME_DIR") + "/caffeine_inhibit.pid"
-		printErrors: false
-	}
-	FileView {
-		id: powerSaveMarker
-		path: Quickshell.env("XDG_RUNTIME_DIR") + "/powersave_mode"
-		printErrors: false
-	}
-
-	// Night light (hyprsunset): no query API, so the toggle owns the state.
-	// Initial guess follows the timed profiles in hyprsunset.conf (warm
-	// 20:00–06:00); a manual toggle overrides until the next profile switch.
-	property bool nightLight: {
-		var h = new Date().getHours();
-		return h >= 20 || h < 6;
-	}
+	readonly property bool nightLight: QuickSettings.nightLight
 
 	function toggleNightLight(): void {
-		win.nightLight = !win.nightLight;
-		if (win.nightLight)
-			Quickshell.execDetached(["hyprctl", "hyprsunset", "temperature", "4500"]);
-		else
-			Quickshell.execDetached(["hyprctl", "hyprsunset", "identity"]);
+		QuickSettings.toggleNightLight();
 	}
 
 	function openSpecial(name: string): void {
@@ -216,7 +272,7 @@ SideDrawer {
 		Quickshell.execDetached(["hyprctl", "dispatch", "hl.dsp.workspace.toggle_special('" + name + "')"]);
 	}
 
-	// Marker files + backlight re-read while the panel is open.
+	// Backlight & volume re-read while the panel is open.
 	Timer {
 		id: pollTimer
 		interval: 3000
@@ -224,8 +280,7 @@ SideDrawer {
 		repeat: true
 		triggeredOnStart: true
 		onTriggered: {
-			caffeineMarker.reload();
-			powerSaveMarker.reload();
+			SystemStatus.refresh();
 			win.refreshVolume();
 			if (!briPill.pressed)
 				win.refreshBrightness();
@@ -235,21 +290,15 @@ SideDrawer {
 	// Optimistic refresh after marker-file toggles (scripts are async).
 	Timer {
 		id: markerRefresh
-		interval: 600
-		onTriggered: {
-			caffeineMarker.reload();
-			powerSaveMarker.reload();
-		}
+		interval: 100
+		onTriggered: SystemStatus.refresh()
 	}
 
-	// External writers (volume.sh, brightness.sh, power-save.sh) call
-	// `qs ipc call quicksettings refresh` after changing state, so an open
-	// panel follows hardware keys instead of lagging one poll behind.
+	// External writers call `qs ipc call quicksettings refresh`
 	Connections {
 		target: QuickSettings
 		function onRefreshRequested(): void {
-			caffeineMarker.reload();
-			powerSaveMarker.reload();
+			SystemStatus.refresh();
 			win.refreshVolume();
 			if (!briPill.pressed)
 				win.refreshBrightness();
@@ -258,12 +307,10 @@ SideDrawer {
 
 	// ─── Reusable tiles ─────────────────────────────────────────────
 
-	// Samsung-style tile: big rounded icon badge (solid accent when on),
-	// title + subtitle. The icon badge is the toggle (glows when on);
-	// clicking the body opens details when hasDetails, otherwise it also
-	// toggles. No chevron: the icon MouseArea sits above the body one and
-	// composed clicks do not propagate, so the two actions never fire
-	// together.
+	// 2-column tile: tactile, rounded icon badge, large bold title,
+	// subtitle, hotkey, and subtle detail chevron (›).
+	// Icon badge toggles; body opens details when hasDetails.
+	// Vim keys: h/j/k/l 2D navigation, Enter toggles, Space/o opens details.
 	component SamsungTile: Rectangle {
 		id: stile
 
@@ -273,30 +320,58 @@ SideDrawer {
 		property bool active: false
 		property color activeColor: Theme.accentBlue
 		property bool hasDetails: false
+		property int itemRow: -1
+		property int itemCol: -1
+		readonly property bool isSelected: win.isCurrent(itemRow, itemCol)
+
+		function isOverBadge(mx: real, my: real): bool {
+			var badgeRight = badge ? (badge.mapToItem(stile, badge.width, 0).x + 6) : 60;
+			return mx >= 0 && mx < badgeRight;
+		}
+
+		property bool badgeHovered: stile.hasDetails
+			? (tileArea.containsMouse && stile.isOverBadge(tileArea.mouseX, tileArea.mouseY))
+			: tileArea.containsMouse
+		property bool bodyHovered: stile.hasDetails
+			? (tileArea.containsMouse && !stile.isOverBadge(tileArea.mouseX, tileArea.mouseY))
+			: tileArea.containsMouse
+
 		signal iconClicked()
 		signal bodyClicked()
 
 		Layout.fillWidth: true
-		Layout.preferredHeight: 88
-		color: bodyArea.containsMouse ? Theme.bgHover : (stile.active ? Qt.rgba(stile.activeColor.r, stile.activeColor.g, stile.activeColor.b, 0.14) : Theme.bgMain)
-		border.color: stile.active ? Qt.rgba(stile.activeColor.r, stile.activeColor.g, stile.activeColor.b, 0.70) : Theme.border
-		border.width: 1
+		Layout.preferredHeight: 76
 		radius: Theme.roundingElement
 
-		Behavior on color {
-			ColorAnimation { duration: 120 }
-		}
-		Behavior on border.color {
-			ColorAnimation { duration: 120 }
-		}
+		color: stile.isSelected
+			? (stile.active
+				? Qt.rgba(stile.activeColor.r, stile.activeColor.g, stile.activeColor.b, 0.20)
+				: Theme.selectionBg)
+			: (stile.active
+				? (stile.bodyHovered
+					? Qt.rgba(stile.activeColor.r, stile.activeColor.g, stile.activeColor.b, 0.18)
+					: Qt.rgba(stile.activeColor.r, stile.activeColor.g, stile.activeColor.b, 0.10))
+				: (stile.bodyHovered ? Theme.bgHover : Theme.bgMain))
+
+		border.color: stile.isSelected
+			? Theme.selectionBorder
+			: (stile.active
+				? (stile.bodyHovered ? stile.activeColor : Qt.rgba(stile.activeColor.r, stile.activeColor.g, stile.activeColor.b, 0.40))
+				: (stile.bodyHovered ? Theme.textDim : Theme.border))
+		border.width: 1
+
+		Behavior on color { ColorAnimation { duration: 120 } }
+		Behavior on border.color { ColorAnimation { duration: 120 } }
 
 		MouseArea {
-			id: bodyArea
+			id: tileArea
 			anchors.fill: parent
 			hoverEnabled: true
 			cursorShape: Qt.PointingHandCursor
-			onClicked: {
-				if (stile.hasDetails)
+			z: 1
+			onClicked: mouse => {
+				win.select(stile.itemRow, stile.itemCol);
+				if (stile.hasDetails && !stile.isOverBadge(mouse.x, mouse.y))
 					stile.bodyClicked();
 				else
 					stile.iconClicked();
@@ -305,69 +380,77 @@ SideDrawer {
 
 		RowLayout {
 			anchors.fill: parent
-			anchors.leftMargin: 12
-			anchors.rightMargin: 12
-			spacing: 12
+			anchors.leftMargin: 10
+			anchors.rightMargin: 10
+			spacing: 10
 
 			Rectangle {
+				id: badge
 				Layout.alignment: Qt.AlignVCenter
-				Layout.preferredWidth: 52
-				Layout.preferredHeight: 52
-				radius: Theme.roundingElement
-				color: stile.active ? stile.activeColor : (iconArea.containsMouse ? Theme.bgHover : Theme.bgCard)
-				border.color: stile.active ? "transparent" : (iconArea.containsMouse ? Theme.textDim : Theme.border)
-				border.width: 1
+				Layout.preferredWidth: 42
+				Layout.preferredHeight: 42
+				radius: Theme.roundingSubtle
+				color: stile.hasDetails
+					? (stile.active
+						? (stile.badgeHovered ? Qt.lighter(stile.activeColor, 1.15) : stile.activeColor)
+						: (stile.badgeHovered ? Theme.bgHover : Theme.bgCard))
+					: "transparent"
+				border.color: stile.hasDetails
+					? (stile.active
+						? (stile.badgeHovered ? Qt.lighter(stile.activeColor, 1.30) : "transparent")
+						: (stile.badgeHovered ? Theme.textDim : Theme.border))
+					: "transparent"
+				border.width: stile.hasDetails ? 1 : 0
 
-				Behavior on color {
-					ColorAnimation { duration: 140 }
-				}
-				Behavior on border.color {
-					ColorAnimation { duration: 120 }
-				}
+				Behavior on color { ColorAnimation { duration: 140 } }
+				Behavior on border.color { ColorAnimation { duration: 120 } }
 
 				Text {
 					anchors.centerIn: parent
 					text: stile.icon
 					font.family: Theme.fontFamily
-					font.pixelSize: 26
+					font.pixelSize: 22
 					font.bold: true
-					color: stile.active ? Theme.bgMain : (iconArea.containsMouse ? Theme.textMain : Theme.textDim)
-				}
-
-				MouseArea {
-					id: iconArea
-					anchors.fill: parent
-					hoverEnabled: true
-					cursorShape: Qt.PointingHandCursor
-					onClicked: stile.iconClicked()
+					color: stile.hasDetails
+						? (stile.active ? Theme.bgMain : (stile.badgeHovered ? Theme.textMain : Theme.textDim))
+						: (stile.active ? stile.activeColor : (stile.bodyHovered ? Theme.textMain : Theme.textDim))
 				}
 			}
 
 			ColumnLayout {
 				Layout.fillWidth: true
 				Layout.alignment: Qt.AlignVCenter
-				spacing: 3
+				spacing: 2
 
 				Text {
 					Layout.fillWidth: true
 					text: stile.title
 					font.family: Theme.fontFamily
-					font.pixelSize: Theme.fontSizeSmall + 1
+					font.pixelSize: Theme.fontSizeSmall + 2
 					font.bold: true
 					color: Theme.textMain
-					wrapMode: Text.Wrap
-					maximumLineCount: 2
 					elide: Text.ElideRight
 				}
 
 				Text {
+					visible: stile.subtitle !== ""
 					Layout.fillWidth: true
 					text: stile.subtitle
 					font.family: Theme.fontMono
-					font.pixelSize: Theme.fontSizeSmall - 1
+					font.pixelSize: Theme.fontSizeSmall
 					color: Theme.textDim
 					elide: Text.ElideRight
 				}
+			}
+
+			Text {
+				visible: stile.hasDetails
+				Layout.alignment: Qt.AlignVCenter
+				text: "›"
+				font.family: Theme.fontFamily
+				font.pixelSize: 16
+				font.bold: true
+				color: stile.isSelected ? Theme.accentBlue : Theme.textDim
 			}
 		}
 	}
@@ -446,124 +529,202 @@ SideDrawer {
 		}
 	}
 
-	// Wide action button for the bottom row (momentary, not a toggle).
-	component ActionButton: Rectangle {
-		id: abtn
-
-		property string icon: ""
-		property string label: ""
-		signal clicked()
-
-		Layout.fillWidth: true
-		Layout.preferredHeight: 48
-		color: abtnArea.containsMouse ? Theme.bgHover : Theme.bgMain
-		border.color: abtnArea.containsMouse ? Theme.textDim : Theme.border
-		border.width: 1
-		radius: Theme.roundingElement
-
-		Behavior on color {
-			ColorAnimation { duration: 120 }
-		}
-		Behavior on border.color {
-			ColorAnimation { duration: 120 }
-		}
-
-		RowLayout {
-			anchors.centerIn: parent
-			spacing: 10
-
-			Text {
-				text: abtn.icon
-				font.family: Theme.fontFamily
-				font.pixelSize: 20
-				font.bold: true
-				color: abtnArea.containsMouse ? Theme.accentBlue : Theme.textDim
-			}
-
-			Text {
-				text: abtn.label
-				font.family: Theme.fontMono
-				font.pixelSize: Theme.fontSizeSmall + 1
-				font.bold: true
-				color: Theme.textMain
-			}
-		}
-
-		MouseArea {
-			id: abtnArea
-			anchors.fill: parent
-			hoverEnabled: true
-			cursorShape: Qt.PointingHandCursor
-			onClicked: abtn.clicked()
-		}
-	}
-
 	ColumnLayout {
 		id: contentCol
 		anchors.fill: parent
-		spacing: 12
+		spacing: 10
+		focus: true
+		visible: QuickSettings.subView === "main"
+		enabled: visible
 
-			// ─── Header ─────────────────────────────────────────
-			RowLayout {
+		Keys.onPressed: event => {
+			if (event.key === Qt.Key_J || event.key === Qt.Key_Down) {
+				var nextRow = win.navRow + 1;
+				if (nextRow === win.rowBrightness && !win.brightnessReady)
+					nextRow++;
+				win.navRow = Math.min(win.maxRow, nextRow);
+				if (win.navRow === win.rowVolume || win.navRow === win.rowBrightness)
+					win.navCol = 0;
+				event.accepted = true;
+			} else if (event.key === Qt.Key_K || event.key === Qt.Key_Up) {
+				var prevRow = win.navRow - 1;
+				if (prevRow === win.rowBrightness && !win.brightnessReady)
+					prevRow--;
+				win.navRow = Math.max(0, prevRow);
+				if (win.navRow === win.rowVolume || win.navRow === win.rowBrightness)
+					win.navCol = 0;
+				event.accepted = true;
+			} else if (event.key === Qt.Key_H || event.key === Qt.Key_Left) {
+				if (win.navRow === win.rowVolume) {
+					win.volShown = Math.max(0, win.volShown - 5);
+					win.commitVolume();
+				} else if (win.navRow === win.rowBrightness && win.brightnessReady) {
+					win.brightness = Math.max(0, win.brightness - 5);
+					win.commitBrightness();
+				} else if (win.navRow >= win.rowTilesStart && win.navRow <= win.maxRow) {
+					win.navCol = 0;
+				}
+				event.accepted = true;
+			} else if (event.key === Qt.Key_L || event.key === Qt.Key_Right) {
+				if (win.navRow === win.rowVolume) {
+					win.volShown = Math.min(win.volMax, win.volShown + 5);
+					win.commitVolume();
+				} else if (win.navRow === win.rowBrightness && win.brightnessReady) {
+					win.brightness = Math.min(100, win.brightness + 5);
+					win.commitBrightness();
+				} else if (win.navRow >= win.rowTilesStart && win.navRow < win.rowRecord) {
+					win.navCol = 1;
+				} else if (win.navRow === win.rowRecord) {
+					win.navCol = 0;
+				}
+				event.accepted = true;
+			} else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
+				if (win.navRow === win.rowVolume) {
+					win.toggleMute();
+				} else if (win.navRow === win.rowWifiBt && win.navCol === 0) {
+					if (Networking.wifiHardwareEnabled)
+						Networking.wifiEnabled = !Networking.wifiEnabled;
+				} else if (win.navRow === win.rowWifiBt && win.navCol === 1) {
+					if (win.btAdapter)
+						win.btAdapter.enabled = !win.btAdapter.enabled;
+				} else if (win.navRow === win.rowBatteryNight && win.navCol === 0) {
+					Quickshell.execDetached(["sh", "-c", "~/.local/bin/power-save"]);
+					markerRefresh.restart();
+				} else if (win.navRow === win.rowBatteryNight && win.navCol === 1) {
+					win.toggleNightLight();
+				} else if (win.navRow === win.rowDndAwake && win.navCol === 0) {
+					Notifications.toggleDnd();
+				} else if (win.navRow === win.rowDndAwake && win.navCol === 1) {
+					Quickshell.execDetached(["sh", "-c", "~/.local/bin/caffeine-toggle"]);
+					markerRefresh.restart();
+				} else if (win.navRow === win.rowRecord) {
+					QuickSettings.close();
+					Quickshell.execDetached(["sh", "-c", "~/.local/bin/record-screen region"]);
+				}
+				event.accepted = true;
+			} else if (event.key === Qt.Key_Space || event.key === Qt.Key_O) {
+				if (win.navRow === win.rowWifiBt && win.navCol === 0) {
+					QuickSettings.openWifi();
+				} else if (win.navRow === win.rowWifiBt && win.navCol === 1) {
+					QuickSettings.openBluetooth();
+				} else if (win.navRow === win.rowBatteryNight && win.navCol === 0) {
+					win.openSpecial("jolt");
+				} else if (win.navRow === win.rowVolume) {
+					win.toggleMute();
+				} else if (win.navRow === win.rowBatteryNight && win.navCol === 1) {
+					win.toggleNightLight();
+				} else if (win.navRow === win.rowDndAwake && win.navCol === 0) {
+					Notifications.toggleDnd();
+				} else if (win.navRow === win.rowDndAwake && win.navCol === 1) {
+					Quickshell.execDetached(["sh", "-c", "~/.local/bin/caffeine-toggle"]);
+					markerRefresh.restart();
+				} else if (win.navRow === win.rowRecord) {
+					QuickSettings.close();
+					Quickshell.execDetached(["sh", "-c", "~/.local/bin/record-screen region"]);
+				}
+				event.accepted = true;
+			} else if (event.key === Qt.Key_R) {
+				QuickSettings.close();
+				Quickshell.execDetached(["sh", "-c", "~/.local/bin/record-screen region"]);
+				event.accepted = true;
+			} else if (event.key === Qt.Key_W) {
+				if (event.modifiers & Qt.ShiftModifier) {
+					QuickSettings.openWifi();
+				} else {
+					if (Networking.wifiHardwareEnabled)
+						Networking.wifiEnabled = !Networking.wifiEnabled;
+					win.select(win.rowWifiBt, 0);
+				}
+				event.accepted = true;
+			} else if (event.key === Qt.Key_B) {
+				if (event.modifiers & Qt.ShiftModifier) {
+					QuickSettings.openBluetooth();
+				} else {
+					if (win.btAdapter)
+						win.btAdapter.enabled = !win.btAdapter.enabled;
+					win.select(win.rowWifiBt, 1);
+				}
+				event.accepted = true;
+			} else if (event.key === Qt.Key_S) {
+				Quickshell.execDetached(["sh", "-c", "~/.local/bin/power-save"]);
+				markerRefresh.restart();
+				win.select(win.rowBatteryNight, 0);
+				event.accepted = true;
+			} else if (event.key === Qt.Key_N) {
+				win.toggleNightLight();
+				win.select(win.rowBatteryNight, 1);
+				event.accepted = true;
+			} else if (event.key === Qt.Key_D) {
+				Notifications.toggleDnd();
+				win.select(win.rowDndAwake, 0);
+				event.accepted = true;
+			} else if (event.key === Qt.Key_I) {
+				Quickshell.execDetached(["sh", "-c", "~/.local/bin/caffeine-toggle"]);
+				markerRefresh.restart();
+				win.select(win.rowDndAwake, 1);
+				event.accepted = true;
+			} else if (event.key === Qt.Key_Escape || event.key === Qt.Key_Q) {
+				QuickSettings.close();
+				event.accepted = true;
+			}
+		}
+
+		// ─── Header ─────────────────────────────────────────
+		RowLayout {
+			Layout.fillWidth: true
+			Layout.preferredHeight: 32
+			spacing: 10
+
+			Text {
 				Layout.fillWidth: true
-				Layout.preferredHeight: 32
+				text: "Quick settings"
+				font.family: Theme.fontFamily
+				font.pixelSize: Theme.fontSize + 1
+				font.bold: true
+				color: Theme.textMain
+			}
+
+			CloseButton {
+				onClicked: QuickSettings.close()
+			}
+		}
+
+		// Subtle 1px separator
+		Rectangle {
+			Layout.fillWidth: true
+			Layout.preferredHeight: 1
+			color: Theme.border
+		}
+
+		// ─── Volume slider ──────────────────────────────────
+		Rectangle {
+			Layout.fillWidth: true
+			Layout.preferredHeight: 48
+			radius: Theme.roundingElement
+			color: win.isCurrent(win.rowVolume) ? Theme.selectionBg : "transparent"
+			border.color: win.isCurrent(win.rowVolume) ? Theme.selectionBorder : "transparent"
+			border.width: win.isCurrent(win.rowVolume) ? 1 : 0
+
+			Behavior on color { ColorAnimation { duration: 120 } }
+			Behavior on border.color { ColorAnimation { duration: 120 } }
+
+			MouseArea {
+				anchors.fill: parent
+				z: 0
+				onClicked: win.select(win.rowVolume, 0)
+			}
+
+			RowLayout {
+				anchors.fill: parent
+				anchors.leftMargin: 4
+				anchors.rightMargin: 8
 				spacing: 10
-
-				Text {
-					Layout.fillWidth: true
-					text: "Quick settings"
-					font.family: Theme.fontFamily
-					font.pixelSize: Theme.fontSize + 1
-					font.bold: true
-					color: Theme.textMain
-				}
+				z: 1
 
 				Rectangle {
-					implicitWidth: 28
-					implicitHeight: 28
-					radius: Theme.roundingElement
-					color: closeArea.containsMouse ? Theme.bgHover : "transparent"
-					border.color: closeArea.containsMouse ? Theme.textDim : Theme.border
-					border.width: 1
-
-					Behavior on color {
-						ColorAnimation { duration: 120 }
-					}
-
-					Text {
-						anchors.centerIn: parent
-						text: "✕"
-						font.pixelSize: 13
-						color: closeArea.containsMouse ? Theme.critical : Theme.textDim
-					}
-
-					MouseArea {
-						id: closeArea
-						anchors.fill: parent
-						hoverEnabled: true
-						cursorShape: Qt.PointingHandCursor
-						onClicked: QuickSettings.close()
-					}
-				}
-			}
-
-			// Subtle 1px separator
-			Rectangle {
-				Layout.fillWidth: true
-				Layout.preferredHeight: 1
-				color: Theme.border
-			}
-
-			// ─── Volume slider ──────────────────────────────────
-			RowLayout {
-				Layout.fillWidth: true
-				Layout.preferredHeight: 48
-				spacing: 12
-
-				Rectangle {
-					Layout.preferredWidth: 48
-					Layout.preferredHeight: 48
-					radius: Theme.roundingElement
+					Layout.preferredWidth: 40
+					Layout.preferredHeight: 40
+					radius: Theme.roundingSubtle
 					color: volMuteArea.containsMouse ? Theme.bgHover : "transparent"
 					border.color: volMuteArea.containsMouse ? Theme.textDim : Theme.border
 					border.width: 1
@@ -596,9 +757,6 @@ SideDrawer {
 					fillColor: Theme.accentBlue
 					onScrubbed: v => {
 						win.volShown = Math.round(v);
-						// Leading-edge throttle: commit instantly for live
-						// feedback, restart the timer for the trailing
-						// commit so the final position always lands.
 						if (volSettle.running)
 							volSettle.restart();
 						else {
@@ -609,7 +767,7 @@ SideDrawer {
 				}
 
 				Text {
-					Layout.preferredWidth: 64
+					Layout.preferredWidth: 56
 					horizontalAlignment: Text.AlignRight
 					text: win.volReady ? (win.volMuted ? "Muted" : Math.round(volPill.pressed ? win.volShown : win.volPct) + "%") : "…"
 					font.family: Theme.fontMono
@@ -618,18 +776,38 @@ SideDrawer {
 					color: Theme.textMain
 				}
 			}
+		}
 
-			// ─── Brightness slider ──────────────────────────────
+		// ─── Brightness slider ──────────────────────────────
+		Rectangle {
+			Layout.fillWidth: true
+			Layout.preferredHeight: 48
+			radius: Theme.roundingElement
+			visible: win.brightnessReady
+			color: win.isCurrent(win.rowBrightness) ? Theme.selectionBg : "transparent"
+			border.color: win.isCurrent(win.rowBrightness) ? Theme.selectionBorder : "transparent"
+			border.width: win.isCurrent(win.rowBrightness) ? 1 : 0
+
+			Behavior on color { ColorAnimation { duration: 120 } }
+			Behavior on border.color { ColorAnimation { duration: 120 } }
+
+			MouseArea {
+				anchors.fill: parent
+				z: 0
+				onClicked: win.select(win.rowBrightness, 0)
+			}
+
 			RowLayout {
-				Layout.fillWidth: true
-				Layout.preferredHeight: 48
-				spacing: 12
-				visible: win.brightnessReady
+				anchors.fill: parent
+				anchors.leftMargin: 4
+				anchors.rightMargin: 8
+				spacing: 10
+				z: 1
 
 				Rectangle {
-					Layout.preferredWidth: 48
-					Layout.preferredHeight: 48
-					radius: Theme.roundingElement
+					Layout.preferredWidth: 40
+					Layout.preferredHeight: 40
+					radius: Theme.roundingSubtle
 					color: "transparent"
 					border.color: Theme.border
 					border.width: 1
@@ -652,7 +830,6 @@ SideDrawer {
 					fillColor: Theme.accentBlue
 					onScrubbed: v => {
 						win.brightness = Math.round(v);
-						// Same leading-edge throttle as volume above.
 						if (briSettle.running)
 							briSettle.restart();
 						else {
@@ -663,7 +840,7 @@ SideDrawer {
 				}
 
 				Text {
-					Layout.preferredWidth: 64
+					Layout.preferredWidth: 56
 					horizontalAlignment: Text.AlignRight
 					text: win.brightnessReady ? win.brightness + "%" : "…"
 					font.family: Theme.fontMono
@@ -672,97 +849,149 @@ SideDrawer {
 					color: Theme.textMain
 				}
 			}
+		}
 
-			// ─── Toggle tiles ───────────────────────────────────
-			GridLayout {
-				Layout.fillWidth: true
-				columns: 2
-				columnSpacing: 8
-				rowSpacing: 8
+		// ─── 2-Column Toggle tiles ───────────────────────────
+		GridLayout {
+			Layout.fillWidth: true
+			columns: 2
+			columnSpacing: 8
+			rowSpacing: 8
 
-				SamsungTile {
-					icon: win.wifiUp ? "󰖩" : "󰖪"
-					title: "Wi-Fi"
-					subtitle: win.wifiSubtitle
-					active: Networking.wifiEnabled
-					hasDetails: true
-					onIconClicked: {
-						if (Networking.wifiHardwareEnabled)
-							Networking.wifiEnabled = !Networking.wifiEnabled;
-					}
-					onBodyClicked: win.openSpecial("impala")
+			SamsungTile {
+				itemRow: win.rowWifiBt
+				itemCol: 0
+				icon: win.wifiUp ? "󰖩" : "󰖪"
+				title: "Wi-Fi"
+				subtitle: win.wifiSubtitle
+				active: Networking.wifiEnabled
+				hasDetails: true
+				onIconClicked: {
+					if (Networking.wifiHardwareEnabled)
+						Networking.wifiEnabled = !Networking.wifiEnabled;
 				}
+				onBodyClicked: QuickSettings.openWifi()
+			}
 
-				SamsungTile {
-					icon: win.btConnected > 0 ? "󰂲" : "󰂯"
-					title: "Bluetooth"
-					subtitle: win.btSubtitle
-					active: win.btEnabled
-					hasDetails: true
-					onIconClicked: {
-						if (win.btAdapter)
-							win.btAdapter.enabled = !win.btAdapter.enabled;
-					}
-					onBodyClicked: win.openSpecial("bluetui")
+			SamsungTile {
+				itemRow: win.rowWifiBt
+				itemCol: 1
+				icon: !win.btEnabled ? "󰂲" : (win.btConnected > 0 ? "󰂱" : "󰂯")
+				title: "Bluetooth"
+				subtitle: win.btSubtitle
+				active: win.btEnabled
+				hasDetails: true
+				onIconClicked: {
+					if (win.btAdapter)
+						win.btAdapter.enabled = !win.btAdapter.enabled;
 				}
+				onBodyClicked: QuickSettings.openBluetooth()
+			}
 
-				SamsungTile {
-					icon: "󰌪"
-					title: "Battery saver"
-					subtitle: powerSaveMarker.loaded ? "On · 60 Hz" : "Off · 165 Hz"
-					active: powerSaveMarker.loaded
-					activeColor: Theme.accentGreen
-					hasDetails: true
-					onIconClicked: {
-						Quickshell.execDetached(["sh", "-c", "~/.local/bin/power-save.sh"]);
-						markerRefresh.restart();
-					}
-					onBodyClicked: win.openSpecial("jolt")
+			SamsungTile {
+				itemRow: win.rowBatteryNight
+				itemCol: 0
+				icon: "󰌪"
+				title: "Battery saver"
+				subtitle: SystemStatus.powerSaveActive ? "60 Hz" : ""
+				active: SystemStatus.powerSaveActive
+				activeColor: Theme.accentGreen
+				hasDetails: true
+				onIconClicked: {
+					Quickshell.execDetached(["sh", "-c", "~/.local/bin/power-save"]);
+					markerRefresh.restart();
 				}
+				onBodyClicked: win.openSpecial("jolt")
+			}
 
-				SamsungTile {
-					icon: "󰖔"
-					title: "Night light"
-					subtitle: win.nightLight ? "4500 K" : "Off"
-					active: win.nightLight
-					activeColor: Theme.warning
-					onIconClicked: win.toggleNightLight()
+			SamsungTile {
+				itemRow: win.rowBatteryNight
+				itemCol: 1
+				icon: "󰖔"
+				title: "Night light"
+				subtitle: ""
+				active: win.nightLight
+				activeColor: Theme.warning
+				hasDetails: false
+				onIconClicked: win.toggleNightLight()
+				onBodyClicked: win.toggleNightLight()
+			}
+
+			SamsungTile {
+				itemRow: win.rowDndAwake
+				itemCol: 0
+				icon: Notifications.dnd ? "󰂛" : "󰂜"
+				title: "Do not disturb"
+				subtitle: ""
+				active: Notifications.dnd
+				activeColor: Theme.warning
+				hasDetails: false
+				onIconClicked: Notifications.toggleDnd()
+				onBodyClicked: Notifications.toggleDnd()
+			}
+
+			SamsungTile {
+				itemRow: win.rowDndAwake
+				itemCol: 1
+				icon: "󰖦"
+				title: "Stay awake"
+				subtitle: ""
+				active: SystemStatus.caffeineActive
+				hasDetails: false
+				onIconClicked: {
+					Quickshell.execDetached(["sh", "-c", "~/.local/bin/caffeine-toggle"]);
+					markerRefresh.restart();
 				}
-
-				SamsungTile {
-					icon: Notifications.dnd ? "󰂛" : "󰂜"
-					title: "Do not disturb"
-					subtitle: Notifications.dnd ? "On" : "Off"
-					active: Notifications.dnd
-					activeColor: Theme.warning
-					onIconClicked: Notifications.toggleDnd()
-				}
-
-				SamsungTile {
-					icon: "󰖦"
-					title: "Stay awake"
-					subtitle: caffeineMarker.loaded ? "On" : "Off"
-					active: caffeineMarker.loaded
-					onIconClicked: {
-						Quickshell.execDetached(["sh", "-c", "~/.local/bin/caffeine-toggle.sh"]);
-						markerRefresh.restart();
-					}
+				onBodyClicked: {
+					Quickshell.execDetached(["sh", "-c", "~/.local/bin/caffeine-toggle"]);
+					markerRefresh.restart();
 				}
 			}
 
-			// ─── Action button ──────────────────────────────────
-			RowLayout {
-				Layout.fillWidth: true
-				spacing: 8
-
-				ActionButton {
-					icon: "󰐥"
-					label: "Power"
-					onClicked: {
-						QuickSettings.close();
-						Quickshell.execDetached(["qs", "ipc", "call", "shell", "summon", "launcher", "power"]);
-					}
+			SamsungTile {
+				itemRow: win.rowRecord
+				itemCol: 0
+				icon: SystemStatus.recording ? "󰻃" : "󰕧"
+				title: "Record screen"
+				subtitle: SystemStatus.recording ? "Recording · Stop" : "Click to record"
+				active: SystemStatus.recording
+				activeColor: Theme.critical
+				hasDetails: false
+				onIconClicked: {
+					QuickSettings.close();
+					Quickshell.execDetached(["sh", "-c", "~/.local/bin/record-screen region"]);
+				}
+				onBodyClicked: {
+					QuickSettings.close();
+					Quickshell.execDetached(["sh", "-c", "~/.local/bin/record-screen region"]);
 				}
 			}
 		}
+	}
+
+	WifiSubView {
+		id: wifiSubView
+		anchors.fill: parent
+		visible: QuickSettings.subView === "wifi"
+		enabled: visible
+		focus: visible
+		onBackRequested: {
+			QuickSettings.subView = "main";
+			contentCol.forceActiveFocus();
+		}
+		onCloseRequested: QuickSettings.close()
+	}
+
+	BluetoothSubView {
+		id: btSubView
+		anchors.fill: parent
+		visible: QuickSettings.subView === "bluetooth"
+		enabled: visible
+		focus: visible
+		onBackRequested: {
+			QuickSettings.subView = "main";
+			contentCol.forceActiveFocus();
+		}
+		onCloseRequested: QuickSettings.close()
+	}
 }

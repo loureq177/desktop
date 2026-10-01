@@ -70,6 +70,27 @@ Rectangle {
 			clip: true
 
 			Keys.onPressed: event => {
+				var isCtrl = (event.modifiers & Qt.ControlModifier);
+				if (isCtrl && event.key === Qt.Key_J) {
+					bar.stepped(1);
+					event.accepted = true;
+					return;
+				} else if (isCtrl && event.key === Qt.Key_K) {
+					bar.stepped(-1);
+					event.accepted = true;
+					return;
+				} else if (isCtrl && event.key === Qt.Key_H) {
+					if (bar.leftRightNavigate)
+						bar.steppedColumn(-1);
+					event.accepted = true;
+					return;
+				} else if (isCtrl && event.key === Qt.Key_L) {
+					if (bar.leftRightNavigate)
+						bar.steppedColumn(1);
+					event.accepted = true;
+					return;
+				}
+
 				if (event.key === Qt.Key_Down) {
 					bar.stepped(1);
 					event.accepted = true;

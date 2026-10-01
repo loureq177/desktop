@@ -21,10 +21,6 @@ PanelWindow {
 	required property var modelData
 	readonly property string screenName: modelData?.name ?? ""
 
-	// Active portal screencasts (screenshare privacy indicator), tracked
-	// from Hyprland's screencastv2 events: "screencastv2>><state>,<type>".
-	property int screencasts: 0
-
 	screen: modelData
 	color: "transparent"
 	WlrLayershell.layer: WlrLayer.Top
@@ -42,16 +38,6 @@ PanelWindow {
 	}
 
 	implicitHeight: Theme.barHeight
-
-	Connections {
-		target: Hyprland
-		function onRawEvent(ev) {
-			if (ev.name !== "screencastv2")
-				return;
-			var state = (String(ev.data ?? "").split(",")[0] === "1") ? 1 : 0;
-			bar.screencasts = Math.max(0, bar.screencasts + (state === 1 ? 1 : -1));
-		}
-	}
 
 	// ─── Native status data ─────────────────────────────────────────────
 
@@ -79,89 +65,110 @@ PanelWindow {
 		return null;
 	}
 
-	// dGPU: PCI path probed once at startup, runtime_status re-read by the
-	// poll timer (sysfs emits no change events for this file).
-	property string gpuDevicePath: ""
-	property bool gpuActive: false
+	// ─── Tooltip popup ───────────────────────────────────────────────────
+	property Item tooltipTarget: null
+	property string tooltipText: ""
+	property bool tooltipVisible: false
 
-	// 2s/5s-polled states.
-	property string memPercent: ""
-	property bool recording: false
+	function showTooltip(item: Item, text: string): void {
+		if (!text) {
+			hideTooltip(item);
+			return;
+		}
+		hideTimer.stop();
+		tooltipTarget = item;
+		tooltipText = text;
+		if (tooltipVisible) {
+			tipPop.visible = true;
+			tipPop.anchor.updateAnchor();
+		} else {
+			tipTimer.restart();
+		}
+	}
 
-	// Cheap state files, polled at 2s: they are FileViews, no process spawns.
+	function hideTooltip(item: Item): void {
+		if (tooltipTarget === item) {
+			tipTimer.stop();
+			hideTimer.restart();
+		}
+	}
+
+	function updateTooltip(item: Item, text: string): void {
+		if (tooltipTarget === item) {
+			tooltipText = text;
+			if (tipPop.visible)
+				tipPop.anchor.updateAnchor();
+		}
+	}
+
 	Timer {
-		interval: 2000
-		running: true
-		repeat: true
-		triggeredOnStart: true
+		id: tipTimer
+		interval: 300
 		onTriggered: {
-			gpuStatus.reload();
-			caffeineMarker.reload();
-			powerSaveMarker.reload();
-		}
-	}
-
-	// Slower cadence for /proc/meminfo and pgrep wf-recorder.
-	Timer {
-		interval: 5000
-		running: true
-		repeat: true
-		triggeredOnStart: true
-		onTriggered: {
-			memView.reload();
-			recordProbe.running = true;
-		}
-	}
-
-	FileView {
-		id: memView
-		path: "/proc/meminfo"
-		onLoaded: {
-			var t = this.text();
-			var total = Number((t.match(/MemTotal:\s+(\d+)/) || [0, 0])[1]);
-			var avail = Number((t.match(/MemAvailable:\s+(\d+)/) || [0, 0])[1]);
-			bar.memPercent = (total > 0 && avail >= 0) ? String(Math.round((total - avail) * 100 / total)) : "";
-		}
-	}
-
-	// Probe the dGPU's PCI device once at startup.
-	Process {
-		id: gpuProbe
-		command: ["sh", "-c", "grep -lx 0x10de /sys/bus/pci/devices/*/vendor 2>/dev/null | head -1"]
-		running: true
-		stdout: StdioCollector {
-			onStreamFinished: {
-				var vendor = this.text.trim();
-				if (vendor !== "")
-					bar.gpuDevicePath = vendor.replace(/vendor$/, "") + "power/runtime_status";
+			if (bar.tooltipTarget && bar.tooltipText !== "") {
+				bar.tooltipVisible = true;
+				tipPop.visible = true;
+				tipPop.anchor.updateAnchor();
 			}
 		}
 	}
 
-	FileView {
-		id: gpuStatus
-		path: bar.gpuDevicePath
-		printErrors: false
-		onLoaded: bar.gpuActive = this.text().trim() === "active"
+	Timer {
+		id: hideTimer
+		interval: 100
+		onTriggered: {
+			bar.tooltipTarget = null;
+			bar.tooltipVisible = false;
+			tipPop.visible = false;
+		}
 	}
 
-	// Caffeine / power-save toggles leave marker files in XDG_RUNTIME_DIR;
-	// their existence is the state (loadFailed = absent = off).
-	FileView {
-		id: caffeineMarker
-		path: Quickshell.env("XDG_RUNTIME_DIR") + "/caffeine_inhibit.pid"
-		printErrors: false
-	}
-	FileView {
-		id: powerSaveMarker
-		path: Quickshell.env("XDG_RUNTIME_DIR") + "/powersave_mode"
-		printErrors: false
-	}
+	PopupWindow {
+		id: tipPop
+		visible: false
+		color: "transparent"
+		implicitWidth: tipBox.implicitWidth
+		implicitHeight: tipBox.implicitHeight
+		onImplicitWidthChanged: anchor.updateAnchor()
 
-	Process {
-		id: recordProbe
-		command: ["pgrep", "-x", "wf-recorder"]
-		onExited: code => bar.recording = code === 0
+		anchor {
+			window: bar
+			adjustment: PopupAdjustment.SlideX
+			gravity: Edges.Bottom | Edges.Right
+
+			onAnchoring: {
+				if (!bar.tooltipTarget)
+					return;
+				const item = bar.tooltipTarget;
+				const pos = bar.contentItem.mapFromItem(
+					item,
+					Math.round(item.width / 2 - tipPop.width / 2),
+					item.height + 6
+				);
+				anchor.rect.x = Math.max(0, Math.min(bar.width - tipPop.width, pos.x));
+				anchor.rect.y = pos.y;
+			}
+		}
+
+		Rectangle {
+			id: tipBox
+			implicitWidth: tipLabel.implicitWidth + 20
+			implicitHeight: tipLabel.implicitHeight + 10
+			color: Qt.rgba(Theme.bgCardColor.r, Theme.bgCardColor.g, Theme.bgCardColor.b, 0.96)
+			border.color: Theme.border
+			border.width: 1
+			radius: Theme.roundingElement
+
+			Text {
+				id: tipLabel
+				anchors.centerIn: parent
+				text: bar.tooltipText
+				color: Theme.textMain
+				font.family: Theme.fontFamily
+				font.pixelSize: Theme.fontSizeSmall
+				font.bold: false
+			}
+		}
 	}
 
 	// ─── Reusable Pill component ─────────────────────────────────────────
@@ -173,9 +180,17 @@ PanelWindow {
 		property string value: ""
 		property color textColor: Theme.textMain
 		property bool isActive: false
+		property string tooltipText: ""
 		property alias containsMouse: pillArea.containsMouse
 		signal activated()
+		signal middleClicked()
+		signal rightClicked()
 		signal wheeled(bool up)
+
+		onTooltipTextChanged: {
+			if (pillArea.containsMouse && pill.tooltipText !== "")
+				bar.updateTooltip(pill, pill.tooltipText);
+		}
 
 		Layout.alignment: Qt.AlignVCenter
 		implicitHeight: Theme.barHeight
@@ -220,7 +235,24 @@ PanelWindow {
 			anchors.fill: parent
 			hoverEnabled: true
 			cursorShape: Qt.PointingHandCursor
-			onClicked: pill.activated()
+			acceptedButtons: Qt.LeftButton | Qt.MiddleButton | Qt.RightButton
+			onEntered: {
+				if (pill.tooltipText !== "")
+					bar.showTooltip(pill, pill.tooltipText);
+			}
+			onExited: {
+				bar.hideTooltip(pill);
+			}
+			onClicked: mouse => {
+				bar.hideTooltip(pill);
+				if (mouse.button === Qt.RightButton) {
+					pill.rightClicked();
+				} else if (mouse.button === Qt.MiddleButton) {
+					pill.middleClicked();
+				} else {
+					pill.activated();
+				}
+			}
 			onWheel: w => pill.wheeled(w.angleDelta.y > 0)
 		}
 	}
@@ -284,9 +316,14 @@ PanelWindow {
 								anchors.fill: parent
 								hoverEnabled: true
 								cursorShape: Qt.PointingHandCursor
-								onClicked: Quickshell.execDetached([
-									"hyprctl", "dispatch", "hl.dsp.focus({workspace=" + wsButton.modelData.id + "})"
-								])
+								onEntered: bar.showTooltip(wsButton, "Workspace " + wsButton.modelData.name)
+								onExited: bar.hideTooltip(wsButton)
+								onClicked: {
+									bar.hideTooltip(wsButton);
+									Quickshell.execDetached([
+										"hyprctl", "dispatch", "hl.dsp.focus({workspace=" + wsButton.modelData.id + "})"
+									]);
+								}
 							}
 						}
 					}
@@ -306,49 +343,71 @@ PanelWindow {
 
 			// Memory / RAM pill
 			Pill {
-				visible: bar.memPercent !== ""
+				visible: SystemStatus.memPercent !== ""
 				text: "󰍛"
-				value: bar.memPercent !== "" ? bar.memPercent + "%" : ""
-				textColor: Number(bar.memPercent) >= 90 ? Theme.critical : (Number(bar.memPercent) >= 75 ? Theme.warning : Theme.textDim)
+				value: SystemStatus.memPercent !== "" ? SystemStatus.memPercent + "%" : ""
+				textColor: Number(SystemStatus.memPercent) >= 90 ? Theme.critical : (Number(SystemStatus.memPercent) >= 75 ? Theme.warning : Theme.textDim)
+				tooltipText: SystemStatus.memTooltip
 				onActivated: Quickshell.execDetached([
 					"hyprctl", "dispatch", "hl.dsp.workspace.toggle_special('btop')"
 				])
 			}
 
-			// dGPU pill (NVIDIA) - minimal, icon-only, no "active" text
+			// dGPU pill (NVIDIA) - minimal, icon-only, only shown when active
 			Pill {
-				visible: bar.gpuDevicePath !== ""
+				visible: SystemStatus.gpuDevicePath !== "" && SystemStatus.gpuActive
 				text: "󰢮"
 				value: ""
-				textColor: bar.gpuActive ? Theme.accentGreen : Theme.textDim
+				textColor: Theme.accentGreen
+				tooltipText: "dGPU: Active"
 				onActivated: Quickshell.execDetached([
 					"hyprctl", "dispatch", "hl.dsp.workspace.toggle_special('btop')"
 				])
 			}
 
-			// Power-save mode pill
+			// Power-save mode pill (only shown when active)
 			Pill {
+				visible: SystemStatus.powerSaveActive
 				text: "󰌪"
-				textColor: powerSaveMarker.loaded ? Theme.accentGreen : Theme.textDim
-				onActivated: Quickshell.execDetached(["sh", "-c", "~/.local/bin/power-save.sh"])
+				textColor: Theme.accentGreen
+				tooltipText: "Battery saver: On (60 Hz)"
+				onActivated: Quickshell.execDetached(["sh", "-c", "~/.local/bin/power-save"])
 			}
 		}
 
-		// ─── Center zone: Minimal Time (no date, no calendar icon) ────────
-		Pill {
-			id: clock
+		// ─── Center zone: Minimal Time & Weather ─────────────────────────
+		RowLayout {
 			anchors.centerIn: parent
-			readonly property bool valid: !isNaN(clockSource.date?.getTime?.() ?? NaN)
-			text: ""
-			value: valid ? Qt.formatDateTime(clockSource.date, "hh:mm") : Qt.formatDateTime(new Date(), "hh:mm")
-			textColor: Theme.textMain
-			onActivated: Quickshell.execDetached([
-				"hyprctl", "dispatch", "hl.dsp.workspace.toggle_special('calendar')"
-			])
+			spacing: 4
 
-			SystemClock {
-				id: clockSource
-				precision: SystemClock.Minutes
+			Pill {
+				id: clock
+				readonly property bool valid: !isNaN(clockSource.date?.getTime?.() ?? NaN)
+				text: ""
+				value: valid ? Qt.formatDateTime(clockSource.date, "hh:mm") : Qt.formatDateTime(new Date(), "hh:mm")
+				textColor: Theme.textMain
+				tooltipText: Qt.formatDateTime(clock.valid ? clockSource.date : new Date(), "dddd, MMMM d, yyyy")
+				onActivated: Quickshell.execDetached([
+					"hyprctl", "dispatch", "hl.dsp.workspace.toggle_special('calendar')"
+				])
+
+				SystemClock {
+					id: clockSource
+					precision: SystemClock.Minutes
+				}
+			}
+
+			Pill {
+				id: weatherPill
+				visible: Weather.label !== ""
+				text: Weather.label
+				value: Weather.tempNum !== "" ? (Weather.tempNum + "°") : ""
+				textColor: Theme.textMain
+				isActive: Weather.panelOpen
+				tooltipText: Weather.tooltipText
+				onActivated: Weather.toggle()
+				onMiddleClicked: Weather.refresh()
+				onRightClicked: Quickshell.execDetached(["sh", "-c", "~/.local/bin/weather notify"])
 			}
 		}
 
@@ -359,30 +418,43 @@ PanelWindow {
 			anchors.verticalCenter: parent.verticalCenter
 			spacing: 6
 
+			// Dictation indicator (red dot while recording, amber dots while transcribing)
+			Pill {
+				visible: SystemStatus.dictatingActive
+				text: SystemStatus.dictationState === "transcribing" ? "…" : "●"
+				textColor: SystemStatus.dictationState === "transcribing" ? Theme.warning : Theme.critical
+				isActive: true
+				tooltipText: SystemStatus.dictationState === "transcribing" ? "Transcribing audio..." : "Dictation active (Click to stop)"
+				onActivated: Quickshell.execDetached(["sh", "-c", "~/.local/bin/dictation stop"])
+			}
+
 			// Screen recording indicator
 			Pill {
-				visible: bar.recording
+				visible: SystemStatus.recording
 				text: "●"
 				value: "REC"
 				textColor: Theme.critical
 				isActive: true
-				onActivated: Quickshell.execDetached(["sh", "-c", "~/.local/bin/record-screen.sh"])
+				tooltipText: "Recording screen (Click to stop)"
+				onActivated: Quickshell.execDetached(["sh", "-c", "~/.local/bin/record-screen"])
 			}
 
 			// Screencast indicator
 			Pill {
-				visible: bar.screencasts > 0
+				visible: SystemStatus.screencasts > 0
 				text: "󰒎"
 				textColor: Theme.accentPurple
 				isActive: true
+				tooltipText: "Screen sharing active (" + SystemStatus.screencasts + (SystemStatus.screencasts === 1 ? " stream)" : " streams)")
 			}
 
 			// Caffeine toggle indicator
 			Pill {
-				visible: caffeineMarker.loaded
+				visible: SystemStatus.caffeineActive
 				text: "󰖦"
 				textColor: Theme.accentBlue
-				onActivated: Quickshell.execDetached(["sh", "-c", "~/.local/bin/caffeine-toggle.sh"])
+				tooltipText: "Stay awake: Active"
+				onActivated: Quickshell.execDetached(["sh", "-c", "~/.local/bin/caffeine-toggle"])
 			}
 
 			// Bluetooth indicator
@@ -401,28 +473,75 @@ PanelWindow {
 					return n;
 				}
 
-				text: connectedCount > 0 ? "󰂲" : (adapter?.enabled ? "󰂯" : "󰂲")
+				readonly property string tooltipInfo: {
+					if (!adapter)
+						return "Bluetooth: Unavailable";
+					if (!adapter.enabled)
+						return "Bluetooth: Off";
+					if (connectedCount === 0)
+						return "Bluetooth: Disconnected";
+					var connectedNames = [];
+					var vals = adapter.devices.values;
+					for (var i = 0; i < vals.length; i++) {
+						if (vals[i].connected) {
+							var name = vals[i].name || vals[i].deviceName || vals[i].address;
+							if (vals[i].batteryAvailable && vals[i].battery >= 0)
+								name += " (" + Math.round(vals[i].battery * 100) + "%)";
+							connectedNames.push(name);
+						}
+					}
+					if (connectedNames.length > 0)
+						return "Bluetooth: " + connectedNames.join(", ");
+					return "Bluetooth: Connected";
+				}
+
+				text: !adapter?.enabled ? "󰂲" : (connectedCount > 0 ? "󰂱" : "󰂯")
 				value: connectedCount > 1 ? String(connectedCount) : ""
 				textColor: connectedCount > 0 ? Theme.accentBlue : (adapter?.enabled ? Theme.textMain : Theme.textDim)
-				onActivated: Quickshell.execDetached([
-					"hyprctl", "dispatch", "hl.dsp.workspace.toggle_special('bluetui')"
-				])
+				tooltipText: tooltipInfo
+				onActivated: QuickSettings.openBluetooth()
 			}
 
 			// Network indicator (Wifi / Ethernet)
 			Pill {
 				readonly property bool wifiUp: bar.wifiDevice?.connected ?? false
 				readonly property bool wiredUp: bar.wiredDevice?.connected ?? false
+				readonly property string wifiName: {
+					var d = bar.wifiDevice;
+					if (!d || !d.networks || !d.networks.values)
+						return "";
+					var vals = d.networks.values;
+					for (var i = 0; i < vals.length; i++)
+						if (vals[i] && vals[i].connected)
+							return vals[i].name || "";
+					return "";
+				}
+				readonly property int wifiSignal: {
+					var d = bar.wifiDevice;
+					if (!d || !d.networks || !d.networks.values)
+						return 0;
+					var vals = d.networks.values;
+					for (var i = 0; i < vals.length; i++)
+						if (vals[i] && vals[i].connected)
+							return vals[i].signalStrength ?? 0;
+					return 0;
+				}
 
 				text: wifiUp ? "󰖩" : (wiredUp ? "󰈀" : "󰖪")
 				textColor: (wifiUp || wiredUp) ? Theme.textMain : Theme.textDim
-				onActivated: Quickshell.execDetached([
-					"hyprctl", "dispatch", "hl.dsp.workspace.toggle_special('impala')"
-				])
+				tooltipText: {
+					if (wifiUp)
+						return "Wi-Fi: " + (wifiName !== "" ? wifiName : "Connected") + (wifiSignal > 0 ? " (" + wifiSignal + "%)" : "");
+					if (wiredUp)
+						return "Ethernet: Connected";
+					return "Network: Disconnected";
+				}
+				onActivated: QuickSettings.openWifi()
 			}
 
 			// Battery indicator
 			Pill {
+				id: batteryPill
 				readonly property var device: bar.batteryDevice
 				readonly property var bucketIcons: [
 					"󰂎", "󰁺", "󰁻", "󰁼", "󰁽", "󰁾", "󰁿", "󰂀", "󰂁", "󰂂", "󰁹"
@@ -432,6 +551,19 @@ PanelWindow {
 				readonly property bool charging: device && (device.state === UPowerDeviceState.Charging
 					|| device.state === UPowerDeviceState.PendingCharge)
 
+				readonly property string tooltipInfo: {
+					if (!device)
+						return "Battery";
+					if (charging) {
+						var fullTime = device.timeToFull > 0 ? (Math.floor(device.timeToFull / 3600) + "h " + Math.floor((device.timeToFull % 3600) / 60) + "m to full") : "";
+						return "Battery: " + pct + "% (Charging" + (fullTime !== "" ? ", " + fullTime : "") + ")";
+					}
+					if (full)
+						return "Battery: " + pct + "% (Fully charged)";
+					var remTime = device.timeToEmpty > 0 ? (Math.floor(device.timeToEmpty / 3600) + "h " + Math.floor((device.timeToEmpty % 3600) / 60) + "m remaining") : "";
+					return "Battery: " + pct + "%" + (remTime !== "" ? " (" + remTime + ")" : "");
+				}
+
 				visible: device !== null
 				text: charging ? "󰂄" : (full ? "󰁹" : bucketIcons[Math.min(10, Math.max(0, Math.floor(pct / 10)))])
 				value: visible ? String(pct) + "%" : ""
@@ -439,6 +571,7 @@ PanelWindow {
 					: pct <= 10 ? Theme.critical
 					: pct <= 20 ? Theme.warning
 					: Theme.textMain
+				tooltipText: tooltipInfo
 				onActivated: Quickshell.execDetached([
 					"hyprctl", "dispatch", "hl.dsp.workspace.toggle_special('jolt')"
 				])
@@ -455,6 +588,15 @@ PanelWindow {
 				value: !dnd && unreadCount > 0 ? String(unreadCount) : (!dnd && historyCount > 0 ? String(historyCount) : "")
 				textColor: dnd ? Theme.warning : (unreadCount > 0 || isOpen ? Theme.accentBlue : (historyCount > 0 ? Theme.textMain : Theme.textDim))
 				isActive: isOpen || (unreadCount > 0 && !dnd)
+				tooltipText: {
+					if (dnd)
+						return "Notifications: Do not disturb";
+					if (unreadCount > 0)
+						return "Notifications: " + unreadCount + " unread";
+					if (historyCount > 0)
+						return "Notifications: " + historyCount + " in history";
+					return "Notifications: None";
+				}
 				onActivated: Notifications.toggle()
 			}
 		}

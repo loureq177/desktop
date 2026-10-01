@@ -23,6 +23,7 @@ Singleton {
 	// Plain snapshots for the control center (live objects die on dismiss).
 	property var history: []
 	property int historyLimit: 100
+	property int maxToasts: 4
 
 	// Non-critical toasts clear themselves after this long (critical ones
 	// stay until dismissed). Focus changes and new windows never dismiss
@@ -54,7 +55,7 @@ Singleton {
 			urgency: n.urgency,
 			image: n.image || "",
 			appIcon: n.appIcon || "",
-			actions: (n.actions || []).map(a => ({ identifier: a.identifier || "", text: a.text || "Action" })),
+			actions: (n.actions || []).map(a => ({ identifier: a.identifier || "", text: a.text || "" })),
 			time: when
 		};
 	}
@@ -121,9 +122,8 @@ Singleton {
 		root.removeHistory(id);
 	}
 
-	// Actions shown as buttons: mirrors entriesFromActions (noise identifiers
-	// like "settings" are dropped, real "default" labels are kept) so the
-	// keybind actions operate on exactly the rendered buttons.
+	// Actions shown as buttons: mirrors entriesFromActions so the keybind
+	// actions operate on exactly the rendered buttons.
 	function visibleActions(n): var {
 		var entries = root.entriesFromActions(n ? n.id : -1, n ? n.actions : []);
 		var want = {};
@@ -139,38 +139,25 @@ Singleton {
 		return out;
 	}
 
-	// Buttons for one action row: every non-"default" action. Chromium's
-	// "settings" action (opens browser notification settings on web apps
-	// like WhatsApp Web) is dropped as noise. When the ONLY action is
-	// "default", it becomes a visible button — but only for real labels
-	// (scripts like screenshot use -A "default=Edit with Satty"); generic
-	// auto-labels ("Action", "Activate") stay off, body clicks cover them.
+	// Buttons for one action row: extra actions only, each with a real
+	// label. The "default" action NEVER becomes a button — a click on the
+	// notification body already invokes it (activate()), so a button would
+	// just duplicate it. Chromium's "settings" action (opens browser
+	// notification settings on web apps like WhatsApp Web) is dropped as
+	// noise. Actions without a real label (empty, "Action", "Activate")
+	// are skipped instead of rendered with a placeholder.
 	function entriesFromActions(id, acts): var {
 		var out = [];
 		var all = acts || [];
-		var plain = [];
 		for (var i = 0; i < all.length; i++) {
-			var mid = (all[i] && all[i].identifier) || "";
-			if (mid === "default" || mid === "settings")
+			var ident = ((all[i] && all[i].identifier) || "").trim();
+			if (ident === "" || ident === "default" || ident === "settings")
 				continue;
-			plain.push(all[i]);
-		}
-		if (plain.length === 0) {
-			for (var j = 0; j < all.length; j++) {
-				var did = (all[j] && all[j].identifier) || "";
-				if (did !== "default")
-					continue;
-				var label = ((all[j] && all[j].text) || "").trim();
-				var lower = label.toLowerCase();
-				if (label === "" || lower === "action" || lower === "activate")
-					continue;
-				out.push({ identifier: did, text: label, snapId: id, toastId: id });
-			}
-			return out;
-		}
-		for (var k = 0; k < plain.length; k++) {
-			var entry = plain[k];
-			out.push({ identifier: (entry && entry.identifier) || "", text: (entry && entry.text) || "Action", snapId: id, toastId: id });
+			var label = ((all[i] && (all[i].text || all[i].label)) || "").trim();
+			var lower = label.toLowerCase();
+			if (label === "" || lower === "action" || lower === "activate")
+				continue;
+			out.push({ identifier: all[i].identifier || "", text: label, snapId: id, toastId: id });
 		}
 		return out;
 	}
@@ -200,6 +187,42 @@ Singleton {
 		return null;
 	}
 
+	// Snapshot lookup by id (stable source once the sender is gone).
+	function historyById(id: int): var {
+		for (var i = 0; i < root.history.length; i++) {
+			if (root.history[i] && root.history[i].id === id)
+				return root.history[i];
+		}
+		return null;
+	}
+
+	// check-updates sends fire-and-forget (it must not block the systemd
+	// service on a listener), so the "update" action has no live sender to
+	// answer it. Handle it locally instead: open the updater in a terminal.
+	// The Hyprland rule floats it by window title (ghostty ignores --class).
+	function launchSysupdate(): void {
+		Quickshell.execDetached(["ghostty", "-e", Quickshell.env("HOME") + "/.local/bin/sysupdate"]);
+	}
+
+	// Locally-handled actions: currently only the "System Update" update
+	// button. Works from the live object or the history snapshot, so clicks
+	// keep working long after the sender exited.
+	function handleLocalAction(id: int, identifier: string): bool {
+		if (identifier !== "update")
+			return false;
+		var found = root.liveById(id);
+		var app = (found && (found.appName || found.desktopEntry)) || "";
+		if (app === "") {
+			var snap = root.historyById(id);
+			app = (snap && snap.appName) || "";
+		}
+		if (app !== "System Update")
+			return false;
+		root.launchSysupdate();
+		root.dismissEntry(id);
+		return true;
+	}
+
 	// Shared action invocation for toasts, center buttons and keybinds.
 	// Index-based for keybinds (SUPER+ALT+1..3 act on the latest toast,
 	// indexing the visible actions); identifier-based for buttons.
@@ -209,21 +232,25 @@ Singleton {
 		var acts = root.visibleActions(found);
 		if (index < 0 || index >= acts.length)
 			return;
+		if (root.handleLocalAction(targetId, acts[index].identifier))
+			return;
 		acts[index].invoke();
 		if (!found.resident)
 			root.safeDismiss(found);
 	}
 
 	function invokeByIdentifier(id: int, identifier: string): void {
-		var found = root.liveById(id);
-		if (!found || !found.actions)
+		if (root.handleLocalAction(id, identifier))
 			return;
-		for (var j = 0; j < found.actions.length; j++) {
-			if (found.actions[j].identifier === identifier) {
-				found.actions[j].invoke();
-				if (!found.resident)
-					root.safeDismiss(found);
-				return;
+		var found = root.liveById(id);
+		if (found && found.actions) {
+			for (var j = 0; j < found.actions.length; j++) {
+				if (found.actions[j].identifier === identifier) {
+					found.actions[j].invoke();
+					if (!found.resident)
+						root.safeDismiss(found);
+					return;
+				}
 			}
 		}
 	}
@@ -244,6 +271,7 @@ Singleton {
 		}
 		root.dismissById(targetId);
 	}
+
 
 	// ─── Operations (used by IPC, the center UI and scripts alike) ─────────────
 
@@ -370,8 +398,17 @@ Singleton {
 			root.pruneHistory();
 			root.toastArrivedAt[n.id] = now;
 			var critical = (n.urgency === NotificationUrgency.Critical);
-			if (!root.dnd || critical)
-				root.toasts = [n].concat(root.toasts);
+			if (!root.dnd || critical) {
+				var updated = [n].concat(root.toasts);
+				if (updated.length > root.maxToasts) {
+					var dropped = updated.slice(root.maxToasts);
+					for (var d = 0; d < dropped.length; d++) {
+						delete root.toastArrivedAt[dropped[d].id];
+					}
+					updated = updated.slice(0, root.maxToasts);
+				}
+				root.toasts = updated;
+			}
 			n.closed.connect(() => {
 				root.removeToast(n.id);
 			});
@@ -404,6 +441,9 @@ Singleton {
 		}
 		function clear(): void {
 			root.clear();
+		}
+		function dismissToasts(): void {
+			root.dismissToasts();
 		}
 		function dismissLatest(): void {
 			root.dismissLatest();

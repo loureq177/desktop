@@ -55,12 +55,12 @@ Singleton {
 
 	// Notification surfaces: top-right panel below the bar.
 	readonly property int notifWidth: 500
-	readonly property int notifTopMargin: 58
+	readonly property int notifTopMargin: 54
 	readonly property int notifRightMargin: 20
 	readonly property int notifPadV: 10
 	readonly property int notifPadH: 14
 
 	readonly property color accent: accentBlue
-	readonly property color selectionBg: Qt.rgba(accent.r, accent.g, accent.b, 0.25)
-	readonly property color selectionBorder: Qt.rgba(accent.r, accent.g, accent.b, 0.70)
+	readonly property color selectionBg: Qt.rgba(accent.r, accent.g, accent.b, 0.12)
+	readonly property color selectionBorder: Qt.rgba(accent.r, accent.g, accent.b, 0.45)
 }

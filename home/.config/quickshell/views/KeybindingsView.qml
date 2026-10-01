@@ -7,26 +7,21 @@ import Quickshell.Io
 import QtQuick
 import QtQuick.Layouts
 
-PanelWindow {
+CenterModal {
 	id: window
 
-	visible: false
-	color: "transparent"
-	exclusionMode: ExclusionMode.Ignore
-	exclusiveZone: 0
+	searchTitle: "Keys"
+	searchPlaceholder: "Search keybindings & gestures..."
+	showFooter: true
+	statusText: window.statusText()
+	errorText: window.lastError
 
-	WlrLayershell.layer: WlrLayer.Overlay
-	WlrLayershell.keyboardFocus: visible ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
-	WlrLayershell.namespace: "quickshell"
-
-	screen: Quickshell.screens.find(s => s.name === Hyprland.focusedMonitor?.name) ?? Quickshell.screens[0] ?? null
-
-	anchors {
-		top: true
-		bottom: true
-		left: true
-		right: true
+	onSearchQueryChanged: {
+		window.query = searchQuery;
+		window.refilter();
 	}
+	onSearchAccepted: window.activate()
+	onSearchStepped: delta => window.move(delta)
 
 	property var entries: []
 	property var filtered: []
@@ -96,115 +91,74 @@ PanelWindow {
 		}
 	]
 
-	function getCategory(desc, chord) {
+	readonly property var categoryRules: [
+		{ cat: "Capture & OCR", match: ["screenshot", "screen recording", "ocr"] },
+		{ cat: "Media & Hardware", match: ["volume", "brightness", "microphone"] },
+		{ cat: "Essential", match: ["terminal", "browser", "launch apps", "keybindings", "system menu"] },
+		{ cat: "Notifications", match: ["notification", "do not disturb"] },
+		{ cat: "Clipboard & Selection", match: ["copy", "paste", "cut", "select all", "clipboard"] },
+		{ cat: "Special Workspaces", match: ["calendar", "tasks", "whatsapp", "mail", "discord", "spotify", "gemini", "yazi", "notes"] },
+		{ cat: "System & Tools", match: ["system update", "lock system", "idle inhibit", "color picker", "run commands", "emoji", "audio controls", "bluetooth", "calculator", "wifi", "power", "battery", "jolt", "activity monitor", "touchpad", "quick settings"] },
+		{ cat: "Window Management", match: ["close window", "fullscreen", "split", "floating", "swap window", "resize window", "drag window"] },
+		{ cat: "Navigation & Workspaces", match: ["focus", "workspace"] }
+	]
+
+	function getCategory(desc) {
 		var d = (desc || "").toLowerCase();
-		if (d.indexOf("screenshot") !== -1 || d.indexOf("screen recording") !== -1 || d.indexOf("ocr") !== -1)
-			return "Capture & OCR";
-		if (d.indexOf("volume") !== -1 || d.indexOf("brightness") !== -1 || d.indexOf("microphone") !== -1)
-			return "Media & Hardware";
-		if (d.indexOf("terminal") !== -1 || d.indexOf("browser") !== -1 || d.indexOf("launch apps") !== -1
-			|| d.indexOf("keybindings") !== -1 || d.indexOf("system menu") !== -1)
-			return "Essential";
-		if (d.indexOf("notification") !== -1 || d.indexOf("do not disturb") !== -1)
-			return "Notifications";
-		if (d.indexOf("copy") !== -1 || d.indexOf("paste") !== -1 || d.indexOf("cut") !== -1
-			|| d.indexOf("select all") !== -1 || d.indexOf("clipboard") !== -1)
-			return "Clipboard & Selection";
-		if (d.indexOf("calendar") !== -1 || d.indexOf("tasks") !== -1 || d.indexOf("whatsapp") !== -1
-			|| d.indexOf("mail") !== -1 || d.indexOf("discord") !== -1 || d.indexOf("spotify") !== -1
-			|| d.indexOf("gemini") !== -1 || d.indexOf("yazi") !== -1 || d.indexOf("notes") !== -1)
-			return "Special Workspaces";
-		if (d.indexOf("system update") !== -1 || d.indexOf("lock system") !== -1 || d.indexOf("idle inhibit") !== -1
-			|| d.indexOf("color picker") !== -1 || d.indexOf("run commands") !== -1 || d.indexOf("emoji") !== -1
-			|| d.indexOf("audio controls") !== -1 || d.indexOf("bluetooth") !== -1 || d.indexOf("calculator") !== -1
-			|| d.indexOf("wifi") !== -1 || d.indexOf("power") !== -1 || d.indexOf("battery") !== -1 || d.indexOf("jolt") !== -1
-			|| d.indexOf("activity monitor") !== -1 || d.indexOf("touchpad") !== -1 || d.indexOf("quick settings") !== -1)
-			return "System & Tools";
-		if (d.indexOf("close window") !== -1 || d.indexOf("fullscreen") !== -1 || d.indexOf("split") !== -1
-			|| d.indexOf("floating") !== -1 || d.indexOf("swap window") !== -1 || d.indexOf("resize window") !== -1
-			|| d.indexOf("drag window") !== -1)
-			return "Window Management";
-		if (d.indexOf("focus") !== -1 || d.indexOf("workspace") !== -1)
-			return "Navigation & Workspaces";
+		for (var i = 0; i < categoryRules.length; i++) {
+			var rule = categoryRules[i];
+			for (var j = 0; j < rule.match.length; j++) {
+				if (d.indexOf(rule.match[j]) !== -1)
+					return rule.cat;
+			}
+		}
 		return "Essential";
 	}
 
+	readonly property var categoryKeywords: ({
+		"Navigation & Workspaces": "pulpit pulpity przełącz nawigacja okna 1 2 3 4 5 6 7 8 9 [1..9]",
+		"Window Management": "okno okna zarządzanie przesuń zamknij",
+		"Special Workspaces": "pulpit specjalny scratchpad skróty",
+		"Capture & OCR": "zrzut ekranu nagrywanie przechwytywanie",
+		"Clipboard & Selection": "schowek historia kopiuj wklej zaznacz",
+		"Media & Hardware": "dźwięk głośność jasność audio",
+		"Notifications": "powiadomienia powiadomienie 1 2 3 akcja",
+		"System & Tools": "system narzędzia aktualizacja blokada"
+	})
+
 	function getKeywords(cat, desc, chord) {
-		var kw = [cat.toLowerCase(), (desc || "").toLowerCase(), (chord || "").toLowerCase()];
-		if (cat === "Navigation & Workspaces") {
-			kw.push("pulpit pulpity przełącz nawigacja okna 1 2 3 4 5 6 7 8 9 [1..9]");
-		} else if (cat === "Window Management") {
-			kw.push("okno okna zarządzanie przesuń zamknij");
-		} else if (cat === "Special Workspaces") {
-			kw.push("pulpit specjalny scratchpad skróty");
-		} else if (cat === "Capture & OCR") {
-			kw.push("zrzut ekranu nagrywanie przechwytywanie");
-		} else if (cat === "Clipboard & Selection") {
-			kw.push("schowek historia kopiuj wklej zaznacz");
-		} else if (cat === "Media & Hardware") {
-			kw.push("dźwięk głośność jasność audio");
-		} else if (cat === "Notifications") {
-			kw.push("powiadomienia powiadomienie 1 2 3 akcja");
-		} else if (cat === "System & Tools") {
-			kw.push("system narzędzia aktualizacja blokada");
-		}
-		return kw.join(" ");
+		var extra = categoryKeywords[cat] || "";
+		return [cat, desc, chord, extra].join(" ").toLowerCase();
 	}
 
+	readonly property var rankPriorities: ({
+		"Essential": { "Terminal": 1, "Browser": 2, "Launch apps": 3, "Keybindings": 4, "System menu": 5 },
+		"Capture & OCR": { "Screenshot (region)": 1, "Screenshot (fullscreen)": 2, "Screen recording (region)": 3, "Screen recording (fullscreen)": 4, "OCR from screen": 5 },
+		"Clipboard & Selection": { "Clipboard history": 1, "Copy": 2, "Paste": 3, "Cut": 4, "Select all": 5 },
+		"Media & Hardware": { "Volume up": 1, "Volume down": 2, "Volume mute": 3, "Microphone mute": 4, "Brightness up": 5, "Brightness down": 6 },
+		"Notifications": { "Close latest notification": 1, "Notification action": 2, "Notification action 1..3": 3, "Toggle Do Not Disturb": 4, "Toggle notification center": 5 }
+	})
+
 	function itemRank(item) {
-		var cat = item.category;
-		var catIdx = categoryOrder.indexOf(cat);
+		var catIdx = categoryOrder.indexOf(item.category);
 		if (catIdx === -1) catIdx = 999;
 		var act = item.action || "";
 		var subRank = 50;
 
-		if (cat === "Gestures") {
+		if (item.category === "Gestures") {
 			subRank = item.order || 50;
-		} else if (cat === "Essential") {
-			var ep = { "Terminal": 1, "Browser": 2, "Launch apps": 3, "Keybindings": 4, "System menu": 5 };
-			subRank = ep[act] || 50;
-		} else if (cat === "Window Management") {
-			var wp = {
-				"Close window": 1, "Toggle fullscreen": 2, "Toggle window split": 3, "Toggle floating": 4,
-				"Drag window": 5, "Resize window (mouse)": 6,
-				"Swap window left": 10, "Swap window down": 11, "Swap window up": 12, "Swap window right": 13,
-				"Resize window left": 20, "Resize window down": 21, "Resize window up": 22, "Resize window right": 23
-			};
-			subRank = wp[act] || 50;
-		} else if (cat === "Navigation & Workspaces") {
-			var fp = { "Focus left": 1, "Focus down": 2, "Focus up": 3, "Focus right": 4 };
-			if (fp[act]) {
-				subRank = fp[act];
-			} else if (act.indexOf("Switch to workspace") !== -1) {
-				subRank = 10;
-			} else if (act.indexOf("Move window to workspace") !== -1) {
-				subRank = 20;
-			} else if (act.indexOf("Move window silently") !== -1) {
-				subRank = 30;
-			}
-		} else if (cat === "Capture & OCR") {
-			var cp = {
-				"Screenshot (region)": 1, "Screenshot (fullscreen)": 2,
-				"Screen recording (region)": 3, "Screen recording (fullscreen)": 4,
-				"OCR from screen": 5
-			};
-			subRank = cp[act] || 50;
-		} else if (cat === "Clipboard & Selection") {
-			var clp = { "Clipboard history": 1, "Copy": 2, "Paste": 3, "Cut": 4, "Select all": 5 };
-			subRank = clp[act] || 50;
-		} else if (cat === "Media & Hardware") {
-			var mp = {
-				"Volume up": 1, "Volume down": 2, "Volume mute": 3, "Microphone mute": 4,
-				"Brightness up": 5, "Brightness down": 6
-			};
-			subRank = mp[act] || 50;
-		} else if (cat === "Notifications") {
-			var np = {
-				"Close latest notification": 1, "Notification action": 2,
-				"Notification action 1..3": 3,
-				"Toggle Do Not Disturb": 4, "Toggle notification center": 5
-			};
-			subRank = np[act] || 50;
+		} else if (rankPriorities[item.category] && rankPriorities[item.category][act]) {
+			subRank = rankPriorities[item.category][act];
+		} else if (item.category === "Window Management") {
+			if (act.indexOf("Close") === 0) subRank = 1;
+			else if (act.indexOf("Toggle fullscreen") === 0) subRank = 2;
+			else if (act.indexOf("Swap") === 0) subRank = 10;
+			else if (act.indexOf("Resize") === 0) subRank = 20;
+		} else if (item.category === "Navigation & Workspaces") {
+			if (act.indexOf("Focus") === 0) subRank = 1;
+			else if (act.indexOf("Switch to workspace") !== -1) subRank = 10;
+			else if (act.indexOf("Move window to workspace") !== -1) subRank = 20;
+			else if (act.indexOf("Move window silently") !== -1) subRank = 30;
 		}
 
 		return (catIdx * 1000) + subRank;
@@ -237,17 +191,14 @@ PanelWindow {
 			return;
 		}
 
-		// Find what items are currently visible in the list viewport
 		var topIndex = list.indexAt(20, list.contentY + 20);
 		var bottomIndex = list.indexAt(20, list.contentY + list.height - 20);
 
-		// If user scrolled manually so currentIndex is outside visible range:
 		if (topIndex >= 0 && (currentIndex < topIndex || (bottomIndex >= 0 && currentIndex > bottomIndex))) {
-			if (delta > 0) {
+			if (delta > 0)
 				currentIndex = Math.min(n - 1, topIndex + 1);
-			} else {
+			else
 				currentIndex = Math.max(0, (bottomIndex >= 0 ? bottomIndex : topIndex) - 1);
-			}
 		} else {
 			currentIndex = Math.max(0, Math.min(n - 1, currentIndex + delta));
 		}
@@ -273,29 +224,28 @@ PanelWindow {
 			return true;
 		}
 
-		// Gestures, ranges, Lua closures, or internal Hyprland actions are displayed for reference.
 		return true;
 	}
 
 	function open() {
 		query = "";
-		search.clear();
+		searchBar.clear();
 		if (entries.length === 0 && !loader.running) {
 			loading = true;
 			loader.running = true;
 		} else {
 			refilter();
 		}
-		window.visible = true;
-		search.focusInput();
+		window.shown = true;
+		searchBar.focusInput();
 	}
 
 	function close() {
-		window.visible = false;
+		window.shown = false;
 	}
 
 	function toggle() {
-		if (window.visible)
+		if (window.shown)
 			close();
 		else
 			open();
@@ -329,32 +279,18 @@ PanelWindow {
 					var seen = {};
 					var list = [];
 
-					// Start with static gesture definitions
-					for (var g = 0; g < window.staticGestures.length; g++) {
+					for (var g = 0; g < window.staticGestures.length; g++)
 						list.push(window.staticGestures[g]);
-					}
 
 					var keyMap = {
-						"comma": ",",
-						"period": ".",
-						"slash": "/",
-						"space": "SPACE",
-						"return": "RETURN",
-						"escape": "ESC",
-						"print": "PRINT",
-						"mouse:272": "LMB (Drag)",
-						"mouse:273": "RMB (Drag)",
-						"xf86audioraisevolume": "Volume Up",
-						"xf86audiolowervolume": "Volume Down",
-						"xf86audiomute": "Volume Mute",
-						"xf86audiomicmute": "Mic Mute",
-						"xf86monbrightnessup": "Brightness Up",
-						"xf86monbrightnessdown": "Brightness Down",
-						"xf86touchpadtoggle": "Touchpad Toggle",
-						"xf86touchpadon": "Touchpad On",
-						"xf86touchpadoff": "Touchpad Off",
-						"[1..9]": "[1..9]",
-						"[1..3]": "[1..3]"
+						"comma": ",", "period": ".", "slash": "/", "space": "SPACE",
+						"return": "RETURN", "escape": "ESC", "print": "PRINT",
+						"mouse:272": "LMB (Drag)", "mouse:273": "RMB (Drag)",
+						"xf86audioraisevolume": "Volume Up", "xf86audiolowervolume": "Volume Down",
+						"xf86audiomute": "Volume Mute", "xf86audiomicmute": "Mic Mute",
+						"xf86monbrightnessup": "Brightness Up", "xf86monbrightnessdown": "Brightness Down",
+						"xf86touchpadtoggle": "Touchpad Toggle", "xf86touchpadon": "Touchpad On",
+						"xf86touchpadoff": "Touchpad Off", "[1..9]": "[1..9]", "[1..3]": "[1..3]"
 					};
 
 					var workspaceSwitchSeen = false;
@@ -370,7 +306,6 @@ PanelWindow {
 						var mask = b.modmask || 0;
 						var rawKey = (b.key || "").trim();
 
-						// Collapse 1..9 workspace binds into single clean entries
 						if (desc.indexOf("Switch to workspace ") === 0) {
 							if (workspaceSwitchSeen) continue;
 							workspaceSwitchSeen = true;
@@ -401,11 +336,15 @@ PanelWindow {
 
 						var keyLabel = keyMap[rawKey.toLowerCase()] || keyMap[rawKey] || rawKey.toUpperCase();
 						var chord = mods.concat([keyLabel]).join(" + ");
+						if (b.submap === "actions") {
+							if (desc === "Close quick settings") continue;
+							chord = "SUPER + A > " + (mods.length > 0 ? chord : keyLabel);
+						}
 						var keyId = chord + ":" + desc;
 
 						if (!seen[keyId]) {
 							seen[keyId] = true;
-							var cat = window.getCategory(desc, chord);
+							var cat = window.getCategory(desc);
 							list.push({
 								category: cat,
 								chord: chord,
@@ -437,228 +376,118 @@ PanelWindow {
 		}
 	}
 
-	// Full-screen dim backdrop matching Hyprland's special workspace dimming effect
-	Rectangle {
-		id: backdrop
+	// Main body slot for CenterModal
+	Item {
+		id: contentBox
 		anchors.fill: parent
-		color: Theme.backdropColor
 
-		MouseArea {
+		ListView {
+			id: list
 			anchors.fill: parent
-			onClicked: window.close()
-		}
-	}
+			clip: true
+			flickDeceleration: 800
+			maximumFlickVelocity: 5000
+			boundsBehavior: Flickable.StopAtBounds
+			pixelAligned: true
+			spacing: 2
+			model: window.filtered
+			currentIndex: window.currentIndex
 
-	Rectangle {
-		id: dialogCard
-		anchors.centerIn: parent
-		width: Math.min(1060, parent.width - 64)
-		height: Math.min(680, parent.height - 64)
-		color: Theme.bgMain
-		border.color: Theme.border
-		border.width: Theme.borderSize
-		radius: Theme.roundingWindow
-		clip: true
+			section.property: "category"
+			section.criteria: ViewSection.FullString
+			section.labelPositioning: ViewSection.InlineLabels
+			section.delegate: Component {
+				Item {
+					width: list.width
+					height: 36
 
-		MouseArea {
-			anchors.fill: parent
-		}
+					RowLayout {
+						anchors.left: parent.left
+						anchors.right: parent.right
+						anchors.bottom: parent.bottom
+						anchors.bottomMargin: 4
+						anchors.leftMargin: 8
+						anchors.rightMargin: 8
+						spacing: 12
 
-		ColumnLayout {
-			anchors.fill: parent
-			anchors.margins: Theme.paddingCard
-			spacing: 12
+						Text {
+							text: section.toUpperCase()
+							font.family: Theme.fontMono
+							font.pointSize: 11.5
+							font.bold: true
+							color: section === "Gestures" ? Theme.accentGreen : Theme.accentPurple
+						}
 
-			SearchBar {
-				id: search
-				Layout.fillWidth: true
-				Layout.preferredHeight: 48
-				title: "Keys"
-				placeholder: "Search keybindings & gestures..."
-				onTextChanged: {
-					window.query = text;
-					window.refilter();
+						Rectangle {
+							Layout.fillWidth: true
+							Layout.preferredHeight: 1
+							color: Theme.border
+							opacity: 0.7
+						}
+					}
 				}
-				onAccepted: window.activate()
-				onCancelled: window.close()
-				onStepped: delta => window.move(delta)
 			}
 
-			Item {
-				Layout.fillWidth: true
-				Layout.fillHeight: true
+			delegate: Rectangle {
+				width: list.width
+				height: 38
+				color: index === window.currentIndex ? Theme.selectionBg : "transparent"
+				border.color: index === window.currentIndex ? Theme.selectionBorder : "transparent"
+				border.width: 1
+				radius: Theme.roundingElement
 
-				ListView {
-					id: list
+				Behavior on color { ColorAnimation { duration: 100 } }
+
+				RowLayout {
 					anchors.fill: parent
-					clip: true
-					flickDeceleration: 350
-					maximumFlickVelocity: 5000
-					boundsBehavior: Flickable.StopAtBounds
-					pixelAligned: true
-					spacing: 2
-					model: window.filtered
-					currentIndex: window.currentIndex
+					anchors.leftMargin: 14
+					anchors.rightMargin: 14
+					spacing: 16
 
-					// Kinetic momentum engine for touchpad on Linux/Wayland
-					property real lastScrollTime: 0
-					property real scrollVelocity: 0
-
-					WheelHandler {
-						target: null
-						onWheel: event => {
-							var now = Date.now();
-							var dt = (now - list.lastScrollTime) / 1000.0;
-							var dy = event.pixelDelta.y !== 0 ? event.pixelDelta.y : (event.angleDelta.y * 1.25);
-
-							if (dt > 0.003 && dt < 0.12) {
-								var instV = dy / dt;
-								list.scrollVelocity = list.scrollVelocity * 0.3 + instV * 0.7;
-							} else {
-								list.scrollVelocity = dy / 0.02;
-							}
-							list.lastScrollTime = now;
-							flingTimer.restart();
-						}
+					Text {
+						Layout.preferredWidth: 340
+						Layout.alignment: Qt.AlignVCenter
+						font.family: Theme.fontMono
+						font.pointSize: 13.5
+						font.bold: true
+						color: modelData.category === "Gestures" ? Theme.accentGreen : Theme.accentBlue
+						elide: Text.ElideRight
+						text: modelData.chord || ""
 					}
 
-					Timer {
-						id: flingTimer
-						interval: 40
-						repeat: false
-						onTriggered: {
-							var v = list.scrollVelocity;
-							list.scrollVelocity = 0;
-							if (Math.abs(v) > 100) {
-								if ((v < 0 && !list.atYEnd) || (v > 0 && !list.atYBeginning)) {
-									var clampedV = Math.max(-5000, Math.min(5000, v));
-									list.flick(0, clampedV);
-								}
-							}
-						}
-					}
-
-					section.property: "category"
-					section.criteria: ViewSection.FullString
-					section.labelPositioning: ViewSection.InlineLabels
-					section.delegate: Component {
-						Item {
-							width: list.width
-							height: 36
-
-							RowLayout {
-								anchors.left: parent.left
-								anchors.right: parent.right
-								anchors.bottom: parent.bottom
-								anchors.bottomMargin: 4
-								anchors.leftMargin: 8
-								anchors.rightMargin: 8
-								spacing: 12
-
-								Text {
-									text: section.toUpperCase()
-									font.family: Theme.fontMono
-									font.pointSize: 11.5
-									font.bold: true
-									color: section === "Gestures" ? Theme.accentGreen : Theme.accentPurple
-								}
-
-								Rectangle {
-									Layout.fillWidth: true
-									Layout.preferredHeight: 1
-									color: Theme.border
-									opacity: 0.7
-								}
-							}
-						}
-					}
-
-					delegate: Rectangle {
-						width: list.width
-						height: 38
-						color: index === window.currentIndex ? Theme.selectionBg : "transparent"
-						border.color: index === window.currentIndex ? Theme.selectionBorder : "transparent"
-						border.width: 1
-						radius: Theme.roundingElement
-
-						Behavior on color {
-							ColorAnimation { duration: 100 }
-						}
-
-						RowLayout {
-							anchors.fill: parent
-							anchors.leftMargin: 14
-							anchors.rightMargin: 14
-							spacing: 16
-
-							Text {
-								Layout.preferredWidth: 340
-								Layout.alignment: Qt.AlignVCenter
-								font.family: Theme.fontMono
-								font.pointSize: 13.5
-								font.bold: true
-								color: modelData.category === "Gestures" ? Theme.accentGreen : Theme.accentBlue
-								elide: Text.ElideRight
-								text: modelData.chord || ""
-							}
-
-							Text {
-								Layout.fillWidth: true
-								Layout.alignment: Qt.AlignVCenter
-								font.family: Theme.fontMono
-								font.pointSize: 13.5
-								color: Theme.textMain
-								elide: Text.ElideRight
-								text: modelData.action || ""
-							}
-						}
-
-						MouseArea {
-							anchors.fill: parent
-							hoverEnabled: true
-							onEntered: {
-								if (!list.moving && !list.flicking)
-									window.currentIndex = index;
-							}
-							onClicked: {
-								window.currentIndex = index;
-								window.activate();
-							}
-						}
+					Text {
+						Layout.fillWidth: true
+						Layout.alignment: Qt.AlignVCenter
+						font.family: Theme.fontMono
+						font.pointSize: 13.5
+						color: Theme.textMain
+						elide: Text.ElideRight
+						text: modelData.action || ""
 					}
 				}
 
-				Text {
-					visible: !window.loading && window.filtered.length === 0
-					anchors.centerIn: parent
-					font.family: Theme.fontMono
-					font.pointSize: 14
-					color: Theme.textDim
-					text: "No keybindings or gestures match"
-				}
-			}
-
-			Rectangle {
-				Layout.fillWidth: true
-				Layout.preferredHeight: 1
-				color: Theme.border
-			}
-
-			Rectangle {
-				Layout.fillWidth: true
-				Layout.preferredHeight: 32
-				color: "transparent"
-				Text {
+				MouseArea {
 					anchors.fill: parent
-					verticalAlignment: Text.AlignVCenter
-					horizontalAlignment: Text.AlignRight
-					font.family: Theme.fontMono
-					font.pointSize: 12
-					color: window.lastError !== "" ? Theme.critical : Theme.textDim
-					elide: Text.ElideRight
-					text: window.lastError !== "" ? window.lastError : window.statusText()
+					hoverEnabled: true
+					onEntered: {
+						if (!list.moving && !list.flicking)
+							window.currentIndex = index;
+					}
+					onClicked: {
+						window.currentIndex = index;
+						window.activate();
+					}
 				}
 			}
+		}
+
+		Text {
+			visible: !window.loading && window.filtered.length === 0
+			anchors.centerIn: parent
+			font.family: Theme.fontMono
+			font.pointSize: 14
+			color: Theme.textDim
+			text: "No keybindings or gestures match"
 		}
 	}
 }

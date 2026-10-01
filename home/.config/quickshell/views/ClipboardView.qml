@@ -2,7 +2,8 @@
 // workspace. Toggled with SUPER + CTRL + V (`qs ipc call clipboard toggle`).
 // Two-column dialog: entry list on the left, large preview pane on the
 // right (images decoded from cliphist, text shown in full). Enter or click
-// copies the entry and pastes it via wtype.
+// copies the entry and auto-pastes it via clipboard-insert
+// (clipboard + Shift+Insert, same as the emoji picker).
 import ".."
 import "../widgets"
 import Quickshell
@@ -12,26 +13,18 @@ import Quickshell.Wayland
 import QtQuick
 import QtQuick.Layouts
 
-PanelWindow {
+CenterModal {
 	id: win
 
-	visible: false
-	color: "transparent"
-	exclusionMode: ExclusionMode.Ignore
-	exclusiveZone: 0
+	searchTitle: "Clip"
+	searchPlaceholder: "Search clipboard..."
 
-	WlrLayershell.layer: WlrLayer.Overlay
-	WlrLayershell.keyboardFocus: visible ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
-	WlrLayershell.namespace: "quickshell"
-
-	screen: Quickshell.screens.find(s => s.name === Hyprland.focusedMonitor?.name) ?? Quickshell.screens[0] ?? null
-
-	anchors {
-		top: true
-		bottom: true
-		left: true
-		right: true
+	onSearchQueryChanged: {
+		win.query = searchQuery;
+		win.refilter();
 	}
+	onSearchAccepted: win.activate()
+	onSearchStepped: delta => win.move(delta)
 
 	property string query: ""
 	// All entries as {id, preview}; newest first (cliphist order).
@@ -41,8 +34,7 @@ PanelWindow {
 	// Set after the preview decode for the current entry succeeds.
 	property string decodedId: ""
 
-	// "[[ binary data 496 KiB png 2539x1765 ]]" is how cliphist previews
-	// images.
+	// "[[ binary data 496 KiB png 2539x1765 ]]" is how cliphist previews images.
 	readonly property var currentEntry: filtered.length > 0 && currentIndex < filtered.length ? filtered[currentIndex] : null
 	readonly property bool currentIsImage: {
 		if (!currentEntry)
@@ -60,16 +52,25 @@ PanelWindow {
 		}
 		filtered = out;
 		currentIndex = 0;
-		// The entry under index 0 changed even when currentIndex stayed 0.
 		previewTimer.restart();
 	}
 
 	function paste(entry) {
 		if (!entry)
 			return;
-		pasteProc.command = ["sh", "-c", 'cliphist decode ' + JSON.stringify(String(entry.id)) + ' | wl-copy; wtype -M ctrl -k v -m ctrl'];
-		pasteProc.running = true;
+		var mime = "";
+		var m = (entry.preview || "").match(/binary data \d+(?:\.\d+)? [KMG]?i?B (png|jpe?g|webp|gif|bmp) \d+x\d+/);
+		if (m) {
+			var ext = m[1].toLowerCase();
+			if (ext === "jpg")
+				ext = "jpeg";
+			mime = "image/" + ext;
+		}
 		win.close();
+		if (mime !== "")
+			Quickshell.execDetached([Quickshell.env("HOME") + "/.local/bin/clipboard-insert", String(entry.id), mime]);
+		else
+			Quickshell.execDetached([Quickshell.env("HOME") + "/.local/bin/clipboard-insert", String(entry.id)]);
 	}
 
 	function activate() {
@@ -78,18 +79,18 @@ PanelWindow {
 
 	function open() {
 		query = "";
-		search.clear();
+		searchBar.clear();
 		listLoader.running = true;
-		win.visible = true;
-		search.focusInput();
+		win.shown = true;
+		searchBar.focusInput();
 	}
 
 	function close() {
-		win.visible = false;
+		win.shown = false;
 	}
 
 	function toggle() {
-		if (win.visible)
+		if (win.shown)
 			close();
 		else
 			open();
@@ -155,242 +156,187 @@ PanelWindow {
 		}
 	}
 
-	Process {
-		id: pasteProc
-	}
-
-	Shortcut {
-		sequences: ["Esc"]
-		enabled: win.visible
-		onActivated: win.close()
-	}
-
-	// Full-screen dim backdrop matching Hyprland's special workspace dimming effect
-	Rectangle {
-		id: backdrop
+	// Main body slot for CenterModal
+	Item {
+		id: contentBox
 		anchors.fill: parent
-		color: Theme.backdropColor
 
-		MouseArea {
-			anchors.fill: parent
-			onClicked: win.close()
-		}
-	}
+		ListView {
+			id: list
+			anchors.top: parent.top
+			anchors.bottom: parent.bottom
+			anchors.left: parent.left
+			width: parent.width * 0.42 - Theme.paddingItem
+			clip: true
+			flickDeceleration: 600
+			maximumFlickVelocity: 4000
+			spacing: 2
+			model: win.filtered
 
-	Rectangle {
-		id: dialogCard
-		anchors.centerIn: parent
-		width: Theme.windowWidth
-		height: Theme.windowHeight
-		color: Theme.bgMain
-		border.color: Theme.border
-		border.width: Theme.borderSize
-		radius: Theme.roundingWindow
-		clip: true
+			delegate: Rectangle {
+				id: row
+				required property var modelData
+				required property int index
 
-		MouseArea {
-			anchors.fill: parent
-		}
-
-		ColumnLayout {
-			anchors.fill: parent
-			anchors.margins: Theme.paddingCard
-			spacing: 12
-
-			SearchBar {
-				id: search
-				Layout.fillWidth: true
-				Layout.preferredHeight: 48
-				title: "Clip"
-				placeholder: "Search clipboard..."
-				onTextChanged: {
-					win.query = text;
-					win.refilter();
+				readonly property string preview: row.modelData?.preview ?? ""
+				readonly property bool isImage: {
+					return / binary data (\d+(?:\.\d+)?) [KMG]?i?B (png|jpe?g|webp|gif|bmp) (\d+x\d+)/.test(row.preview);
 				}
-				onAccepted: win.activate()
-				onCancelled: win.close()
-				onStepped: delta => win.move(delta)
-			}
+				readonly property string thumbPath: row.isImage ? (Quickshell.env("XDG_RUNTIME_DIR") || "/run/user/1000") + "/clipboard-thumbs/" + String(row.modelData.id) : ""
 
-			Item {
-				id: contentBox
-				Layout.fillWidth: true
-				Layout.fillHeight: true
+				width: list.width
+				height: 52
+				clip: true
+				color: row.index === win.currentIndex ? Theme.selectionBg : "transparent"
+				border.color: row.index === win.currentIndex ? Theme.selectionBorder : "transparent"
+				border.width: 1
+				radius: Theme.roundingElement
 
-					ListView {
-						id: list
-						anchors.top: parent.top
-						anchors.bottom: parent.bottom
-						anchors.left: parent.left
-						width: parent.width * 0.55 - Theme.paddingItem
+				property bool thumbReady: false
+
+				Behavior on color { ColorAnimation { duration: 100 } }
+
+				Process {
+					id: thumbLoader
+					running: row.isImage
+					command: [
+						"sh", "-c",
+						'f=' + JSON.stringify(row.thumbPath)
+							+ '; [ -s "$f" ] || { mkdir -p ' + JSON.stringify((Quickshell.env("XDG_RUNTIME_DIR") || "/run/user/1000") + "/clipboard-thumbs")
+							+ ' && cliphist decode ' + JSON.stringify(String(row.modelData.id))
+							+ ' | magick - -thumbnail 120x80 "$f"; }'
+					]
+					onExited: function (exitCode) {
+						row.thumbReady = (exitCode === 0);
+					}
+				}
+
+				RowLayout {
+					anchors.fill: parent
+					anchors.leftMargin: 10
+					anchors.rightMargin: 10
+					spacing: 10
+
+					Rectangle {
+						visible: row.isImage
+						Layout.preferredWidth: 56
+						Layout.preferredHeight: 34
+						Layout.alignment: Qt.AlignVCenter
+						radius: Theme.roundingSubtle
+						color: Theme.bgHover
 						clip: true
-						flickDeceleration: 600
-						maximumFlickVelocity: 4000
-						spacing: 2
-						model: win.filtered
 
-						delegate: Rectangle {
-							id: row
-							required property var modelData
-							required property int index
-
-							readonly property string preview: row.modelData?.preview ?? ""
-							// Image rows get a small inline thumbnail, decoded
-							// from cliphist once (atomic tmp+mv publish;
-							// skipped when the cached file already exists).
-							readonly property var imageInfo: {
-								var m = preview.match(/binary data (\d+(?:\.\d+)?) [KMG]?i?B (png|jpe?g|webp|gif|bmp) (\d+x\d+)/);
-								return m ? m[2].toUpperCase() + "  " + m[3] : "";
-							}
-							readonly property bool isImage: imageInfo !== ""
-							readonly property string thumbPath: row.isImage ? (Quickshell.env("XDG_RUNTIME_DIR") || "/run/user/1000") + "/clipboard-thumbs/" + String(row.modelData.id) : ""
-							property bool thumbReady: false
-
-							width: ListView.view.width
-							implicitHeight: 44
-							color: index === win.currentIndex ? Theme.selectionBg : (rowArea.containsMouse ? Theme.bgHover : "transparent")
-							border.color: index === win.currentIndex ? Theme.selectionBorder : "transparent"
-							border.width: 1
-							radius: Theme.roundingElement
-
-							Behavior on color {
-								ColorAnimation { duration: 100 }
-							}
-
-							Process {
-								running: row.isImage
-								command: {
-									// Paths from cliphist go through JSON.stringify,
-									// like the id already does: raw interpolation is a shell injection point.
-									var id = JSON.stringify(String(row.modelData.id));
-									return ["sh", "-c",
-										'f=' + JSON.stringify(row.thumbPath)
-										+ '; [ -s "$f" ] || { mkdir -p ' + JSON.stringify((Quickshell.env("XDG_RUNTIME_DIR") || "/run/user/1000") + "/clipboard-thumbs")
-										+ ' && cliphist decode ' + id + ' > "$f.tmp" && mv "$f.tmp" "$f"; }'];
-								}
-								onExited: function (exitCode) {
-									row.thumbReady = (exitCode === 0);
-								}
-							}
-
-							RowLayout {
-								anchors.fill: parent
-								anchors.leftMargin: 12
-								anchors.rightMargin: 12
-								spacing: 10
-
-								Rectangle {
-									visible: row.isImage
-									Layout.preferredWidth: 32
-									Layout.preferredHeight: 32
-									Layout.alignment: Qt.AlignVCenter
-									radius: Theme.roundingSubtle
-									color: Theme.bgCard
-									border.color: Theme.border
-									border.width: 1
-									clip: true
-
-									Image {
-										anchors.fill: parent
-										visible: row.thumbReady
-										source: visible ? "file://" + row.thumbPath : ""
-										asynchronous: true
-										fillMode: Image.PreserveAspectCrop
-										sourceSize.width: 64
-										sourceSize.height: 64
-									}
-								}
-
-								Text {
-									visible: row.isImage
-									text: row.imageInfo
-									textFormat: Text.PlainText
-									font.family: Theme.fontMono
-									font.pixelSize: Theme.fontSizeSmall + 1
-									color: index === win.currentIndex ? Theme.accentBlue : Theme.textDim
-									elide: Text.ElideRight
-									Layout.fillWidth: true
-									Layout.alignment: Qt.AlignVCenter
-								}
-
-								Text {
-									visible: !row.isImage
-									text: row.preview
-									textFormat: Text.PlainText
-									font.family: Theme.fontMono
-									font.pixelSize: Theme.fontSizeSmall + 1
-									color: index === win.currentIndex ? Theme.accentBlue : Theme.textMain
-									elide: Text.ElideRight
-									Layout.fillWidth: true
-									Layout.alignment: Qt.AlignVCenter
-								}
-							}
-
-							MouseArea {
-								id: rowArea
-								anchors.fill: parent
-								hoverEnabled: true
-								onEntered: win.currentIndex = row.index
-								onClicked: win.paste(row.modelData)
-							}
+						Image {
+							id: thumbImg
+							anchors.fill: parent
+							visible: row.thumbReady
+							source: row.thumbReady ? "file://" + row.thumbPath : ""
+							fillMode: Image.PreserveAspectCrop
+							asynchronous: true
+							sourceSize.width: 120
+							sourceSize.height: 80
 						}
 					}
 
 					Text {
-						visible: win.filtered.length === 0
-						anchors.horizontalCenter: list.horizontalCenter
-						anchors.verticalCenter: parent.verticalCenter
-						text: win.entries.length === 0 ? "No clipboard entries" : "No match"
-						font.family: Theme.fontMono
-						font.pointSize: Theme.fontSizeBar
-						color: Theme.textDim
+						visible: !row.isImage
+						Layout.alignment: Qt.AlignVCenter
+						text: "󰅌"
+						font.family: Theme.fontFamily
+						font.pixelSize: 14
+						color: row.index === win.currentIndex ? Theme.accentBlue : Theme.textDim
 					}
 
-					// Preview pane: decoded image at full size or the full
-					// text body.
-					Rectangle {
-						id: previewPane
-						anchors.top: parent.top
-						anchors.bottom: parent.bottom
-						anchors.right: parent.right
-						width: parent.width * 0.45
-						color: Theme.bgCard
-						border.color: Theme.border
-						border.width: 1
-						radius: Theme.roundingElement
-
-						Image {
-							anchors.fill: parent
-							anchors.margins: Theme.paddingItem
-							visible: win.currentIsImage && win.decodedId === (win.currentEntry?.id ?? "")
-							source: visible ? "file://" + (Quickshell.env("XDG_RUNTIME_DIR") || "/run/user/1000") + "/clipboard-preview" : ""
-							fillMode: Image.PreserveAspectFit
-							asynchronous: true
-							cache: false
-						}
-
-						Flickable {
-							anchors.fill: parent
-							anchors.margins: Theme.paddingItem
-							visible: !win.currentIsImage
-							clip: true
-							contentWidth: width
-							flickDeceleration: 600
-
-							Text {
-								width: parent.width
-								wrapMode: Text.Wrap
-								textFormat: Text.PlainText
-								text: win.currentEntry ? win.currentEntry.preview : ""
-								font.family: Theme.fontMono
-								font.pixelSize: Theme.fontSizeSmall
-								color: Theme.textMain
+					Text {
+						Layout.fillWidth: true
+						Layout.alignment: Qt.AlignVCenter
+						textFormat: Text.PlainText
+						font.family: Theme.fontMono
+						font.pixelSize: 13
+						color: row.index === win.currentIndex ? Theme.accentBlue : Theme.textMain
+						elide: Text.ElideRight
+						text: {
+							var p = row.preview;
+							if (row.isImage) {
+								var m = p.match(/binary data (\d+(?:\.\d+)?) ([KMG]?i?B) (png|jpe?g|webp|gif|bmp) (\d+x\d+)/);
+								if (m)
+									return "Image (" + m[3].toUpperCase() + " " + m[4] + ", " + m[1] + " " + m[2] + ")";
+								return "Image";
 							}
+							return p.replace(/\s+/g, " ");
 						}
+					}
+				}
+
+				MouseArea {
+					anchors.fill: parent
+					hoverEnabled: true
+					onEntered: win.currentIndex = row.index
+					onClicked: {
+						win.currentIndex = row.index;
+						win.activate();
 					}
 				}
 			}
 		}
+
+		Text {
+			visible: win.filtered.length === 0
+			anchors.centerIn: list
+			font.family: Theme.fontMono
+			font.pointSize: Theme.fontSizeBar
+			color: Theme.textDim
+			text: win.entries.length === 0 ? "No clipboard entries" : "No match"
+		}
+
+		// Large Preview pane on the right
+		Rectangle {
+			id: previewPane
+			anchors.top: parent.top
+			anchors.bottom: parent.bottom
+			anchors.right: parent.right
+			width: parent.width * 0.58 - Theme.paddingItem
+			color: Theme.bgCard
+			border.color: Theme.border
+			border.width: 1
+			radius: Theme.roundingElement
+			clip: true
+
+			Image {
+				id: previewImg
+				anchors.fill: parent
+				anchors.margins: 12
+				visible: win.currentIsImage && win.decodedId === (win.currentEntry ? win.currentEntry.id : "")
+				source: visible ? "file://" + (Quickshell.env("XDG_RUNTIME_DIR") || "/run/user/1000") + "/clipboard-preview" : ""
+				fillMode: Image.PreserveAspectFit
+				asynchronous: true
+				cache: false
+				mipmap: true
+			}
+
+			Flickable {
+				anchors.fill: parent
+				anchors.margins: 14
+				visible: !win.currentIsImage
+				contentWidth: width
+				contentHeight: previewText.implicitHeight
+				clip: true
+				boundsBehavior: Flickable.StopAtBounds
+				flickDeceleration: 600
+
+				Text {
+					id: previewText
+					width: parent.width
+					wrapMode: Text.Wrap
+					textFormat: Text.PlainText
+					text: win.currentEntry ? win.currentEntry.preview : ""
+					font.family: Theme.fontMono
+					font.pixelSize: 16
+					color: Theme.textMain
+				}
+			}
+		}
+	}
 
 	IpcHandler {
 		target: "clipboard"
