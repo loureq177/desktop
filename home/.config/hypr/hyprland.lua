@@ -91,6 +91,11 @@ for _, var in ipairs({ "XDG_CURRENT_DESKTOP", "XDG_SESSION_DESKTOP" }) do
 end
 hl.env("GDK_BACKEND", "wayland,x11")
 hl.env("QT_QPA_PLATFORM", "wayland;xcb")
+-- Quickshell-only icon theme (no side effects on other Qt apps, unlike
+-- QT_QPA_PLATFORMTHEME). Without this Quickshell falls back to hicolor and
+-- LauncherView iconPath() misses Papirus icons. Keep in sync with
+-- ui.toml [theme] icon (see shell.qml pragma IconTheme fallback).
+hl.env("QS_ICON_THEME", ui.theme.icon)
 hl.env("SDL_VIDEODRIVER", "wayland")
 hl.env("CLUTTER_BACKEND", "wayland")
 hl.env("MOZ_ENABLE_WAYLAND", "1")
@@ -131,7 +136,7 @@ hl.on("hyprland.start", function()
 		"wl-paste --type image/png --watch cliphist -max-items 10 store",
 		"wpctl set-volume @DEFAULT_AUDIO_SOURCE@ 0.25",
 		"swaybg -i ~/.config/hypr/wallpapers/hyprland.png",
-		"QT_QPA_PLATFORMTHEME=gtk3 quickshell -d",
+		"quickshell -d",
 		"hyprsunset",
 	}
 
@@ -395,6 +400,11 @@ local function cycle_special(step)
 	if #list < 2 then
 		return
 	end
+	-- Stable alphabetical order so left/right are exact inverses.
+	-- MRU order (with visible pinned first + target promoted on every
+	-- cycle) makes step +1 bounce between the 2 most recent entries
+	-- while step -1 walks the whole list backwards.
+	table.sort(list)
 	local idx = 1
 	for i, name in ipairs(list) do
 		if name == visible then
@@ -611,7 +621,7 @@ for _, app in pairs(programs.special) do
 	hl.workspace_rule({
 		workspace = ws,
 		on_created_empty = autostart_for(app.exe),
-		gaps_out = 40,
+		gaps_out = 48,
 	})
 	hl.window_rule({ match = { class = app.class }, workspace = ws })
 end
@@ -621,12 +631,29 @@ hl.window_rule({
 	match = { title = "^(Picture-in-Picture)$" },
 	float = true,
 	pin = true,
+	idle_inhibit = "always",
+})
+
+-- Prevent screen locking / sleeping when any window is fullscreen (movies, YouTube, etc.)
+hl.window_rule({
+	name = "idle-inhibit-fullscreen",
+	match = { class = ".*" },
+	idle_inhibit = "fullscreen",
 })
 
 hl.window_rule({
 	match = {
-		class = "^(org.gnome.*|com.saivert.pwvucontrol|pavucontrol|nm-connection-editor|blueman-manager|xdg-desktop-portal-gtk|file-roller|sysupdate)$",
+		class = "^(org.gnome.*|com.saivert.pwvucontrol|pavucontrol|nm-connection-editor|blueman-manager|xdg-desktop-portal-gtk|file-roller)$",
 	},
+	float = true,
+	center = true,
+})
+
+-- System updater: ghostty ignores --class, so match the window title
+-- (ghostty titles `-e` windows with the command, i.e. ".../sysupdate").
+hl.window_rule({
+	name = "sysupdate",
+	match = { title = "sysupdate$" },
 	float = true,
 	center = true,
 })
@@ -650,36 +677,38 @@ local cmds = {
 
 	--  ─── Notifications (quickshell) ────────────────────────────────────────────
 	["SUPER + comma"] = { "qs ipc call notifications dismissLatest", "Close latest notification" },
-	["SUPER + SHIFT + comma"] = { "qs ipc call notifications invokeDefault", "Notification action" },
-	["SUPER + D"] = { "qs ipc call notifications toggleDnd", "Toggle Do Not Disturb" },
 	["SUPER + N"] = { "qs ipc call notifications toggle", "Toggle notification center" },
-	["SUPER + V"] = { "qs ipc call clipboard toggle", "Clipboard history" },
+	["SUPER + V"] = { "qs ipc call shell toggle clipboard ''", "Clipboard history" },
 
 	-- ─── System ─────────────────────────────────────────────────────────────────
 	["SUPER + A"] = { "qs ipc call quicksettings toggle", "Quick settings" },
+	["SUPER + W"] = { "qs ipc call weather toggle", "Weather" },
 	["SUPER + E"] = { "qs ipc call shell toggle launcher emoji", "Emoji picker" },
-	["SUPER + I"] = { "~/.local/bin/caffeine-toggle.sh", "Toggle idle inhibit" },
+	["SUPER + I"] = { "~/.local/bin/caffeine-toggle", "Toggle idle inhibit" },
 	["SUPER + P"] = { "hyprpicker -a --notify", "Color picker" },
-	["SUPER + C"] = { "qs ipc call shell toggle launcher run", "Run commands" },
+	["SUPER + R"] = { "qs ipc call shell toggle launcher run", "Run commands" },
 	["SUPER + escape"] = { "hyprlock", "Lock system" },
 	["SUPER + SHIFT + escape"] = { "qs ipc call shell toggle launcher power", "System menu" },
 
-	-- ─── Capture ────────────────────────────────────────────────────────────────
-	["SUPER + R"] = {
-		"~/.local/bin/record-screen.sh region",
-		"Screen recording (region)",
+	-- ─── Dictation ────────────────────────────────────────────────────────────────
+	["SUPER + D"] = { "~/.local/bin/dictation", "Dictation" },
+
+	-- ─── Direct Capture ─────────────────────────────────────────────────────────
+	["print"] = { "~/.local/bin/screenshot region", "Screenshot (region)" },
+	["SHIFT + print"] = { "~/.local/bin/screenshot fullscreen", "Screenshot (full)" },
+	["SUPER + SHIFT + R"] = {
+		"~/.local/bin/record-screen region",
+		"Screen record (region)",
 	},
 	["SUPER + CTRL + R"] = {
-		"~/.local/bin/record-screen.sh fullscreen",
-		"Screen recording (fullscreen)",
+		"~/.local/bin/record-screen fullscreen",
+		"Screen record (fullscreen)",
 	},
-	["SUPER + O"] = { "~/.local/bin/ocr.sh", "OCR from screen" },
+	["SUPER + O"] = { "~/.local/bin/ocr", "OCR from screen" },
 	["SUPER + CTRL + S"] = {
-		"~/.local/bin/screenshot.sh fullscreen",
-		"Screenshot (fullscreen)",
+		"~/.local/bin/screenshot fullscreen",
+		"Screenshot (full)",
 	},
-	["SUPER + S"] = { "~/.local/bin/screenshot.sh region", "Screenshot (region)" },
-	["print"] = { "~/.local/bin/screenshot.sh region", "Screenshot (region)" },
 }
 
 for bind, entry in pairs(cmds) do
@@ -698,18 +727,57 @@ local special_apps = {
 	["SUPER + SHIFT + N"] = { "notes", "Notes" },
 	["SUPER + SHIFT + Q"] = { "calculator", "Calculator" },
 	["SUPER + SHIFT + B"] = { "btop", "Activity Monitor" },
-
-	-- ─── Action menu controls ──────────────────────────────────────────────────────────
-
-	-- TODO: Przerobić na submap w action menu
-	["SUPER + CTRL + A"] = { "audio", "Audio controls" },
-	["SUPER + CTRL + B"] = { "bluetui", "Bluetooth controls" },
-	["SUPER + CTRL + W"] = { "impala", "Wifi controls" },
 }
 
 for bind, entry in pairs(special_apps) do
 	b(bind, entry[2], hl.dsp.workspace.toggle_special(programs.special[entry[1]].ws))
 end
+
+-- ─── Action menu submap (Quick settings) ────────────────────────────────────
+
+local function close_quicksettings_and_reset()
+	hl.exec_cmd("qs ipc call quicksettings close")
+	hl.dispatch(hl.dsp.submap("reset"))
+end
+
+local function action_bind(key, desc, cmd_or_dsp)
+	local function run_action()
+		hl.exec_cmd("qs ipc call quicksettings close")
+		if type(cmd_or_dsp) == "string" then
+			hl.exec_cmd(cmd_or_dsp)
+		elseif type(cmd_or_dsp) == "function" then
+			cmd_or_dsp()
+		else
+			hl.dispatch(cmd_or_dsp)
+		end
+		hl.dispatch(hl.dsp.submap("reset"))
+	end
+
+	b(key, desc, run_action)
+	hl.bind("SHIFT + " .. key, run_action)
+end
+
+hl.define_submap("actions", function()
+	-- Controls matching Quick settings tiles
+	action_bind("w", "Wifi controls", "qs ipc call quicksettings openWifi")
+	action_bind("b", "Bluetooth controls", "qs ipc call quicksettings openBluetooth")
+	action_bind("a", "Audio controls", hl.dsp.workspace.toggle_special(programs.special.audio.ws))
+	action_bind("j", "Power controls", hl.dsp.workspace.toggle_special(programs.special.jolt.ws))
+	action_bind("s", "Toggle battery saver", "~/.local/bin/power-save")
+	action_bind("n", "Toggle night light", "qs ipc call quicksettings toggleNightLight")
+	action_bind("d", "Toggle Do Not Disturb", "qs ipc call notifications toggleDnd")
+	action_bind("i", "Toggle idle inhibit", "~/.local/bin/caffeine-toggle")
+	action_bind("m", "Toggle audio mute", "~/.local/bin/volume output mute-toggle")
+	action_bind("p", "System power menu", "qs ipc call shell summon launcher power")
+	action_bind("r", "Toggle screen record", "~/.local/bin/record-screen region")
+
+	-- Dismiss / cancel submap
+	b("escape", "Close quick settings", close_quicksettings_and_reset)
+	b("space", "Close quick settings", close_quicksettings_and_reset)
+	b("return", "Close quick settings", close_quicksettings_and_reset)
+	b("q", "Close quick settings", close_quicksettings_and_reset)
+	b("SUPER + A", "Close quick settings", close_quicksettings_and_reset)
+end)
 
 b("SUPER + Q", "Close window", hl.dsp.window.close())
 b("SUPER + F", "Toggle fullscreen", hl.dsp.window.fullscreen())
@@ -747,25 +815,25 @@ b("SUPER + mouse:272", "Drag window", hl.dsp.window.drag(), { mouse = true })
 b("SUPER + mouse:273", "Resize window (mouse)", hl.dsp.window.resize(), { mouse = true })
 
 local media = {
-	{ "XF86AudioRaiseVolume", "~/.local/bin/volume.sh output raise", true, "Volume up" },
+	{ "XF86AudioRaiseVolume", "~/.local/bin/volume output raise", true, "Volume up" },
 	{
 		"XF86AudioLowerVolume",
-		"~/.local/bin/volume.sh output lower",
+		"~/.local/bin/volume output lower",
 		true,
 		"Volume down",
 	},
-	{ "XF86AudioMute", "~/.local/bin/volume.sh output mute-toggle", nil, "Volume mute" },
+	{ "XF86AudioMute", "~/.local/bin/volume output mute-toggle", nil, "Volume mute" },
 	{
 		"XF86AudioMicMute",
-		"~/.local/bin/volume.sh input mute-toggle",
+		"~/.local/bin/volume input mute-toggle",
 		nil,
 		"Microphone mute",
 	},
-	{ "XF86MonBrightnessUp", "~/.local/bin/brightness.sh up", true, "Brightness up" },
-	{ "XF86MonBrightnessDown", "~/.local/bin/brightness.sh down", true, "Brightness down" },
-	{ "XF86TouchpadToggle", "~/.local/bin/touchpad.sh toggle", nil, "Touchpad toggle" },
-	{ "XF86TouchpadOn", "~/.local/bin/touchpad.sh on", nil, "Touchpad on" },
-	{ "XF86TouchpadOff", "~/.local/bin/touchpad.sh off", nil, "Touchpad off" },
+	{ "XF86MonBrightnessUp", "~/.local/bin/brightness up", true, "Brightness up" },
+	{ "XF86MonBrightnessDown", "~/.local/bin/brightness down", true, "Brightness down" },
+	{ "XF86TouchpadToggle", "~/.local/bin/touchpad toggle", nil, "Touchpad toggle" },
+	{ "XF86TouchpadOn", "~/.local/bin/touchpad on", nil, "Touchpad on" },
+	{ "XF86TouchpadOff", "~/.local/bin/touchpad off", nil, "Touchpad off" },
 }
 
 for _, m in ipairs(media) do

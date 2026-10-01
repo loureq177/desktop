@@ -1,9 +1,10 @@
 [Unit]
-Description=Periodically check for system updates
+Description=Check for system updates once daily
 
 [Timer]
 OnBootSec=5min
-OnUnitActiveSec=2h
+OnCalendar=daily
+RandomizedDelaySec=15min
 Persistent=true
 
 [Install]

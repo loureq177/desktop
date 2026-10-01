@@ -42,9 +42,9 @@ dim_special = 0.20  # Dimming for special workspace in Hyprland & backdrops in Q
 # Lockscreen backdrop built from a blurred screenshot. Values land in
 # hypr/ui.conf as $hyprlock_* and are consumed by hyprlock.conf.
 # brightness < 1.0 darkens bright wallpapers so light text stays readable.
-blur_size = 8
+blur_size = 10
 blur_passes = 3
-noise = 0.0117
+noise = 0.02
 contrast = 1.0
 brightness = 0.55
 vibrancy = 0.2
@@ -58,8 +58,8 @@ height = 600
 [notifications]
 # Quickshell notification surfaces (toasts + control center), top-right.
 width = 500
-# Top offset clearing the bar: bar height 30 + bar margins 4+4 + gaps_out 20.
-top_margin = 58
+# Top offset clearing the bar and matching window top: bar height 30 + bar top margin 4 + gaps_out 20 = 54.
+top_margin = 54
 
 [font]
 family = "JetBrainsMono Nerd Font Propo"   # UI proportional font (also bar icon glyphs)

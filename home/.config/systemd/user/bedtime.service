@@ -3,4 +3,4 @@ Description=Bedtime routine script
 
 [Service]
 Type=oneshot
-ExecStart=%h/.local/bin/bedtime.sh
+ExecStart=%h/.local/bin/bedtime
