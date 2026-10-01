@@ -48,10 +48,10 @@ macos/                  macOS-only configs
 
 Arch executable scripts live in `archlinux/.local/bin/` (with macOS
 equivalents in `macos/.local/bin/`): session helpers
-(`screenshot.sh`, `ocr.sh`, `record-screen.sh`, `volume.sh`, `brightness.sh`,
-`touchpad.sh`, `caffeine-toggle.sh`, `power-save.sh`, `battery-status.sh` for hyprlock,
-`emoji-insert.sh`) and maintenance tools (`apply-ui`, `firefox-apply`, `sysclean`,
-`sysupdate`, `check-updates`, `rclone-sync`, `bedtime.sh`).
+(`screenshot`, `ocr`, `record-screen`, `volume`, `brightness`,
+`touchpad`, `caffeine-toggle`, `power-save`, `battery-status` for hyprlock,
+`emoji-insert`) and maintenance tools (`apply-ui`, `firefox-apply`, `sysclean`,
+`sysupdate`, `check-updates`, `rclone-sync`, `bedtime`).
 
 ## UI Configuration & Theming
 

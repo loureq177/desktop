@@ -28,6 +28,13 @@ OS="$(uname -s)"
 # become bogus package names; `|| true` keeps empty/comment-only lists from
 # failing the pipeline under `set -euo pipefail` (grep exits 1 on no match).
 pkglist() { sed 's/\r$//' "$1" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' | grep -vE '^(#|$)' || true; }
+# Single package-list install: same pipe everywhere so flags can't drift.
+pac_install() { pkglist "$1" | sudo pacman -S --noconfirm --needed -; }
+# One stow entry point: same flags + log line on both OS branches.
+restow_pkg() {
+    _log_info "Applying $1 Stow configs..."
+    stow --verbose --restow --target ~ "$2"
+}
 
 if [ "$OS" = "Linux" ]; then
     if [ "${EUID:-$(id -u)}" -eq 0 ]; then
@@ -42,13 +49,13 @@ if [ "$OS" = "Linux" ]; then
 
     _log_info "Detected Arch Linux. Updating system and installing official packages..."
     sudo pacman -Syu --noconfirm
-    pkglist archlinux/packages.txt | sudo pacman -S --noconfirm --needed -
+    pac_install archlinux/packages.txt
     _log_ok "Pacman packages installed."
 
     if compgen -G "/sys/class/power_supply/BAT*" >/dev/null 2>&1; then
         if [ -f archlinux/packages-laptop.txt ]; then
             _log_info "Detected laptop hardware (battery found). Installing laptop packages..."
-            pkglist archlinux/packages-laptop.txt | sudo pacman -S --noconfirm --needed -
+            pac_install archlinux/packages-laptop.txt
             _log_ok "Laptop packages installed."
         fi
     fi
@@ -71,11 +78,8 @@ if [ "$OS" = "Linux" ]; then
         fi
     fi
 
-    _log_info "Applying common Stow configs..."
-    stow --verbose --restow --target ~ common
-
-    _log_info "Applying Arch Linux Stow configs..."
-    stow --verbose --restow --target ~ archlinux
+    restow_pkg common common
+    restow_pkg "Arch Linux" archlinux
 
     if [ -f "archlinux/.config/ly/config.ini" ]; then
         _log_info "Configuring Ly display manager..."
@@ -121,11 +125,8 @@ elif [ "$OS" = "Darwin" ]; then
         _log_warn "Homebrew is not installed. Please install Homebrew first."
     fi
 
-    _log_info "Applying common Stow configs..."
-    stow --verbose --restow --target ~ common
-
-    _log_info "Applying macOS Stow configs..."
-    stow --verbose --restow --target ~ macos
+    restow_pkg common common
+    restow_pkg macOS macos
 fi
 
 if command -v bat &>/dev/null; then

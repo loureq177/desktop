@@ -1,6 +1,9 @@
+aur-sync-vote
+batctl-tui-bin
 bibata-cursor-git
 cmatrix-git
-localsend-bin
 mkinitcpio-firmware
 pwvucontrol
 shellcheck-bin
+wayland-pipewire-idle-inhibit
+zotero-bin

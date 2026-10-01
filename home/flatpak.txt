@@ -1,3 +1,2 @@
-com.prusa3d.PrusaSlicer
 com.spotify.Client
-org.freecad.FreeCAD
+net.pistegamez.PekkaKana2
