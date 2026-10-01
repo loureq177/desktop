@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+# Dictation: records microphone via PipeWire, transcribes via whisper-cli,
+# and pastes the text directly into the focused window via clipboard.
+# Usage: dictation [toggle|start|stop] [lang]
+set -euo pipefail
+
+RUN_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+PID_FILE="$RUN_DIR/dictation.pid"
+AUDIO_RAW="$RUN_DIR/dictation_raw.wav"
+AUDIO_CLEAN="$RUN_DIR/dictation_clean.wav"
+MODEL="$HOME/.local/share/whisper/ggml-base.bin"
+
+# Language from active Hyprland keyboard layout (pl/en) or optional argument
+LANG_CODE="${2:-${DICTATION_LANG:-$(hyprctl getoption input:kb_layout 2>/dev/null | awk '/str:/ {print $2}')}}"
+[[ "$LANG_CODE" == "us" ]] && LANG_CODE="en"
+LANG_CODE="${LANG_CODE:-pl}"
+
+bar() {
+    qs ipc call dictation "$1" >/dev/null 2>&1 || true
+}
+
+stop() {
+    if [[ -f "$PID_FILE" ]]; then
+        local pid
+        pid=$(cat "$PID_FILE" 2>/dev/null || true)
+        rm -f "$PID_FILE"
+        if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
+            kill -INT "$pid" 2>/dev/null || true
+            wait "$pid" 2>/dev/null || true
+        fi
+    fi
+
+    # Ignore clicks without recording (< 0.25s)
+    if [[ ! -f "$AUDIO_RAW" ]] || [[ $(stat -c%s "$AUDIO_RAW" 2>/dev/null || echo 0) -lt 8000 ]]; then
+        bar stop
+        rm -f "$AUDIO_RAW" "$AUDIO_CLEAN"
+        exit 0
+    fi
+
+    bar transcribing
+
+    sox "$AUDIO_RAW" "$AUDIO_CLEAN" highpass 80 norm -3.0 2>/dev/null || cp "$AUDIO_RAW" "$AUDIO_CLEAN"
+
+    TEXT=$(whisper-cli -m "$MODEL" -t 6 -f "$AUDIO_CLEAN" --no-timestamps --no-prints -l "$LANG_CODE" 2>/dev/null || true)
+    TEXT="$(printf '%s' "$TEXT" | tr '\n\r' ' ' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+
+    # Ignore hallucinated bracketed sounds (e.g. [muzyka])
+    if [[ "$TEXT" =~ ^\[.*\]$ || "$TEXT" =~ ^\(.*\) ]]; then
+        TEXT=""
+    fi
+
+    if [[ -n "$TEXT" ]]; then
+        printf "%s " "$TEXT" | wl-copy
+        sleep 0.05
+        wtype -M shift -k Insert -m shift 2>/dev/null || true
+    fi
+
+    rm -f "$AUDIO_RAW" "$AUDIO_CLEAN"
+    bar stop
+}
+
+start() {
+    rm -f "$PID_FILE" "$AUDIO_RAW" "$AUDIO_CLEAN"
+    bar start
+    pw-record --rate 16000 --channels 1 "$AUDIO_RAW" >/dev/null 2>&1 &
+    echo $! > "$PID_FILE"
+}
+
+case "${1:-toggle}" in
+    start) start ;;
+    stop)  stop ;;
+    *)     [[ -f "$PID_FILE" ]] && stop || start ;;
+esac
