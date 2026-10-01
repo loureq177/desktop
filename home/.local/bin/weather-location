@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+# Show or set the location used for weather reports.
+# State lives in ~/.local/state/weather/weather.json (and mirrors ~/.local/state/omarchy/settings/weather.json).
+#
+# Usage:
+#   weather-location                          the current location (stored or IP-detected)
+#   weather-location --set <name> [lat,lon]   store a location
+#   weather-location --clear                  return to IP auto-detect
+set -euo pipefail
+
+LOC_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/weather"
+LOC_FILE="$LOC_DIR/weather.json"
+OMARCHY_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/omarchy/settings"
+OMARCHY_FILE="$OMARCHY_DIR/weather.json"
+
+COORDS_PATTERN='^(-?[0-9]+(\.[0-9]+)?),(-?[0-9]+(\.[0-9]+)?)$'
+
+_get_file() {
+    if [[ -f "$LOC_FILE" ]]; then
+        echo "$LOC_FILE"
+    elif [[ -f "$OMARCHY_FILE" ]]; then
+        echo "$OMARCHY_FILE"
+    else
+        echo "$LOC_FILE"
+    fi
+}
+
+case "${1:-}" in
+"")
+    file=$(_get_file)
+    name=""
+    if [[ -f "$file" ]]; then
+        name=$(jq -r '.name // "" | if type == "string" then . else "" end' "$file" 2>/dev/null || true)
+    fi
+    if [[ -z "$name" ]]; then
+        name=$(curl -fsS --max-time 4 "https://wttr.in/?format=%l" 2>/dev/null || true)
+        name=${name%%,*}
+        name=$(echo "$name" | xargs)
+    fi
+    [[ -n "$name" ]] && echo "$name"
+    ;;
+--set)
+    [[ -n "${2:-}" ]] || { echo "Usage: weather-location --set <name> [lat,lon]" >&2; exit 1; }
+    if [[ -n "${3:-}" ]]; then
+        [[ "${3}" =~ $COORDS_PATTERN ]] || { echo "Invalid coordinates: $3 (expected lat,lon)" >&2; exit 1; }
+        location=$(jq -n --arg name "$2" --argjson latitude "${3%,*}" --argjson longitude "${3#*,}" '{$name, $latitude, $longitude}')
+    else
+        location=$(jq -n --arg name "$2" '{$name}')
+    fi
+    mkdir -p "$LOC_DIR" "$OMARCHY_DIR"
+    echo "$location" >"$LOC_FILE"
+    echo "$location" >"$OMARCHY_FILE"
+    qs ipc call weather refresh >/dev/null 2>&1 || true
+    ;;
+--clear)
+    rm -f "$LOC_FILE" "$OMARCHY_FILE"
+    qs ipc call weather refresh >/dev/null 2>&1 || true
+    ;;
+*)
+    echo "Usage: weather-location [--set <name> [lat,lon]|--clear]" >&2
+    exit 1
+    ;;
+esac

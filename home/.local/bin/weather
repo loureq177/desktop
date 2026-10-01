@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+# Weather control and query tool.
+# Usage:
+#   weather                         Show current weather status
+#   weather status                  Show current weather status
+#   weather toggle                  Toggle the quickshell weather popup
+#   weather open                    Open the quickshell weather popup
+#   weather close                   Close the quickshell weather popup
+#   weather refresh                 Refresh weather data in quickshell
+#   weather icon                    Output Nerd Font weather icon
+#   weather notify                  Send desktop notification with current weather
+#   weather location [...]          Inspect or configure weather location
+set -euo pipefail
+
+cmd="${1:-status}"
+shift || true
+
+case "$cmd" in
+status)
+    weather-status
+    ;;
+toggle)
+    qs ipc call weather toggle >/dev/null 2>&1 || true
+    ;;
+open)
+    qs ipc call weather open >/dev/null 2>&1 || true
+    ;;
+close)
+    qs ipc call weather close >/dev/null 2>&1 || true
+    ;;
+refresh)
+    qs ipc call weather refresh >/dev/null 2>&1 || true
+    ;;
+icon)
+    weather-icon
+    ;;
+notify)
+    stat=$(weather-status 2>/dev/null || true)
+    if [[ -n "$stat" && "$stat" != "Weather unavailable" ]]; then
+        notify-send -u low --app-name "Weather" -i "weather-clear" "Weather" "$stat"
+    else
+        notify-send -u low --app-name "Weather" -i "dialog-warning" "Weather" "Weather information unavailable."
+    fi
+    ;;
+location)
+    weather-location "$@"
+    ;;
+*)
+    echo "Usage: weather [status|toggle|open|close|refresh|icon|notify|location]" >&2
+    exit 1
+    ;;
+esac
