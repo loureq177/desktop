@@ -1,7 +1,6 @@
-// Weather state singleton: fetches conditions from Open-Meteo & wttr.in,
+// Weather state singleton: fetches conditions from Open-Meteo,
 // manages location persistence, and coordinates the weather popup panel.
-// Control via IPC: `qs ipc call weather <toggle|open|close|refresh>`
-// (SUPER + W).
+// Control via IPC: `qs ipc call weather <toggle|open|close|refresh|status|icon>`
 pragma Singleton
 import Quickshell
 import Quickshell.Io
@@ -13,25 +12,20 @@ Singleton {
 
 	property bool panelOpen: false
 
-	// Parsed wttr.in and Open-Meteo responses.
+	// Parsed Open-Meteo response
 	property var report: null
-	property var dailyForecastReport: null
-	property string wttrLocation: ""
+	property var current: null
+	property var hourlyForecast: []
+	property var forecastDays: []
+
+	// IP-detected fallback location
+	property string ipCity: ""
+	property var ipLat: null
+	property var ipLon: null
 
 	// Configured location state from weather.json
 	property var configuredLocationState: ({ name: "", latitude: null, longitude: null })
 	readonly property string configuredLocation: configuredLocationState.name
-	readonly property string locationQuery: WeatherModel.wttrLocationQuery(configuredLocationState.name, configuredLocationState.latitude, configuredLocationState.longitude)
-
-	onLocationQueryChanged: {
-		if (savingLocation)
-			savingLocationQueryStarted = true;
-		forecastRetries = 0;
-		dailyForecastRetries = 0;
-		forecastProc.running = false;
-		dailyForecastProc.running = false;
-		Qt.callLater(refresh);
-	}
 
 	FileView {
 		id: locationFile
@@ -41,57 +35,42 @@ Singleton {
 		onFileChanged: reload()
 		onLoaded: {
 			root.configuredLocationState = WeatherModel.parseLocationFile(this.text());
+			root.refresh();
 		}
 		onLoadFailed: {
 			root.configuredLocationState = WeatherModel.parseLocationFile("");
+			root.refresh();
 		}
 	}
-
-	Timer {
-		interval: 1500
-		running: true
-		onTriggered: {
-			locationFile.reload();
-		}
-	}
-
-	property int forecastRetries: 0
-	property int dailyForecastRetries: 0
 
 	// Click-to-edit state for the location label
 	property bool editingLocation: false
 	property bool savingLocation: false
-	property bool savingLocationQueryStarted: false
 	property var locationSuggestions: []
 	property int suggestionIndex: 0
 	property string geocodePendingQuery: ""
 	property string geocodeActiveQuery: ""
 
-	// Current weather icon for pill & hero view
+	// Weather values for bar pill & hero view
 	property string label: ""
+	property string tempNum: ""
+	readonly property string tempUnit: "°C"
+	property string reportFeels: ""
+	property string reportWind: ""
+	property string reportHumidity: ""
+	property string reportTodayHigh: ""
+	property string reportTodayLow: ""
 
-	readonly property bool hasConfiguredCoordinates: !isNaN(parseFloat(String(configuredLocationState.latitude))) && !isNaN(parseFloat(String(configuredLocationState.longitude)))
-	readonly property var openMeteoCurrent: WeatherModel.openMeteoCurrentCondition(dailyForecastReport)
-	readonly property var current: (hasConfiguredCoordinates && openMeteoCurrent) ? openMeteoCurrent : ((report && report.current_condition && report.current_condition[0]) ? report.current_condition[0] : openMeteoCurrent)
-	readonly property var areaInfo: report && report.nearest_area && report.nearest_area[0] ? report.nearest_area[0] : null
-	readonly property var forecastDays: WeatherModel.buildForecastDays(report, dailyForecastReport, Qt.formatDate(new Date(), "yyyy-MM-dd"))
-	readonly property var hourlyForecast: WeatherModel.buildHourlyForecast(report, dailyForecastReport, useImperial)
-	readonly property string reportCountry: areaInfo && areaInfo.country && areaInfo.country[0] ? areaInfo.country[0].value : ""
-
-	readonly property bool useImperial: WeatherModel.shouldUseImperial("", Qt.locale().name, reportCountry)
 	readonly property int refreshMinutes: 15
 
-	readonly property string reportLocation: configuredLocation || wttrLocation || (areaInfo && areaInfo.areaName && areaInfo.areaName[0] ? areaInfo.areaName[0].value : "")
-	readonly property string tempNum: current ? String(useImperial ? current.temp_F : current.temp_C) : ""
-	readonly property string tempUnit: "°" + (useImperial ? "F" : "C")
-	readonly property string reportFeels: current ? WeatherModel.formatTemp(useImperial ? current.FeelsLikeF : current.FeelsLikeC, useImperial) : ""
-	readonly property string reportWind: current ? (useImperial ? (current.windspeedMiles + " mph") : (current.windspeedKmph + " km/h")) : ""
-	readonly property string reportHumidity: current ? (current.humidity + "%") : ""
+	readonly property string reportLocation: configuredLocation || ipCity || (current ? "Current Location" : "")
 
 	readonly property string tooltipText: {
 		if (!reportLocation && !tempNum)
 			return "Weather";
 		var s = (reportLocation ? reportLocation + ": " : "") + (tempNum ? tempNum + tempUnit : "");
+		if (reportTodayHigh && reportTodayLow)
+			s += " (↑" + reportTodayHigh + " ↓" + reportTodayLow + ")";
 		if (reportFeels)
 			s += ", Feels like " + reportFeels;
 		if (reportWind)
@@ -119,49 +98,34 @@ Singleton {
 	}
 
 	function refresh() {
-		forecastRetries = 0;
-		dailyForecastRetries = 0;
-		forecastProc.command = ["curl", "-fsS", "--max-time", "10", "https://wttr.in/" + root.locationQuery + "?format=j1"];
-		if (!forecastProc.running)
-			forecastProc.running = true;
-		if (root.locationQuery === "" && !locationProc.running)
-			locationProc.running = true;
-		refreshDailyForecast(null);
-	}
-
-	function refreshDailyForecast(sourceReport) {
-		if (dailyForecastProc.running)
-			return;
-
 		var lat = parseFloat(String(root.configuredLocationState.latitude));
 		var lon = parseFloat(String(root.configuredLocationState.longitude));
-		if (isNaN(lat) || isNaN(lon)) {
-			var area = sourceReport && sourceReport.nearest_area && sourceReport.nearest_area[0] ? sourceReport.nearest_area[0] : root.areaInfo;
-			if (!area)
-				return;
-			lat = parseFloat(String(area.latitude || ""));
-			lon = parseFloat(String(area.longitude || ""));
+		if (!isNaN(lat) && !isNaN(lon)) {
+			fetchForecast(lat, lon);
+		} else {
+			if (!ipProc.running)
+				ipProc.running = true;
 		}
-		if (isNaN(lat) || isNaN(lon))
-			return;
+	}
 
+	function fetchForecast(lat, lon) {
 		var url = "https://api.open-meteo.com/v1/forecast"
 			+ "?latitude=" + encodeURIComponent(String(lat))
 			+ "&longitude=" + encodeURIComponent(String(lon))
 			+ "&daily=weather_code,temperature_2m_max,temperature_2m_min"
 			+ "&current=temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,weather_code,is_day"
 			+ "&hourly=temperature_2m,precipitation_probability,weather_code,is_day"
-			+ "&forecast_hours=24"
+			+ "&forecast_hours=27"
 			+ "&forecast_days=4"
 			+ "&timezone=auto";
-		dailyForecastProc.command = ["curl", "-fsS", "--max-time", "5", url];
-		dailyForecastProc.running = true;
+		forecastProc.command = ["curl", "-fsS", "--max-time", "6", url];
+		if (!forecastProc.running)
+			forecastProc.running = true;
 	}
 
 	function startEditingLocation() {
 		editingLocation = true;
 		savingLocation = false;
-		savingLocationQueryStarted = false;
 		locationSuggestions = [];
 		suggestionIndex = 0;
 	}
@@ -169,7 +133,6 @@ Singleton {
 	function cancelEditingLocation() {
 		editingLocation = false;
 		savingLocation = false;
-		savingLocationQueryStarted = false;
 		locationSuggestions = [];
 		geocodeDebounce.stop();
 	}
@@ -181,7 +144,6 @@ Singleton {
 			return;
 		}
 		savingLocation = true;
-		savingLocationQueryStarted = false;
 		configuredLocationState = {
 			name: location.name,
 			latitude: location.latitude,
@@ -192,7 +154,7 @@ Singleton {
 
 	function clearLocation() {
 		persistLocation("", null, null);
-		wttrLocation = "";
+		ipCity = "";
 		cancelEditingLocation();
 	}
 
@@ -200,7 +162,6 @@ Singleton {
 		if (!suggestion)
 			return;
 		savingLocation = true;
-		savingLocationQueryStarted = false;
 		configuredLocationState = {
 			name: suggestion.name,
 			latitude: suggestion.latitude,
@@ -210,7 +171,7 @@ Singleton {
 	}
 
 	function finishSavingLocation() {
-		if (savingLocation && savingLocationQueryStarted)
+		if (savingLocation)
 			cancelEditingLocation();
 	}
 
@@ -249,11 +210,12 @@ Singleton {
 	}
 
 	function bareTempForDay(day, kind) {
-		return WeatherModel.bareTempForDay(day, kind, useImperial);
+		if (!day) return "";
+		return kind === "max" ? day.maxTemp : day.minTemp;
 	}
 
 	function dayIcon(day) {
-		return WeatherModel.dayIcon(day);
+		return day ? day.icon : "";
 	}
 
 	function status(): string {
@@ -268,79 +230,56 @@ Singleton {
 	// ─── Processes ────────────────────────────────────────────────────────
 
 	Process {
-		id: forecastProc
-		command: ["curl", "-fsS", "--max-time", "10", "https://wttr.in/" + root.locationQuery + "?format=j1"]
+		id: ipProc
+		command: ["curl", "-fsS", "--max-time", "4", "https://geolocation-db.com/json/"]
 		stdout: StdioCollector {
 			waitForEnd: true
 			onStreamFinished: {
 				var raw = String(text || "").trim();
-				if (!raw) {
-					root.scheduleForecastRetry();
-					return;
-				}
+				if (!raw) return;
 				try {
 					var parsed = JSON.parse(raw);
-					root.report = parsed;
-					if (!root.hasConfiguredCoordinates)
-						root.label = WeatherModel.provisionalCurrentIcon(parsed.current_condition && parsed.current_condition[0], root.label);
-					root.forecastRetries = 0;
-					if (WeatherModel.weatherResponseCompletesSave(root.hasConfiguredCoordinates, "wttr"))
-						root.finishSavingLocation();
-					if (isNaN(parseFloat(String(root.configuredLocationState.latitude))))
-						root.refreshDailyForecast(parsed);
+					var lat = (parsed.latitude !== undefined ? parsed.latitude : parsed.lat);
+					var lon = (parsed.longitude !== undefined ? parsed.longitude : parsed.lon);
+					if (lat !== undefined && lon !== undefined && lat !== "" && lon !== "") {
+						root.ipCity = parsed.city || "";
+						root.ipLat = lat;
+						root.ipLon = lon;
+						root.fetchForecast(lat, lon);
+					}
 				} catch (e) {
-					root.scheduleForecastRetry();
+					console.warn("IP location parse error:", e);
 				}
 			}
 		}
 	}
 
-	function scheduleForecastRetry(): void {
-		if (forecastRetries >= 3)
-			return;
-		forecastRetries++;
-		forecastRetryTimer.restart();
-	}
-
-	Timer {
-		id: forecastRetryTimer
-		interval: 2500
-		onTriggered: if (!forecastProc.running) forecastProc.running = true
-	}
-
-	function scheduleDailyForecastRetry(): void {
-		if (dailyForecastRetries >= 3)
-			return;
-		dailyForecastRetries++;
-		dailyForecastRetryTimer.restart();
-	}
-
-	Timer {
-		id: dailyForecastRetryTimer
-		interval: 2500
-		onTriggered: root.refreshDailyForecast(null)
-	}
-
 	Process {
-		id: dailyForecastProc
+		id: forecastProc
 		stdout: StdioCollector {
 			waitForEnd: true
 			onStreamFinished: {
 				var raw = String(text || "").trim();
-				if (!raw) {
-					root.scheduleDailyForecastRetry();
-					return;
-				}
+				if (!raw) return;
 				try {
 					var parsed = JSON.parse(raw);
-					var parsedCurrent = WeatherModel.openMeteoCurrentCondition(parsed);
-					root.dailyForecastReport = parsed;
-					root.label = WeatherModel.currentIcon(parsedCurrent, root.label);
-					root.dailyForecastRetries = 0;
-					if (WeatherModel.weatherResponseCompletesSave(root.hasConfiguredCoordinates, "open-meteo"))
-						root.finishSavingLocation();
+					root.report = parsed;
+					root.current = WeatherModel.parseOpenMeteoCurrent(parsed);
+					root.hourlyForecast = WeatherModel.parseOpenMeteoHourly(parsed);
+					root.forecastDays = WeatherModel.parseOpenMeteoDaily(parsed, Qt.formatDate(new Date(), "yyyy-MM-dd"));
+					var hl = WeatherModel.parseTodayHighLow(parsed);
+					root.reportTodayHigh = hl.high;
+					root.reportTodayLow = hl.low;
+					if (root.current) {
+						root.label = root.current.icon;
+						root.tempNum = root.current.tempNum;
+						root.reportFeels = root.current.feelsLike;
+						root.reportWind = root.current.wind;
+						root.reportHumidity = root.current.humidity;
+					}
+					root.finishSavingLocation();
 				} catch (e) {
-					root.scheduleDailyForecastRetry();
+					console.warn("Weather forecast parse error:", e);
 				}
 			}
 		}
@@ -372,28 +311,6 @@ Singleton {
 			if (exitCode !== 0 || !root.savingLocation)
 				return;
 			locationFile.reload();
-			if (!root.savingLocationQueryStarted) {
-				root.savingLocationQueryStarted = true;
-				root.forecastRetries = 0;
-				root.dailyForecastRetries = 0;
-				forecastProc.running = false;
-				dailyForecastProc.running = false;
-				Qt.callLater(root.refresh);
-			}
-		}
-	}
-
-	Process {
-		id: locationProc
-		command: ["curl", "-fsS", "--max-time", "4", "https://wttr.in/?format=%l"]
-		stdout: StdioCollector {
-			waitForEnd: true
-			onStreamFinished: {
-				var raw = String(text || "").trim();
-				if (!raw)
-					return;
-				root.wttrLocation = raw.split(",")[0].trim();
-			}
 		}
 	}
 
@@ -402,7 +319,7 @@ Singleton {
 		interval: root.refreshMinutes * 60 * 1000
 		running: true
 		repeat: true
-		triggeredOnStart: true
+		triggeredOnStart: false
 		onTriggered: root.refresh()
 	}
 
@@ -414,5 +331,6 @@ Singleton {
 		function toggle(): void { root.toggle() }
 		function refresh(): void { root.refresh() }
 		function status(): string { return root.status() }
+		function icon(): string { return root.label }
 	}
 }

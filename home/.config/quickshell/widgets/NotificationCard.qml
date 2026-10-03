@@ -3,7 +3,6 @@
 // app name, timestamp, summary, body, inline reply field, and action buttons.
 import ".."
 import "."
-import Quickshell
 import Quickshell.Services.Notifications
 import QtQuick
 import QtQuick.Layouts

@@ -83,6 +83,7 @@ ShellRoot {
 			Notifications.closeCenter();
 			QuickSettings.close();
 		}
+		onDismissed: Weather.close()
 	}
 
 	Osd {

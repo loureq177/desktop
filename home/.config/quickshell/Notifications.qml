@@ -101,13 +101,14 @@ Singleton {
 		}
 	}
 
-	function dismissById(id: int): void {
+	function dismissById(id: var): void {
 		root.safeDismiss(root.liveById(id));
+		root.removeToast(id);
 	}
 
 	// Center entries: dismiss the live notification (if any) and drop the
 	// history snapshot, so the ✕ works on dead entries too.
-	function removeHistory(id: int): void {
+	function removeHistory(id: var): void {
 		var kept = [];
 		for (var i = 0; i < root.history.length; i++) {
 			if (root.history[i] && root.history[i].id !== id)
@@ -116,7 +117,7 @@ Singleton {
 		root.history = kept;
 	}
 
-	function dismissEntry(id: int): void {
+	function dismissEntry(id: var): void {
 		root.safeDismiss(root.liveById(id));
 		root.removeToast(id);
 		root.removeHistory(id);
@@ -157,7 +158,7 @@ Singleton {
 			var lower = label.toLowerCase();
 			if (label === "" || lower === "action" || lower === "activate")
 				continue;
-			out.push({ identifier: all[i].identifier || "", text: label, snapId: id, toastId: id });
+			out.push({ identifier: all[i].identifier || "", text: label, notifId: id });
 		}
 		return out;
 	}
@@ -235,11 +236,13 @@ Singleton {
 		if (root.handleLocalAction(targetId, acts[index].identifier))
 			return;
 		acts[index].invoke();
-		if (!found.resident)
-			root.safeDismiss(found);
+		if (!found || !found.resident)
+			root.dismissEntry(targetId);
+		else
+			root.removeToast(targetId);
 	}
 
-	function invokeByIdentifier(id: int, identifier: string): void {
+	function invokeByIdentifier(id: var, identifier: string): void {
 		if (root.handleLocalAction(id, identifier))
 			return;
 		var found = root.liveById(id);
@@ -248,7 +251,9 @@ Singleton {
 				if (found.actions[j].identifier === identifier) {
 					found.actions[j].invoke();
 					if (!found.resident)
-						root.safeDismiss(found);
+						root.dismissEntry(id);
+					else
+						root.removeToast(id);
 					return;
 				}
 			}
@@ -256,20 +261,20 @@ Singleton {
 	}
 
 	// Body click: run the app's default action (open the chat, etc.),
-	// falling back to plain dismissal when there is none.
+	// then dismiss and clear from toasts and history.
 	function activate(id: var): void {
 		var targetId = id !== undefined && id !== null && id >= 0 ? id : root.latestToastId();
+		if (targetId < 0)
+			return;
 		var found = root.liveById(targetId);
-		var acts = found ? found.actions : [];
+		var acts = (found && found.actions) ? found.actions : [];
 		for (var i = 0; i < acts.length; i++) {
-			if (acts[i].identifier === "default") {
+			if (acts[i] && acts[i].identifier === "default") {
 				acts[i].invoke();
-				if (!found.resident)
-					root.safeDismiss(found);
-				return;
+				break;
 			}
 		}
-		root.dismissById(targetId);
+		root.dismissEntry(targetId);
 	}
 
 
@@ -290,6 +295,7 @@ Singleton {
 		var vals = root.toasts.slice();
 		for (var i = 0; i < vals.length; i++)
 			root.safeDismiss(vals[i]);
+		root.toasts = [];
 	}
 
 	function toggleDnd(): void {
@@ -331,14 +337,23 @@ Singleton {
 		return JSON.stringify({ count: root.toasts.length, dnd: root.dnd, total: root.history.length, history: root.history, centerOpen: root.centerOpen });
 	}
 
+	function toastTimeoutFor(t): int {
+		if (t.urgency === NotificationUrgency.Critical || t.expireTimeout === 0)
+			return 0; // 0 = never auto-expire
+		if (t.expireTimeout > 0)
+			return t.expireTimeout;
+		return root.toastTimeoutMs;
+	}
+
 	// Expiry sweeper: non-critical toasts drop off the visual stack after
-	// toastTimeoutMs so a forgotten stack cannot block its corner forever.
+	// the requested timeout (expireTimeout) or toastTimeoutMs so a forgotten stack
+	// cannot block its corner forever.
 	// The underlying notification is intentionally NOT closed here: it stays
 	// tracked until it leaves the history (pruneHistory) or the user dismisses
 	// it, which keeps action buttons / inline reply working from the center.
 	// Ticks only while toasts exist.
 	Timer {
-		interval: 1000
+		interval: 500
 		running: root.toasts.length > 0
 		repeat: true
 		onTriggered: {
@@ -350,14 +365,15 @@ Singleton {
 				if (!t)
 					continue;
 				liveIds[t.id] = true;
-				if (t.urgency === NotificationUrgency.Critical)
+				var timeout = root.toastTimeoutFor(t);
+				if (timeout === 0)
 					continue;
 				var at = root.toastArrivedAt[t.id];
 				if (at === undefined) {
 					root.toastArrivedAt[t.id] = now;
 					continue;
 				}
-				if (now - at >= root.toastTimeoutMs)
+				if (now - at >= timeout)
 					root.removeToast(t.id);
 			}
 			for (var key in root.toastArrivedAt) {
@@ -393,28 +409,36 @@ Singleton {
 
 		onNotification: n => {
 			n.tracked = true;
+			var isReload = (n.lastGeneration === true);
 			var now = Date.now();
-			root.history = [root.snapshot(n, now)].concat(root.history).slice(0, root.historyLimit);
+			var filtered = [];
+			for (var i = 0; i < root.history.length; i++) {
+				if (root.history[i] && root.history[i].id !== n.id)
+					filtered.push(root.history[i]);
+			}
+			root.history = [root.snapshot(n, now)].concat(filtered).slice(0, root.historyLimit);
 			root.pruneHistory();
-			root.toastArrivedAt[n.id] = now;
-			var critical = (n.urgency === NotificationUrgency.Critical);
-			if (!root.dnd || critical) {
-				var updated = [n].concat(root.toasts);
-				if (updated.length > root.maxToasts) {
-					var dropped = updated.slice(root.maxToasts);
-					for (var d = 0; d < dropped.length; d++) {
-						delete root.toastArrivedAt[dropped[d].id];
+			if (!isReload) {
+				root.toastArrivedAt[n.id] = now;
+				var critical = (n.urgency === NotificationUrgency.Critical);
+				if (!root.dnd || critical) {
+					var updated = [n].concat(root.toasts);
+					if (updated.length > root.maxToasts) {
+						var dropped = updated.slice(root.maxToasts);
+						for (var d = 0; d < dropped.length; d++) {
+							delete root.toastArrivedAt[dropped[d].id];
+						}
+						updated = updated.slice(0, root.maxToasts);
 					}
-					updated = updated.slice(0, root.maxToasts);
+					root.toasts = updated;
 				}
-				root.toasts = updated;
+				// Silent while DND is on; critical notifications still announce.
+				if (!root.dnd || critical)
+					root.playSound();
 			}
 			n.closed.connect(() => {
 				root.removeToast(n.id);
 			});
-			// Silent while DND is on; critical notifications still announce.
-			if (!root.dnd || critical)
-				root.playSound();
 		}
 	}
 
@@ -453,6 +477,12 @@ Singleton {
 		}
 		function invokeDefault(): void {
 			root.activate();
+		}
+		function activate(id: int): void {
+			root.activate(id);
+		}
+		function dismiss(id: int): void {
+			root.dismissEntry(id);
 		}
 		function status(): string {
 			return root.status();

@@ -63,4 +63,18 @@ Singleton {
 	readonly property color accent: accentBlue
 	readonly property color selectionBg: Qt.rgba(accent.r, accent.g, accent.b, 0.12)
 	readonly property color selectionBorder: Qt.rgba(accent.r, accent.g, accent.b, 0.45)
+
+	// Animation durations & physics matching Hyprland curves.
+	readonly property int animFast: 150
+	readonly property int animNormal: 250
+	readonly property int animSmooth: 280
+	readonly property int flickDecel: 1500
+	readonly property int maxFlickVel: 6000
+
+	// Cubic bezier control points matching Hyprland:
+	// myBezier = ({0.05, 0.9}, {0.1, 1.05}) (popin with subtle 1.05 bounce)
+	readonly property var myBezier: [ 0.05, 0.9, 0.1, 1.05, 1.0, 1.0 ]
+	// easeOutQuint = ({0.23, 1}, {0.32, 1})
+	readonly property var easeOutQuint: [ 0.23, 1.0, 0.32, 1.0, 1.0, 1.0 ]
 }
+

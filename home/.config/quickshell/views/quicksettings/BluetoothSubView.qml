@@ -309,7 +309,7 @@ Item {
 			title: "Bluetooth is turned off"
 			subtitle: "Turn on Bluetooth to scan and connect to devices"
 			buttonText: "Turn On Bluetooth"
-			hintText: "Hint: Press [b] or [Space] to enable · [h / Esc] to return"
+			hintText: ""
 			onEnableClicked: root.toggleBluetooth()
 		}
 
@@ -325,7 +325,9 @@ Item {
 				clip: true
 				spacing: 6
 				model: root.allItems
-				boundsBehavior: Flickable.StopAtBounds
+				boundsBehavior: Flickable.DragAndOvershootBounds
+				flickDeceleration: Theme.flickDecel
+				maximumFlickVelocity: Theme.maxFlickVel
 
 				ScrollBar.vertical: ScrollBar {
 					id: vScrollBar
@@ -525,23 +527,6 @@ Item {
 						color: Theme.textMuted
 					}
 				}
-			}
-		}
-
-		// ─── Hotkeys Footer ───────────────────────────────────────────
-		RowLayout {
-			Layout.fillWidth: true
-			Layout.preferredHeight: footerText.implicitHeight
-			spacing: 10
-
-			Text {
-				id: footerText
-				Layout.fillWidth: true
-				text: "Enter: connect/pair · x: forget · r: scan · b: toggle · Esc/q: back"
-				font.family: Theme.fontMono
-				font.pixelSize: Theme.fontSizeSmall - 3
-				color: Theme.textMuted
-				wrapMode: Text.WordWrap
 			}
 		}
 	}

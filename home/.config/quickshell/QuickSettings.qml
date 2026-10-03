@@ -23,17 +23,25 @@ Singleton {
 		refreshRequested();
 	}
 
-	property bool nightLight: {
+	readonly property bool nightLightAuto: {
 		var h = new Date().getHours();
 		return h >= 20 || h < 6;
 	}
+	property bool nightLightManualOverride: false
+	property bool nightLightManual: false
+	property bool nightLight: nightLightManualOverride ? nightLightManual : nightLightAuto
 
 	function toggleNightLight(): void {
-		root.nightLight = !root.nightLight;
+		root.nightLightManual = !root.nightLight;
+		root.nightLightManualOverride = true;
 		if (root.nightLight)
 			Quickshell.execDetached(["hyprctl", "hyprsunset", "temperature", "4500"]);
 		else
 			Quickshell.execDetached(["hyprctl", "hyprsunset", "identity"]);
+	}
+
+	function resetNightLightToAuto(): void {
+		root.nightLightManualOverride = false;
 	}
 
 	function toggle(view): void {
@@ -95,6 +103,9 @@ Singleton {
 		}
 		function toggleNightLight(): void {
 			root.toggleNightLight();
+		}
+		function resetNightLightToAuto(): void {
+			root.resetNightLightToAuto();
 		}
 	}
 }

@@ -8,7 +8,6 @@ import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Wayland
 import QtQuick
-import QtQuick.Layouts
 import "../WeatherModel.js" as WeatherModel
 
 PanelWindow {
@@ -18,9 +17,16 @@ PanelWindow {
 	signal opened()
 	signal dismissed()
 
-	property int offscreenSlide: Math.max(700, card.implicitHeight + Theme.notifTopMargin + 60)
+	property int offscreenSlide: Math.max(700, card.height + Theme.notifTopMargin + 60)
 	property int slide: offscreenSlide
 	property real backdropOpacity: 0.0
+
+	function requestDismiss() {
+		if (Weather.editingLocation)
+			Weather.cancelEditingLocation();
+		else
+			root.dismissed();
+	}
 
 	visible: shown || slideOut.running
 	color: "transparent"
@@ -50,8 +56,12 @@ PanelWindow {
 		} else {
 			slideIn.stop();
 			slideOut.restart();
-			root.dismissed();
 		}
+	}
+
+	onOffscreenSlideChanged: {
+		if (!shown && !slideIn.running && !slideOut.running)
+			slide = offscreenSlide;
 	}
 
 	ParallelAnimation {
@@ -62,16 +72,18 @@ PanelWindow {
 			property: "slide"
 			from: root.slide
 			to: 0
-			duration: 260
-			easing.type: Easing.OutCubic
+			duration: Theme.animSmooth
+			easing.type: Easing.BezierSpline
+			easing.bezierCurve: Theme.easeOutQuint
 		}
 		NumberAnimation {
 			target: root
 			property: "backdropOpacity"
 			from: root.backdropOpacity
 			to: 1.0
-			duration: 260
-			easing.type: Easing.OutCubic
+			duration: Theme.animSmooth
+			easing.type: Easing.BezierSpline
+			easing.bezierCurve: Theme.easeOutQuint
 		}
 	}
 
@@ -83,28 +95,23 @@ PanelWindow {
 			property: "slide"
 			from: root.slide
 			to: root.offscreenSlide
-			duration: 220
-			easing.type: Easing.OutCubic
+			duration: Theme.animNormal
+			easing.type: Easing.InCubic
 		}
 		NumberAnimation {
 			target: root
 			property: "backdropOpacity"
 			from: root.backdropOpacity
 			to: 0.0
-			duration: 220
-			easing.type: Easing.OutCubic
+			duration: Theme.animNormal
+			easing.type: Easing.InCubic
 		}
 	}
 
 	Shortcut {
 		sequences: ["Esc"]
-		enabled: root.shown
-		onActivated: {
-			if (Weather.editingLocation)
-				Weather.cancelEditingLocation();
-			else
-				Weather.close();
-		}
+		enabled: root.visible
+		onActivated: root.requestDismiss()
 	}
 
 	// Full-screen dim backdrop
@@ -117,7 +124,7 @@ PanelWindow {
 		MouseArea {
 			anchors.fill: parent
 			enabled: root.shown
-			onClicked: Weather.close()
+			onClicked: root.dismissed()
 		}
 	}
 
@@ -135,11 +142,16 @@ PanelWindow {
 		clip: true
 		focus: true
 
+		Behavior on height {
+			NumberAnimation {
+				duration: Theme.animNormal
+				easing.type: Easing.BezierSpline
+				easing.bezierCurve: Theme.easeOutQuint
+			}
+		}
+
 		Keys.onEscapePressed: event => {
-			if (Weather.editingLocation)
-				Weather.cancelEditingLocation();
-			else
-				Weather.close();
+			root.requestDismiss();
 			event.accepted = true;
 		}
 
@@ -169,7 +181,7 @@ PanelWindow {
 				width: parent.width
 				height: Math.max(heroLeft.implicitHeight, heroRight.implicitHeight)
 
-				// Left: Big Condition Icon + Temp
+				// Left: Big Condition Icon + Temp with High/Low underneath
 				Row {
 					id: heroLeft
 					anchors.left: parent.left
@@ -185,26 +197,51 @@ PanelWindow {
 						font.pixelSize: 58
 					}
 
-					Row {
+					Column {
 						anchors.verticalCenter: parent.verticalCenter
 						spacing: 2
 
-						Text {
-							id: tempBig
-							text: Weather.tempNum || "—"
-							color: Theme.textMain
-							font.family: Theme.fontFamily
-							font.pixelSize: 50
-							font.bold: true
+						Row {
+							spacing: 2
+
+							Text {
+								id: tempBig
+								text: Weather.tempNum || "—"
+								color: Theme.textMain
+								font.family: Theme.fontFamily
+								font.pixelSize: 48
+								font.bold: true
+							}
+
+							Text {
+								text: Weather.current ? Weather.tempUnit : ""
+								color: Theme.textDim
+								font.family: Theme.fontFamily
+								font.pixelSize: 18
+								anchors.top: tempBig.top
+								anchors.topMargin: 6
+							}
 						}
 
-						Text {
-							text: Weather.current ? Weather.tempUnit : ""
-							color: Theme.textDim
-							font.family: Theme.fontFamily
-							font.pixelSize: 20
-							anchors.top: tempBig.top
-							anchors.topMargin: 8
+						Row {
+							spacing: 6
+							visible: !!(Weather.reportTodayHigh || Weather.reportTodayLow)
+
+							Text {
+								text: "↑" + (Weather.reportTodayHigh || "—")
+								color: Theme.textMain
+								font.family: Theme.fontFamily
+								font.pixelSize: 13
+								font.bold: true
+							}
+
+							Text {
+								text: "↓" + (Weather.reportTodayLow || "—")
+								color: Theme.textMuted
+								font.family: Theme.fontFamily
+								font.pixelSize: 13
+								font.bold: true
+							}
 						}
 					}
 				}
@@ -369,9 +406,10 @@ PanelWindow {
 						id: weatherStats
 						anchors.right: parent.right
 						visible: !!Weather.current
-						spacing: 24
+						spacing: 20
 
 						Column {
+							id: feelsCol
 							spacing: 3
 							Text {
 								text: "FEELS"
@@ -506,81 +544,70 @@ PanelWindow {
 			}
 
 			// ─── Hourly Forecast with Chart (Samsung / Google Weather style) ───
-			Column {
+			Flickable {
+				id: hourlyFlick
 				visible: Weather.hourlyForecast && Weather.hourlyForecast.length > 0
 				width: parent.width
-				spacing: 8
+				height: 164
+				contentWidth: Math.max(width, (Weather.hourlyForecast ? Weather.hourlyForecast.length : 0) * 54)
+				contentHeight: height
+				flickableDirection: Flickable.HorizontalFlick
+				boundsBehavior: Flickable.DragAndOvershootBounds
+				flickDeceleration: Theme.flickDecel
+				maximumFlickVelocity: Theme.maxFlickVel
+				clip: true
 
-				Text {
-					text: "HOURLY FORECAST"
-					color: Theme.textMuted
-					font.family: Theme.fontFamily
-					font.pixelSize: 13
-					font.letterSpacing: 1
-					font.bold: true
+				MouseArea {
+					anchors.fill: parent
+					acceptedButtons: Qt.NoButton
+					onWheel: w => {
+						hourlyFlick.contentX = Math.max(0, Math.min(hourlyFlick.contentWidth - hourlyFlick.width, hourlyFlick.contentX - w.angleDelta.y));
+					}
 				}
 
-				Flickable {
-					id: hourlyFlick
-					width: parent.width
-					height: 156
-					contentWidth: Math.max(width, (Weather.hourlyForecast ? Weather.hourlyForecast.length : 0) * 54)
-					contentHeight: height
-					flickableDirection: Flickable.HorizontalFlick
-					boundsBehavior: Flickable.StopAtBounds
-					clip: true
+				Item {
+					width: hourlyFlick.contentWidth
+					height: hourlyFlick.height
 
-					MouseArea {
+					// Temperature spline curve with gradient area
+					Canvas {
+						id: chartCanvas
 						anchors.fill: parent
-						acceptedButtons: Qt.NoButton
-						onWheel: w => {
-							hourlyFlick.contentX = Math.max(0, Math.min(hourlyFlick.contentWidth - hourlyFlick.width, hourlyFlick.contentX - w.angleDelta.y));
-						}
-					}
+						antialiasing: true
 
-					Item {
-						width: hourlyFlick.contentWidth
-						height: hourlyFlick.height
-
-						// Temperature spline curve with gradient area
-						Canvas {
-							id: chartCanvas
-							anchors.fill: parent
-							antialiasing: true
-
-							Connections {
-								target: Weather
-								function onHourlyForecastChanged() {
-									chartCanvas.requestPaint();
-								}
+						Connections {
+							target: Weather
+							function onHourlyForecastChanged() {
+								chartCanvas.requestPaint();
 							}
+						}
 
-							onPaint: {
-								var ctx = getContext("2d");
-								ctx.reset();
-								var list = Weather.hourlyForecast;
-								if (!list || list.length < 2)
-									return;
+						onPaint: {
+							var ctx = getContext("2d");
+							ctx.reset();
+							var list = Weather.hourlyForecast;
+							if (!list || list.length < 2)
+								return;
 
-								var colW = 54;
-								var minT = 999;
-								var maxT = -999;
-								for (var i = 0; i < list.length; i++) {
-									var t = list[i].temp;
-									if (t < minT) minT = t;
-									if (t > maxT) maxT = t;
-								}
-								var range = Math.max(2, maxT - minT);
-								var yTop = 90;
-								var hChart = 30;
-								var bottomY = 126;
+							var colW = 54;
+							var minT = 999;
+							var maxT = -999;
+							for (var i = 0; i < list.length; i++) {
+								var t = list[i].temp;
+								if (t < minT) minT = t;
+								if (t > maxT) maxT = t;
+							}
+							var range = Math.max(3, maxT - minT);
+							var yTop = 78;
+							var hChart = 50;
+							var bottomY = 132;
 
-								var pts = [];
-								for (var i = 0; i < list.length; i++) {
-									var x = i * colW + colW / 2;
-									var y = yTop + (maxT - list[i].temp) / range * hChart;
-									pts.push({ x: x, y: y });
-								}
+							var pts = [];
+							for (var i = 0; i < list.length; i++) {
+								var x = i * colW + colW / 2;
+								var y = yTop + (maxT - list[i].temp) / range * hChart;
+								pts.push({ x: x, y: y });
+							}
 
 								// Gradient fill under the curve
 								ctx.beginPath();
@@ -596,8 +623,10 @@ PanelWindow {
 								ctx.closePath();
 
 								var grad = ctx.createLinearGradient(0, yTop, 0, bottomY);
-								grad.addColorStop(0, "rgba(88, 166, 255, 0.35)");
-								grad.addColorStop(1, "rgba(88, 166, 255, 0.0)");
+								var ac = Theme.accent;
+								var r255 = Math.round(ac.r * 255), g255 = Math.round(ac.g * 255), b255 = Math.round(ac.b * 255);
+								grad.addColorStop(0, "rgba(" + r255 + ", " + g255 + ", " + b255 + ", 0.35)");
+								grad.addColorStop(1, "rgba(" + r255 + ", " + g255 + ", " + b255 + ", 0.0)");
 								ctx.fillStyle = grad;
 								ctx.fill();
 
@@ -610,7 +639,7 @@ PanelWindow {
 									var cx = (p0.x + p1.x) / 2;
 									ctx.bezierCurveTo(cx, p0.y, cx, p1.y, p1.x, p1.y);
 								}
-								ctx.strokeStyle = "#58a6ff";
+								ctx.strokeStyle = Theme.accentBlue;
 								ctx.lineWidth = 2.5;
 								ctx.stroke();
 
@@ -618,7 +647,7 @@ PanelWindow {
 								for (var i = 0; i < pts.length; i++) {
 									ctx.beginPath();
 									ctx.arc(pts[i].x, pts[i].y, 4, 0, 2 * Math.PI);
-									ctx.fillStyle = "#58a6ff";
+									ctx.fillStyle = Theme.accentBlue;
 									ctx.fill();
 									ctx.beginPath();
 									ctx.arc(pts[i].x, pts[i].y, 2, 0, 2 * Math.PI);
@@ -645,9 +674,9 @@ PanelWindow {
 										if (list[i].temp < minT) minT = list[i].temp;
 										if (list[i].temp > maxT) maxT = list[i].temp;
 									}
-									return { minT: minT, maxT: maxT, range: Math.max(2, maxT - minT) };
+									return { minT: minT, maxT: maxT, range: Math.max(3, maxT - minT) };
 								}
-								readonly property real pointY: 90 + (stats.maxT - modelData.temp) / stats.range * 30
+								readonly property real pointY: 78 + (stats.maxT - modelData.temp) / stats.range * 50
 
 								x: index * colW
 								y: 0
@@ -657,10 +686,10 @@ PanelWindow {
 								// Time (Now / 21:00 / ...)
 								Text {
 									anchors.horizontalCenter: parent.horizontalCenter
-									y: 4
+									y: 2
 									text: modelData.time
 									font.family: Theme.fontFamily
-									font.pixelSize: 14
+									font.pixelSize: 13
 									font.bold: index === 0
 									color: index === 0 ? Theme.accentBlue : Theme.textDim
 								}
@@ -668,17 +697,17 @@ PanelWindow {
 								// Weather condition glyph
 								Text {
 									anchors.horizontalCenter: parent.horizontalCenter
-									y: 24
+									y: 21
 									text: modelData.icon
 									font.family: Theme.fontFamily
-									font.pixelSize: 20
+									font.pixelSize: 19
 									color: Theme.textMain
 								}
 
 								// Temperature centered directly above the curve point
 								Item {
 									anchors.horizontalCenter: parent.horizontalCenter
-									y: pointY - tempNum.implicitHeight - 9
+									y: pointY - tempNum.implicitHeight - 6
 									width: tempNum.implicitWidth
 									height: tempNum.implicitHeight
 
@@ -687,7 +716,7 @@ PanelWindow {
 										anchors.centerIn: parent
 										text: modelData.temp
 										font.family: Theme.fontFamily
-										font.pixelSize: 13
+										font.pixelSize: 15
 										font.bold: true
 										color: Theme.textMain
 									}
@@ -698,7 +727,7 @@ PanelWindow {
 										anchors.topMargin: -1
 										text: "°"
 										font.family: Theme.fontFamily
-										font.pixelSize: 11
+										font.pixelSize: 12
 										font.bold: true
 										color: Theme.textDim
 									}
@@ -708,7 +737,7 @@ PanelWindow {
 								Row {
 									visible: modelData.pop >= 10
 									anchors.horizontalCenter: parent.horizontalCenter
-									y: 132
+									y: 138
 									spacing: 2
 
 									Text {
@@ -730,7 +759,6 @@ PanelWindow {
 						}
 					}
 				}
-			}
 
 			// ─── Divider ───────────────────────────────────────────────────────
 			Rectangle {

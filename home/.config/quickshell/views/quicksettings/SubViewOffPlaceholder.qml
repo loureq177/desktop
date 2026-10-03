@@ -74,6 +74,7 @@ Item {
 		}
 
 		Text {
+			visible: root.hintText !== ""
 			Layout.alignment: Qt.AlignHCenter
 			Layout.topMargin: 4
 			text: root.hintText

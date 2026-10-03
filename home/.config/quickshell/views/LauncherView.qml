@@ -1,8 +1,6 @@
 import ".."
 import "../widgets"
 import Quickshell
-import Quickshell.Wayland
-import Quickshell.Hyprland
 import Quickshell.Widgets
 import Quickshell.Io
 import QtQuick
@@ -64,9 +62,9 @@ CenterModal {
 	})
 
 	readonly property var modePlaceholders: ({
-		"apps": "Search applications...",
-		"run": "Execute command...",
-		"emoji": "Search emojis...",
+		"apps": "Search...",
+		"run": "Run command...",
+		"emoji": "Search...",
 		"power": "lock / suspend / reboot / poweroff"
 	})
 
@@ -367,8 +365,9 @@ CenterModal {
 			anchors.horizontalCenter: parent.horizontalCenter
 			width: window.gridColumnCount() * window.desiredCellWidth()
 			clip: true
-			flickDeceleration: 600
-			maximumFlickVelocity: 4000
+			boundsBehavior: Flickable.DragAndOvershootBounds
+			flickDeceleration: Theme.flickDecel
+			maximumFlickVelocity: Theme.maxFlickVel
 			cellWidth: window.desiredCellWidth()
 			cellHeight: window.mode === "emoji" ? 76 : 132
 			model: window.filtered
@@ -442,8 +441,9 @@ CenterModal {
 			visible: window.mode === "run" || window.mode === "power"
 			anchors.fill: parent
 			clip: true
-			flickDeceleration: 600
-			maximumFlickVelocity: 4000
+			boundsBehavior: Flickable.DragAndOvershootBounds
+			flickDeceleration: Theme.flickDecel
+			maximumFlickVelocity: Theme.maxFlickVel
 			spacing: 4
 			model: window.filtered
 			delegate: Rectangle {

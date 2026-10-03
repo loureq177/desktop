@@ -7,9 +7,7 @@
 import ".."
 import "../widgets"
 import Quickshell
-import Quickshell.Hyprland
 import Quickshell.Io
-import Quickshell.Wayland
 import QtQuick
 import QtQuick.Layouts
 
@@ -17,7 +15,7 @@ CenterModal {
 	id: win
 
 	searchTitle: "Clip"
-	searchPlaceholder: "Search clipboard..."
+	searchPlaceholder: "Search..."
 
 	onSearchQueryChanged: {
 		win.query = searchQuery;
@@ -126,7 +124,9 @@ CenterModal {
 			var e = win.currentEntry;
 			if (!e || !win.currentIsImage)
 				return ["true"];
-			return ["sh", "-c", 'cliphist decode ' + JSON.stringify(String(e.id)) + ' > "$XDG_RUNTIME_DIR/clipboard-preview"'];
+			// $1 carries the id: never interpolate it into shell source —
+			// JSON.stringify emits "..." where $()/`` still expand.
+			return ["sh", "-c", 'cliphist decode "$1" > "$XDG_RUNTIME_DIR/clipboard-preview"', "sh", String(e.id)];
 		}
 		onExited: function (exitCode) {
 			if (exitCode === 0 && win.currentEntry)
@@ -168,8 +168,9 @@ CenterModal {
 			anchors.left: parent.left
 			width: parent.width * 0.42 - Theme.paddingItem
 			clip: true
-			flickDeceleration: 600
-			maximumFlickVelocity: 4000
+			boundsBehavior: Flickable.DragAndOvershootBounds
+			flickDeceleration: Theme.flickDecel
+			maximumFlickVelocity: Theme.maxFlickVel
 			spacing: 2
 			model: win.filtered
 
@@ -199,12 +200,15 @@ CenterModal {
 				Process {
 					id: thumbLoader
 					running: row.isImage
+					// Pass paths/ids as $1/$2/$3: interpolating them via
+					// JSON.stringify would emit "..." where $()/`` expand.
 					command: [
 						"sh", "-c",
-						'f=' + JSON.stringify(row.thumbPath)
-							+ '; [ -s "$f" ] || { mkdir -p ' + JSON.stringify((Quickshell.env("XDG_RUNTIME_DIR") || "/run/user/1000") + "/clipboard-thumbs")
-							+ ' && cliphist decode ' + JSON.stringify(String(row.modelData.id))
-							+ ' | magick - -thumbnail 120x80 "$f"; }'
+						'f="$1"; [ -s "$f" ] || { mkdir -p "$2" && cliphist decode "$3" | magick - -thumbnail 120x80 "$f"; }',
+						"sh",
+						row.thumbPath,
+						(Quickshell.env("XDG_RUNTIME_DIR") || "/run/user/1000") + "/clipboard-thumbs",
+						String(row.modelData.id)
 					]
 					onExited: function (exitCode) {
 						row.thumbReady = (exitCode === 0);
@@ -321,8 +325,9 @@ CenterModal {
 				contentWidth: width
 				contentHeight: previewText.implicitHeight
 				clip: true
-				boundsBehavior: Flickable.StopAtBounds
-				flickDeceleration: 600
+				boundsBehavior: Flickable.DragAndOvershootBounds
+				flickDeceleration: Theme.flickDecel
+				maximumFlickVelocity: Theme.maxFlickVel
 
 				Text {
 					id: previewText

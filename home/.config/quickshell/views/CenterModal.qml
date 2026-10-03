@@ -36,12 +36,7 @@ PanelWindow {
 
 	default property alias body: contentSlot.data
 
-	onShownChanged: {
-		if (shown)
-			root.opened();
-		else
-			root.dismissed();
-	}
+	visible: shown || exitAnim.running
 
 	function open() {
 		search.clear();
@@ -60,7 +55,78 @@ PanelWindow {
 			open();
 	}
 
-	visible: shown
+	onShownChanged: {
+		if (shown) {
+			exitAnim.stop();
+			enterAnim.restart();
+			root.opened();
+		} else {
+			enterAnim.stop();
+			exitAnim.restart();
+			root.dismissed();
+		}
+	}
+
+	ParallelAnimation {
+		id: enterAnim
+
+		NumberAnimation {
+			target: backdrop
+			property: "opacity"
+			from: 0.0
+			to: 1.0
+			duration: Theme.animFast
+			easing.type: Easing.OutCubic
+		}
+
+		NumberAnimation {
+			target: dialogCard
+			property: "opacity"
+			from: 0.0
+			to: 1.0
+			duration: Theme.animFast
+			easing.type: Easing.OutCubic
+		}
+
+		NumberAnimation {
+			target: dialogCard
+			property: "scale"
+			from: 0.82
+			to: 1.0
+			duration: Theme.animNormal
+			easing.type: Easing.BezierSpline
+			easing.bezierCurve: Theme.myBezier
+		}
+	}
+
+	ParallelAnimation {
+		id: exitAnim
+
+		NumberAnimation {
+			target: backdrop
+			property: "opacity"
+			to: 0.0
+			duration: Theme.animFast
+			easing.type: Easing.OutCubic
+		}
+
+		NumberAnimation {
+			target: dialogCard
+			property: "opacity"
+			to: 0.0
+			duration: Theme.animFast
+			easing.type: Easing.OutCubic
+		}
+
+		NumberAnimation {
+			target: dialogCard
+			property: "scale"
+			to: 0.85
+			duration: Theme.animFast
+			easing.type: Easing.InCubic
+		}
+	}
+
 	color: "transparent"
 	exclusionMode: ExclusionMode.Ignore
 	exclusiveZone: 0
@@ -92,6 +158,7 @@ PanelWindow {
 
 		MouseArea {
 			anchors.fill: parent
+			enabled: root.shown
 			onClicked: root.close()
 		}
 	}

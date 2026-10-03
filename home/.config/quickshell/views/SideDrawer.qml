@@ -51,18 +51,20 @@ PanelWindow {
 		NumberAnimation {
 			target: root
 			property: "slide"
-			from: root.cardWidth + Theme.notifRightMargin
+			from: root.slide
 			to: 0
-			duration: 250
-			easing.type: Easing.OutCubic
+			duration: Theme.animSmooth
+			easing.type: Easing.BezierSpline
+			easing.bezierCurve: Theme.easeOutQuint
 		}
 		NumberAnimation {
 			target: root
 			property: "backdropOpacity"
 			from: 0.0
 			to: 1.0
-			duration: 250
-			easing.type: Easing.OutCubic
+			duration: Theme.animSmooth
+			easing.type: Easing.BezierSpline
+			easing.bezierCurve: Theme.easeOutQuint
 		}
 	}
 
@@ -72,18 +74,18 @@ PanelWindow {
 		NumberAnimation {
 			target: root
 			property: "slide"
-			from: 0
+			from: root.slide
 			to: root.cardWidth + Theme.notifRightMargin
-			duration: 220
-			easing.type: Easing.OutCubic
+			duration: Theme.animNormal
+			easing.type: Easing.InCubic
 		}
 		NumberAnimation {
 			target: root
 			property: "backdropOpacity"
 			from: 1.0
 			to: 0.0
-			duration: 220
-			easing.type: Easing.OutCubic
+			duration: Theme.animNormal
+			easing.type: Easing.InCubic
 		}
 	}
 
@@ -106,8 +108,9 @@ PanelWindow {
 
 	Behavior on cardHeight {
 		NumberAnimation {
-			duration: 200
-			easing.type: Easing.OutCubic
+			duration: Theme.animNormal
+			easing.type: Easing.BezierSpline
+			easing.bezierCurve: Theme.easeOutQuint
 		}
 	}
 

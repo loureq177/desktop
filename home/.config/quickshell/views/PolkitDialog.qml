@@ -195,7 +195,7 @@ Item {
 		Rectangle {
 			id: backdrop
 			anchors.fill: parent
-			color: Qt.rgba(0, 0, 0, 0.45)
+			color: Theme.backdropColor
 			opacity: root.dialogVisible && !root.closing ? 1.0 : 0.0
 
 			Behavior on opacity {

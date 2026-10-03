@@ -1,8 +1,6 @@
 import ".."
 import "../widgets"
 import Quickshell
-import Quickshell.Wayland
-import Quickshell.Hyprland
 import Quickshell.Io
 import QtQuick
 import QtQuick.Layouts
@@ -11,7 +9,7 @@ CenterModal {
 	id: window
 
 	searchTitle: "Keys"
-	searchPlaceholder: "Search keybindings & gestures..."
+	searchPlaceholder: "Search..."
 	showFooter: true
 	statusText: window.statusText()
 	errorText: window.lastError
@@ -385,9 +383,9 @@ CenterModal {
 			id: list
 			anchors.fill: parent
 			clip: true
-			flickDeceleration: 800
-			maximumFlickVelocity: 5000
-			boundsBehavior: Flickable.StopAtBounds
+			boundsBehavior: Flickable.DragAndOvershootBounds
+			flickDeceleration: Theme.flickDecel
+			maximumFlickVelocity: Theme.maxFlickVel
 			pixelAligned: true
 			spacing: 2
 			model: window.filtered

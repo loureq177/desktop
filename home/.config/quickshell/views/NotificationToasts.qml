@@ -15,7 +15,7 @@ PanelWindow {
 
 	// Shown while toasts exist and neither drawer is open; unmap is
 	// deferred until the slide-out animation finishes.
-	property bool shown: Notifications.toasts.length > 0 && !Notifications.centerOpen && !QuickSettings.panelOpen
+	property bool shown: Notifications.toasts.length > 0 && !Notifications.centerOpen && !QuickSettings.panelOpen && !Weather.panelOpen
 	property int slide: Theme.notifWidth + Theme.notifRightMargin
 
 	property var displayToasts: []
@@ -96,8 +96,9 @@ PanelWindow {
 			target: win
 			property: "slide"
 			to: 0
-			duration: 250
-			easing.type: Easing.OutCubic
+			duration: Theme.animSmooth
+			easing.type: Easing.BezierSpline
+			easing.bezierCurve: Theme.easeOutQuint
 		}
 	}
 
@@ -108,8 +109,8 @@ PanelWindow {
 			target: win
 			property: "slide"
 			to: Theme.notifWidth + Theme.notifRightMargin
-			duration: 220
-			easing.type: Easing.OutCubic
+			duration: Theme.animNormal
+			easing.type: Easing.InCubic
 		}
 
 		ScriptAction {
@@ -153,7 +154,7 @@ PanelWindow {
 				isToast: true
 				showTime: false
 				onActivated: Notifications.activate(notif.id)
-				onDismissed: Notifications.dismissById(notif.id)
+				onDismissed: Notifications.dismissEntry(notif.id)
 				onReplyFocusGained: replyFocus.bump(1)
 				onReplyFocusLost: replyFocus.bump(-1)
 			}

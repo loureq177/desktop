@@ -5,10 +5,7 @@
 // ESC or clicking outside dismisses the panel.
 import ".."
 import "../widgets"
-import Quickshell
-import Quickshell.Hyprland
 import Quickshell.Services.Notifications
-import Quickshell.Wayland
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -141,6 +138,9 @@ SideDrawer {
 				Layout.fillWidth: true
 				Layout.fillHeight: true
 				clip: true
+				boundsBehavior: Flickable.DragAndOvershootBounds
+				flickDeceleration: Theme.flickDecel
+				maximumFlickVelocity: Theme.maxFlickVel
 				spacing: 8
 				model: Notifications.history
 				currentIndex: win.currentIndex
@@ -274,14 +274,6 @@ SideDrawer {
 						font.pixelSize: Theme.fontSize
 						font.bold: true
 						color: Theme.textDim
-					}
-
-					Text {
-						Layout.alignment: Qt.AlignHCenter
-						text: "You're all caught up"
-						font.family: Theme.fontFamily
-						font.pixelSize: Theme.fontSizeSmall
-						color: Theme.textMuted
 					}
 				}
 			}

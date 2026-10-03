@@ -60,8 +60,13 @@ Item {
 		return "󰤯";
 	}
 
+	// Quickshell WifiSecurityType has no named "unknown" member; value 10 is
+	// returned for networks whose security the backend could not classify.
+	// Treat it as open (no password prompt), like WifiSecurityType.Open.
+	readonly property int wifiSecurityUnknown: 10
+
 	function isSecured(sec) {
-		return sec !== WifiSecurityType.Open && sec !== 10;
+		return sec !== WifiSecurityType.Open && sec !== wifiSecurityUnknown;
 	}
 
 	function refreshList(): void {
@@ -321,7 +326,7 @@ Item {
 			title: "Wi-Fi is turned off"
 			subtitle: "Turn on Wi-Fi to scan and connect to networks"
 			buttonText: "Turn On Wi-Fi"
-			hintText: "Hint: Press [w] or [Space] to enable · [h / Esc] to return"
+			hintText: ""
 			onEnableClicked: root.toggleWifi()
 		}
 
@@ -337,7 +342,9 @@ Item {
 				clip: true
 				spacing: 6
 				model: root.networkList
-				boundsBehavior: Flickable.StopAtBounds
+				boundsBehavior: Flickable.DragAndOvershootBounds
+				flickDeceleration: Theme.flickDecel
+				maximumFlickVelocity: Theme.maxFlickVel
 
 				ScrollBar.vertical: ScrollBar {
 					id: vScrollBar
@@ -714,23 +721,6 @@ Item {
 						}
 					}
 				}
-			}
-		}
-
-		// ─── Hotkeys Footer ───────────────────────────────────────────
-		RowLayout {
-			Layout.fillWidth: true
-			Layout.preferredHeight: footerText.implicitHeight
-			spacing: 10
-
-			Text {
-				id: footerText
-				Layout.fillWidth: true
-				text: "Enter: connect · x: forget · r: rescan · w: toggle · Esc/q: back"
-				font.family: Theme.fontMono
-				font.pixelSize: Theme.fontSizeSmall - 3
-				color: Theme.textMuted
-				wrapMode: Text.WordWrap
 			}
 		}
 	}

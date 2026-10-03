@@ -689,13 +689,6 @@ SideDrawer {
 			}
 		}
 
-		// Subtle 1px separator
-		Rectangle {
-			Layout.fillWidth: true
-			Layout.preferredHeight: 1
-			color: Theme.border
-		}
-
 		// ─── Volume slider ──────────────────────────────────
 		Rectangle {
 			Layout.fillWidth: true
@@ -953,7 +946,7 @@ SideDrawer {
 				itemCol: 0
 				icon: SystemStatus.recording ? "󰻃" : "󰕧"
 				title: "Record screen"
-				subtitle: SystemStatus.recording ? "Recording · Stop" : "Click to record"
+				subtitle: SystemStatus.recording ? "Recording" : ""
 				active: SystemStatus.recording
 				activeColor: Theme.critical
 				hasDetails: false

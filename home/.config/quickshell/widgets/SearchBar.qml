@@ -50,6 +50,7 @@ Rectangle {
 		spacing: Theme.paddingItem
 
 		Text {
+			visible: bar.title !== ""
 			text: bar.title
 			font.family: Theme.fontMono
 			font.pointSize: Theme.fontSizeBar

@@ -8,7 +8,6 @@ import ".."
 import Quickshell
 import Quickshell.Bluetooth
 import Quickshell.Hyprland
-import Quickshell.Io
 import Quickshell.Networking
 import Quickshell.Services.UPower
 import Quickshell.Wayland
@@ -579,22 +578,20 @@ PanelWindow {
 
 			// Notification center toggle bell
 			Pill {
-				readonly property int unreadCount: Notifications.toasts.length
 				readonly property int historyCount: Notifications.history.length
 				readonly property bool dnd: Notifications.dnd
 				readonly property bool isOpen: Notifications.centerOpen
+				readonly property bool hasNotifications: historyCount > 0
 
-				text: dnd ? "󰂛" : (unreadCount > 0 ? "󰂚" : (historyCount > 0 ? "󰂚" : "󰂜"))
-				value: !dnd && unreadCount > 0 ? String(unreadCount) : (!dnd && historyCount > 0 ? String(historyCount) : "")
-				textColor: dnd ? Theme.warning : (unreadCount > 0 || isOpen ? Theme.accentBlue : (historyCount > 0 ? Theme.textMain : Theme.textDim))
-				isActive: isOpen || (unreadCount > 0 && !dnd)
+				text: dnd ? "󰂛" : (hasNotifications ? "󰂚" : "󰂜")
+				value: ""
+				textColor: dnd ? Theme.warning : (hasNotifications || isOpen ? Theme.accentBlue : Theme.textDim)
+				isActive: isOpen
 				tooltipText: {
 					if (dnd)
 						return "Notifications: Do not disturb";
-					if (unreadCount > 0)
-						return "Notifications: " + unreadCount + " unread";
 					if (historyCount > 0)
-						return "Notifications: " + historyCount + " in history";
+						return "Notifications: " + historyCount + (historyCount === 1 ? " notification" : " notifications");
 					return "Notifications: None";
 				}
 				onActivated: Notifications.toggle()
