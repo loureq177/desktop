@@ -69,8 +69,13 @@ if pkill -INT -x wf-recorder; then
             "Recording saved to:\n$FILE" 2>/dev/null || true)
 
         if [[ "$ACTION" == "default" ]]; then
-            showtime "$FILE" >/dev/null 2>&1 &
-            disown
+            if command -v showtime >/dev/null 2>&1; then
+                showtime "$FILE" >/dev/null 2>&1 &
+                disown
+            else
+                xdg-open "$FILE" >/dev/null 2>&1 &
+                disown
+            fi
         fi
     else
         play_sound dialog-warning

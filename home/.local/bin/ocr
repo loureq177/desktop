@@ -28,7 +28,7 @@ TRIMMED_TEXT="$(printf '%s' "$TEXT" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:
 exec 200>&-
 
 if [[ -n "$TRIMMED_TEXT" ]]; then
-    printf "%s" "$TRIMMED_TEXT" | wl-copy
+    printf "%s" "$TRIMMED_TEXT" | wl-copy || true
     play_sound complete
     PREVIEW="${TRIMMED_TEXT:0:100}"
     (( ${#TRIMMED_TEXT} > 100 )) && PREVIEW="${PREVIEW}..."

@@ -14,13 +14,27 @@ if [[ "${1:-}" == "--status" ]]; then
 fi
 
 if _is_active; then
-    kill "$(<"$INHIBIT_PID_FILE")" 2>/dev/null || true
+    pid="$(<"$INHIBIT_PID_FILE")"
+    # PID file holds systemd-inhibit itself (see below), whose PGID == PID
+    # for a background job. Kill the whole group so the `sleep infinity`
+    # child dies too; fall back to plain kill if group kill is unavailable.
+    kill -- "-$pid" 2>/dev/null || kill "$pid" 2>/dev/null || true
+    # Reap if it was our child; otherwise poll until it exits.
+    wait "$pid" 2>/dev/null || true
+    for _ in {1..20}; do
+        kill -0 "$pid" 2>/dev/null || break
+        sleep 0.05
+    done
     rm -f "$INHIBIT_PID_FILE"
 else
-    setsid systemd-inhibit --what=idle --who=caffeine \
+    # No setsid: $! must be systemd-inhibit's PID so stop() can kill it.
+    # (setsid forks when it is a group leader, making $! stale.) disown
+    # already detaches the job from this short-lived script; no TTY HUP
+    # applies when launched from a Hyprland keybind.
+    systemd-inhibit --what=idle --who=caffeine \
         --why="User requested stay awake" --mode=block \
-        sh -c 'echo $$ >"$1.tmp"; mv -f "$1.tmp" "$1"; exec sleep infinity' \
-        sh "$INHIBIT_PID_FILE" >/dev/null 2>&1 &
+        sleep infinity >/dev/null 2>&1 &
+    echo $! >"$INHIBIT_PID_FILE"
     disown
     for _ in {1..10}; do
         [[ -f "$INHIBIT_PID_FILE" ]] && break

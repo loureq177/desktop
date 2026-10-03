@@ -1,24 +1,73 @@
 #!/usr/bin/env bash
-# Returns a formatted weather status string with temperature and wind speed.
+# Returns a formatted weather status string with temperature and wind speed via Open-Meteo.
 set -euo pipefail
 
-place=$(weather-location 2>/dev/null || omarchy-weather-location 2>/dev/null || true)
+LOC_FILE="${XDG_STATE_HOME:-$HOME/.local/state}/weather/weather.json"
+OMARCHY_FILE="${XDG_STATE_HOME:-$HOME/.local/state}/omarchy/settings/weather.json"
 
-if [[ -z "$place" ]]; then
+file=""
+if [[ -s "$LOC_FILE" ]]; then
+    file="$LOC_FILE"
+elif [[ -s "$OMARCHY_FILE" ]]; then
+    file="$OMARCHY_FILE"
+fi
+
+lat=""
+lon=""
+city=""
+
+if [[ -n "$file" ]]; then
+    city=$(jq -r '.name // ""' "$file" 2>/dev/null || true)
+    lat=$(jq -r '.latitude // ""' "$file" 2>/dev/null || true)
+    lon=$(jq -r '.longitude // ""' "$file" 2>/dev/null || true)
+fi
+
+if [[ -z "$lat" || -z "$lon" || "$lat" == "null" || "$lon" == "null" ]]; then
+    # IP fallback: ipapi.co first, ipinfo.io second. (geolocation-db.com,
+    # used previously, is deprecated/unreliable.) Both over HTTPS.
+    ip_data=$(curl -fsS --max-time 3 "https://ipapi.co/json/" 2>/dev/null || true)
+    if [[ -n "$ip_data" ]]; then
+        lat=$(echo "$ip_data" | jq -r '.latitude // .lat // ""' 2>/dev/null || true)
+        lon=$(echo "$ip_data" | jq -r '.longitude // .lon // ""' 2>/dev/null || true)
+        [[ -z "$city" ]] && city=$(echo "$ip_data" | jq -r '.city // ""' 2>/dev/null || true)
+    fi
+    if [[ -z "$lat" || -z "$lon" || "$lat" == "null" || "$lon" == "null" ]]; then
+        ip_data=$(curl -fsS --max-time 3 "https://ipinfo.io/json" 2>/dev/null || true)
+        if [[ -n "$ip_data" ]]; then
+            # ipinfo returns "loc": "lat,lon"
+            _loc=$(echo "$ip_data" | jq -r '.loc // ""' 2>/dev/null || true)
+            if [[ -n "$_loc" && "$_loc" == *,* ]]; then
+                lat="${_loc%,*}"
+                lon="${_loc#*,}"
+            else
+                lat=$(echo "$ip_data" | jq -r '.latitude // .lat // ""' 2>/dev/null || true)
+                lon=$(echo "$ip_data" | jq -r '.longitude // .lon // ""' 2>/dev/null || true)
+            fi
+            [[ -z "$city" ]] && city=$(echo "$ip_data" | jq -r '.city // ""' 2>/dev/null || true)
+        fi
+    fi
+fi
+
+if [[ -z "$lat" || -z "$lon" || "$lat" == "null" || "$lon" == "null" ]]; then
     echo "Weather unavailable"
     exit 1
 fi
 
-query=$(jq -rn --arg place "$place" '$place | @uri')
-weather=$(curl -fsS --max-time 4 "https://wttr.in/${query}?format=%t|%w" 2>/dev/null | tr -d '\n' || true)
+[[ -z "$city" ]] && city="Weather"
 
-if [[ -z "$weather" ]]; then
+weather_json=$(curl -fsS --max-time 4 "https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,wind_speed_10m&timezone=auto" 2>/dev/null || true)
+
+if [[ -z "$weather_json" ]]; then
     echo "Weather unavailable"
     exit 1
 fi
 
-IFS='|' read -r temperature wind <<< "$weather"
-place=${place^}
-temperature=${temperature#+}
+temp=$(echo "$weather_json" | jq -r '.current.temperature_2m | round' 2>/dev/null || true)
+wind=$(echo "$weather_json" | jq -r '.current.wind_speed_10m | round' 2>/dev/null || true)
 
-echo "$place  ·  Temp $temperature  ·  Wind $wind"
+if [[ -z "$temp" || "$temp" == "null" ]]; then
+    echo "Weather unavailable"
+    exit 1
+fi
+
+echo "$city  ·  Temp ${temp}°C  ·  Wind ${wind} km/h"

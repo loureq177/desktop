@@ -120,12 +120,13 @@ _opencode_anims() { # $1: true|false (persists TUI animation state in kv.json fo
         return 0
     fi
     local tmp
-    tmp=$(mktemp) || return 0
+    tmp=$(mktemp "$(dirname "$OPENCODE_KV")/.kv.json.XXXXXX") || return 0
     if command -v jq >/dev/null 2>&1; then
         jq --argjson v "$enabled" '.animations_enabled = $v' "$OPENCODE_KV" >"$tmp" 2>/dev/null && mv "$tmp" "$OPENCODE_KV" || rm -f "$tmp"
     else
-        python3 -c 'import json,sys; p=sys.argv[1]; v=sys.argv[2]=="true"; d=json.load(open(p)); d["animations_enabled"]=v; json.dump(d,open(p,"w"))' "$OPENCODE_KV" "$enabled" 2>/dev/null || true
-        rm -f "$tmp"
+        # Atomic too: stage into $tmp first so a kill mid-write cannot
+        # leave kv.json empty/truncated (previous code wrote in place).
+        python3 -c 'import json,sys; p=sys.argv[1]; v=sys.argv[2]=="true"; t=sys.argv[3]; d=json.load(open(p)); d["animations_enabled"]=v; json.dump(d,open(t,"w"))' "$OPENCODE_KV" "$enabled" "$tmp" 2>/dev/null && mv "$tmp" "$OPENCODE_KV" || rm -f "$tmp"
     fi
 }
 

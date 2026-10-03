@@ -65,8 +65,11 @@ step "Updating Neovim plugins (LazyVim)..." nvim nvim --headless "+Lazy! sync" +
 # Check for pacnew / pacsave files
 if command -v pacdiff >/dev/null 2>&1; then
     echo "\n==> Checking and cleaning .pacnew / .pacsave files..."
-    # 1. Automatically remove .pacnew files that are 100% identical to current
-    yes s | DIFFPROG=true pacdiff -s >/dev/null 2>&1 || true
+    # pacdiff auto-removes identical files via `cmp -s` before prompting, so
+    # answering "skip" to everything else leaves only real diffs behind.
+    # No DIFFPROG override: it is only consulted for explicit View/Merge and
+    # masking it with `true` would hide that path's behaviour.
+    yes s | pacdiff -s >/dev/null 2>&1 || true
 
     # 2. Check if files with actual changes remain
     pacnew_files=$(pacdiff -o 2>/dev/null || true)

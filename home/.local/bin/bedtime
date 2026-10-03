@@ -5,7 +5,7 @@ set -euo pipefail
 notify_bed() {
     notify-send \
         --app-name "Bedtime" \
-        -t 0 "Bedtime" \
+        -t 5000 "Bedtime" \
         -i "weather-clear-night" \
         "$1" 2>/dev/null || true
 }
@@ -13,9 +13,9 @@ notify_bed() {
 set_wifi() {
     local want
     case "$1" in
-        off) want=disabled ;;
-        on) want=enabled ;;
-        *) return 0 ;;
+    off) want=disabled ;;
+    on) want=enabled ;;
+    *) return 0 ;;
     esac
     if [ "$(nmcli radio wifi 2>/dev/null || echo unknown)" != "$want" ]; then
         nmcli radio wifi "$1" 2>/dev/null || true

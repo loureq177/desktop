@@ -17,7 +17,12 @@ shift || true
 
 case "$cmd" in
 status)
-    weather-status
+    stat=$(qs ipc call weather status 2>/dev/null || true)
+    if [[ -n "$stat" && "$stat" != "null" && "$stat" != "Weather unavailable" ]]; then
+        echo "$stat"
+    else
+        weather-status
+    fi
     ;;
 toggle)
     qs ipc call weather toggle >/dev/null 2>&1 || true
@@ -32,10 +37,18 @@ refresh)
     qs ipc call weather refresh >/dev/null 2>&1 || true
     ;;
 icon)
-    weather-icon
+    ico=$(qs ipc call weather icon 2>/dev/null || true)
+    if [[ -n "$ico" && "$ico" != "null" && "$ico" != '""' ]]; then
+        # strip quotes if returned by qs
+        ico="${ico%\"}"
+        ico="${ico#\"}"
+        echo "$ico"
+    else
+        weather-icon
+    fi
     ;;
 notify)
-    stat=$(weather-status 2>/dev/null || true)
+    stat=$(weather status 2>/dev/null || true)
     if [[ -n "$stat" && "$stat" != "Weather unavailable" ]]; then
         notify-send -u low --app-name "Weather" -i "weather-clear" "Weather" "$stat"
     else

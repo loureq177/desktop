@@ -26,7 +26,13 @@ stop() {
         rm -f "$PID_FILE"
         if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
             kill -INT "$pid" 2>/dev/null || true
-            wait "$pid" 2>/dev/null || true
+            # No `wait` here: stop() runs in a separate invocation from
+            # start(), so $pid is not a child of this shell and wait would
+            # always fail. Poll until pw-record exits instead.
+            for _ in $(seq 1 40); do
+                kill -0 "$pid" 2>/dev/null || break
+                sleep 0.05
+            done
         fi
     fi
 
@@ -50,7 +56,7 @@ stop() {
     fi
 
     if [[ -n "$TEXT" ]]; then
-        printf "%s " "$TEXT" | wl-copy
+        printf "%s " "$TEXT" | wl-copy || true
         sleep 0.05
         wtype -M shift -k Insert -m shift 2>/dev/null || true
     fi

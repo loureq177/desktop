@@ -28,7 +28,7 @@ _report() { # $1: SINK|SOURCE — push the current state to the OSD
     # (0.29 * 100 is 28.999...), so the OSD lagged one step behind wpctl.
     pct="$(awk -v f="$frac" 'BEGIN { printf "%d", int(f * 100 + 0.5) }' || true)"
     [[ -z "$pct" ]] && pct=0
-    if grep -q 'MUTED' <<<"$line"; then
+    if grep -qF '[MUTED]' <<<"$line"; then
         qs ipc call osd volume "$pct" true
     else
         qs ipc call osd volume "$pct" false
@@ -50,7 +50,7 @@ output)
     # refresh instead of letting it lag behind hardware keys.
     qs ipc call quicksettings refresh >/dev/null 2>&1 || true
     # Muted speakers cannot play feedback; silence is the confirmation.
-    if [[ "$ACTION" == mute* ]] && wpctl get-volume @DEFAULT_AUDIO_SINK@ 2>/dev/null | grep -q '\[MUTED\]'; then
+    if [[ "$ACTION" == mute* ]] && wpctl get-volume @DEFAULT_AUDIO_SINK@ 2>/dev/null | grep -qF '[MUTED]'; then
         exit 0
     fi
     sound --replace audio-volume-change
@@ -62,7 +62,7 @@ input)
     unmute) wpctl set-mute @DEFAULT_AUDIO_SOURCE@ 0 ;;
     *) echo "volume: unknown action '$ACTION'" >&2; exit 2 ;;
     esac
-    if wpctl get-volume @DEFAULT_AUDIO_SOURCE@ 2>/dev/null | grep -q '\[MUTED\]'; then
+    if wpctl get-volume @DEFAULT_AUDIO_SOURCE@ 2>/dev/null | grep -qF '[MUTED]'; then
         qs ipc call osd mic true
     else
         qs ipc call osd mic false

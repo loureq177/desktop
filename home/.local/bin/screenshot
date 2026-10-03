@@ -90,7 +90,7 @@ fi
 play_sound camera-shutter
 
 exec 200>&-
-wl-copy -t image/png <"$FILE"
+wl-copy -t image/png <"$FILE" || true
 
 # One action, not two identical buttons: "default" is also what a click on the
 # notification body invokes, so it covers both paths without a duplicate.

@@ -10,7 +10,30 @@ if ! flock -n 200; then
 fi
 
 CONFIG_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/rclone/backup.conf"
-[[ -f "$CONFIG_FILE" ]] && source "$CONFIG_FILE"
+# Only honour known keys — never `source` the file, so a stray/modified
+# backup.conf cannot execute arbitrary shell code with user privileges.
+if [[ -f "$CONFIG_FILE" ]]; then
+    while IFS='=' read -r key value || [[ -n "$key" ]]; do
+        # Trim surrounding whitespace; skip blanks/comments.
+        key="${key#"${key%%[![:space:]]*}"}"
+        key="${key%"${key##*[![:space:]]}"}"
+        [[ -z "$key" || "$key" == \#* ]] && continue
+        case "$key" in
+        RCLONE_BACKUP_SOURCE|RCLONE_BACKUP_REMOTE)
+            value="${value#"${value%%[![:space:]]*}"}"
+            value="${value%"${value##*[![:space:]]}"}"
+            # Strip one layer of matching single/double quotes, if present.
+            if [[ ${#value} -ge 2 ]]; then
+                case "$value" in
+                \"*\"|\'*\') value="${value:1:-1}" ;;
+                esac
+            fi
+            printf -v "$key" '%s' "$value"
+            ;;
+        *) echo "rclone-sync: ignoring unknown key '$key' in $CONFIG_FILE" >&2 ;;
+        esac
+    done <"$CONFIG_FILE"
+fi
 
 source_root="${RCLONE_BACKUP_SOURCE:-$HOME}"
 remote_root="${RCLONE_BACKUP_REMOTE:-google-drive-backup:mlorenc-backup}"
