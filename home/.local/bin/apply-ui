@@ -85,6 +85,7 @@ def main():
     ly = cfg.get("ly", {})
     launcher = cfg.get("launcher", {})
     notif = cfg.get("notifications", {})
+    anim = cfg.get("animations", {})
 
     # Fail fast on malformed colours: the converters below slice a 6-digit hex
     # and would otherwise die mid-generation with an opaque ValueError, after
@@ -141,12 +142,15 @@ def main():
                 )
     # $font in hypr/ui.conf is unquoted: '#' starts a Hypr comment and would
     # truncate the value (Lua/QML use lua_escape and stay intact). Fail fast.
-    _fam = fnt.get("family")
-    if isinstance(_fam, str) and "#" in _fam:
-        raise SystemExit(
-            f"\033[31m[ERROR]\033[0m ui.toml: [font] family must not contain '#'"
-            f" (truncated as comment in hypr/ui.conf), got {_fam!r}."
-        )
+    # Checked for all font slots for consistency, even though only `family`
+    # is interpolated into ui.conf today.
+    for _fkey in ("family", "mono", "ui"):
+        _fam = fnt.get(_fkey)
+        if isinstance(_fam, str) and "#" in _fam:
+            raise SystemExit(
+                f"\033[31m[ERROR]\033[0m ui.toml: [font] {_fkey} must not contain '#'"
+                f" (truncated as comment in hypr/ui.conf), got {_fam!r}."
+            )
 
     def _fail_num(label, key, got, want):
         raise SystemExit(
@@ -165,6 +169,7 @@ def main():
         (fnt, "font", (("size_bar", "int"), ("size_menu", "int"), ("size_notif", "int"), ("size_cursor", "int"), ("size_grid", "int"), ("size_search", "int"), ("size_bar_icon", "int"))),
         (launcher, "launcher", (("width", "int"), ("height", "int"))),
         (notif, "notifications", (("width", "int"), ("top_margin", "int"))),
+        (anim, "animations", (("duration_fast", "int"), ("duration_normal", "int"), ("duration_smooth", "int"), ("flick_deceleration", "int"), ("max_flick_velocity", "int"))),
         (hl_lock, "hyprlock", (("blur_size", "int"), ("blur_passes", "int"), ("noise", "num"), ("contrast", "num"), ("brightness", "num"), ("vibrancy", "num"), ("vibrancy_darkness", "num"))),
         (ly, "ly", (("frame_delay", "int"),)),
     )
@@ -514,7 +519,7 @@ unset_alt   = {{ fg = "{critical}", bg = "{bg_card}" }}
 
 [indicator]
 parent  = {{ fg = "{accent_blue}", bg = "{bg_hover}" }}
-current = {{ fg = "#ffffff", bg = "{bg_hover}", bold = true }}
+current = {{ fg = "{text_main}", bg = "{bg_hover}", bold = true }}
 preview = {{ underline = true }}
 
 [status]
@@ -648,7 +653,21 @@ Singleton {{
 	readonly property color accent: accentBlue
 	readonly property color selectionBg: Qt.rgba(accent.r, accent.g, accent.b, 0.12)
 	readonly property color selectionBorder: Qt.rgba(accent.r, accent.g, accent.b, 0.45)
+
+	// Animation durations & physics matching Hyprland curves.
+	readonly property int animFast: {anim.get("duration_fast", 150)}
+	readonly property int animNormal: {anim.get("duration_normal", 250)}
+	readonly property int animSmooth: {anim.get("duration_smooth", 280)}
+	readonly property int flickDecel: {anim.get("flick_deceleration", 1500)}
+	readonly property int maxFlickVel: {anim.get("max_flick_velocity", 6000)}
+
+	// Cubic bezier control points matching Hyprland:
+	// myBezier = { { 0.05, 0.9 }, { 0.1, 1.05 } } (popin with subtle 1.05 bounce)
+	readonly property var myBezier: [ 0.05, 0.9, 0.1, 1.05, 1.0, 1.0 ]
+	// easeOutQuint = { { 0.23, 1 }, { 0.32, 1 } }
+	readonly property var easeOutQuint: [ 0.23, 1.0, 0.32, 1.0, 1.0, 1.0 ]
 }}
+
 """
     r7 = safe_write(config_dir / "quickshell" / "Theme.qml", qs_theme, check_mode)
 

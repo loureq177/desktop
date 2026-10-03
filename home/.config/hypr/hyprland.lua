@@ -40,16 +40,21 @@ local programs = {
 		-- Apps
 		discord = { exe = "discord", class = "discord", ws = "discord" },
 		spotify = { exe = "flatpak run com.spotify.Client", class = "spotify", ws = "spotify" },
-		-- Progressive web apps provisioned by FreshArchLinux
-		-- (configure_progressive_webapps in fresh_archlinux.sh).
-		-- Not stored in this repo; entries below degrade gracefully
-		-- when the launchers are absent (no autostart, keybind still
-		-- toggles the workspace).
-		tasks = { exe = bin .. "/tasks", class = "tasks", ws = "tasks" },
-		calendar = { exe = bin .. "/calendar", class = "calendar", ws = "calendar" },
-		mail = { exe = bin .. "/gmail", class = "gmail", ws = "mail" },
-		gemini = { exe = bin .. "/gemini", class = "gemini", ws = "gemini" },
-		whatsapp = { exe = bin .. "/whatsapp", class = "whatsapp", ws = "whatsapp" },
+		tasks = { exe = bin .. "/tasks", class = "webapps", title = ".*Tasks.*", ws = "tasks" },
+		calendar = {
+			exe = bin .. "/calendar",
+			class = "webapps",
+			title = ".*Calendar.*",
+			ws = "calendar",
+		},
+		mail = { exe = bin .. "/gmail", class = "webapps", title = ".*Gmail.*", ws = "mail" },
+		gemini = { exe = bin .. "/gemini", class = "webapps", title = ".*Gemini.*", ws = "gemini" },
+		whatsapp = {
+			exe = bin .. "/whatsapp",
+			class = "webapps",
+			title = ".*WhatsApp.*",
+			ws = "whatsapp",
+		},
 		yazi = { exe = "ghostty --class=yazi -e yazi", class = "yazi", ws = "yazi" },
 		notes = {
 			exe = "ghostty --class=notes --working-directory="
@@ -91,10 +96,6 @@ for _, var in ipairs({ "XDG_CURRENT_DESKTOP", "XDG_SESSION_DESKTOP" }) do
 end
 hl.env("GDK_BACKEND", "wayland,x11")
 hl.env("QT_QPA_PLATFORM", "wayland;xcb")
--- Quickshell-only icon theme (no side effects on other Qt apps, unlike
--- QT_QPA_PLATFORMTHEME). Without this Quickshell falls back to hicolor and
--- LauncherView iconPath() misses Papirus icons. Keep in sync with
--- ui.toml [theme] icon (see shell.qml pragma IconTheme fallback).
 hl.env("QS_ICON_THEME", ui.theme.icon)
 hl.env("SDL_VIDEODRIVER", "wayland")
 hl.env("CLUTTER_BACKEND", "wayland")
@@ -103,31 +104,23 @@ for _, prefix in ipairs({ "XCURSOR", "HYPRCURSOR" }) do
 	hl.env(prefix .. "_THEME", ui.theme.cursor)
 	hl.env(prefix .. "_SIZE", tostring(ui.font.size_cursor))
 end
--- No QT_QPA_PLATFORMTHEME on purpose: qt6ct is not installed and forcing
--- it makes Qt fall back to a light Fusion palette. Qt apps follow the
--- portal prefer-dark setting instead.
 hl.env("ELECTRON_OZONE_PLATFORM_HINT", "auto")
 hl.env("SAL_USE_VCLPLUGIN", "gtk3")
 
 -- ─── Autostart ───────────────────────────────────────────────────────────────
 
-local gsettings = "gsettings set org.gnome.desktop.interface"
-
--- Shell single-quote escaping for values interpolated into hl.exec_cmd
--- strings (theme/font names come from generated ui.lua). Without this a
--- quote in a name breaks out of the quoting and executes arbitrary commands.
-local function shq(s)
-	return "'" .. tostring(s):gsub("'", "'\"'\"'") .. "'"
+local function gset(key, val)
+	return string.format("gsettings set org.gnome.desktop.interface %s '%s'", key, val)
 end
 
 hl.on("hyprland.start", function()
 	local cmds = {
-		gsettings .. " cursor-theme " .. shq(ui.theme.cursor),
-		gsettings .. " icon-theme " .. shq(ui.theme.icon),
-		gsettings .. " font-name " .. shq(ui.font.ui),
-		gsettings .. " color-scheme 'prefer-dark'",
-		gsettings .. " gtk-theme " .. shq(ui.theme.gtk),
-		gsettings .. " monospace-font-name " .. shq(ui.font.mono .. " 12"),
+		gset("cursor-theme", ui.theme.cursor),
+		gset("icon-theme", ui.theme.icon),
+		gset("font-name", ui.font.ui),
+		gset("color-scheme", "prefer-dark"),
+		gset("gtk-theme", ui.theme.gtk),
+		gset("monospace-font-name", ui.font.mono .. " 12"),
 
 		"dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP HYPRLAND_INSTANCE_SIGNATURE AQ_DRM_DEVICES VK_DRIVER_FILES VK_ICD_FILENAMES LIBVA_DRIVER_NAME GSK_RENDERER",
 		"systemctl --user start hyprland-session.target",
@@ -208,93 +201,11 @@ hl.config({
 
 hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })
 
--- 4-finger drag moves the active window like SUPER + left-click drag.
--- Tiled windows pop out to floating while dragging and dock back to tiling
--- on release. Already-floating windows stay floating.
--- The cursor rides along with the window, like a real mouse drag.
--- SUPER + click bind below is left untouched.
-local drag_move_scale = 2.5
-local drag_win = nil
-local drag_was_tiled = false
-local function drag_move_by(delta)
-	if delta == nil then
-		return
-	end
-	local dx = math.floor(delta.x * drag_move_scale)
-	local dy = math.floor(delta.y * drag_move_scale)
-	if dx == 0 and dy == 0 then
-		return
-	end
-	if drag_win ~= nil then
-		hl.dispatch(hl.dsp.window.move({ x = dx, y = dy, relative = true, window = drag_win }))
-	else
-		hl.dispatch(hl.dsp.window.move({ x = dx, y = dy, relative = true }))
-	end
-	-- Keep the cursor glued to the dragged window, like a real mouse drag.
-	local pos = hl.get_cursor_pos()
-	if pos ~= nil then
-		hl.dispatch(hl.dsp.cursor.move({ x = pos.x + dx, y = pos.y + dy }))
-	end
-end
-local function drag_move_begin()
-	local w = hl.get_active_window()
-	if w == nil then
-		drag_win = nil
-		drag_was_tiled = false
-		return
-	end
-	drag_win = w
-	drag_was_tiled = not w.floating
-	if w.fullscreen ~= 0 then
-		hl.dispatch(hl.dsp.window.fullscreen({ action = "unset", window = w }))
-	end
-	if drag_was_tiled then
-		hl.dispatch(hl.dsp.window.float({ action = "set", window = w }))
-	end
-end
-local function drag_move_end()
-	if drag_win ~= nil and drag_was_tiled then
-		hl.dispatch(hl.dsp.window.float({ action = "unset", window = drag_win }))
-	end
-	drag_win = nil
-	drag_was_tiled = false
-end
-hl.gesture({
-	fingers = 4,
-	direction = "swipe",
-	action = {
-		start = function(e)
-			drag_move_begin()
-			drag_move_by(e.delta)
-		end,
-		update = function(e)
-			drag_move_by(e.delta)
-		end,
-		finish = function(_e)
-			drag_move_end()
-		end,
-	},
-})
-
 -- ─── Special workspace swipe ────────────────────────────────────────────────
--- Native finger-tracked gestures (CSpecialWorkspaceGesture in Hyprland source):
--- only one vertical 3-finger gesture can exist at a time and it needs a fixed
--- workspace name, so re-register it when visibility changes. Swipe down hides
--- the visible special workspace, swipe up restores the most recently used one.
--- Never creates an empty special workspace.
---
--- Open specials are tracked as an MRU stack (most recent first), rebuilt from
--- window focus history on every relevant event. Closing a special instead of
--- hiding it drops it from the stack, so swipe-up falls back to the next most
--- recently used open special.
---
--- While a special workspace is visible, the 3-finger horizontal workspace
--- swipe is replaced with discrete left/right gestures that cycle through the
--- open specials. Hiding the special restores the normal workspace swipe.
 
 local special_gesture_mode = nil -- "down", "up" or nil
 local special_gesture_name = nil
-local special_history = {} -- MRU stack of short names, most recent first
+local special_history = {}
 local special_cycle_active = false
 
 local function special_short_name(ws)
@@ -337,10 +248,6 @@ local function set_special_gesture(mode, name)
 	end
 end
 
--- All non-empty special workspaces, most recently focused first. Sources are
--- merged so a workspace is never lost: window focus history gives the order,
--- the previous stack covers transients, and the workspace list is the safety
--- net for anything still open.
 local function list_open_specials()
 	local seen = {}
 	local ordered = {}
@@ -355,8 +262,6 @@ local function list_open_specials()
 		end
 	end
 	local wins = hl.get_windows()
-	-- Note: lower focus_history_id means more recently focused (0 is the
-	-- focused window); windows missing from history sort as least recent.
 	local function focus_age(w)
 		local id = w.focus_history_id
 		if id == nil or id < 0 then
@@ -385,13 +290,7 @@ local function list_open_specials()
 	return ordered
 end
 
--- Cycling between specials is a plain toggle_special dispatch: the native
--- special workspace gesture finger-tracks the card between the running
--- animation's begun/goal offsets, so any horizontal In/Out restyling here
--- would make the next swipe-down hide slide sideways instead of down. The
--- vertical card styles (bottom In, top Out) keep the gesture tracking
--- coherent: cards always rise from the bottom and sink back down.
-local function cycle_special(step)
+local function cycle_special(delta)
 	local visible = special_short_name(visible_special_workspace())
 	if visible == nil then
 		return
@@ -400,10 +299,6 @@ local function cycle_special(step)
 	if #list < 2 then
 		return
 	end
-	-- Stable alphabetical order so left/right are exact inverses.
-	-- MRU order (with visible pinned first + target promoted on every
-	-- cycle) makes step +1 bounce between the 2 most recent entries
-	-- while step -1 walks the whole list backwards.
 	table.sort(list)
 	local idx = 1
 	for i, name in ipairs(list) do
@@ -412,8 +307,7 @@ local function cycle_special(step)
 			break
 		end
 	end
-	local target = list[((idx - 1 + step) % #list) + 1]
-	-- The cycled-to special is now the most recently used.
+	local target = list[((idx - 1 + delta) % #list) + 1]
 	for i, name in ipairs(special_history) do
 		if name == target then
 			table.remove(special_history, i)
@@ -433,7 +327,6 @@ local function cycle_special_prev()
 end
 
 -- While a special workspace is visible, horizontal motion cycles specials
--- instead of switching regular workspaces underneath the overlay.
 local function set_cycle_gestures(enabled)
 	if enabled == special_cycle_active then
 		return
@@ -555,9 +448,6 @@ hl.animation({ leaf = "fadeIn", speed = 1.73, bezier = "almostLinear" })
 hl.animation({ leaf = "fadeOut", speed = 1.46, bezier = "almostLinear" })
 hl.animation({ leaf = "fade", speed = 4, bezier = "default" })
 hl.animation({ leaf = "layers", speed = 3.81, bezier = "easeOutQuint" })
--- Layer open/close: style "fade" only fades the surface in place. The default
--- "popin" scaled the whole surface around its centre, which read as the dim
--- spreading out from the middle of the screen on every quickshell backdrop.
 hl.animation({ leaf = "layersIn", speed = 1.79, bezier = "almostLinear", style = "fade" })
 hl.animation({ leaf = "layersOut", speed = 1.39, bezier = "almostLinear", style = "fade" })
 hl.animation({ leaf = "fadeLayersIn", speed = 1.79, bezier = "almostLinear" })
@@ -601,9 +491,6 @@ hl.window_rule({
 	float = true,
 })
 
--- Skip autostart when the launcher does not exist (e.g. standalone
--- dotfiles clone without the FreshArchLinux PWA step). The workspace
--- and keybind still work; only the auto-spawn is skipped.
 local function autostart_for(exe)
 	local prog = exe:match("^(%S+)")
 	if prog ~= nil and prog:find("/", 1, true) ~= nil then
@@ -623,7 +510,11 @@ for _, app in pairs(programs.special) do
 		on_created_empty = autostart_for(app.exe),
 		gaps_out = 48,
 	})
-	hl.window_rule({ match = { class = app.class }, workspace = ws })
+	if app.title then
+		hl.window_rule({ match = { class = app.class, title = app.title }, workspace = ws })
+	else
+		hl.window_rule({ match = { class = app.class }, workspace = ws })
+	end
 end
 
 hl.window_rule({
@@ -634,7 +525,6 @@ hl.window_rule({
 	idle_inhibit = "always",
 })
 
--- Prevent screen locking / sleeping when any window is fullscreen (movies, YouTube, etc.)
 hl.window_rule({
 	name = "idle-inhibit-fullscreen",
 	match = { class = ".*" },
@@ -649,18 +539,7 @@ hl.window_rule({
 	center = true,
 })
 
--- System updater: ghostty ignores --class, so match the window title
--- (ghostty titles `-e` windows with the command, i.e. ".../sysupdate").
-hl.window_rule({
-	name = "sysupdate",
-	match = { title = "sysupdate$" },
-	float = true,
-	center = true,
-})
-
 -- ─── Keybindings ────────────────────────────────────────────────────────────────
--- Every bind carries a description so the SUPER + ? cheatsheet
--- (quickshell keybindings menu, fed by `hyprctl binds`) can list it.
 
 local function b(keys, desc, dispatcher, opts)
 	opts = opts or {}
@@ -668,116 +547,7 @@ local function b(keys, desc, dispatcher, opts)
 	hl.bind(keys, dispatcher, opts)
 end
 
-local cmds = {
-	-- ─── Essential ──────────────────────────────────────────────────────────────
-	["SUPER + RETURN"] = { programs.terminal, "Terminal" },
-	["SUPER + B"] = { programs.browser, "Browser" },
-	["SUPER + space"] = { programs.launcher, "Launch apps" },
-	["SUPER + slash"] = { "qs ipc call shell toggle keybindings ''", "Keybindings" },
-
-	--  ─── Notifications (quickshell) ────────────────────────────────────────────
-	["SUPER + comma"] = { "qs ipc call notifications dismissLatest", "Close latest notification" },
-	["SUPER + N"] = { "qs ipc call notifications toggle", "Toggle notification center" },
-	["SUPER + V"] = { "qs ipc call shell toggle clipboard ''", "Clipboard history" },
-
-	-- ─── System ─────────────────────────────────────────────────────────────────
-	["SUPER + A"] = { "qs ipc call quicksettings toggle", "Quick settings" },
-	["SUPER + W"] = { "qs ipc call weather toggle", "Weather" },
-	["SUPER + E"] = { "qs ipc call shell toggle launcher emoji", "Emoji picker" },
-	["SUPER + I"] = { "~/.local/bin/caffeine-toggle", "Toggle idle inhibit" },
-	["SUPER + P"] = { "hyprpicker -a --notify", "Color picker" },
-	["SUPER + R"] = { "qs ipc call shell toggle launcher run", "Run commands" },
-	["SUPER + escape"] = { "hyprlock", "Lock system" },
-	["SUPER + SHIFT + escape"] = { "qs ipc call shell toggle launcher power", "System menu" },
-
-	-- ─── Dictation ────────────────────────────────────────────────────────────────
-	["SUPER + D"] = { "~/.local/bin/dictation", "Dictation" },
-
-	-- ─── Direct Capture ─────────────────────────────────────────────────────────
-	["print"] = { "~/.local/bin/screenshot region", "Screenshot (region)" },
-	["SHIFT + print"] = { "~/.local/bin/screenshot fullscreen", "Screenshot (full)" },
-	["SUPER + SHIFT + R"] = {
-		"~/.local/bin/record-screen region",
-		"Screen record (region)",
-	},
-	["SUPER + CTRL + R"] = {
-		"~/.local/bin/record-screen fullscreen",
-		"Screen record (fullscreen)",
-	},
-	["SUPER + O"] = { "~/.local/bin/ocr", "OCR from screen" },
-	["SUPER + CTRL + S"] = {
-		"~/.local/bin/screenshot fullscreen",
-		"Screenshot (full)",
-	},
-}
-
-for bind, entry in pairs(cmds) do
-	b(bind, entry[2], hl.dsp.exec_cmd(entry[1]))
-end
-
-local special_apps = {
-	["SUPER + SHIFT + C"] = { "calendar", "Calendar" },
-	["SUPER + SHIFT + T"] = { "tasks", "Tasks" },
-	["SUPER + SHIFT + W"] = { "whatsapp", "WhatsApp" },
-	["SUPER + SHIFT + E"] = { "mail", "Mail" },
-	["SUPER + SHIFT + D"] = { "discord", "Discord" },
-	["SUPER + SHIFT + S"] = { "spotify", "Spotify" },
-	["SUPER + SHIFT + A"] = { "gemini", "Gemini" },
-	["SUPER + SHIFT + F"] = { "yazi", "File manager (yazi)" },
-	["SUPER + SHIFT + N"] = { "notes", "Notes" },
-	["SUPER + SHIFT + Q"] = { "calculator", "Calculator" },
-	["SUPER + SHIFT + B"] = { "btop", "Activity Monitor" },
-}
-
-for bind, entry in pairs(special_apps) do
-	b(bind, entry[2], hl.dsp.workspace.toggle_special(programs.special[entry[1]].ws))
-end
-
--- ─── Action menu submap (Quick settings) ────────────────────────────────────
-
-local function close_quicksettings_and_reset()
-	hl.exec_cmd("qs ipc call quicksettings close")
-	hl.dispatch(hl.dsp.submap("reset"))
-end
-
-local function action_bind(key, desc, cmd_or_dsp)
-	local function run_action()
-		hl.exec_cmd("qs ipc call quicksettings close")
-		if type(cmd_or_dsp) == "string" then
-			hl.exec_cmd(cmd_or_dsp)
-		elseif type(cmd_or_dsp) == "function" then
-			cmd_or_dsp()
-		else
-			hl.dispatch(cmd_or_dsp)
-		end
-		hl.dispatch(hl.dsp.submap("reset"))
-	end
-
-	b(key, desc, run_action)
-	hl.bind("SHIFT + " .. key, run_action)
-end
-
-hl.define_submap("actions", function()
-	-- Controls matching Quick settings tiles
-	action_bind("w", "Wifi controls", "qs ipc call quicksettings openWifi")
-	action_bind("b", "Bluetooth controls", "qs ipc call quicksettings openBluetooth")
-	action_bind("a", "Audio controls", hl.dsp.workspace.toggle_special(programs.special.audio.ws))
-	action_bind("j", "Power controls", hl.dsp.workspace.toggle_special(programs.special.jolt.ws))
-	action_bind("s", "Toggle battery saver", "~/.local/bin/power-save")
-	action_bind("n", "Toggle night light", "qs ipc call quicksettings toggleNightLight")
-	action_bind("d", "Toggle Do Not Disturb", "qs ipc call notifications toggleDnd")
-	action_bind("i", "Toggle idle inhibit", "~/.local/bin/caffeine-toggle")
-	action_bind("m", "Toggle audio mute", "~/.local/bin/volume output mute-toggle")
-	action_bind("p", "System power menu", "qs ipc call shell summon launcher power")
-	action_bind("r", "Toggle screen record", "~/.local/bin/record-screen region")
-
-	-- Dismiss / cancel submap
-	b("escape", "Close quick settings", close_quicksettings_and_reset)
-	b("space", "Close quick settings", close_quicksettings_and_reset)
-	b("return", "Close quick settings", close_quicksettings_and_reset)
-	b("q", "Close quick settings", close_quicksettings_and_reset)
-	b("SUPER + A", "Close quick settings", close_quicksettings_and_reset)
-end)
+-- ─── Navigation ─────────────────────────────────────────────────────────
 
 b("SUPER + Q", "Close window", hl.dsp.window.close())
 b("SUPER + F", "Toggle fullscreen", hl.dsp.window.fullscreen())
@@ -811,8 +581,60 @@ for i = 1, 9 do
 	)
 end
 
-b("SUPER + mouse:272", "Drag window", hl.dsp.window.drag(), { mouse = true })
-b("SUPER + mouse:273", "Resize window (mouse)", hl.dsp.window.resize(), { mouse = true })
+local cmds = {
+	-- ─── Essential ──────────────────────────────────────────────────────────────
+
+	["SUPER + RETURN"] = { programs.terminal, "Terminal" },
+	["SUPER + B"] = { programs.browser, "Browser" },
+
+	--  ─── Quick menus ────────────────────────────────────────────
+
+	["SUPER + space"] = { programs.launcher, "Launch apps" },
+	["SUPER + A"] = { "qs ipc call quicksettings toggle", "Quick settings" },
+	["SUPER + N"] = { "qs ipc call notifications toggle", "Toggle notification center" },
+	["SUPER + comma"] = { "qs ipc call notifications dismissLatest", "Close latest notification" },
+	["SUPER + W"] = { "qs ipc call weather toggle", "Weather" },
+	["SUPER + E"] = { "qs ipc call shell toggle launcher emoji", "Emoji picker" },
+	["SUPER + V"] = { "qs ipc call shell toggle clipboard ''", "Clipboard history" },
+	["SUPER + R"] = { "qs ipc call shell toggle launcher run", "Run commands" },
+	["SUPER + escape"] = { "hyprlock", "Lock system" },
+	["SUPER + SHIFT + escape"] = { "qs ipc call shell toggle launcher power", "Power menu" },
+	["SUPER + slash"] = { "qs ipc call shell toggle keybindings ''", "Keybindings" },
+
+	-- ─── Capture ─────────────────────────────────────────────────────────
+
+	["SUPER + D"] = { "~/.local/bin/dictation", "Dictation" },
+	["print"] = { "~/.local/bin/screenshot region", "Screenshot (region)" },
+	["SUPER + P"] = { "hyprpicker -a --notify", "Color picker" },
+	["SHIFT + print"] = { "~/.local/bin/screenshot fullscreen", "Screenshot (full)" },
+	["SUPER + O"] = { "~/.local/bin/ocr", "OCR from screen" },
+	["SUPER + CTRL + S"] = {
+		"~/.local/bin/screenshot fullscreen",
+		"Screenshot (full)",
+	},
+}
+
+for bind, entry in pairs(cmds) do
+	b(bind, entry[2], hl.dsp.exec_cmd(entry[1]))
+end
+
+local special_apps = {
+	["SUPER + SHIFT + C"] = { "calendar", "Calendar" },
+	["SUPER + SHIFT + T"] = { "tasks", "Tasks" },
+	["SUPER + SHIFT + W"] = { "whatsapp", "WhatsApp" },
+	["SUPER + SHIFT + E"] = { "mail", "Mail" },
+	["SUPER + SHIFT + D"] = { "discord", "Discord" },
+	["SUPER + SHIFT + S"] = { "spotify", "Spotify" },
+	["SUPER + SHIFT + A"] = { "gemini", "Gemini" },
+	["SUPER + SHIFT + F"] = { "yazi", "File manager (yazi)" },
+	["SUPER + SHIFT + N"] = { "notes", "Notes" },
+	["SUPER + SHIFT + Q"] = { "calculator", "Calculator" },
+	["SUPER + SHIFT + B"] = { "btop", "Activity Monitor" },
+}
+
+for bind, entry in pairs(special_apps) do
+	b(bind, entry[2], hl.dsp.workspace.toggle_special(programs.special[entry[1]].ws))
+end
 
 local media = {
 	{ "XF86AudioRaiseVolume", "~/.local/bin/volume output raise", true, "Volume up" },
@@ -832,8 +654,6 @@ local media = {
 	{ "XF86MonBrightnessUp", "~/.local/bin/brightness up", true, "Brightness up" },
 	{ "XF86MonBrightnessDown", "~/.local/bin/brightness down", true, "Brightness down" },
 	{ "XF86TouchpadToggle", "~/.local/bin/touchpad toggle", nil, "Touchpad toggle" },
-	{ "XF86TouchpadOn", "~/.local/bin/touchpad on", nil, "Touchpad on" },
-	{ "XF86TouchpadOff", "~/.local/bin/touchpad off", nil, "Touchpad off" },
 }
 
 for _, m in ipairs(media) do

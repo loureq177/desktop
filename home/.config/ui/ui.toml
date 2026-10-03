@@ -38,6 +38,17 @@ active = 1.0        # Active window opacity in Hyprland
 inactive = 0.92     # Inactive window opacity in Hyprland
 dim_special = 0.20  # Dimming for special workspace in Hyprland & backdrops in Quickshell
 
+[animations]
+# Animation speeds & kinetic scrolling matching Hyprland curves:
+# - myBezier (popin windows): cubic-bezier(0.05, 0.9, 0.1, 1.05)
+# - easeOutQuint (layers & drawers): cubic-bezier(0.23, 1, 0.32, 1)
+duration_fast = 150        # Quick feedback / hover / fade (ms)
+duration_normal = 250      # Window popin / dialog transitions (ms)
+duration_smooth = 280      # Layer slide / drawer transitions (ms)
+flick_deceleration = 1500   # Kinetic scrolling deceleration (px/s^2)
+max_flick_velocity = 6000   # Max kinetic scrolling speed (px/s)
+
+
 [hyprlock]
 # Lockscreen backdrop built from a blurred screenshot. Values land in
 # hypr/ui.conf as $hyprlock_* and are consumed by hyprlock.conf.

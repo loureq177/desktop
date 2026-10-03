@@ -1,5 +1,6 @@
 // --- CONFIGURATION ---
-vec4 TRAIL_COLOR = iCurrentCursorColor; // can change to eg: vec4(0.2, 0.6, 1.0, 0.5);
+// Trail color follows the cursor color at runtime (initialized in mainImage,
+// as GLSL ES requires constant expressions for global initializers).
 const float DURATION = 0.2; // total animation time
 const float TRAIL_SIZE = 0.8; // 0.0 = all corners move together. 1.0 = max smear (leading corners jump instantly)
 const float THRESHOLD_MIN_DISTANCE = 1.5; // min distance to show trail (units of cursor height)
@@ -12,13 +13,6 @@ const float FADE_EXPONENT = 5.0; // exponent for fade gradient along the trail
 
 // --- CONSTANTS for easing functions ---
 const float PI = 3.14159265359;
-const float C1_BACK = 1.70158;
-const float C2_BACK = C1_BACK * 1.525;
-const float C3_BACK = C1_BACK + 1.0;
-const float C4_ELASTIC = (2.0 * PI) / 3.0;
-const float C5_ELASTIC = (2.0 * PI) / 4.5;
-const float SPRING_STIFFNESS = 9.0;
-const float SPRING_DAMPING = 0.9;
 
 // --- EASING FUNCTIONS ---
 
@@ -120,12 +114,12 @@ float getSdfConvexQuad(in vec2 p, in vec2 v1, in vec2 v2, in vec2 v3, in vec2 v4
     return s * sqrt(d);
 }
 
-vec2 normalize(vec2 value, float isPosition) {
+vec2 cursor_normalize(vec2 value, float isPosition) {
     return (value * 2.0 - (iResolution.xy * isPosition)) / iResolution.y;
 }
 
 float antialising(float distance, float blurAmount) {
-  return 1. - smoothstep(0., normalize(vec2(blurAmount, blurAmount), 0.).x, distance);
+  return 1. - smoothstep(0., cursor_normalize(vec2(blurAmount, blurAmount), 0.).x, distance);
 }
 
 // Determines animation duration based on a corner's alignment with the move direction(dot product)
@@ -150,11 +144,11 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord){
     #endif
 
     // normalization & setup(-1, 1 coords)
-    vec2 vu = normalize(fragCoord, 1.);
+    vec2 vu = cursor_normalize(fragCoord, 1.);
     vec2 offsetFactor = vec2(-.5, 0.5);
 
-    vec4 currentCursor = vec4(normalize(iCurrentCursor.xy, 1.), normalize(iCurrentCursor.zw, 0.));
-    vec4 previousCursor = vec4(normalize(iPreviousCursor.xy, 1.), normalize(iPreviousCursor.zw, 0.));
+    vec4 currentCursor = vec4(cursor_normalize(iCurrentCursor.xy, 1.), cursor_normalize(iCurrentCursor.zw, 0.));
+    vec4 previousCursor = vec4(cursor_normalize(iPreviousCursor.xy, 1.), cursor_normalize(iPreviousCursor.zw, 0.));
 
     vec2 centerCC = currentCursor.xy - (currentCursor.zw * offsetFactor);
     vec2 halfSizeCC = currentCursor.zw * 0.5;
@@ -270,7 +264,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord){
         // tiny epsilon to avoid division by zero if moveVec is (0,0)
         float fadeProgress = clamp(dot(fragVec, moveVec) / (dot(moveVec, moveVec) + 1e-6), 0.0, 1.0);
 
-        vec4 trail = TRAIL_COLOR;
+        vec4 trail = iCurrentCursorColor; // can change to eg: vec4(0.2, 0.6, 1.0, 0.5)
         
         float effectiveBlur = BLUR;
         if (BLUR < 2.5) {
