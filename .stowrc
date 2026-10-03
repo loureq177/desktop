@@ -16,4 +16,5 @@
 --ignore=Brewfile
 --ignore=local\.lua
 --ignore=config\.local
+--ignore=antigravity-cli/settings\.json
 

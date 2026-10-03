@@ -29,7 +29,14 @@ OS="$(uname -s)"
 # failing the pipeline under `set -euo pipefail` (grep exits 1 on no match).
 pkglist() { sed 's/\r$//' "$1" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' | grep -vE '^(#|$)' || true; }
 # Single package-list install: same pipe everywhere so flags can't drift.
-pac_install() { pkglist "$1" | sudo pacman -S --noconfirm --needed -; }
+# Skip pacman when the list is empty/comment-only: `pacman -S -` with empty
+# stdin would otherwise run with no packages.
+pac_install() {
+    local pkgs
+    pkgs="$(pkglist "$1")"
+    [[ -n "$pkgs" ]] || return 0
+    printf '%s\n' "$pkgs" | sudo pacman -S --noconfirm --needed -
+}
 # One stow entry point: same flags + log line on both OS branches.
 restow_pkg() {
     _log_info "Applying $1 Stow configs..."
