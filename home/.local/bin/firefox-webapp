@@ -1,0 +1,108 @@
+#!/usr/bin/env bash
+# Helper to launch all web apps in a single shared, lightweight chromeless Firefox instance
+set -euo pipefail
+
+APP_NAME="${1:-}"
+APP_URL="${2:-}"
+shift 2 || true
+
+if [ -z "$APP_NAME" ] || [ -z "$APP_URL" ]; then
+  echo "Usage: firefox-webapp <app-name> <app-url> [args...]" >&2
+  exit 1
+fi
+
+if ! command -v firefox >/dev/null 2>&1; then
+  echo "firefox-webapp: firefox not found in PATH" >&2
+  exit 127
+fi
+
+DATA_DIR="${XDG_DATA_HOME:-$HOME/.local/share}"
+PROFILE_DIR="$DATA_DIR/firefox-webapps"
+
+mkdir -p "$PROFILE_DIR/chrome"
+
+# Provision userChrome.css / user.js only when content differs, so manual
+# tweaks to the shared profile survive restarts and mtime stays stable.
+provision_if_changed() {
+    local dest="$1"
+    local tmp
+    tmp=$(mktemp "$(dirname "$dest")/.provision.XXXXXX")
+    cat >"$tmp"
+    if ! cmp -s "$tmp" "$dest" 2>/dev/null; then
+        mv -f "$tmp" "$dest"
+    else
+        rm -f "$tmp"
+    fi
+}
+
+# Provision or update userChrome.css to hide browser chrome (tabs, urlbar, menubar)
+provision_if_changed "$PROFILE_DIR/chrome/userChrome.css" << 'EOF'
+/* Clean standalone PWA app window */
+#TabsToolbar,
+#nav-bar,
+#PersonalToolbar,
+#toolbar-menubar,
+#sidebar-box,
+#sidebar-main {
+    visibility: collapse !important;
+}
+EOF
+
+# Provision user.js with fast rendering and memory optimizations
+provision_if_changed "$PROFILE_DIR/user.js" << 'EOF'
+// Shared webapps profile settings
+user_pref("toolkit.legacyUserProfileCustomizations.stylesheets", true);
+
+// Window & Chrome
+user_pref("browser.tabs.inTitlebar", 0);
+user_pref("browser.shell.checkDefaultBrowser", false);
+user_pref("browser.tabs.warnOnClose", false);
+user_pref("browser.newtabpage.enabled", false);
+user_pref("browser.aboutConfig.showWarning", false);
+user_pref("browser.startup.homepage_override.mstone", "ignore");
+user_pref("browser.rights.3.shown", true);
+
+// Fast Rendering & Instant Paint
+user_pref("nglayout.initialpaint.delay", 0);
+user_pref("content.notify.interval", 100000);
+user_pref("browser.startup.preXulSkeletonUI", false);
+
+// Process & Memory Optimization
+user_pref("dom.ipc.processCount", 2);
+user_pref("media.webspeech.synth.enabled", false);
+user_pref("accessibility.force_disabled", 1);
+
+// Hardware Acceleration & Wayland
+user_pref("gfx.webrender.all", true);
+user_pref("layers.acceleration.force-enabled", true);
+user_pref("widget.use-aspect-ratio", 1);
+
+// Session & Disk I/O Optimization
+user_pref("browser.sessionstore.resume_from_crash", false);
+user_pref("browser.sessionstore.max_resumed_crashes", 0);
+user_pref("browser.sessionstore.interval", 3600000);
+
+// App Features & Permissions
+user_pref("dom.webnotifications.enabled", true);
+user_pref("media.navigator.permission.disabled", false);
+
+// Disable Telemetry & Background Bloat
+user_pref("toolkit.telemetry.enabled", false);
+user_pref("toolkit.telemetry.unified", false);
+user_pref("experiments.enabled", false);
+user_pref("experiments.supported", false);
+user_pref("datareporting.healthreport.uploadEnabled", false);
+user_pref("datareporting.policy.dataSubmissionEnabled", false);
+user_pref("app.shield.optoutstudies.enabled", false);
+user_pref("app.normandy.enabled", false);
+EOF
+
+# Launch or open new window in the shared webapps instance.
+# APP_NAME gives each wrapper a distinct WM name (Hyprland rules still match
+# the shared --class="webapps"); the profile stays shared on purpose.
+exec env MOZ_APP_REMOTINGNAME="webapps" \
+  firefox \
+  --profile "$PROFILE_DIR" \
+  --class="webapps" \
+  --name="$APP_NAME" \
+  --new-window "$APP_URL" "$@"
