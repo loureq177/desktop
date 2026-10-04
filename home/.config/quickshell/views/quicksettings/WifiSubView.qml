@@ -60,13 +60,10 @@ Item {
 		return "󰤯";
 	}
 
-	// Quickshell WifiSecurityType has no named "unknown" member; value 10 is
-	// returned for networks whose security the backend could not classify.
+	// Networks the backend could not classify report WifiSecurityType.Unknown.
 	// Treat it as open (no password prompt), like WifiSecurityType.Open.
-	readonly property int wifiSecurityUnknown: 10
-
 	function isSecured(sec) {
-		return sec !== WifiSecurityType.Open && sec !== wifiSecurityUnknown;
+		return sec !== WifiSecurityType.Open && sec !== WifiSecurityType.Unknown;
 	}
 
 	function refreshList(): void {
@@ -302,6 +299,7 @@ Item {
 
 		// ─── Header ───────────────────────────────────────────────────
 		SubViewHeader {
+			Layout.fillWidth: true
 			title: "Wi-Fi"
 			subtitle: !root.wifiEnabled ? "Off" : (root.scanning ? "Scanning…" : (root.networkList.length + " networks found"))
 			enabledState: root.wifiEnabled
@@ -309,7 +307,6 @@ Item {
 			onBackClicked: root.backRequested()
 			onScanClicked: root.rescan()
 			onToggleClicked: root.toggleWifi()
-			onCloseClicked: root.closeRequested()
 		}
 
 		// Divider
@@ -368,23 +365,39 @@ Item {
 					readonly property bool isConnected: modelData.connected
 					readonly property bool isConnecting: root.connectingSsid === modelData.name
 
-					color: isSelected
-						? (isConnected ? Qt.rgba(Theme.accentBlue.r, Theme.accentBlue.g, Theme.accentBlue.b, 0.20) : Theme.selectionBg)
-						: (delegateArea.containsMouse ? Theme.bgHover : (isConnected ? Qt.rgba(Theme.accentBlue.r, Theme.accentBlue.g, Theme.accentBlue.b, 0.08) : Theme.bgMain))
+					color: delegateArea.containsMouse
+						? Theme.bgHover
+						: (isConnected ? Qt.rgba(Theme.accentBlue.r, Theme.accentBlue.g, Theme.accentBlue.b, 0.08) : Theme.bgMain)
 
-					border.color: isSelected
-						? Theme.selectionBorder
-						: (isConnected ? Qt.rgba(Theme.accentBlue.r, Theme.accentBlue.g, Theme.accentBlue.b, 0.40) : (delegateArea.containsMouse ? Theme.textDim : Theme.border))
+					border.color: isConnected
+						? Qt.rgba(Theme.accentBlue.r, Theme.accentBlue.g, Theme.accentBlue.b, 0.40)
+						: (delegateArea.containsMouse ? Theme.textDim : Theme.border)
 					border.width: 1
 
 					Behavior on color { ColorAnimation { duration: 100 } }
 					Behavior on border.color { ColorAnimation { duration: 100 } }
+
+					Rectangle {
+						anchors.fill: parent
+						radius: parent.radius
+						color: isConnected ? Qt.rgba(Theme.accentBlue.r, Theme.accentBlue.g, Theme.accentBlue.b, 0.20) : Theme.selectionBg
+						border.color: Theme.selectionBorder
+						border.width: 1
+						opacity: isSelected ? 1.0 : 0.0
+						visible: opacity > 0.0
+						z: 0
+
+						Behavior on opacity {
+							NumberAnimation { duration: 140; easing.type: Easing.OutCubic }
+						}
+					}
 
 					MouseArea {
 						id: delegateArea
 						anchors.fill: parent
 						hoverEnabled: true
 						cursorShape: Qt.PointingHandCursor
+						z: 1
 						onClicked: {
 							root.currentIndex = index;
 							root.selectItem(index);

@@ -1,5 +1,5 @@
 // System status singleton: tracks global hardware and session state
-// (memory, GPU, screen recording, screencast streams, caffeine, power-save).
+// (memory, GPU, screen recording, screencast streams, awake, power-save).
 // Prevents duplicate polling and process spawning across multiple monitors.
 pragma Singleton
 import Quickshell
@@ -19,13 +19,13 @@ Singleton {
 	property bool dictating: false
 	property string dictationState: "idle"
 
-	readonly property bool caffeineActive: caffeineMarker.loaded
+	readonly property bool awakeActive: awakeMarker.loaded
 	readonly property bool powerSaveActive: powerSaveMarker.loaded
 	readonly property bool dictatingActive: dictating || dictationState !== "idle" || dictationMarker.loaded
 
 	function refresh(): void {
 		gpuStatus.reload();
-		caffeineMarker.reload();
+		awakeMarker.reload();
 		powerSaveMarker.reload();
 		dictationMarker.reload();
 		memView.reload();
@@ -58,7 +58,7 @@ Singleton {
 		onTriggered: {
 			if (root.gpuDevicePath !== "")
 				gpuStatus.reload();
-			caffeineMarker.reload();
+			awakeMarker.reload();
 			powerSaveMarker.reload();
 			dictationMarker.reload();
 		}
@@ -119,8 +119,8 @@ Singleton {
 	}
 
 	FileView {
-		id: caffeineMarker
-		path: Quickshell.env("XDG_RUNTIME_DIR") + "/caffeine_inhibit.pid"
+		id: awakeMarker
+		path: Quickshell.env("XDG_RUNTIME_DIR") + "/awake_inhibit.pid"
 		printErrors: false
 	}
 

@@ -95,7 +95,7 @@ PanelWindow {
 			to: 1.0
 			duration: Theme.animNormal
 			easing.type: Easing.BezierSpline
-			easing.bezierCurve: Theme.myBezier
+			easing.bezierCurve: Theme.easeOutQuint
 		}
 	}
 
@@ -159,7 +159,9 @@ PanelWindow {
 		MouseArea {
 			anchors.fill: parent
 			enabled: root.shown
-			onClicked: root.close()
+			// Dismiss on press, same layer-surface split reason as the
+			// SideDrawer/WeatherView backdrops.
+			onPressed: root.close()
 		}
 	}
 
@@ -175,9 +177,12 @@ PanelWindow {
 		radius: Theme.roundingWindow
 		clip: true
 
-		// Absorb mouse clicks inside the dialog card
+		// Absorb mouse clicks inside the dialog card.
+		// Disabled with the dialog so clicks during the exit animation
+		// fall through instead of dying on a leaving card.
 		MouseArea {
 			anchors.fill: parent
+			enabled: root.shown
 		}
 
 		ColumnLayout {

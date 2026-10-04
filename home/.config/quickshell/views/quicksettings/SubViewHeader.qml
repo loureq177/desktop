@@ -1,6 +1,7 @@
-// Shared header for quick settings sub-menus (Wi-Fi, Bluetooth).
-// Contains back button, title, subtitle, scan button with rotation,
-// toggle switch pill, and close button.
+// Shared header for quick settings sub-menus (Wi-Fi, Bluetooth, Capture).
+// Contains back button, title, and optional subtitle on the left,
+// with secondary controls (scan button, power switch) aligned to the right.
+// Sub-menus do not have a close button (user navigates back or clicks outside/ESC).
 import "../.."
 import "../../widgets"
 import QtQuick
@@ -13,15 +14,16 @@ RowLayout {
 	property string subtitle: ""
 	property bool enabledState: false
 	property bool isScanning: false
+	property bool showPowerSwitch: true
+	property bool showScan: true
 
 	signal backClicked()
 	signal scanClicked()
 	signal toggleClicked()
-	signal closeClicked()
 
 	Layout.fillWidth: true
 	Layout.preferredHeight: 34
-	spacing: 8
+	spacing: 10
 
 	// Back button
 	Rectangle {
@@ -51,7 +53,6 @@ RowLayout {
 
 	// Title & status
 	ColumnLayout {
-		Layout.fillWidth: true
 		spacing: 0
 
 		Text {
@@ -63,11 +64,17 @@ RowLayout {
 		}
 
 		Text {
+			visible: root.subtitle !== ""
 			text: root.subtitle
 			font.family: Theme.fontMono
 			font.pixelSize: Theme.fontSizeSmall - 2
 			color: root.isScanning ? Theme.accentBlue : Theme.textDim
 		}
+	}
+
+	// Spacer pushing controls to the far right
+	Item {
+		Layout.fillWidth: true
 	}
 
 	// Scan / Refresh button
@@ -78,7 +85,7 @@ RowLayout {
 		color: scanArea.containsMouse ? Theme.bgHover : "transparent"
 		border.color: scanArea.containsMouse ? Theme.textDim : Theme.border
 		border.width: 1
-		visible: root.enabledState
+		visible: root.showScan && root.enabledState
 
 		Text {
 			id: scanIcon
@@ -109,6 +116,7 @@ RowLayout {
 	// Power Switch Pill
 	Rectangle {
 		id: powerSwitch
+		visible: root.showPowerSwitch
 		Layout.preferredWidth: 44
 		Layout.preferredHeight: 24
 		radius: 12
@@ -117,7 +125,7 @@ RowLayout {
 		border.width: 1
 
 		Behavior on color { ColorAnimation { duration: 140 } }
-		Behavior on border.color { ColorAnimation { duration: 140 } }
+		Behavior on border.color { ColorAnimation { duration: 120 } }
 
 		Rectangle {
 			id: switchThumb
@@ -137,9 +145,5 @@ RowLayout {
 			cursorShape: Qt.PointingHandCursor
 			onClicked: root.toggleClicked()
 		}
-	}
-
-	CloseButton {
-		onClicked: root.closeClicked()
 	}
 }

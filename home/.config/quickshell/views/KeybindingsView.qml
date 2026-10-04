@@ -37,8 +37,7 @@ CenterModal {
 		"System & Tools",
 		"Capture & OCR",
 		"Clipboard & Selection",
-		"Notifications",
-		"Media & Hardware"
+		"Notifications"
 	]
 
 	readonly property var staticGestures: [
@@ -77,26 +76,16 @@ CenterModal {
 			arg: "",
 			order: 4,
 			keywords: "gesture gestures gesty swipe trackpad touchpad gładzik special scratchpad cycle next prev przełącz"
-		},
-		{
-			category: "Gestures",
-			chord: "Touchpad 4-Finger Drag",
-			action: "Move active window",
-			dispatcher: "",
-			arg: "",
-			order: 5,
-			keywords: "gesture gestures gesty drag move window swipe 4 fingers trackpad touchpad gładzik float przesuń okno"
 		}
 	]
 
 	readonly property var categoryRules: [
-		{ cat: "Capture & OCR", match: ["screenshot", "screen recording", "ocr"] },
-		{ cat: "Media & Hardware", match: ["volume", "brightness", "microphone"] },
-		{ cat: "Essential", match: ["terminal", "browser", "launch apps", "keybindings", "system menu"] },
+		{ cat: "Capture & OCR", match: ["screenshot", "screen recording", "ocr", "color picker", "dictation"] },
+		{ cat: "Essential", match: ["terminal", "browser", "launch apps", "keybindings"] },
 		{ cat: "Notifications", match: ["notification", "do not disturb"] },
-		{ cat: "Clipboard & Selection", match: ["copy", "paste", "cut", "select all", "clipboard"] },
-		{ cat: "Special Workspaces", match: ["calendar", "tasks", "whatsapp", "mail", "discord", "spotify", "gemini", "yazi", "notes"] },
-		{ cat: "System & Tools", match: ["system update", "lock system", "idle inhibit", "color picker", "run commands", "emoji", "audio controls", "bluetooth", "calculator", "wifi", "power", "battery", "jolt", "activity monitor", "touchpad", "quick settings"] },
+		{ cat: "Clipboard & Selection", match: ["clipboard"] },
+		{ cat: "Special Workspaces", match: ["calendar", "tasks", "whatsapp", "mail", "discord", "spotify", "gemini", "yazi", "notes", "calculator", "activity monitor"] },
+		{ cat: "System & Tools", match: ["system update", "lock system", "idle inhibit", "run commands", "emoji", "audio controls", "bluetooth", "wifi", "power", "battery", "jolt", "touchpad", "quick settings", "weather"] },
 		{ cat: "Window Management", match: ["close window", "fullscreen", "split", "floating", "swap window", "resize window", "drag window"] },
 		{ cat: "Navigation & Workspaces", match: ["focus", "workspace"] }
 	]
@@ -117,11 +106,10 @@ CenterModal {
 		"Navigation & Workspaces": "pulpit pulpity przełącz nawigacja okna 1 2 3 4 5 6 7 8 9 [1..9]",
 		"Window Management": "okno okna zarządzanie przesuń zamknij",
 		"Special Workspaces": "pulpit specjalny scratchpad skróty",
-		"Capture & OCR": "zrzut ekranu nagrywanie przechwytywanie",
+		"Capture & OCR": "zrzut ekranu nagrywanie przechwytywanie kolor ocr dyktowanie",
 		"Clipboard & Selection": "schowek historia kopiuj wklej zaznacz",
-		"Media & Hardware": "dźwięk głośność jasność audio",
-		"Notifications": "powiadomienia powiadomienie 1 2 3 akcja",
-		"System & Tools": "system narzędzia aktualizacja blokada"
+		"Notifications": "powiadomienia powiadomienie",
+		"System & Tools": "system narzędzia aktualizacja blokada pogoda"
 	})
 
 	function getKeywords(cat, desc, chord) {
@@ -130,11 +118,10 @@ CenterModal {
 	}
 
 	readonly property var rankPriorities: ({
-		"Essential": { "Terminal": 1, "Browser": 2, "Launch apps": 3, "Keybindings": 4, "System menu": 5 },
-		"Capture & OCR": { "Screenshot (region)": 1, "Screenshot (fullscreen)": 2, "Screen recording (region)": 3, "Screen recording (fullscreen)": 4, "OCR from screen": 5 },
-		"Clipboard & Selection": { "Clipboard history": 1, "Copy": 2, "Paste": 3, "Cut": 4, "Select all": 5 },
-		"Media & Hardware": { "Volume up": 1, "Volume down": 2, "Volume mute": 3, "Microphone mute": 4, "Brightness up": 5, "Brightness down": 6 },
-		"Notifications": { "Close latest notification": 1, "Notification action": 2, "Notification action 1..3": 3, "Toggle Do Not Disturb": 4, "Toggle notification center": 5 }
+		"Essential": { "Terminal": 1, "Browser": 2, "Launch apps": 3, "Keybindings": 4 },
+		"Capture & OCR": { "Screenshot (region)": 1, "Screenshot (full)": 2, "Color picker": 3, "OCR from screen": 4, "Dictation": 5 },
+		"Clipboard & Selection": { "Clipboard history": 1 },
+		"Notifications": { "Close latest notification": 1, "Toggle notification center": 2 }
 	})
 
 	function itemRank(item) {
@@ -214,6 +201,9 @@ CenterModal {
 		if (entry.dispatcher === "exec" && entry.arg !== "") {
 			Quickshell.execDetached(["hyprctl", "dispatch", "exec", entry.arg]);
 			return true;
+		} else if (entry.dispatcher === "__lua" && entry.arg !== "") {
+			Quickshell.execDetached(["hyprctl", "dispatch", "__lua", entry.arg]);
+			return true;
 		} else if (entry.dispatcher !== "" && entry.dispatcher !== "lua" && entry.dispatcher !== "__lua" && entry.arg !== "") {
 			Quickshell.execDetached(["hyprctl", "dispatch", entry.dispatcher, entry.arg]);
 			return true;
@@ -283,18 +273,11 @@ CenterModal {
 					var keyMap = {
 						"comma": ",", "period": ".", "slash": "/", "space": "SPACE",
 						"return": "RETURN", "escape": "ESC", "print": "PRINT",
-						"mouse:272": "LMB (Drag)", "mouse:273": "RMB (Drag)",
-						"xf86audioraisevolume": "Volume Up", "xf86audiolowervolume": "Volume Down",
-						"xf86audiomute": "Volume Mute", "xf86audiomicmute": "Mic Mute",
-						"xf86monbrightnessup": "Brightness Up", "xf86monbrightnessdown": "Brightness Down",
-						"xf86touchpadtoggle": "Touchpad Toggle", "xf86touchpadon": "Touchpad On",
-						"xf86touchpadoff": "Touchpad Off", "[1..9]": "[1..9]", "[1..3]": "[1..3]"
+						"[1..9]": "[1..9]"
 					};
 
 					var workspaceSwitchSeen = false;
 					var workspaceMoveSeen = false;
-					var workspaceMoveSilentSeen = false;
-					var notifActionSeen = false;
 
 					for (var i = 0; i < binds.length; i++) {
 						var b = binds[i];
@@ -303,27 +286,22 @@ CenterModal {
 
 						var mask = b.modmask || 0;
 						var rawKey = (b.key || "").trim();
+						var rawLower = rawKey.toLowerCase();
+
+						// Filter out hardware keys (XF86*) and hardware switches
+						if (rawLower.indexOf("xf86") !== -1 || rawLower.indexOf("switch:") !== -1)
+							continue;
 
 						if (desc.indexOf("Switch to workspace ") === 0) {
 							if (workspaceSwitchSeen) continue;
 							workspaceSwitchSeen = true;
 							desc = "Switch to workspace 1..9";
 							rawKey = "[1..9]";
-						} else if (desc.indexOf("Move window silently to workspace ") === 0) {
-							if (workspaceMoveSilentSeen) continue;
-							workspaceMoveSilentSeen = true;
-							desc = "Move window silently to workspace 1..9";
-							rawKey = "[1..9]";
 						} else if (desc.indexOf("Move window to workspace ") === 0) {
 							if (workspaceMoveSeen) continue;
 							workspaceMoveSeen = true;
 							desc = "Move window to workspace 1..9";
 							rawKey = "[1..9]";
-						} else if (desc.indexOf("Notification action ") === 0) {
-							if (notifActionSeen) continue;
-							notifActionSeen = true;
-							desc = "Notification action 1..3";
-							rawKey = "[1..3]";
 						}
 
 						var mods = [];
@@ -334,10 +312,6 @@ CenterModal {
 
 						var keyLabel = keyMap[rawKey.toLowerCase()] || keyMap[rawKey] || rawKey.toUpperCase();
 						var chord = mods.concat([keyLabel]).join(" + ");
-						if (b.submap === "actions") {
-							if (desc === "Close quick settings") continue;
-							chord = "SUPER + A > " + (mods.length > 0 ? chord : keyLabel);
-						}
 						var keyId = chord + ":" + desc;
 
 						if (!seen[keyId]) {
@@ -347,8 +321,8 @@ CenterModal {
 								category: cat,
 								chord: chord,
 								action: desc,
-								dispatcher: (rawKey === "[1..9]" || rawKey === "[1..3]") ? "" : (b.dispatcher || ""),
-								arg: (rawKey === "[1..9]" || rawKey === "[1..3]") ? "" : (b.arg || ""),
+								dispatcher: (rawKey === "[1..9]") ? "" : (b.dispatcher || ""),
+								arg: (rawKey === "[1..9]") ? "" : (b.arg || ""),
 								keywords: window.getKeywords(cat, desc, chord)
 							});
 						}

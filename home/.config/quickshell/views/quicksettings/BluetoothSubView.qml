@@ -283,6 +283,7 @@ Item {
 
 		// ─── Header ───────────────────────────────────────────────────
 		SubViewHeader {
+			Layout.fillWidth: true
 			title: "Bluetooth"
 			subtitle: !root.btEnabled
 				? "Off"
@@ -292,7 +293,6 @@ Item {
 			onBackClicked: root.backRequested()
 			onScanClicked: root.startScan()
 			onToggleClicked: root.toggleBluetooth()
-			onCloseClicked: root.closeRequested()
 		}
 
 		// Divider
@@ -351,23 +351,39 @@ Item {
 					readonly property bool isConnected: modelData.connected
 					readonly property bool isTarget: root.targetDeviceAddress === modelData.address && root.actionStatus !== ""
 
-					color: isSelected
-						? (isConnected ? Qt.rgba(Theme.accentBlue.r, Theme.accentBlue.g, Theme.accentBlue.b, 0.20) : Theme.selectionBg)
-						: (delegateArea.containsMouse ? Theme.bgHover : (isConnected ? Qt.rgba(Theme.accentBlue.r, Theme.accentBlue.g, Theme.accentBlue.b, 0.08) : Theme.bgMain))
+					color: delegateArea.containsMouse
+						? Theme.bgHover
+						: (isConnected ? Qt.rgba(Theme.accentBlue.r, Theme.accentBlue.g, Theme.accentBlue.b, 0.08) : Theme.bgMain)
 
-					border.color: isSelected
-						? Theme.selectionBorder
-						: (isConnected ? Qt.rgba(Theme.accentBlue.r, Theme.accentBlue.g, Theme.accentBlue.b, 0.40) : (delegateArea.containsMouse ? Theme.textDim : Theme.border))
+					border.color: isConnected
+						? Qt.rgba(Theme.accentBlue.r, Theme.accentBlue.g, Theme.accentBlue.b, 0.40)
+						: (delegateArea.containsMouse ? Theme.textDim : Theme.border)
 					border.width: 1
 
 					Behavior on color { ColorAnimation { duration: 100 } }
 					Behavior on border.color { ColorAnimation { duration: 100 } }
+
+					Rectangle {
+						anchors.fill: parent
+						radius: parent.radius
+						color: isConnected ? Qt.rgba(Theme.accentBlue.r, Theme.accentBlue.g, Theme.accentBlue.b, 0.20) : Theme.selectionBg
+						border.color: Theme.selectionBorder
+						border.width: 1
+						opacity: isSelected ? 1.0 : 0.0
+						visible: opacity > 0.0
+						z: 0
+
+						Behavior on opacity {
+							NumberAnimation { duration: 140; easing.type: Easing.OutCubic }
+						}
+					}
 
 					MouseArea {
 						id: delegateArea
 						anchors.fill: parent
 						hoverEnabled: true
 						cursorShape: Qt.PointingHandCursor
+						z: 1
 						onClicked: {
 							root.currentIndex = index;
 							root.selectItem(index);

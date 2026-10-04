@@ -34,8 +34,14 @@ PanelWindow {
 	exclusiveZone: 0
 
 	WlrLayershell.layer: WlrLayer.Overlay
-	WlrLayershell.keyboardFocus: shown ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+	WlrLayershell.keyboardFocus: shown ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
 	WlrLayershell.namespace: "quickshell"
+
+	HyprlandFocusGrab {
+		active: root.shown
+		windows: [ root ]
+		onCleared: root.dismissed()
+	}
 
 	screen: Quickshell.screens.find(s => s.name === Hyprland.focusedMonitor?.name) ?? Quickshell.screens[0] ?? null
 
@@ -45,12 +51,14 @@ PanelWindow {
 		left: true
 		right: true
 	}
+	margins {
+		top: Theme.barMarginY * 2 + Theme.barHeight
+	}
 
 	onShownChanged: {
 		if (shown) {
 			slideOut.stop();
 			slideIn.restart();
-			card.forceActiveFocus();
 			chartCanvas.requestPaint();
 			root.opened();
 		} else {
@@ -124,7 +132,9 @@ PanelWindow {
 		MouseArea {
 			anchors.fill: parent
 			enabled: root.shown
-			onClicked: root.dismissed()
+			onPressed: {
+				root.dismissed();
+			}
 		}
 	}
 
@@ -132,7 +142,7 @@ PanelWindow {
 	Rectangle {
 		id: card
 		anchors.horizontalCenter: parent.horizontalCenter
-		y: Theme.notifTopMargin - root.slide
+		y: (Theme.notifTopMargin - (Theme.barMarginY * 2 + Theme.barHeight)) - root.slide
 		width: Math.min(576, root.width - 32)
 		height: weatherCol.implicitHeight + Theme.paddingCard * 2
 		color: Theme.bgCard
@@ -162,9 +172,12 @@ PanelWindow {
 			}
 		}
 
-		// Absorb mouse clicks inside the card
+		// Absorb mouse clicks inside the card.
+		// Disabled with the panel so clicks during the slide-out
+		// animation fall through instead of dying on a leaving card.
 		MouseArea {
 			anchors.fill: parent
+			enabled: root.shown
 			hoverEnabled: true
 		}
 

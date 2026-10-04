@@ -24,7 +24,7 @@ PanelWindow {
 
 	readonly property string icon: kind === "brightness" ? "󰃟"
 		: kind === "mic" ? (muted ? "󰍭" : "󰍬")
-		: kind === "touchpad" ? "󰟸"
+		: kind === "touchpad" ? (muted ? "󰟴" : "󰟸")
 		: (muted ? "󰝟" : value <= 1 ? "󰕿" : value <= 50 ? "󰖀" : "󰕾")
 
 	// Overlapping updates restart the hide timer; values update in place.
@@ -181,8 +181,9 @@ PanelWindow {
 		function mic(isMuted: bool): void {
 			win.show("mic", undefined, isMuted);
 		}
-		function touchpad(isEnabled: bool): void {
-			win.show("touchpad", 0, !isEnabled);
+		function touchpad(state: string): void {
+			var enabled = (state === "true" || state === "1" || state.toLowerCase() === "on");
+			win.show("touchpad", 0, !enabled);
 		}
 	}
 }

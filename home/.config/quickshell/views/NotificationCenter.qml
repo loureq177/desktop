@@ -6,6 +6,7 @@
 import ".."
 import "../widgets"
 import Quickshell.Services.Notifications
+import QtQml.Models
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -17,9 +18,55 @@ SideDrawer {
 	cardHeight: Math.min(680, win.height - Theme.notifTopMargin - 20)
 	property int currentIndex: 0
 
+	// Incremental visual mirror of history (role: entry). Row ops are
+	// incremental, so dismissing one entry never rebuilds the rest —
+	// rapid successive dismissals keep every collapse animation alive.
+	// Gone rows linger until the sweep drops them after their exit.
+	ListModel {
+		id: centerModel
+	}
+
+	function clampIndex(): void {
+		if (win.currentIndex >= centerModel.count)
+			win.currentIndex = Math.max(0, centerModel.count - 1);
+	}
+
+	function syncCenter(): void {
+		var h = Notifications.history;
+		var have = {};
+		var i;
+		for (i = 0; i < centerModel.count; i++)
+			have[centerModel.get(i).nid] = true;
+		for (i = h.length - 1; i >= 0; i--) {
+			if (h[i] && !have[String(h[i].id)])
+				centerModel.insert(0, { nid: String(h[i].id), entry: h[i] });
+		}
+		win.clampIndex();
+		var liveIds = {};
+		for (i = 0; i < h.length; i++) {
+			if (h[i])
+				liveIds[String(h[i].id)] = true;
+		}
+		for (i = 0; i < centerModel.count; i++) {
+			if (!liveIds[centerModel.get(i).nid]) {
+				sweepTimer.restart();
+				return;
+			}
+		}
+	}
+
 	onOpened: {
 		QuickSettings.close();
 		Weather.close();
+		var validHistory = [];
+		for (var i = 0; i < Notifications.history.length; i++) {
+			var item = Notifications.history[i];
+			if (item && (item.summary || item.body || item.appName || item.image))
+				validHistory.push(item);
+		}
+		if (validHistory.length !== Notifications.history.length)
+			Notifications.history = validHistory;
+		win.syncCenter();
 		win.currentIndex = 0;
 		centerList.forceActiveFocus();
 	}
@@ -28,8 +75,26 @@ SideDrawer {
 	Connections {
 		target: Notifications
 		function onHistoryChanged() {
-			if (win.currentIndex >= Notifications.history.length)
-				win.currentIndex = Math.max(0, Notifications.history.length - 1);
+			win.syncCenter();
+		}
+	}
+
+	// Drops exit-animated rows once their collapse finished.
+	Timer {
+		id: sweepTimer
+		interval: 280
+		onTriggered: {
+			var h = Notifications.history;
+			var ids = {};
+			for (var i = 0; i < h.length; i++) {
+				if (h[i])
+					ids[String(h[i].id)] = true;
+			}
+			for (var k = centerModel.count - 1; k >= 0; k--) {
+				if (!ids[centerModel.get(k).nid])
+					centerModel.remove(k);
+			}
+			win.clampIndex();
 		}
 	}
 
@@ -43,38 +108,39 @@ SideDrawer {
 				Layout.preferredHeight: 32
 				spacing: 10
 
-				// Title + badge
-				RowLayout {
-					Layout.fillWidth: true
-					spacing: 8
+				// Title
+				Text {
+					text: "Notifications"
+					font.family: Theme.fontFamily
+					font.pixelSize: Theme.fontSize + 1
+					font.bold: true
+					color: Theme.textMain
+				}
+
+				// Badge
+				Rectangle {
+					visible: Notifications.history.length > 0
+					implicitWidth: countLabel.implicitWidth + 12
+					implicitHeight: 20
+					radius: height / 2
+					color: Theme.selectionBg
+					border.color: Theme.selectionBorder
+					border.width: 1
 
 					Text {
-						text: "Notifications"
-						font.family: Theme.fontFamily
-						font.pixelSize: Theme.fontSize + 1
+						id: countLabel
+						anchors.centerIn: parent
+						text: String(Notifications.history.length)
+						font.family: Theme.fontMono
+						font.pixelSize: Theme.fontSizeSmall - 1
 						font.bold: true
-						color: Theme.textMain
+						color: Theme.accentBlue
 					}
+				}
 
-					Rectangle {
-						visible: Notifications.history.length > 0
-						implicitWidth: countLabel.implicitWidth + 12
-						implicitHeight: 20
-						radius: height / 2
-						color: Theme.selectionBg
-						border.color: Theme.selectionBorder
-						border.width: 1
-
-						Text {
-							id: countLabel
-							anchors.centerIn: parent
-							text: String(Notifications.history.length)
-							font.family: Theme.fontMono
-							font.pixelSize: Theme.fontSizeSmall - 1
-							font.bold: true
-							color: Theme.accentBlue
-						}
-					}
+				// Push Clear All and Close button to the far right corner
+				Item {
+					Layout.fillWidth: true
 				}
 
 				// Clear all button
@@ -134,7 +200,7 @@ SideDrawer {
 			// ─── Notification List ──────────────────────────────────────
 			ListView {
 				id: centerList
-				visible: Notifications.history.length > 0
+				visible: centerModel.count > 0
 				Layout.fillWidth: true
 				Layout.fillHeight: true
 				clip: true
@@ -142,14 +208,21 @@ SideDrawer {
 				flickDeceleration: Theme.flickDecel
 				maximumFlickVelocity: Theme.maxFlickVel
 				spacing: 8
-				model: Notifications.history
+				model: centerModel
 				currentIndex: win.currentIndex
 				highlightFollowsCurrentItem: true
 				highlightMoveDuration: 0
 				focus: true
 
+				function rowId(idx): var {
+					if (idx < 0 || idx >= centerModel.count)
+						return -1;
+					var row = centerModel.get(idx);
+					return row && row.entry ? row.entry.id : -1;
+				}
+
 				Keys.onPressed: event => {
-					var count = Notifications.history.length;
+					var count = centerModel.count;
 					if (event.key === Qt.Key_J || event.key === Qt.Key_Down) {
 						if (count > 0) {
 							win.currentIndex = Math.min(count - 1, win.currentIndex + 1);
@@ -164,13 +237,12 @@ SideDrawer {
 						event.accepted = true;
 					} else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
 						if (count > 0 && win.currentIndex >= 0 && win.currentIndex < count) {
-							Notifications.activate(Notifications.history[win.currentIndex].id);
+							Notifications.activate(centerList.rowId(win.currentIndex));
 						}
 						event.accepted = true;
 					} else if (event.key === Qt.Key_X) {
 						if (count > 0 && win.currentIndex >= 0 && win.currentIndex < count) {
-							var idToDismiss = Notifications.history[win.currentIndex].id;
-							Notifications.dismissEntry(idToDismiss);
+							Notifications.dismissEntry(centerList.rowId(win.currentIndex));
 							if (win.currentIndex >= count - 1) {
 								win.currentIndex = Math.max(0, count - 2);
 							}
@@ -196,24 +268,30 @@ SideDrawer {
 
 				delegate: Item {
 					id: entryWrap
-					required property var modelData
+					required property var entry
 					required property int index
-					property bool dismissing: false
+					// Gone from history (✕, X, SUPER+,, clear): collapse in
+					// place; the sweep drops the row after the animation.
+					// Derives from the notifying history array, so rapid
+					// successive dismissals never rebuild surviving rows.
+					readonly property string nid: entry ? String(entry.id) : ""
+					readonly property bool gone: {
+						var h = Notifications.history;
+						for (var i = 0; i < h.length; i++) {
+							if (h[i] && String(h[i].id) === entryWrap.nid)
+								return false;
+						}
+						return true;
+					}
 
 					width: ListView.view.width
-					implicitHeight: dismissing ? 0 : card.implicitHeight
+					implicitHeight: gone ? 0 : card.implicitHeight
 					clip: true
 
 					Behavior on implicitHeight {
-						enabled: entryWrap.dismissing
 						NumberAnimation {
 							duration: 200
 							easing.type: Easing.OutCubic
-							onRunningChanged: {
-								if (!running && entryWrap.dismissing) {
-									Notifications.dismissEntry(modelData.id);
-								}
-							}
 						}
 					}
 
@@ -223,27 +301,25 @@ SideDrawer {
 						anchors.right: parent.right
 						anchors.rightMargin: (centerList.ScrollBar.vertical && centerList.ScrollBar.vertical.visible) ? 10 : 0
 						anchors.top: parent.top
-						notif: modelData
+						notif: entry
 						isSelected: index === win.currentIndex
 						isToast: false
 						showTime: true
 
-						opacity: entryWrap.dismissing ? 0.0 : 1.0
-						transform: Translate {
-							x: entryWrap.dismissing ? 60 : 0
-							Behavior on x { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
-						}
+						// Fade in place + top-anchored collapse wipes the card
+						// bottom-to-top inside the panel. No sideways slide:
+						// entries must not exit like toasts.
+						opacity: entryWrap.gone ? 0.0 : 1.0
 						Behavior on opacity {
-							enabled: entryWrap.dismissing
 							NumberAnimation { duration: 180; easing.type: Easing.OutCubic }
 						}
 
 						onActivated: {
 							win.currentIndex = index;
-							Notifications.activate(modelData.id);
+							Notifications.activate(entry.id);
 						}
 						onDismissed: {
-							entryWrap.dismissing = true;
+							Notifications.dismissEntry(entry.id);
 						}
 					}
 				}
@@ -251,7 +327,7 @@ SideDrawer {
 
 			// ─── Empty State ────────────────────────────────────────────
 			Item {
-				visible: Notifications.history.length === 0
+				visible: centerModel.count === 0
 				Layout.fillWidth: true
 				Layout.fillHeight: true
 

@@ -12,6 +12,11 @@ Singleton {
 
 	property bool panelOpen: false
 
+	onPanelOpenChanged: {
+		if (root.panelOpen)
+			Notifications.hideToasts();
+	}
+
 	// Parsed Open-Meteo response
 	property var report: null
 	property var current: null

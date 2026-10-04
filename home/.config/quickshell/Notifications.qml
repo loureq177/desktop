@@ -1,5 +1,7 @@
 // Notification service: owns org.freedesktop.Notifications via NotificationServer.
-// Toasts survive focus changes, new windows, and opening/closing the center.
+// Toasts survive focus changes and new windows. Opening any panel (center,
+// quick settings, weather, launcher, clipboard, keybindings) drops the
+// visual toast stack for good; history and live senders are kept regardless.
 // Non-critical toasts expire after toastTimeoutMs; critical ones stay until
 // dismissed. Everything is kept in history regardless.
 // Critical notifications always pop and never expire. Non-critical popups are
@@ -38,6 +40,14 @@ Singleton {
 	// would otherwise fork one process per notification.
 	property int lastSoundAt: 0
 
+	// Opening the center hides visible toasts for good (they must not pop
+	// back when the center closes). Other panels cover themselves
+	// (QuickSettings, Weather, shell views).
+	onCenterOpenChanged: {
+		if (root.centerOpen)
+			root.hideToasts();
+	}
+
 	function playSound(): void {
 		var now = Date.now();
 		if (now - root.lastSoundAt < 250)
@@ -60,12 +70,14 @@ Singleton {
 		};
 	}
 
-	function removeToast(id: int): void {
+	function removeToast(id: var): void {
 		delete root.toastArrivedAt[id];
+		var idStr = String(id);
 		var kept = [];
 		for (var i = 0; i < root.toasts.length; i++) {
-			if (root.toasts[i] && root.toasts[i].id !== id)
-				kept.push(root.toasts[i]);
+			var t = root.toasts[i];
+			if (t && String(t.id) !== idStr)
+				kept.push(t);
 		}
 		root.toasts = kept;
 	}
@@ -78,10 +90,11 @@ Singleton {
 		return root.toasts.length > 0 && root.toasts[0] ? root.toasts[0].id : -1;
 	}
 
-	function liveById(id: int): var {
+	function liveById(id: var): var {
+		var idStr = String(id);
 		var vals = server.trackedNotifications.values;
 		for (var i = 0; i < vals.length; i++) {
-			if (vals[i] && vals[i].id === id)
+			if (vals[i] && String(vals[i].id) === idStr)
 				return vals[i];
 		}
 		return null;
@@ -109,10 +122,12 @@ Singleton {
 	// Center entries: dismiss the live notification (if any) and drop the
 	// history snapshot, so the ✕ works on dead entries too.
 	function removeHistory(id: var): void {
+		var idStr = String(id);
 		var kept = [];
 		for (var i = 0; i < root.history.length; i++) {
-			if (root.history[i] && root.history[i].id !== id)
-				kept.push(root.history[i]);
+			var h = root.history[i];
+			if (h && String(h.id) !== idStr)
+				kept.push(h);
 		}
 		root.history = kept;
 	}
@@ -180,18 +195,20 @@ Singleton {
 	// Arrival timestamp of a notification by id, from the history snapshot.
 	// Toasts use it so the toast and the center card show the same time
 	// (the toast would otherwise show its render time).
-	function historyTimeById(id: int): var {
+	function historyTimeById(id: var): var {
+		var idStr = String(id);
 		for (var i = 0; i < root.history.length; i++) {
-			if (root.history[i] && root.history[i].id === id)
+			if (root.history[i] && String(root.history[i].id) === idStr)
 				return root.history[i].time;
 		}
 		return null;
 	}
 
 	// Snapshot lookup by id (stable source once the sender is gone).
-	function historyById(id: int): var {
+	function historyById(id: var): var {
+		var idStr = String(id);
 		for (var i = 0; i < root.history.length; i++) {
-			if (root.history[i] && root.history[i].id === id)
+			if (root.history[i] && String(root.history[i].id) === idStr)
 				return root.history[i];
 		}
 		return null;
@@ -283,8 +300,10 @@ Singleton {
 	function toggle(): void {
 		if (root.centerOpen)
 			root.closeCenter();
-		else
+		else {
+			QuickSettings.close();
 			root.centerOpen = true;
+		}
 	}
 
 	function closeCenter(): void {
@@ -296,6 +315,15 @@ Singleton {
 		for (var i = 0; i < vals.length; i++)
 			root.safeDismiss(vals[i]);
 		root.toasts = [];
+	}
+
+	// Drop the visual toast stack without touching history or live
+	// senders: opening a panel slides the toast out and it never comes
+	// back, while center action buttons stay live.
+	function hideToasts(): void {
+		root.toastArrivedAt = {};
+		if (root.toasts.length > 0)
+			root.toasts = [];
 	}
 
 	function toggleDnd(): void {
@@ -320,6 +348,8 @@ Singleton {
 		root.history = [];
 	}
 
+	// Removal from history is enough: the center's visual model keeps the
+	// row until its collapse animation finishes (same for ✕, X, SUPER+,).
 	function dismissLatest(): void {
 		var targetId = -1;
 		var t = root.latestToast();
@@ -340,8 +370,10 @@ Singleton {
 	function toastTimeoutFor(t): int {
 		if (t.urgency === NotificationUrgency.Critical || t.expireTimeout === 0)
 			return 0; // 0 = never auto-expire
+		// expireTimeout is in seconds per the spec (docs v0.3.1); the
+		// sweeper below works in milliseconds.
 		if (t.expireTimeout > 0)
-			return t.expireTimeout;
+			return Math.round(t.expireTimeout * 1000);
 		return root.toastTimeoutMs;
 	}
 
@@ -408,12 +440,20 @@ Singleton {
 		inlineReplySupported: true
 
 		onNotification: n => {
+			if (!n) return;
+			var summary = (n.summary || "").trim();
+			var body = (n.body || "").trim();
+			var appName = (n.appName || n.desktopEntry || "").trim();
+			if (summary === "" && body === "" && appName === "" && !n.image)
+				return;
+
 			n.tracked = true;
 			var isReload = (n.lastGeneration === true);
 			var now = Date.now();
 			var filtered = [];
+			var nIdStr = String(n.id);
 			for (var i = 0; i < root.history.length; i++) {
-				if (root.history[i] && root.history[i].id !== n.id)
+				if (root.history[i] && String(root.history[i].id) !== nIdStr)
 					filtered.push(root.history[i]);
 			}
 			root.history = [root.snapshot(n, now)].concat(filtered).slice(0, root.historyLimit);
@@ -468,6 +508,9 @@ Singleton {
 		}
 		function dismissToasts(): void {
 			root.dismissToasts();
+		}
+		function hideToasts(): void {
+			root.hideToasts();
 		}
 		function dismissLatest(): void {
 			root.dismissLatest();

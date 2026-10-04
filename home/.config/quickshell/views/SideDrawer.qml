@@ -21,10 +21,14 @@ PanelWindow {
 	property int cardHeight: Math.min(680, root.height - Theme.notifTopMargin - 20)
 	signal opened()
 	signal dismissed()
+	signal drawerClosed()
 
 	// 0 = on screen; width + margin = fully off the right edge.
 	property int slide: root.cardWidth + Theme.notifRightMargin
 	property real backdropOpacity: 0.0
+	// When true, the next hide snaps shut with no animation (screen-freezing
+	// callers such as the capture tools arm it via QuickSettings.closeInstant).
+	property bool instantHide: false
 
 	default property alias body: bodySlot.data
 
@@ -37,8 +41,13 @@ PanelWindow {
 		if (shown) {
 			slideOut.stop();
 			slideIn.restart();
-			card.forceActiveFocus();
 			opened();
+		} else if (root.instantHide) {
+			slideIn.stop();
+			slideOut.stop();
+			root.slide = root.cardWidth + Theme.notifRightMargin;
+			root.backdropOpacity = 0.0;
+			root.drawerClosed();
 		} else {
 			slideIn.stop();
 			slideOut.restart();
@@ -71,6 +80,12 @@ PanelWindow {
 	ParallelAnimation {
 		id: slideOut
 
+		onRunningChanged: {
+			if (!running && !root.shown) {
+				root.drawerClosed();
+			}
+		}
+
 		NumberAnimation {
 			target: root
 			property: "slide"
@@ -89,11 +104,17 @@ PanelWindow {
 		}
 	}
 
-	property int keyboardFocusMode: WlrKeyboardFocus.Exclusive
+	property int keyboardFocusMode: WlrKeyboardFocus.OnDemand
 
 	WlrLayershell.layer: WlrLayer.Overlay
 	WlrLayershell.keyboardFocus: shown ? keyboardFocusMode : WlrKeyboardFocus.None
 	WlrLayershell.namespace: "quickshell"
+
+	HyprlandFocusGrab {
+		active: root.shown
+		windows: [ root ]
+		onCleared: root.dismissed()
+	}
 
 	screen: Quickshell.screens.find(s => s.name === Hyprland.focusedMonitor?.name) ?? Quickshell.screens[0] ?? null
 
@@ -102,6 +123,9 @@ PanelWindow {
 		bottom: true
 		left: true
 		right: true
+	}
+	margins {
+		top: Theme.barMarginY * 2 + Theme.barHeight
 	}
 
 	property bool dismissOnEsc: true
@@ -131,7 +155,9 @@ PanelWindow {
 		MouseArea {
 			anchors.fill: parent
 			enabled: root.shown
-			onClicked: root.dismissed()
+			onPressed: {
+				root.dismissed();
+			}
 		}
 	}
 
@@ -139,7 +165,7 @@ PanelWindow {
 		id: card
 
 		x: parent.width - width - Theme.notifRightMargin + root.slide
-		y: Theme.notifTopMargin
+		y: Theme.notifTopMargin - (Theme.barMarginY * 2 + Theme.barHeight)
 		width: root.cardWidth
 		height: root.cardHeight
 		color: Theme.bgCard
@@ -147,7 +173,6 @@ PanelWindow {
 		border.width: Theme.borderSize
 		radius: Theme.roundingWindow
 		clip: true
-		focus: true
 
 		Keys.onEscapePressed: event => {
 			if (root.dismissOnEsc) {
@@ -157,8 +182,11 @@ PanelWindow {
 		}
 
 		// Absorb clicks inside the panel so they don't reach the backdrop.
+		// Disabled with the drawer so clicks during the slide-out
+		// animation fall through instead of dying on a leaving card.
 		MouseArea {
 			anchors.fill: parent
+			enabled: root.shown
 			hoverEnabled: true
 		}
 

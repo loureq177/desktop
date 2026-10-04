@@ -2,7 +2,7 @@
 // Fully transparent, minimal bar with clean hover highlights,
 // hand cursors, and click passthrough.
 // Layout: workspaces / memory / dGPU / power-save on the left,
-// minimal time centered, record / screenshare / caffeine / bluetooth /
+// minimal time centered, record / screenshare / awake / bluetooth /
 // network / battery / notification center on the right.
 import ".."
 import Quickshell
@@ -90,6 +90,17 @@ PanelWindow {
 			tipTimer.stop();
 			hideTimer.restart();
 		}
+	}
+
+	// Immediate hide for pill presses: the delayed hideTimer could unmap
+	// the tooltip popup between press and release, which moves pointer
+	// focus and breaks the click pair.
+	function hideTooltipNow(): void {
+		tipTimer.stop();
+		hideTimer.stop();
+		tooltipTarget = null;
+		tooltipVisible = false;
+		tipPop.visible = false;
 	}
 
 	function updateTooltip(item: Item, text: string): void {
@@ -242,8 +253,12 @@ PanelWindow {
 			onExited: {
 				bar.hideTooltip(pill);
 			}
-			onClicked: mouse => {
-				bar.hideTooltip(pill);
+			// Act on press, not on click: toggling maps an overlay window
+			// above the bar, so press and release can land on different
+			// layer surfaces and a click pair never completes without
+			// moving the mouse first.
+			onPressed: mouse => {
+				bar.hideTooltipNow();
 				if (mouse.button === Qt.RightButton) {
 					pill.rightClicked();
 				} else if (mouse.button === Qt.MiddleButton) {
@@ -258,6 +273,18 @@ PanelWindow {
 
 	Item {
 		anchors.fill: parent
+
+		MouseArea {
+			anchors.fill: parent
+			z: -1
+			// Press-driven like the pills: dismissing unmaps the overlay,
+			// so a press/release pair can split across layer surfaces.
+			onPressed: {
+				QuickSettings.close();
+				Notifications.closeCenter();
+				Weather.close();
+			}
+		}
 
 		// ─── Left zone: Workspaces + System Resources ─────────────────────
 		RowLayout {
@@ -447,13 +474,13 @@ PanelWindow {
 				tooltipText: "Screen sharing active (" + SystemStatus.screencasts + (SystemStatus.screencasts === 1 ? " stream)" : " streams)")
 			}
 
-			// Caffeine toggle indicator
+			// Awake toggle indicator
 			Pill {
-				visible: SystemStatus.caffeineActive
+				visible: SystemStatus.awakeActive
 				text: "󰖦"
 				textColor: Theme.accentBlue
-				tooltipText: "Stay awake: Active"
-				onActivated: Quickshell.execDetached(["sh", "-c", "~/.local/bin/caffeine-toggle"])
+				tooltipText: "Awake: Active"
+				onActivated: Quickshell.execDetached(["sh", "-c", "~/.local/bin/awake-toggle"])
 			}
 
 			// Bluetooth indicator
@@ -494,15 +521,19 @@ PanelWindow {
 					return "Bluetooth: Connected";
 				}
 
+				readonly property bool isOpen: QuickSettings.panelOpen && QuickSettings.subView === "bluetooth"
+
 				text: !adapter?.enabled ? "󰂲" : (connectedCount > 0 ? "󰂱" : "󰂯")
 				value: connectedCount > 1 ? String(connectedCount) : ""
-				textColor: connectedCount > 0 ? Theme.accentBlue : (adapter?.enabled ? Theme.textMain : Theme.textDim)
+				textColor: connectedCount > 0 || isOpen ? Theme.accentBlue : (adapter?.enabled ? Theme.textMain : Theme.textDim)
+				isActive: isOpen
 				tooltipText: tooltipInfo
-				onActivated: QuickSettings.openBluetooth()
+				onActivated: QuickSettings.toggleBluetooth()
 			}
 
 			// Network indicator (Wifi / Ethernet)
 			Pill {
+				readonly property bool isOpen: QuickSettings.panelOpen && QuickSettings.subView === "wifi"
 				readonly property bool wifiUp: bar.wifiDevice?.connected ?? false
 				readonly property bool wiredUp: bar.wiredDevice?.connected ?? false
 				readonly property string wifiName: {
@@ -527,7 +558,8 @@ PanelWindow {
 				}
 
 				text: wifiUp ? "󰖩" : (wiredUp ? "󰈀" : "󰖪")
-				textColor: (wifiUp || wiredUp) ? Theme.textMain : Theme.textDim
+				textColor: (wifiUp || wiredUp || isOpen) ? Theme.accentBlue : Theme.textDim
+				isActive: isOpen
 				tooltipText: {
 					if (wifiUp)
 						return "Wi-Fi: " + (wifiName !== "" ? wifiName : "Connected") + (wifiSignal > 0 ? " (" + wifiSignal + "%)" : "");
@@ -535,7 +567,7 @@ PanelWindow {
 						return "Ethernet: Connected";
 					return "Network: Disconnected";
 				}
-				onActivated: QuickSettings.openWifi()
+				onActivated: QuickSettings.toggleWifi()
 			}
 
 			// Battery indicator

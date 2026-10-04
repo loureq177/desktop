@@ -32,6 +32,7 @@ ShellRoot {
 	LauncherView {
 		id: launcherView
 		onOpened: {
+			Notifications.hideToasts();
 			keysView.close();
 			clipboardView.close();
 			Notifications.closeCenter();
@@ -43,6 +44,7 @@ ShellRoot {
 	KeybindingsView {
 		id: keysView
 		onOpened: {
+			Notifications.hideToasts();
 			launcherView.close();
 			clipboardView.close();
 			Notifications.closeCenter();
@@ -62,6 +64,7 @@ ShellRoot {
 	ClipboardView {
 		id: clipboardView
 		onOpened: {
+			Notifications.hideToasts();
 			launcherView.close();
 			keysView.close();
 			Notifications.closeCenter();
@@ -77,6 +80,7 @@ ShellRoot {
 	WeatherView {
 		id: weatherView
 		onOpened: {
+			Notifications.hideToasts();
 			launcherView.close();
 			keysView.close();
 			clipboardView.close();
