@@ -39,6 +39,23 @@ Item {
 	property string actionStatus: ""
 	property string targetDeviceAddress: ""
 
+	function clearAction(): void {
+		actionStatus = "";
+		targetDeviceAddress = "";
+		actionTimeout.stop();
+	}
+
+	Timer {
+		id: actionTimeout
+		interval: 15000
+		onTriggered: root.clearAction()
+	}
+
+	onBtEnabledChanged: {
+		if (!btEnabled)
+			root.clearAction();
+	}
+
 	function getDeviceIcon(d) {
 		var iconName = (d.icon || "").toLowerCase();
 		var name = (d.name || d.deviceName || "").toLowerCase();
@@ -62,6 +79,8 @@ Item {
 			pairedList = [];
 			availableList = [];
 			allItems = [];
+			if (targetDeviceAddress !== "")
+				clearAction();
 			return;
 		}
 
@@ -119,6 +138,26 @@ Item {
 		allItems = all;
 		if (currentIndex >= all.length)
 			currentIndex = Math.max(0, all.length - 1);
+
+		// Clear a pending action once its outcome is visible (native
+		// Quickshell.Bluetooth path has no Process.onExited to do it).
+		// Also clears a stale status when the device vanished (e.g. BT off).
+		if (targetDeviceAddress !== "" && actionStatus !== "") {
+			var target = null;
+			for (var t = 0; t < all.length; t++) {
+				if (all[t].address === targetDeviceAddress) {
+					target = all[t];
+					break;
+				}
+			}
+			if (!target) {
+				clearAction();
+			} else if ((actionStatus === "Connecting…" || actionStatus === "Pairing…") && target.connected) {
+				clearAction();
+			} else if (actionStatus === "Disconnecting…" && !target.connected) {
+				clearAction();
+			}
+		}
 	}
 
 	function toggleBluetooth(): void {
@@ -126,6 +165,10 @@ Item {
 			btAdapter.enabled = !btAdapter.enabled;
 			if (btAdapter.enabled)
 				startScan();
+			else
+				clearAction();
+		} else {
+			clearAction();
 		}
 	}
 
@@ -143,8 +186,7 @@ Item {
 		id: cliBtActionProc
 		onExited: code => {
 			root.refreshDevices();
-			root.actionStatus = "";
-			root.targetDeviceAddress = "";
+			root.clearAction();
 		}
 	}
 
@@ -172,6 +214,7 @@ Item {
 	function connectDevice(item): void {
 		targetDeviceAddress = item.address;
 		actionStatus = "Connecting…";
+		actionTimeout.restart();
 		if (item.device) {
 			try { item.device.connect(); } catch (e) {}
 		} else {
@@ -183,6 +226,7 @@ Item {
 	function disconnectDevice(item): void {
 		targetDeviceAddress = item.address;
 		actionStatus = "Disconnecting…";
+		actionTimeout.restart();
 		if (item.device) {
 			try { item.device.disconnect(); } catch (e) {}
 		} else {
@@ -194,6 +238,7 @@ Item {
 	function pairDevice(item): void {
 		targetDeviceAddress = item.address;
 		actionStatus = "Pairing…";
+		actionTimeout.restart();
 		if (item.device) {
 			try { item.device.pair(); } catch (e) {}
 		} else {
