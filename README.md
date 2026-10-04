@@ -38,7 +38,7 @@ archlinux/.local/bin/   Arch-only executable scripts (on PATH)
 macos/.local/bin/       macOS-only scripts (sysclean, sysupdate)
 archlinux/.config/
   ui/                   ui.toml (theme source) + generated ui.sh
-  hypr/                 hyprland.lua, hyprlock.conf, hypridle.conf, generated ui.{lua,conf}
+  hypr/                 hyprland.lua, hyprpaper.conf, hyprlock.conf, hypridle.conf, generated ui.{lua,conf}
   quickshell/           shell.qml + Theme/Notifications singletons
     views/              bar, launcher, clipboard, notifications, OSD, polkit
     widgets/            reusable components (SearchBar, notification parts)

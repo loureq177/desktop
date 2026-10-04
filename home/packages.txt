@@ -3,6 +3,7 @@ adwaita-fonts
 arch-audit
 arduino-cli
 atac
+audacity
 aws-cli-v2
 bat
 bazaar
@@ -53,6 +54,7 @@ hyprcursor
 hypridle
 hyprland
 hyprlock
+hyprpaper
 hyprpicker
 hyprpolkitagent
 hyprshutdown
@@ -121,7 +123,6 @@ starship
 steam
 stow
 strace
-swaybg
 tailscale
 tealdeer
 terminus-font

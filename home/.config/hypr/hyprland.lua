@@ -118,7 +118,7 @@ hl.on("hyprland.start", function()
 		"wl-paste --type text --watch cliphist -max-items 100 store",
 		"wl-paste --type image/png --watch cliphist -max-items 100 store",
 		"wpctl set-volume @DEFAULT_AUDIO_SOURCE@ 0.25",
-		"swaybg -i ~/.config/hypr/wallpapers/hyprland.png",
+		"hyprpaper",
 		"quickshell -d",
 		"hyprsunset",
 	}
