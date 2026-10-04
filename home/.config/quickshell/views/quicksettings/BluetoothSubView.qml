@@ -1,7 +1,7 @@
 // Bluetooth sub-menu: replaces bluetui terminal app.
 // Allows scanning, connecting, pairing, disconnecting, and forgetting devices.
 // Displays battery readouts and device-specific icons.
-// Full Vim key navigation (h/j/k/l, g/G, Enter, Space, r, b, x, Esc, q).
+// Full Vim key navigation (h/j/k/l, g/G, Enter/Space select, Space toggles on when off, r, b, x, Esc, q).
 import "../.."
 import "../../widgets"
 import "."
@@ -259,7 +259,10 @@ Item {
 			listView.positionViewAtIndex(currentIndex, ListView.Contain);
 			event.accepted = true;
 		} else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Space) {
-			selectItem(currentIndex);
+			if (!root.btEnabled)
+				toggleBluetooth();
+			else
+				selectItem(currentIndex);
 			event.accepted = true;
 		} else if (event.key === Qt.Key_X || event.key === Qt.Key_Delete) {
 			if (currentIndex >= 0 && currentIndex < allItems.length)
@@ -309,7 +312,7 @@ Item {
 			title: "Bluetooth is turned off"
 			subtitle: "Turn on Bluetooth to scan and connect to devices"
 			buttonText: "Turn On Bluetooth"
-			hintText: ""
+			hintText: "Press [space] to turn on"
 			onEnableClicked: root.toggleBluetooth()
 		}
 

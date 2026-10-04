@@ -300,8 +300,8 @@ SideDrawer {
 	// 2-column tile: tactile, rounded icon badge, large bold title,
 	// subtitle, hotkey, and subtle detail chevron (›).
 	// Icon badge toggles; body opens details when hasDetails.
-	// Vim keys: h/j/k/l 2D navigation, Enter/Space/O opens details,
-	// W/B open wifi/bt (Shift+W/B toggles radio).
+	// Vim keys: h/j/k/l 2D navigation, Enter/O opens details,
+	// Space toggles radio (wifi/bt) or marker tiles, W/B open wifi/bt (Shift+W/B toggles radio).
 	component SamsungTile: Rectangle {
 		id: stile
 
@@ -606,9 +606,11 @@ SideDrawer {
 				event.accepted = true;
 			} else if (event.key === Qt.Key_Space) {
 				if (win.navRow === win.rowWifiBt && win.navCol === 0) {
-					QuickSettings.openWifi();
+					if (Networking.wifiHardwareEnabled)
+						Networking.wifiEnabled = !Networking.wifiEnabled;
 				} else if (win.navRow === win.rowWifiBt && win.navCol === 1) {
-					QuickSettings.openBluetooth();
+					if (win.btAdapter)
+						win.btAdapter.enabled = !win.btAdapter.enabled;
 				} else if (win.navRow === win.rowBatteryCapture && win.navCol === 0) {
 					Quickshell.execDetached(["sh", "-c", "~/.local/bin/power-save"]);
 					markerRefresh.restart();

@@ -1,6 +1,6 @@
 // Wi-Fi sub-menu: replaces impala terminal app.
 // Allows scanning, connecting, entering WPA password, disconnecting, and forgetting networks.
-// Full Vim key navigation (h/j/k/l, g/G, Enter, Space, r, w, x, Esc, q).
+// Full Vim key navigation (h/j/k/l, g/G, Enter/Space select, Space toggles on when off, r, w, x, Esc, q).
 import "../.."
 import "../../widgets"
 import "."
@@ -275,7 +275,10 @@ Item {
 			listView.positionViewAtIndex(currentIndex, ListView.Contain);
 			event.accepted = true;
 		} else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Space) {
-			selectItem(currentIndex);
+			if (!root.wifiEnabled)
+				toggleWifi();
+			else
+				selectItem(currentIndex);
 			event.accepted = true;
 		} else if (event.key === Qt.Key_X || event.key === Qt.Key_Delete) {
 			if (currentIndex >= 0 && currentIndex < networkList.length)
@@ -323,7 +326,7 @@ Item {
 			title: "Wi-Fi is turned off"
 			subtitle: "Turn on Wi-Fi to scan and connect to networks"
 			buttonText: "Turn On Wi-Fi"
-			hintText: ""
+			hintText: "Press [space] to turn on"
 			onEnableClicked: root.toggleWifi()
 		}
 
