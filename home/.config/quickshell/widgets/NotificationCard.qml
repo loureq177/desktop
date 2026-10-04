@@ -154,11 +154,25 @@ Rectangle {
 
 			Repeater {
 				model: root.actionEntries
-				delegate: NotificationActionButton {
+				// Qt6 requires an explicit modelData declaration in the
+				// delegate; a bare `modelData` resolves to undefined and
+				// renders an empty button (see quickshell log
+				// "ReferenceError: modelData is not defined"). The wrapper
+				// carries it so the shared button keeps its plain
+				// notifId/identifier/label API.
+				delegate: Item {
+					id: actionWrap
+					required property var modelData
+
 					Layout.fillWidth: true
-					notifId: modelData.notifId ?? root.notif.id
-					identifier: modelData.identifier
-					label: modelData.text || modelData.label || ""
+					implicitHeight: 28
+
+					NotificationActionButton {
+						anchors.fill: parent
+						notifId: actionWrap.modelData.notifId ?? root.notif.id
+						identifier: actionWrap.modelData.identifier ?? ""
+						label: actionWrap.modelData.text || actionWrap.modelData.label || ""
+					}
 				}
 			}
 		}
