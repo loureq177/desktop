@@ -13,7 +13,14 @@ return {
 		-- hl.env("LIBVA_DRIVER_NAME", "radeonsi")
 	end,
 
-	-- Monitor layout & refresh rates
+	-- Monitor layout & refresh rates.
+	-- NOTE (Oct 2026 post-mortem): do NOT hardcode the iiyama to
+	-- `2560x1440@74`. The patched EDID's PREFERRED timing already IS 74Hz,
+	-- so `preferred` resolves to 74Hz once the edid_override lands - and
+	-- safely falls back to stock 60Hz during the hotplug race window.
+	-- A hardcoded @74 before the override lands makes nvidia-modeset spin
+	-- ("Error while waiting for GPU progress"), leak kmalloc-128 until OOM,
+	-- and end in a DRM panic ("System is deadlocked on memory").
 	monitors = function()
 		-- Example: Laptop display + external monitor
 		-- local laptop_output = "desc:BOE 0x0998"
@@ -27,7 +34,7 @@ return {
 		-- })
 		-- hl.monitor({
 		-- 	output = external_output,
-		-- 	mode = "2560x1440@59.95",
+		-- 	mode = "preferred", -- == 2560x1440@74 once the EDID override is active
 		-- 	position = "0x0",
 		-- 	scale = 1,
 		-- })

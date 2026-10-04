@@ -115,7 +115,40 @@ Singleton {
 		id: gpuStatus
 		path: root.gpuDevicePath
 		printErrors: false
-		onLoaded: root.gpuActive = this.text().trim() === "active"
+		onLoaded: {
+			var wasActive = root.gpuActive;
+			var nowActive = this.text().trim() === "active";
+			root.gpuActive = nowActive;
+			if (wasActive && !nowActive) {
+				restoreBacklightTimer.restart();
+			}
+		}
+	}
+
+	Timer {
+		id: restoreBacklightTimer
+		interval: 400
+		repeat: false
+		onTriggered: {
+			restoreBacklightProc.running = false;
+			restoreBacklightProc.running = true;
+		}
+	}
+
+	Timer {
+		id: bootBacklightTimer
+		interval: 4000
+		running: true
+		repeat: false
+		onTriggered: {
+			restoreBacklightProc.running = false;
+			restoreBacklightProc.running = true;
+		}
+	}
+
+	Process {
+		id: restoreBacklightProc
+		command: ["restore-backlight"]
 	}
 
 	FileView {
