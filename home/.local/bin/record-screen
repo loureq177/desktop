@@ -28,12 +28,6 @@ flock -n 200 || exit 0
 
 play_sound() { canberra-gtk-play -i "$1" >/dev/null 2>&1 || true; }
 
-HYPRPICKER_PID=""
-cleanup() {
-    [ -n "$HYPRPICKER_PID" ] && kill "$HYPRPICKER_PID" 2>/dev/null || true
-}
-trap cleanup EXIT
-
 if pkill -INT -x wf-recorder; then
     if [ -f "$DND_MARKER" ]; then
         qs ipc call notifications dndOff || true
@@ -59,7 +53,6 @@ if pkill -INT -x wf-recorder; then
     exec 200>&-
 
     if [[ -n "$FILE" && -f "$FILE" ]]; then
-        play_sound complete
         ACTION=$(notify-send \
             --app-name "Screen Record" \
             -t 8000 \
@@ -104,6 +97,8 @@ elif [ "$MODE" = "window" ]; then
 else
     # Region mode mirrors screenshot region mode: hover highlights only
     # the window under the cursor, click records it, drag records a region.
+    # No screen freeze here (unlike screenshot): the recorder must see a
+    # live screen while the region is picked.
     WINDOW_RECTS=$(
         jq -r --argjson mons "$(hyprctl monitors -j 2>/dev/null || echo "[]")" '
           [ $mons[]? | (if .specialWorkspace.id != 0 then .specialWorkspace.id else .activeWorkspace.id end) ] as $ws |
@@ -117,16 +112,11 @@ else
         ' <<< "$(hyprctl clients -j 2>/dev/null || echo "[]")" 2>/dev/null || true
     )
 
-    hyprpicker -r -z &
-    HYPRPICKER_PID=$!
-    sleep 0.2
     if [[ -n "$WINDOW_RECTS" ]]; then
         GEOM=$(printf "%s\n" "$WINDOW_RECTS" | slurp "${SLURP_OPTS[@]}") || exit 0
     else
         GEOM=$(slurp "${SLURP_OPTS[@]}") || exit 0
     fi
-    kill "$HYPRPICKER_PID" 2>/dev/null || true
-    HYPRPICKER_PID=""
 
     if [[ -z "$GEOM" || "$GEOM" =~ [[:space:]]1x1$ ]]; then
         exit 0
@@ -146,5 +136,3 @@ else
 fi
 wf-recorder "${TARGET_ARGS[@]}" -f "$FILE" --audio=default &
 disown
-
-play_sound bell

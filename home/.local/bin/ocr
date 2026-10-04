@@ -15,10 +15,21 @@ play_sound() { canberra-gtk-play -i "$1" >/dev/null 2>&1 || true; }
 
 TMP_DIR=$(mktemp -d "${XDG_RUNTIME_DIR:-/tmp}/ocr.XXXXXX")
 TMP_IMG="$TMP_DIR/crop.png"
-cleanup() { rm -rf "$TMP_DIR"; }
+HYPRPICKER_PID=""
+cleanup() {
+    [ -n "$HYPRPICKER_PID" ] && kill "$HYPRPICKER_PID" 2>/dev/null || true
+    rm -rf "$TMP_DIR"
+}
 trap cleanup EXIT
 
+# Freeze the screen while picking (like screenshot): a live screen shifts
+# under the selector and OCR would crop the wrong area.
+hyprpicker -r -z &
+HYPRPICKER_PID=$!
+sleep 0.2
 GEOM=$(slurp "${SLURP_OPTS[@]}") || exit 0
+kill "$HYPRPICKER_PID" 2>/dev/null || true
+HYPRPICKER_PID=""
 grim -g "$GEOM" "$TMP_IMG" || exit 0
 [[ -s "$TMP_IMG" ]] || exit 0
 
@@ -29,7 +40,6 @@ exec 200>&-
 
 if [[ -n "$TRIMMED_TEXT" ]]; then
     printf "%s" "$TRIMMED_TEXT" | wl-copy || true
-    play_sound complete
     PREVIEW="${TRIMMED_TEXT:0:100}"
     (( ${#TRIMMED_TEXT} > 100 )) && PREVIEW="${PREVIEW}..."
     notify-send --app-name "OCR" -t 5000 "OCR" -i "ocrfeeder" "Text copied to clipboard:\n$PREVIEW"

@@ -1,9 +1,9 @@
 [Unit]
-Description=Check for system updates once daily
+Description=Check for system updates periodically
 
 [Timer]
 OnBootSec=5min
-OnCalendar=daily
+OnCalendar=*-*-* 08,13,18:00:00
 RandomizedDelaySec=15min
 Persistent=true
 

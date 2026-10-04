@@ -1,12 +1,10 @@
 #!/usr/bin/env bash
 # Show or set the location used for weather reports.
-# State lives in ~/.local/state/weather/weather.json (and mirrors ~/.local/state/omarchy/settings/weather.json).
+# State lives in ~/.local/state/weather/weather.json.
 set -euo pipefail
 
 LOC_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/weather"
 LOC_FILE="$LOC_DIR/weather.json"
-OMARCHY_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/omarchy/settings"
-OMARCHY_FILE="$OMARCHY_DIR/weather.json"
 
 COORDS_PATTERN='^(-?[0-9]+(\.[0-9]+)?),(-?[0-9]+(\.[0-9]+)?)$'
 
@@ -15,8 +13,6 @@ case "${1:-}" in
     name=""
     if [[ -f "$LOC_FILE" ]]; then
         name=$(jq -r '.name // ""' "$LOC_FILE" 2>/dev/null || true)
-    elif [[ -f "$OMARCHY_FILE" ]]; then
-        name=$(jq -r '.name // ""' "$OMARCHY_FILE" 2>/dev/null || true)
     fi
     if [[ -z "$name" ]]; then
         name=$(curl -fsS --max-time 3 "https://geolocation-db.com/json/" 2>/dev/null | jq -r '.city // ""' 2>/dev/null || true)
@@ -39,17 +35,14 @@ case "${1:-}" in
             location=$(jq -n --arg name "$city" '{$name}')
         fi
     fi
-    mkdir -p "$LOC_DIR" "$OMARCHY_DIR"
+    mkdir -p "$LOC_DIR"
     tmp_loc=$(mktemp "$LOC_DIR/.weather.json.XXXXXX")
     printf '%s\n' "$location" >"$tmp_loc"
     mv -f "$tmp_loc" "$LOC_FILE"
-    tmp_omarchy=$(mktemp "$OMARCHY_DIR/.weather.json.XXXXXX")
-    printf '%s\n' "$location" >"$tmp_omarchy"
-    mv -f "$tmp_omarchy" "$OMARCHY_FILE"
     qs ipc call weather refresh >/dev/null 2>&1 || true
     ;;
 --clear)
-    rm -f "$LOC_FILE" "$OMARCHY_FILE"
+    rm -f "$LOC_FILE"
     qs ipc call weather refresh >/dev/null 2>&1 || true
     ;;
 *)

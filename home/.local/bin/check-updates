@@ -1,21 +1,31 @@
 #!/usr/bin/env bash
 # Checks for official, AUR, and .pacnew updates; sends a desktop notification with update action.
-# Runs at most once per calendar day: boot, resume and timer triggers all
-# funnel through the stamp below. Bypass with --force.
 set -euo pipefail
 
 STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/check-updates"
 STAMP="$STATE_DIR/last-check"
-TODAY="$(date +%F)"
+FORCE=0
 
 for arg in "$@"; do
     case "$arg" in
-        -f|--force) TODAY="" ;;
+        -f|--force) FORCE=1 ;;
     esac
 done
 
-if [[ -n "$TODAY" && -f "$STAMP" ]] && [[ "$(<"$STAMP")" == "$TODAY" ]]; then
-    exit 0
+# If run interactively in a terminal, always run and display output
+if [[ -t 1 ]]; then
+    FORCE=1
+fi
+
+NOW=$(date +%s)
+# Cooldown for automated runs: at least 3 hours (10800s) between checks
+COOLDOWN=10800
+
+if (( !FORCE )) && [[ -f "$STAMP" ]]; then
+    LAST_CHECK=$(<"$STAMP")
+    if [[ "$LAST_CHECK" =~ ^[0-9]+$ ]] && (( NOW - LAST_CHECK < COOLDOWN )); then
+        exit 0
+    fi
 fi
 
 # Count updates
@@ -25,7 +35,11 @@ pacnew_count=$(pacdiff -o 2>/dev/null | grep -c . || true)
 total=$((official_count + aur_count))
 
 mkdir -p "$STATE_DIR"
-printf '%s\n' "$(date +%F)" >"$STAMP"
+printf '%s\n' "$NOW" >"$STAMP"
+
+if [[ -t 1 ]]; then
+    echo "Updates check completed: $official_count official, $aur_count AUR, $pacnew_count .pacnew (total: $total)"
+fi
 
 if (( total > 0 || pacnew_count > 0 )); then
     if (( total > 0 )); then

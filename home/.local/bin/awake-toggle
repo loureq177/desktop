@@ -2,7 +2,7 @@
 # Toggles idle inhibition via systemd-inhibit and signals quickshell.
 set -euo pipefail
 
-INHIBIT_PID_FILE="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/caffeine_inhibit.pid"
+INHIBIT_PID_FILE="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/awake_inhibit.pid"
 
 _is_active() {
     [[ -f "$INHIBIT_PID_FILE" ]] && kill -0 "$(<"$INHIBIT_PID_FILE")" 2>/dev/null
@@ -31,8 +31,8 @@ else
     # (setsid forks when it is a group leader, making $! stale.) disown
     # already detaches the job from this short-lived script; no TTY HUP
     # applies when launched from a Hyprland keybind.
-    systemd-inhibit --what=idle --who=caffeine \
-        --why="User requested stay awake" --mode=block \
+    systemd-inhibit --what=idle --who=awake \
+        --why="Awake mode" --mode=block \
         sleep infinity >/dev/null 2>&1 &
     echo $! >"$INHIBIT_PID_FILE"
     disown
