@@ -1,2 +1,0 @@
-#!/usr/bin/env bash
-exec firefox-webapp "whatsapp" "https://web.whatsapp.com" "$@"

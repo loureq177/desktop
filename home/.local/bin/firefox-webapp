@@ -61,6 +61,8 @@ user_pref("browser.newtabpage.enabled", false);
 user_pref("browser.aboutConfig.showWarning", false);
 user_pref("browser.startup.homepage_override.mstone", "ignore");
 user_pref("browser.rights.3.shown", true);
+user_pref("browser.zoom.full", true);
+user_pref("toolkit.zoomManager.zoomValues", ".3,.5,.67,.8,.9,1,1.1,1.2,1.33,1.5,1.7,2,2.4,3,4");
 
 // Fast Rendering & Instant Paint
 user_pref("nglayout.initialpaint.delay", 0);
@@ -96,6 +98,30 @@ user_pref("datareporting.policy.dataSubmissionEnabled", false);
 user_pref("app.shield.optoutstudies.enabled", false);
 user_pref("app.normandy.enabled", false);
 EOF
+
+# Ensure global default zoom is 110% (1.1) in Firefox content preferences database
+if command -v sqlite3 >/dev/null 2>&1; then
+    sqlite3 "$PROFILE_DIR/content-prefs.sqlite" << 'SQL' >/dev/null 2>&1 || true
+CREATE TABLE IF NOT EXISTS groups (id INTEGER PRIMARY KEY, name TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS settings (id INTEGER PRIMARY KEY, name TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS prefs (id INTEGER PRIMARY KEY, groupID INTEGER REFERENCES groups(id), settingID INTEGER NOT NULL REFERENCES settings(id), value BLOB, timestamp INTEGER NOT NULL DEFAULT 0);
+INSERT OR IGNORE INTO settings (id, name) VALUES (1, 'browser.content.full-zoom');
+DELETE FROM prefs WHERE settingID = 1 AND groupID IS NULL;
+INSERT INTO prefs (groupID, settingID, value, timestamp) VALUES (NULL, 1, 1.1, strftime('%s', 'now'));
+SQL
+
+    if [[ "$APP_URL" =~ ^https?://([^/:]+) ]]; then
+        domain="${BASH_REMATCH[1]}"
+        sqlite3 "$PROFILE_DIR/content-prefs.sqlite" << SQL >/dev/null 2>&1 || true
+INSERT OR IGNORE INTO groups (name) VALUES ('$domain');
+INSERT INTO prefs (groupID, settingID, value, timestamp)
+SELECT g.id, 1, 1.1, strftime('%s', 'now')
+FROM groups g
+WHERE g.name = '$domain'
+  AND NOT EXISTS (SELECT 1 FROM prefs p WHERE p.groupID = g.id AND p.settingID = 1);
+SQL
+    fi
+fi
 
 # Launch or open new window in the shared webapps instance.
 # APP_NAME gives each wrapper a distinct WM name (Hyprland rules still match

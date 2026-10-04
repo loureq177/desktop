@@ -38,31 +38,23 @@ local programs = {
 
 	special = {
 		-- Apps
-		discord = { exe = "discord", class = "discord", ws = "discord" },
 		spotify = { exe = "flatpak run com.spotify.Client", class = "spotify", ws = "spotify" },
-		tasks = { exe = bin .. "/tasks", class = "webapps", title = ".*Tasks.*", ws = "tasks" },
+		tasks = { exe = bin .. "/firefox-webapp tasks https://tasks.google.com", class = "webapps", title = ".*Tasks.*", ws = "tasks" },
 		calendar = {
-			exe = bin .. "/calendar",
+			exe = bin .. "/firefox-webapp calendar https://calendar.google.com",
 			class = "webapps",
 			title = ".*Calendar.*",
 			ws = "calendar",
 		},
-		mail = { exe = bin .. "/gmail", class = "webapps", title = ".*Gmail.*", ws = "mail" },
-		gemini = { exe = bin .. "/gemini", class = "webapps", title = ".*Gemini.*", ws = "gemini" },
+		mail = { exe = bin .. "/firefox-webapp gmail https://mail.google.com", class = "webapps", title = ".*Gmail.*", ws = "mail" },
+		gemini = { exe = bin .. "/firefox-webapp gemini https://gemini.google.com", class = "webapps", title = ".*Gemini.*", ws = "gemini" },
 		whatsapp = {
-			exe = bin .. "/whatsapp",
+			exe = bin .. "/firefox-webapp whatsapp https://web.whatsapp.com",
 			class = "webapps",
 			title = ".*WhatsApp.*",
 			ws = "whatsapp",
 		},
 		yazi = { exe = "ghostty --class=yazi -e yazi", class = "yazi", ws = "yazi" },
-		notes = {
-			exe = "ghostty --class=notes --working-directory="
-				.. os.getenv("HOME")
-				.. "/Notes -e nvim .",
-			class = "notes",
-			ws = "notes",
-		},
 
 		-- System tools
 		audio = {
@@ -70,14 +62,12 @@ local programs = {
 			class = "com.saivert.pwvucontrol",
 			ws = "pwvucontrol",
 		},
-		bluetui = { exe = "ghostty --class=bluetui -e bluetui", class = "bluetui", ws = "bluetui" },
 		calculator = {
 			exe = "gnome-calculator",
 			class = "org.gnome.Calculator",
 			ws = "gnome-calculator",
 		},
 		jolt = { exe = "ghostty --class=jolt -e jolt", class = "jolt", ws = "jolt" },
-		impala = { exe = "ghostty --class=impala -e impala", class = "impala", ws = "impala" },
 		btop = { exe = "ghostty --class=btop -e btop", class = "btop", ws = "btop" },
 	},
 }
@@ -125,8 +115,8 @@ hl.on("hyprland.start", function()
 		"dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP HYPRLAND_INSTANCE_SIGNATURE AQ_DRM_DEVICES VK_DRIVER_FILES VK_ICD_FILENAMES LIBVA_DRIVER_NAME GSK_RENDERER",
 		"systemctl --user start hyprland-session.target",
 
-		"wl-paste --type text --watch cliphist -max-items 50 store",
-		"wl-paste --type image/png --watch cliphist -max-items 10 store",
+		"wl-paste --type text --watch cliphist -max-items 100 store",
+		"wl-paste --type image/png --watch cliphist -max-items 100 store",
 		"wpctl set-volume @DEFAULT_AUDIO_SOURCE@ 0.25",
 		"swaybg -i ~/.config/hypr/wallpapers/hyprland.png",
 		"quickshell -d",
@@ -595,7 +585,7 @@ local cmds = {
 	["SUPER + comma"] = { "qs ipc call notifications dismissLatest", "Close latest notification" },
 	["SUPER + W"] = { "qs ipc call weather toggle", "Weather" },
 	["SUPER + E"] = { "qs ipc call shell toggle launcher emoji", "Emoji picker" },
-	["SUPER + V"] = { "qs ipc call shell toggle clipboard ''", "Clipboard history" },
+	["SUPER + C"] = { "qs ipc call shell toggle clipboard ''", "Clipboard history" },
 	["SUPER + R"] = { "qs ipc call shell toggle launcher run", "Run commands" },
 	["SUPER + escape"] = { "hyprlock", "Lock system" },
 	["SUPER + SHIFT + escape"] = { "qs ipc call shell toggle launcher power", "Power menu" },
@@ -605,13 +595,7 @@ local cmds = {
 
 	["SUPER + D"] = { "~/.local/bin/dictation", "Dictation" },
 	["print"] = { "~/.local/bin/screenshot region", "Screenshot (region)" },
-	["SUPER + P"] = { "hyprpicker -a --notify", "Color picker" },
 	["SHIFT + print"] = { "~/.local/bin/screenshot fullscreen", "Screenshot (full)" },
-	["SUPER + O"] = { "~/.local/bin/ocr", "OCR from screen" },
-	["SUPER + CTRL + S"] = {
-		"~/.local/bin/screenshot fullscreen",
-		"Screenshot (full)",
-	},
 }
 
 for bind, entry in pairs(cmds) do
@@ -623,11 +607,9 @@ local special_apps = {
 	["SUPER + SHIFT + T"] = { "tasks", "Tasks" },
 	["SUPER + SHIFT + W"] = { "whatsapp", "WhatsApp" },
 	["SUPER + SHIFT + E"] = { "mail", "Mail" },
-	["SUPER + SHIFT + D"] = { "discord", "Discord" },
 	["SUPER + SHIFT + S"] = { "spotify", "Spotify" },
-	["SUPER + SHIFT + A"] = { "gemini", "Gemini" },
+	["SUPER + SHIFT + A"] = { "gemini", "AI (Gemini)" },
 	["SUPER + SHIFT + F"] = { "yazi", "File manager (yazi)" },
-	["SUPER + SHIFT + N"] = { "notes", "Notes" },
 	["SUPER + SHIFT + Q"] = { "calculator", "Calculator" },
 	["SUPER + SHIFT + B"] = { "btop", "Activity Monitor" },
 }

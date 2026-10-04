@@ -1,2 +1,0 @@
-#!/usr/bin/env bash
-exec firefox-webapp "gemini" "https://gemini.google.com" "$@"
