@@ -2,9 +2,11 @@
 Description=Check for system updates periodically
 
 [Timer]
-OnBootSec=5min
+OnBootSec=1min
 OnCalendar=*-*-* 08,13,18:00:00
-RandomizedDelaySec=15min
+# Applies to OnBootSec too: kept small so the post-boot check lands ~1-3min
+# after restart instead of drifting up to ~16min.
+RandomizedDelaySec=2min
 Persistent=true
 
 [Install]
