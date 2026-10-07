@@ -9,6 +9,7 @@ GHOSTTY_SHADERS="${XDG_CONFIG_HOME:-$HOME/.config}/ghostty/shaders"
 # are stowed files; only this link is mutable, so toggling never dirties the
 # dotfiles repo (see _ghostty_shader).
 GHOSTTY_SHADER="${XDG_STATE_HOME:-$HOME/.local/state}/ghostty/active-shader.glsl"
+GHOSTTY_PERF="${XDG_STATE_HOME:-$HOME/.local/state}/ghostty/perf.conf"
 OPENCODE_KV="${XDG_STATE_HOME:-$HOME/.local/state}/opencode/kv.json"
 
 _is_active() {
@@ -100,7 +101,37 @@ _ghostty_shader() { # $1: on|off
         rm -f "$tmp"
         return 0
     fi
-    _ghostty_reload
+}
+
+_ghostty_perf() { # $1: on|off (on = eye-candy, off = static opaque)
+    # The shader symlink alone is not enough: custom-shader-animation=true
+    # forces a full-rate redraw even with the noop shader, and
+    # background-opacity<1 + blur-radius + minimum-contrast keep the
+    # compositor busy every frame. This file overrides those four keys;
+    # it is included last via `config-file` in ghostty/config.
+    local mode="$1"
+    [[ "$mode" == "on" || "$mode" == "off" ]] || return 0
+    mkdir -p "$(dirname "$GHOSTTY_PERF")" || return 0
+    local tmp
+    tmp=$(mktemp "$(dirname "$GHOSTTY_PERF")/.perf.conf.XXXXXX") || return 0
+    if [[ "$mode" == "off" ]]; then
+        cat >"$tmp" <<'EOF'
+# Managed by power-save. Do not edit.
+custom-shader-animation = false
+background-opacity = 1.0
+background-blur-radius = 0
+minimum-contrast = 1
+EOF
+    else
+        cat >"$tmp" <<'EOF'
+# Managed by power-save. Do not edit.
+custom-shader-animation = true
+background-opacity = 0.95
+background-blur-radius = 20
+minimum-contrast = 1.1
+EOF
+    fi
+    mv -f "$tmp" "$GHOSTTY_PERF" || rm -f "$tmp"
 }
 
 _opencode_anims() { # $1: true|false (persists TUI animation state in kv.json for NEW sessions only)
@@ -133,9 +164,9 @@ _status() {
     [[ -n "$detected_max" ]] && max_hz="${detected_max} Hz"
 
     if _is_active; then
-        printf '%s\n' '{"text": "󰌪", "alt": "on", "class": "on", "tooltip": "Power Saving Mode: ON\n• Refresh rate: 60 Hz\n• Blur: Disabled\n• Ghostty shader: Disabled\n• OpenCode anims: Disabled\n• Brightness: Reduced (-20%)\n• Profile: Power-saver\n\nClick to disable"}'
+        printf '%s\n' '{"text": "󰌪", "alt": "on", "class": "on", "tooltip": "Power Saving Mode: ON\n• Refresh rate: 60 Hz\n• Blur: Disabled\n• Ghostty: Static opaque (shader/animation/blur off)\n• OpenCode anims: Disabled\n• Brightness: Reduced (-20%)\n• Profile: Power-saver\n\nClick to disable"}'
     else
-        printf '%s\n' '{"text": "󰌪", "alt": "off", "class": "off", "tooltip": "Power Saving Mode: OFF\n• Refresh rate: '"$max_hz"'\n• Blur: Enabled\n• Ghostty shader: Enabled\n• OpenCode anims: Enabled\n\nClick to enable"}'
+        printf '%s\n' '{"text": "󰌪", "alt": "off", "class": "off", "tooltip": "Power Saving Mode: OFF\n• Refresh rate: '"$max_hz"'\n• Blur: Enabled\n• Ghostty: Eye-candy (warp shader + blur)\n• OpenCode anims: Enabled\n\nClick to enable"}'
     fi
 }
 
@@ -157,7 +188,9 @@ _enable() {
 
     _set_refresh_rate 60
     _set_look false
+    _ghostty_perf off
     _ghostty_shader off
+    _ghostty_reload
     _opencode_anims false
     prof power-saver
     # Fallback: re-assert backlight once dGPU settling timeout expires
@@ -190,7 +223,9 @@ _disable() {
 
     _set_refresh_rate max
     _set_look true
+    _ghostty_perf on
     _ghostty_shader on
+    _ghostty_reload
     _opencode_anims true
     prof balanced
     # Fallback: re-assert backlight once dGPU settling timeout (modeset wake) expires
@@ -199,9 +234,9 @@ _disable() {
 
 _toggle() {
     if _is_active; then
-        _disable
+        _disable "${1:-}"
     else
-        _enable
+        _enable "${1:-}"
     fi
     # Marker file flipped even with --no-brightness: nudge the QuickSettings
     # tiles (they poll markers every 3s otherwise).
@@ -213,15 +248,19 @@ _toggle() {
 # Skipped for --status: status queries (e.g. bar polling) must be read-only.
 if [[ "${1:-}" != "--status" ]]; then
     [[ -e "$GHOSTTY_SHADER" ]] || _ghostty_shader on
+    # Seed the perf profile without reload; the action below reloads.
+    if [[ ! -e "$GHOSTTY_PERF" ]]; then
+        if _is_active; then _ghostty_perf off; else _ghostty_perf on; fi
+    fi
 fi
 
 case "${1:-}" in
 --status) _status ;;
 --enable)
-    _enable
+    _enable "${2:-}"
     ;;
 --disable)
-    _disable
+    _disable "${2:-}"
     ;;
-*) _toggle ;;
+*) _toggle "${2:-}" ;;
 esac

@@ -1,10 +1,8 @@
 #!/usr/bin/env bash
 # Forces kernel and Lenovo EC to re-sync panel backlight.
-# The Linux kernel backlight subsystem has an early return:
-# `if (brightness == bd->props.brightness) return count;`
-# When the Lenovo EC silently dims the panel on dGPU D3cold power cuts,
-# writing the same value is a no-op in the kernel.
-# Nudging by -1 (or +1) forces the kernel to invoke the WMI driver.
+# The EC can silently dim the panel on dGPU D3cold power cuts without the
+# kernel noticing. Re-trigger the driver's update_status callback while
+# keeping the requested brightness unchanged.
 set -euo pipefail
 
 DEV_PATH="/sys/class/backlight/nvidia_wmi_ec_backlight"
@@ -12,9 +10,30 @@ DEV_PATH="/sys/class/backlight/nvidia_wmi_ec_backlight"
 [[ -n "$DEV_PATH" && -f "$DEV_PATH/brightness" ]] || exit 0
 
 _nudge() {
+    local power
+
+    # Changing bl_power calls backlight_update_status without changing
+    # props.brightness. nvidia_wmi_ec_backlight's update_status callback
+    # sends that unchanged level to the EC and does not blank on bl_power,
+    # so this reasserts brightness without a visible +/-1 step.
+    if [[ "$DEV_PATH" == */nvidia_wmi_ec_backlight && -r "$DEV_PATH/bl_power" && -w "$DEV_PATH/bl_power" ]]; then
+        power=$(cat "$DEV_PATH/bl_power" 2>/dev/null || echo "")
+        [[ "$power" =~ ^[0-9]+$ ]] || return 0
+        if (( power == 0 )); then
+            printf '%s' 4 >"$DEV_PATH/bl_power" 2>/dev/null || return 0
+            printf '%s' "$power" >"$DEV_PATH/bl_power" 2>/dev/null || true
+        else
+            printf '%s' 0 >"$DEV_PATH/bl_power" 2>/dev/null || return 0
+            printf '%s' "$power" >"$DEV_PATH/bl_power" 2>/dev/null || true
+        fi
+        return 0
+    fi
+
+    # Other backlight drivers may not refresh on bl_power changes. Keep the
+    # previous brightness nudge as a fallback for those devices.
     local cur
     cur=$(cat "$DEV_PATH/brightness" 2>/dev/null || echo "")
-    [[ -n "$cur" ]] || return 0
+    [[ "$cur" =~ ^[0-9]+$ ]] || return 0
     if (( cur > 0 )); then
         brightnessctl -q -c backlight set "$((cur - 1))" >/dev/null 2>&1 || true
         brightnessctl -q -c backlight set "$cur" >/dev/null 2>&1 || true
@@ -25,7 +44,9 @@ _nudge() {
 }
 
 _nudge
-# Safety second pass to guarantee EC has completed its power cut
+# EC power-cut handling can finish after the first runtime_status change.
+# Reassert once after it settles; this is needed on systems where the first
+# forced callback races the EC transition.
 (sleep 0.5 && _nudge) >/dev/null 2>&1 &
 
 logger -t restore-backlight "Restored panel brightness"
