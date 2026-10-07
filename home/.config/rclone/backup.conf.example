@@ -1,0 +1,9 @@
+# ~/.config/rclone/backup.conf
+# Machine-local rclone-sync settings. Gitignored and stow-ignored.
+# Copy to ~/.config/rclone/backup.conf to use.
+# Run `rclone config` once to create the remote, then set it below.
+
+# Source directory to back up (defaults to $HOME).
+RCLONE_BACKUP_SOURCE="$HOME"
+# Destination remote (defaults to google-drive-backup:mlorenc-backup).
+RCLONE_BACKUP_REMOTE="google-drive-backup:mlorenc-backup"

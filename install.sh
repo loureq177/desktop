@@ -20,6 +20,11 @@ _log_error() { _log "${RED}[ERROR]" "$@"; }
 set -euo pipefail
 cd "$(dirname "$0")"
 
+if ! command -v git &>/dev/null; then
+    _log_error "'git' is not installed."
+    exit 1
+fi
+
 mkdir -p ~/.config ~/.local/share ~/.local/state ~/.local/bin ~/.cache
 
 OS="$(uname -s)"
@@ -125,15 +130,35 @@ if [ "$OS" = "Linux" ]; then
         done
     fi
 elif [ "$OS" = "Darwin" ]; then
-    _log_info "Detected macOS. Installing dependencies from Brewfile..."
+    _log_info "Detected macOS."
+    if ! command -v brew &>/dev/null; then
+        _log_info "Homebrew not found. Installing Homebrew..."
+        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+        if [ -x /opt/homebrew/bin/brew ]; then
+            eval "$(/opt/homebrew/bin/brew shellenv)"
+        elif [ -x /usr/local/bin/brew ]; then
+            eval "$(/usr/local/bin/brew shellenv)"
+        fi
+    fi
+
     if command -v brew &>/dev/null; then
+        _log_info "Installing dependencies from Brewfile..."
         brew bundle --file=macos/Brewfile
     else
-        _log_warn "Homebrew is not installed. Please install Homebrew first."
+        _log_error "Homebrew installation failed or 'brew' is not in PATH."
+        exit 1
+    fi
+
+    if ! command -v stow &>/dev/null; then
+        _log_info "Installing stow via Homebrew..."
+        brew install stow
     fi
 
     restow_pkg common common
     restow_pkg macOS macos
+else
+    _log_error "Unsupported OS: $OS (only Linux/Arch and Darwin/macOS are supported)."
+    exit 1
 fi
 
 if command -v bat &>/dev/null; then

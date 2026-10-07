@@ -1,0 +1,9 @@
+# Normalize line endings; keep binaries untouched.
+* text=auto eol=lf
+*.png binary
+*.webp binary
+*.bin binary
+*.ttf binary
+*.otf binary
+*.woff binary
+*.woff2 binary

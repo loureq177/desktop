@@ -10,9 +10,19 @@ node_modules/
 __pycache__
 *.pyc
 service.json
+backup.conf
+client_secret.json
+credentials.json
+*.pem
+*.key
+id_*
+known_hosts*
 local.lua
 config.local
 *.local
+# Only the default wallpaper is tracked; the rest lives in ~/Pictures/Wallpapers/
+archlinux/.config/hypr/wallpapers/*
+!archlinux/.config/hypr/wallpapers/hyprland.png
 
 # Re-include XDG .local/ dirs (pattern *.local above would ignore them,
 # breaking new files under archlinux/.local/bin/)

@@ -16,5 +16,11 @@
 --ignore=Brewfile
 --ignore=local\.lua
 --ignore=config\.local
+--ignore=backup\.conf
 --ignore=antigravity-cli/settings\.json
+--ignore=\.ruff_cache
+--ignore=\.env($|[\.\-].*)
+--ignore=\.pub$
+--ignore=id_
+--ignore=known_hosts
 
