@@ -128,8 +128,9 @@ run_if bun bun pm cache rm
 run_if npm npm cache clean --force
 
 echo "\nPruning container engines (per-engine details above)..."
-run_if podman podman system prune --force
-run_if docker docker system prune -f
+run_if podman podman system prune -a --force --volumes
+run_if docker docker system prune -a -f --volumes
+run_if docker docker builder prune -f
 
 echo "\nCleaning orphaned kernel modules..."
 if [ "$AUTO" = 1 ]; then
@@ -160,7 +161,7 @@ echo "\nVacuuming systemd coredumps..."
 if [ "$AUTO" = 1 ]; then
     skip_sudo
 elif [ -d /var/lib/systemd/coredump ]; then
-    sudo rm -rf /var/lib/systemd/coredump/* 2>/dev/null || true
+    sudo sh -c 'rm -rf -- /var/lib/systemd/coredump/*' 2>/dev/null || true
 fi
 
 echo "\nVacuuming journal..."

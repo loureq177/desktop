@@ -18,13 +18,9 @@ fi
 
 echo "==> Updating system & AUR packages..."
 if command -v paru >/dev/null 2>&1; then
-    # sudo caches its timestamp for this terminal and --sudoloop keeps it
-    # alive during long AUR builds: one password for the whole run.
-    # (pkexec re-authenticates on every call - once for `pacman -Syu`, and
-    # again for the `pacman -U` that installs the built AUR packages.)
-    paru -Syu --devel --noconfirm --skipreview --sudoloop || true
+    paru -Syu --devel --noconfirm --skipreview --sudo pkexec || true
 elif command -v pacman >/dev/null 2>&1; then
-    sudo pacman -Syu --noconfirm || true
+    pkexec pacman -Syu --noconfirm || true
 fi
 
 echo "\n==> Updating Zsh plugins (zinit)..."
@@ -45,10 +41,8 @@ fi
 
 if command -v fwupdmgr >/dev/null 2>&1; then
     echo "\n==> Checking firmware updates..."
-    # refresh only pulls metadata (no auth needed); run the update itself as
-    # root so fwupd doesn't open its own polkit prompt on top of the sudo one.
     fwupdmgr refresh || true
-    sudo fwupdmgr update -y || true
+    fwupdmgr update -y || true
 fi
 
 step "Updating Flatpak packages..." flatpak flatpak update -y
