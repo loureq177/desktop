@@ -31,7 +31,7 @@ Singleton {
 	// stay until dismissed). Focus changes and new windows never dismiss
 	// toasts; the timeout exists so a forgotten stack stops covering the
 	// top-right corner on its own. Everything stays in history regardless.
-	property int toastTimeoutMs: 12000
+	property int toastTimeoutMs: 5000
 	// Arrival timestamp per toast id, for the expiry sweeper below.
 	property var toastArrivedAt: ({})
 
@@ -370,19 +370,17 @@ Singleton {
 	function toastTimeoutFor(t): int {
 		if (t.urgency === NotificationUrgency.Critical || t.expireTimeout === 0)
 			return 0; // 0 = never auto-expire
-		// expireTimeout is in seconds per the spec (docs v0.3.1); the
-		// sweeper below works in milliseconds.
+		// DBus delivers expireTimeout in milliseconds (e.g. notify-send -t 5000 passes 5000).
+		// If a sender mistakenly passes seconds (e.g. < 100), convert to ms.
 		if (t.expireTimeout > 0)
-			return Math.round(t.expireTimeout * 1000);
+			return t.expireTimeout < 100 ? Math.round(t.expireTimeout * 1000) : t.expireTimeout;
 		return root.toastTimeoutMs;
 	}
 
 	// Expiry sweeper: non-critical toasts drop off the visual stack after
 	// the requested timeout (expireTimeout) or toastTimeoutMs so a forgotten stack
-	// cannot block its corner forever.
-	// The underlying notification is intentionally NOT closed here: it stays
-	// tracked until it leaves the history (pruneHistory) or the user dismisses
-	// it, which keeps action buttons / inline reply working from the center.
+	// cannot block its corner forever. Expired notifications are also dismissed
+	// so waiting senders (e.g. notify-send -A) unblock cleanly.
 	// Ticks only while toasts exist.
 	Timer {
 		interval: 500
@@ -405,8 +403,10 @@ Singleton {
 					root.toastArrivedAt[t.id] = now;
 					continue;
 				}
-				if (now - at >= timeout)
+				if (now - at >= timeout) {
+					root.safeDismiss(t);
 					root.removeToast(t.id);
+				}
 			}
 			for (var key in root.toastArrivedAt) {
 				if (!liveIds[key])

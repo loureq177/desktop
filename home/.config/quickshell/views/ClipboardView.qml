@@ -9,6 +9,7 @@ import "../widgets"
 import Quickshell
 import Quickshell.Io
 import QtQuick
+import QtQuick.Controls
 import QtQuick.Layouts
 
 CenterModal {
@@ -29,6 +30,10 @@ CenterModal {
 	property var entries: []
 	property var filtered: []
 	property int currentIndex: 0
+	// Full decoded text of the current entry (cliphist list truncates to ~100 chars).
+	property string decodedText: ""
+	// Id requested for the in-flight text decode; guards against stale results.
+	property string textReqId: ""
 	// Set after the preview decode for the current entry succeeds.
 	property string decodedId: ""
 
@@ -50,6 +55,7 @@ CenterModal {
 		}
 		filtered = out;
 		currentIndex = 0;
+		previewFlick.contentY = 0;
 		previewTimer.restart();
 	}
 
@@ -106,15 +112,30 @@ CenterModal {
 	onCurrentIndexChanged: {
 		previewTimer.restart();
 		list.positionViewAtIndex(currentIndex, ListView.Contain);
+		previewFlick.contentY = 0;
 	}
 
-	// Decode the selected entry to a file for the preview pane.
+	// Decode the selected entry for the preview pane.
+	// Images go to a file, text is captured to decodedText (full content,
+	// not the ~100-char truncated `cliphist list` preview).
 	Timer {
 		id: previewTimer
 		interval: 1
 		onTriggered: {
 			win.decodedId = "";
-			decodeProc.running = true;
+			win.decodedText = "";
+			win.textReqId = "";
+			decodeProc.running = false;
+			textDecodeProc.running = false;
+			var e = win.currentEntry;
+			if (!e)
+				return;
+			if (win.currentIsImage) {
+				decodeProc.running = true;
+			} else {
+				win.textReqId = String(e.id);
+				textDecodeProc.running = true;
+			}
 		}
 	}
 
@@ -131,6 +152,25 @@ CenterModal {
 		onExited: function (exitCode) {
 			if (exitCode === 0 && win.currentEntry)
 				win.decodedId = win.currentEntry.id;
+		}
+	}
+
+	Process {
+		id: textDecodeProc
+		command: {
+			if (!win.currentEntry || win.currentIsImage || win.textReqId === "")
+				return ["true"];
+			return ["cliphist", "decode", win.textReqId];
+		}
+		stdout: StdioCollector {
+			onStreamFinished: {
+				var reqId = win.textReqId;
+				if (reqId !== "" && win.currentEntry && String(win.currentEntry.id) === reqId) {
+					win.decodedText = String(this.text || "");
+					win.decodedId = reqId;
+					previewFlick.contentY = 0;
+				}
+			}
 		}
 	}
 
@@ -319,6 +359,7 @@ CenterModal {
 			}
 
 			Flickable {
+				id: previewFlick
 				anchors.fill: parent
 				anchors.margins: 14
 				visible: !win.currentIsImage
@@ -326,15 +367,33 @@ CenterModal {
 				contentHeight: previewText.implicitHeight
 				clip: true
 				boundsBehavior: Flickable.DragAndOvershootBounds
+				flickableDirection: Flickable.VerticalFlick
 				flickDeceleration: Theme.flickDecel
 				maximumFlickVelocity: Theme.maxFlickVel
 
+				ScrollBar.vertical: ScrollBar {
+					visible: previewFlick.contentHeight > previewFlick.height
+					policy: ScrollBar.AsNeeded
+					contentItem: Rectangle {
+						implicitWidth: 4
+						radius: Theme.roundingSubtle
+						color: parent.hovered || parent.pressed ? Theme.textDim : Theme.border
+					}
+				}
+
 				Text {
 					id: previewText
-					width: parent.width
-					wrapMode: Text.Wrap
+					width: previewFlick.width - ((previewFlick.ScrollBar.vertical && previewFlick.ScrollBar.vertical.visible) ? 10 : 0)
+					wrapMode: Text.WrapAtWordBoundaryOrAnywhere
 					textFormat: Text.PlainText
-					text: win.currentEntry ? win.currentEntry.preview : ""
+					text: {
+						var e = win.currentEntry;
+						if (!e)
+							return "";
+						if (win.decodedId === String(e.id))
+							return win.decodedText;
+						return e.preview;
+					}
 					font.family: Theme.fontMono
 					font.pixelSize: 16
 					color: Theme.textMain

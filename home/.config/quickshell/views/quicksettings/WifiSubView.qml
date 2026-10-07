@@ -49,7 +49,22 @@ Item {
 	property string passwordInput: ""
 	property bool showPassword: false
 	property string errorMessage: ""
-	property string connectingSsid: ""
+	readonly property string connectingSsid: pending.target
+
+	PendingAction {
+		id: pending
+		onTimedOut: expired => {
+			if (expired !== "") {
+				root.errorMessage = "Connection timed out";
+				root.refreshList();
+			}
+		}
+	}
+
+	onWifiEnabledChanged: {
+		if (!wifiEnabled)
+			pending.clear();
+	}
 
 	function getSignalIcon(strength) {
 		var s = strength > 1.0 ? strength : strength * 100;
@@ -102,6 +117,17 @@ Item {
 		networkList = arr;
 		if (currentIndex >= arr.length)
 			currentIndex = Math.max(0, arr.length - 1);
+
+		// Clear a pending connect once its outcome is visible (native
+		// net.connect()/connectWithPsk() path has no Process.onExited).
+		if (pending.target !== "") {
+			for (var c = 0; c < arr.length; c++) {
+				if (arr[c].name === pending.target && arr[c].connected) {
+					pending.clear();
+					break;
+				}
+			}
+		}
 	}
 
 	function rescan(): void {
@@ -116,11 +142,11 @@ Item {
 		id: cliProc
 		onExited: code => {
 			root.refreshList();
-			if (code !== 0 && root.connectingSsid !== "") {
+			if (code !== 0 && pending.target !== "") {
 				root.errorMessage = "Connection failed";
-				root.connectingSsid = "";
+				pending.clear();
 			} else {
-				root.connectingSsid = "";
+				pending.clear();
 				root.promptSsid = "";
 			}
 		}
@@ -167,7 +193,7 @@ Item {
 
 	function connectNetwork(item): void {
 		errorMessage = "";
-		connectingSsid = item.name;
+		pending.start(item.name, "Connecting…");
 		if (item.net) {
 			try { item.net.connect(); } catch (e) {}
 		} else {
@@ -218,7 +244,7 @@ Item {
 			return;
 		var ssid = promptSsid;
 		var pass = passwordInput;
-		connectingSsid = ssid;
+		pending.start(ssid, "Connecting…");
 		errorMessage = "";
 
 		if (promptNet && promptNet.connectWithPsk) {

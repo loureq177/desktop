@@ -36,19 +36,16 @@ Item {
 		var listHeight = itemsCount * 56 - 6;
 		return Math.min(620, Math.max(260, 81 + listHeight));
 	}
-	property string actionStatus: ""
-	property string targetDeviceAddress: ""
+	readonly property string actionStatus: pending.status
+	readonly property string targetDeviceAddress: pending.target
 
 	function clearAction(): void {
-		actionStatus = "";
-		targetDeviceAddress = "";
-		actionTimeout.stop();
+		pending.clear();
 	}
 
-	Timer {
-		id: actionTimeout
-		interval: 15000
-		onTriggered: root.clearAction()
+	PendingAction {
+		id: pending
+		onTimedOut: root.refreshDevices()
 	}
 
 	onBtEnabledChanged: {
@@ -212,9 +209,7 @@ Item {
 	}
 
 	function connectDevice(item): void {
-		targetDeviceAddress = item.address;
-		actionStatus = "Connecting…";
-		actionTimeout.restart();
+		pending.start(item.address, "Connecting…");
 		if (item.device) {
 			try { item.device.connect(); } catch (e) {}
 		} else {
@@ -224,9 +219,7 @@ Item {
 	}
 
 	function disconnectDevice(item): void {
-		targetDeviceAddress = item.address;
-		actionStatus = "Disconnecting…";
-		actionTimeout.restart();
+		pending.start(item.address, "Disconnecting…");
 		if (item.device) {
 			try { item.device.disconnect(); } catch (e) {}
 		} else {
@@ -236,9 +229,7 @@ Item {
 	}
 
 	function pairDevice(item): void {
-		targetDeviceAddress = item.address;
-		actionStatus = "Pairing…";
-		actionTimeout.restart();
+		pending.start(item.address, "Pairing…");
 		if (item.device) {
 			try { item.device.pair(); } catch (e) {}
 		} else {

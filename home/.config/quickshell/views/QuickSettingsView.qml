@@ -308,6 +308,7 @@ SideDrawer {
 		property string icon: ""
 		property string title: ""
 		property string subtitle: ""
+		property string hotkey: ""
 		property bool active: false
 		property color activeColor: Theme.accentBlue
 		property bool hasDetails: false
@@ -452,14 +453,40 @@ SideDrawer {
 				}
 			}
 
-			Text {
-				visible: stile.hasDetails
+			RowLayout {
 				Layout.alignment: Qt.AlignVCenter
-				text: "›"
-				font.family: Theme.fontFamily
-				font.pixelSize: 16
-				font.bold: true
-				color: stile.isSelected ? Theme.accentBlue : Theme.textDim
+				spacing: 4
+
+				Rectangle {
+					visible: stile.hotkey !== ""
+					Layout.preferredWidth: 20
+					Layout.preferredHeight: 20
+					radius: Theme.roundingSubtle
+					color: stile.isSelected
+						? Qt.rgba(Theme.accentBlue.r, Theme.accentBlue.g, Theme.accentBlue.b, 0.20)
+						: (stile.bodyHovered ? Theme.bgCard : Qt.rgba(Theme.bgCardColor.r, Theme.bgCardColor.g, Theme.bgCardColor.b, 0.5))
+					border.color: stile.isSelected ? Theme.accentBlue : Theme.border
+					border.width: 1
+
+					Text {
+						anchors.centerIn: parent
+						text: stile.hotkey
+						font.family: Theme.fontMono
+						font.pixelSize: 11
+						font.bold: true
+						color: stile.isSelected ? Theme.accentBlue : Theme.textDim
+					}
+				}
+
+				Text {
+					visible: stile.hasDetails
+					Layout.alignment: Qt.AlignVCenter
+					text: "›"
+					font.family: Theme.fontFamily
+					font.pixelSize: 16
+					font.bold: true
+					color: stile.isSelected ? Theme.accentBlue : Theme.textDim
+				}
 			}
 		}
 	}
@@ -669,6 +696,10 @@ SideDrawer {
 			} else if (event.key === Qt.Key_D) {
 				Notifications.toggleDnd();
 				win.select(win.rowStayAwakeDnd, 1);
+				event.accepted = true;
+			} else if (event.key === Qt.Key_M) {
+				win.toggleMute();
+				win.select(win.rowVolume, 0);
 				event.accepted = true;
 			} else if (event.key === Qt.Key_Escape || event.key === Qt.Key_Q) {
 				QuickSettings.close();
@@ -883,6 +914,7 @@ SideDrawer {
 			SamsungTile {
 				itemRow: win.rowWifiBt
 				itemCol: 0
+				hotkey: "W"
 				icon: win.wifiUp ? "󰖩" : "󰖪"
 				title: "Wi-Fi"
 				subtitle: win.wifiSubtitle
@@ -898,6 +930,7 @@ SideDrawer {
 			SamsungTile {
 				itemRow: win.rowWifiBt
 				itemCol: 1
+				hotkey: "B"
 				icon: !win.btEnabled ? "󰂲" : (win.btConnected > 0 ? "󰂱" : "󰂯")
 				title: "Bluetooth"
 				subtitle: win.btSubtitle
@@ -913,6 +946,7 @@ SideDrawer {
 			SamsungTile {
 				itemRow: win.rowBatteryCapture
 				itemCol: 0
+				hotkey: "S"
 				icon: "󰌪"
 				title: "Battery saver"
 				subtitle: SystemStatus.powerSaveActive ? "60 Hz" : ""
@@ -932,6 +966,7 @@ SideDrawer {
 			SamsungTile {
 				itemRow: win.rowBatteryCapture
 				itemCol: 1
+				hotkey: "C"
 				icon: SystemStatus.recording ? "󰻃" : "󰹑"
 				title: "Capture"
 				subtitle: SystemStatus.recording ? "Recording" : ""
@@ -946,6 +981,7 @@ SideDrawer {
 			SamsungTile {
 				itemRow: win.rowStayAwakeDnd
 				itemCol: 0
+				hotkey: "A"
 				icon: "󰖦"
 				title: "Awake"
 				subtitle: ""
@@ -964,6 +1000,7 @@ SideDrawer {
 			SamsungTile {
 				itemRow: win.rowStayAwakeDnd
 				itemCol: 1
+				hotkey: "D"
 				icon: Notifications.dnd ? "󰂛" : "󰂜"
 				title: "Do not disturb"
 				subtitle: ""
