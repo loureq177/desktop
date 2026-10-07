@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+# Ensures the external iiyama PL2792Q runs at its patched 74Hz mode.
+# The kernel EDID override makes `preferred` resolve to 2560x1440@74, but
+# Hyprland does not auto-switch a monitor that is already up at stock 60Hz
+# when the override lands late (hotplug race / dGPU D3cold resume). This
+# helper switches explicitly - but ONLY to a mode the compositor advertises,
+# so it can never force an unknown @74 like the hardcoded config that caused
+# the Oct 2026 nvidia-modeset spin / kmalloc-128 OOM / DRM panic.
+# Safe to run on every Hyprland start and after dock/undock.
+set -euo pipefail
+
+MON_MATCH="${ENSURE_74HZ_MATCH:-PL2792Q}"
+WANT_GEOM="${ENSURE_74HZ_GEOM:-2560x1440}"
+MIN_HZ="${ENSURE_74HZ_MIN_HZ:-73}"
+TRIES="${ENSURE_74HZ_TRIES:-20}"
+SLEEP="${ENSURE_74HZ_SLEEP:-0.5}"
+
+command -v hyprctl >/dev/null 2>&1 || exit 0
+command -v jq >/dev/null 2>&1 || exit 0
+
+t=0
+while [ "$t" -lt "$TRIES" ]; do
+    mon_json="$(hyprctl monitors -j 2>/dev/null || true)"
+    entry="$(printf '%s' "$mon_json" | jq -c --arg m "$MON_MATCH" '[.[] | select(.description | contains($m))][0] // empty' 2>/dev/null || true)"
+    if [ -n "$entry" ]; then
+        # Best advertised mode for the wanted geometry (e.g. 2560x1440@73.99Hz).
+        target="$(printf '%s' "$entry" | jq -r --arg g "$WANT_GEOM" '
+            [.availableModes[]? | select(startswith($g + "@"))] | max_by(
+                (. | sub(".*@";"") | sub("Hz$";"") | tonumber)
+            ) // empty' 2>/dev/null || true)"
+        if [ -n "$target" ]; then
+            target_hz="$(printf '%s' "$target" | sed -E 's/.*@([0-9]+(\.[0-9]+)?)Hz/\1/')"
+            current_hz="$(printf '%s' "$entry" | jq -r '.refreshRate // 0')"
+            # Override missing or mode list not settled yet: keep waiting.
+            if python3 -c "import sys; sys.exit(0 if float('$target_hz') >= float('$MIN_HZ') else 1)" 2>/dev/null; then
+                if python3 -c "import sys; sys.exit(0 if float('$current_hz') >= float('$MIN_HZ') else 1)" 2>/dev/null; then
+                    exit 0 # already at 74Hz
+                fi
+                desc="$(printf '%s' "$entry" | jq -r '.description')"
+                x="$(printf '%s' "$entry" | jq -r '.x')"
+                y="$(printf '%s' "$entry" | jq -r '.y')"
+                scale="$(printf '%s' "$entry" | jq -r '.scale')"
+                mode="${WANT_GEOM}@${target_hz}"
+                if hyprctl eval "hl.monitor({ output = 'desc:${desc}', mode = '${mode}', position = '${x}x${y}', scale = ${scale} })" >/dev/null 2>&1; then
+                    logger -t ensure-74hz "switched ${MON_MATCH} to ${mode}" 2>/dev/null || true
+                    command -v notify-send >/dev/null 2>&1 && notify-send -a ensure-74hz "Monitor 74Hz" "${MON_MATCH} switched to ${mode}" 2>/dev/null || true
+                fi
+                exit 0
+            fi
+        fi
+    fi
+    t=$((t + 1))
+    sleep "$SLEEP"
+done
+# Override not active (still stock 60Hz EDID): leave the safe fallback alone.
+exit 0

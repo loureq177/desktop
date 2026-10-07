@@ -39,15 +39,30 @@ local programs = {
 	special = {
 		-- Apps
 		spotify = { exe = "flatpak run com.spotify.Client", class = "spotify", ws = "spotify" },
-		tasks = { exe = bin .. "/firefox-webapp tasks https://tasks.google.com", class = "webapps", title = ".*Tasks.*", ws = "tasks" },
+		tasks = {
+			exe = bin .. "/firefox-webapp tasks https://tasks.google.com",
+			class = "webapps",
+			title = ".*Tasks.*",
+			ws = "tasks",
+		},
 		calendar = {
 			exe = bin .. "/firefox-webapp calendar https://calendar.google.com",
 			class = "webapps",
 			title = ".*Calendar.*",
 			ws = "calendar",
 		},
-		mail = { exe = bin .. "/firefox-webapp gmail https://mail.google.com", class = "webapps", title = ".*Gmail.*", ws = "mail" },
-		gemini = { exe = bin .. "/firefox-webapp gemini https://gemini.google.com", class = "webapps", title = ".*Gemini.*", ws = "gemini" },
+		mail = {
+			exe = bin .. "/firefox-webapp gmail https://mail.google.com",
+			class = "webapps",
+			title = ".*Gmail.*",
+			ws = "mail",
+		},
+		gemini = {
+			exe = bin .. "/firefox-webapp gemini https://gemini.google.com",
+			class = "webapps",
+			title = ".*Gemini.*",
+			ws = "gemini",
+		},
 		whatsapp = {
 			exe = bin .. "/firefox-webapp whatsapp https://web.whatsapp.com",
 			class = "webapps",
@@ -118,7 +133,11 @@ hl.on("hyprland.start", function()
 		"wl-paste --type text --watch cliphist -max-items 100 store",
 		"wl-paste --type image/png --watch cliphist -max-items 100 store",
 		"wpctl set-volume @DEFAULT_AUDIO_SOURCE@ 0.25",
-		"hyprpaper",
+		"~/.local/bin/wallpaper init",
+		-- Reassert patched 74Hz on the iiyama if the EDID override landed
+		-- late (hotplug race / dGPU D3cold resume). No-op when undocked or
+		-- already at 74Hz; never forces an unadvertised mode (panic-safe).
+		"~/.local/bin/ensure-74hz",
 		"quickshell -d",
 		"hyprsunset",
 	}
@@ -529,6 +548,13 @@ hl.window_rule({
 	center = true,
 })
 
+hl.window_rule({
+	name = "wallpaper-picker",
+	match = { class = "wallpaper-picker" },
+	float = true,
+	center = true,
+})
+
 -- ─── Keybindings ────────────────────────────────────────────────────────────────
 
 local function b(keys, desc, dispatcher, opts)
@@ -583,6 +609,7 @@ local cmds = {
 	["SUPER + A"] = { "qs ipc call quicksettings toggle", "Quick settings" },
 	["SUPER + N"] = { "qs ipc call notifications toggle", "Toggle notification center" },
 	["SUPER + comma"] = { "qs ipc call notifications dismissLatest", "Close latest notification" },
+	["SUPER + SHIFT + comma"] = { "qs ipc call notifications invokeDefault", "Activate latest notification" },
 	["SUPER + W"] = { "qs ipc call weather toggle", "Weather" },
 	["SUPER + E"] = { "qs ipc call shell toggle launcher emoji", "Emoji picker" },
 	["SUPER + C"] = { "qs ipc call shell toggle clipboard ''", "Clipboard history" },
@@ -594,6 +621,11 @@ local cmds = {
 	-- ─── Capture ─────────────────────────────────────────────────────────
 
 	["SUPER + D"] = { "~/.local/bin/dictation", "Dictation" },
+	["SUPER + P"] = {
+		"ghostty --class=wallpaper-picker -e ~/.local/bin/wallpaper pick",
+		"Pick wallpaper",
+	},
+	["SUPER + SHIFT + P"] = { "~/.local/bin/wallpaper next", "Next wallpaper" },
 	["print"] = { "~/.local/bin/screenshot region", "Screenshot (region)" },
 	["SHIFT + print"] = { "~/.local/bin/screenshot fullscreen", "Screenshot (full)" },
 }
@@ -603,15 +635,14 @@ for bind, entry in pairs(cmds) do
 end
 
 local special_apps = {
+	["SUPER + SHIFT + A"] = { "gemini", "AI (Gemini)" },
+	["SUPER + SHIFT + B"] = { "btop", "Activity Monitor" },
 	["SUPER + SHIFT + C"] = { "calendar", "Calendar" },
+	["SUPER + SHIFT + E"] = { "mail", "Mail" },
+	["SUPER + SHIFT + F"] = { "yazi", "File manager (yazi)" },
+	["SUPER + SHIFT + S"] = { "spotify", "Spotify" },
 	["SUPER + SHIFT + T"] = { "tasks", "Tasks" },
 	["SUPER + SHIFT + W"] = { "whatsapp", "WhatsApp" },
-	["SUPER + SHIFT + E"] = { "mail", "Mail" },
-	["SUPER + SHIFT + S"] = { "spotify", "Spotify" },
-	["SUPER + SHIFT + A"] = { "gemini", "AI (Gemini)" },
-	["SUPER + SHIFT + F"] = { "yazi", "File manager (yazi)" },
-	["SUPER + SHIFT + Q"] = { "calculator", "Calculator" },
-	["SUPER + SHIFT + B"] = { "btop", "Activity Monitor" },
 }
 
 for bind, entry in pairs(special_apps) do
@@ -636,8 +667,24 @@ local media = {
 	{ "XF86MonBrightnessUp", "~/.local/bin/brightness up", true, "Brightness up" },
 	{ "XF86MonBrightnessDown", "~/.local/bin/brightness down", true, "Brightness down" },
 	{ "XF86TouchpadToggle", "~/.local/bin/touchpad toggle", nil, "Touchpad toggle" },
+	{ "XF86AudioNext", "playerctl next", nil, "Next track" },
+	{ "XF86AudioPause", "playerctl play-pause", nil, "Pause track" },
+	{ "XF86AudioPlay", "playerctl play-pause", nil, "Play track" },
+	{ "XF86AudioPrev", "playerctl previous", nil, "Previous track" },
 }
 
 for _, m in ipairs(media) do
 	b(m[1], m[4], hl.dsp.exec_cmd(m[2]), { locked = true, repeating = m[3] })
 end
+
+-- ─── Mouse Drag / Resize ─────────────────────────────────────────────────────
+
+hl.bind("SUPER + mouse:272", hl.dsp.window.drag(), { mouse = true, description = "Move window" })
+hl.bind("SUPER + mouse:273", hl.dsp.window.resize(), { mouse = true, description = "Resize window" })
+
+-- ─── Power Shortcuts (locked = true) ─────────────────────────────────────────
+
+b("SUPER + SHIFT + Delete", "Power off", hl.dsp.exec_cmd("hyprshutdown --post-cmd 'systemctl poweroff'"), { locked = true })
+b("SUPER + SHIFT + R", "Reboot", hl.dsp.exec_cmd("hyprshutdown --post-cmd 'systemctl reboot'"), { locked = true })
+b("SUPER + SHIFT + Z", "Suspend", hl.dsp.exec_cmd("loginctl lock-session && systemctl suspend"), { locked = true })
+

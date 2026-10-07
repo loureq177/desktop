@@ -6,7 +6,11 @@ return {
 	-- Hardware / GPU environment variables
 	env = function()
 		-- Example for hybrid graphics (AMD iGPU + NVIDIA dGPU on Lenovo Legion):
-		-- hl.env("AQ_DRM_DEVICES", "/dev/dri/amd-igpu:/dev/dri/nvidia-dgpu")
+		-- Put the GPU driving the most latency-sensitive display first. For example,
+		-- if an external monitor is physically wired to NVIDIA while the laptop
+		-- panel is wired to AMD, prefer NVIDIA first to avoid cross-GPU copies on
+		-- the external output (at the cost of more power use):
+		-- hl.env("AQ_DRM_DEVICES", "/dev/dri/nvidia-dgpu:/dev/dri/amd-igpu")
 		-- local vulkan_icd = "/usr/share/vulkan/icd.d/radeon_icd.json"
 		-- hl.env("VK_DRIVER_FILES", vulkan_icd)
 		-- hl.env("VK_ICD_FILENAMES", vulkan_icd)
@@ -21,6 +25,12 @@ return {
 	-- A hardcoded @74 before the override lands makes nvidia-modeset spin
 	-- ("Error while waiting for GPU progress"), leak kmalloc-128 until OOM,
 	-- and end in a DRM panic ("System is deadlocked on memory").
+	-- If the override lands late (dGPU D3cold resume), `ensure-74hz`
+	-- (autostarted from hyprland.lua) switches to the advertised 74Hz mode.
+	-- iGPU-first (AQ_DRM_DEVICES below) is kept for battery life: note the
+	-- external DP-1 is wired to NVIDIA, so each of its frames is copied
+	-- AMD->NVIDIA. If frame drops persist after 74Hz locks in, the remaining
+	-- lever is rendering on NVIDIA first (at the cost of idle power).
 	monitors = function()
 		-- Example: Laptop display + external monitor
 		-- local laptop_output = "desc:BOE 0x0998"
