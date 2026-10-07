@@ -1,11 +1,13 @@
 7zip
 adwaita-fonts
 arch-audit
+awww
 arduino-cli
 atac
 audacity
 aws-cli-v2
 bat
+bats
 bazaar
 bluetui
 btop
@@ -14,6 +16,7 @@ bun
 chafa
 cliphist
 cmake
+codex
 discord
 distrobox
 docker
@@ -72,6 +75,7 @@ libcanberra
 libnotify
 libreoffice-fresh
 libreoffice-fresh-pl
+libva-utils
 llama-cpp
 lolcat
 loupe
@@ -91,12 +95,14 @@ openbsd-netcat
 opencode
 pacman-contrib
 papirus-icon-theme
+parallel
 php
 pipewire
 pipewire-alsa
 pipewire-audio
 pipewire-jack
 pipewire-pulse
+playerctl
 podman
 profile-sync-daemon
 prusa-slicer
@@ -144,6 +150,7 @@ whisper-cpp
 wireplumber
 wl-clipboard
 wtype
+valkey
 xdg-desktop-portal
 xdg-desktop-portal-gtk
 xdg-desktop-portal-hyprland
