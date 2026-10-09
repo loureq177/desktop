@@ -245,6 +245,11 @@ Singleton {
 	// Index-based for keybinds (SUPER+ALT+1..3 act on the latest toast,
 	// indexing the visible actions); identifier-based for buttons.
 	function invokeAction(index: int, id: var): void {
+		// Explicit -1 (e.g. stale rowId) must be a no-op, never a fallback
+		// to the latest toast — otherwise X/Enter on a swept row hits a
+		// random newest notification.
+		if (id === -1)
+			return;
 		var targetId = id !== undefined && id !== null && id >= 0 ? id : root.latestToastId();
 		var found = root.liveById(targetId);
 		var acts = root.visibleActions(found);
@@ -281,6 +286,9 @@ Singleton {
 	// focus the app window if possible, remove toast and close the center drawer
 	// instead of wiping the entry from history.
 	function activate(id: var): void {
+		// Same no-op rule as invokeAction: stale -1 never falls back.
+		if (id === -1)
+			return;
 		var targetId = id !== undefined && id !== null && id >= 0 ? id : root.latestToastId();
 		if (targetId < 0)
 			return;
@@ -298,10 +306,9 @@ Singleton {
 					break;
 				}
 			}
-			if (!invoked && found.actions.length > 0) {
-				found.actions[0].invoke();
-				invoked = true;
-			}
+			// NOTE: intentionally no fallback to actions[0]. A body click
+			// must run the default action only — firing an arbitrary first
+			// action (e.g. "Delete" instead of "Open") is destructive.
 		}
 
 		var appTarget = (found && (found.desktopEntry || found.appName)) || (snap && (snap.desktopEntry || snap.appName)) || "";

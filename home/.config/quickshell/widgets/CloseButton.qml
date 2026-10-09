@@ -46,6 +46,9 @@ Rectangle {
 		anchors.fill: parent
 		hoverEnabled: true
 		cursorShape: Qt.PointingHandCursor
-		onClicked: root.clicked()
+		onClicked: mouse => {
+			mouse.accepted = true;
+			root.clicked();
+		}
 	}
 }

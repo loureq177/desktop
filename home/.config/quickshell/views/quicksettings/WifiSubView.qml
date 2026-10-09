@@ -1,6 +1,6 @@
 // Wi-Fi sub-menu: replaces impala terminal app.
 // Allows scanning, connecting, entering WPA password, disconnecting, and forgetting networks.
-// Full Vim key navigation (h/j/k/l, g/G, Enter/Space select, Space toggles on when off, r, w, x, Esc, q).
+// Full Vim key navigation (h/j/k/l, g/G, Enter connect/disconnect, Space toggles radio, r, w, x, Esc, q).
 import "../.."
 import "../../widgets"
 import "."
@@ -49,7 +49,27 @@ Item {
 	property string passwordInput: ""
 	property bool showPassword: false
 	property string errorMessage: ""
+	// Two-step forget confirm (M5): first X arms, second X within 3s executes.
+	property string pendingForgetSsid: ""
 	readonly property string connectingSsid: pending.target
+
+	Timer {
+		id: forgetConfirmTimer
+		interval: 3000
+		onTriggered: {
+			root.pendingForgetSsid = "";
+			if (root.errorMessage.indexOf("Press X again") === 0)
+				root.errorMessage = "";
+		}
+	}
+
+	// Delayed refresh after forget: nmcli delete is async and an immediate
+	// refresh re-shows the just-removed network (same race as BT).
+	Timer {
+		id: forgetRefreshTimer
+		interval: 600
+		onTriggered: root.refreshList()
+	}
 
 	PendingAction {
 		id: pending
@@ -57,6 +77,8 @@ Item {
 			if (expired !== "") {
 				root.errorMessage = "Connection timed out";
 				root.refreshList();
+				if (root.promptSsid !== "")
+					passInput.forceActiveFocus();
 			}
 		}
 	}
@@ -114,7 +136,19 @@ Item {
 			return b.signalStrength - a.signalStrength;
 		});
 
+		var curName = (currentIndex >= 0 && currentIndex < networkList.length && networkList[currentIndex]) ? networkList[currentIndex].name : "";
 		networkList = arr;
+		// L1: keep keyboard selection stable across the 3s rebuilds.
+		// Without this currentIndex points at a different network after
+		// every re-sort (by signal), so Enter can hit the wrong SSID.
+		if (curName !== "") {
+			for (var s = 0; s < arr.length; s++) {
+				if (arr[s].name === curName) {
+					currentIndex = s;
+					break;
+				}
+			}
+		}
 		if (currentIndex >= arr.length)
 			currentIndex = Math.max(0, arr.length - 1);
 
@@ -124,6 +158,20 @@ Item {
 			for (var c = 0; c < arr.length; c++) {
 				if (arr[c].name === pending.target && arr[c].connected) {
 					pending.clear();
+					break;
+				}
+			}
+		}
+
+		// Auto-close the password prompt once its network is connected.
+		// Covers: successful submit via native connectWithPsk (no callback),
+		// auto-join while the prompt was open, and stale-list cases like
+		// "prompt for X while X already shows Connected". Without this the
+		// password field sticks on screen even after a good password.
+		if (promptSsid !== "") {
+			for (var p = 0; p < arr.length; p++) {
+				if (arr[p].name === promptSsid && arr[p].connected) {
+					closePasswordPrompt();
 					break;
 				}
 			}
@@ -142,12 +190,20 @@ Item {
 		id: cliProc
 		onExited: code => {
 			root.refreshList();
-			if (code !== 0 && pending.target !== "") {
-				root.errorMessage = "Connection failed";
-				pending.clear();
+			if (code !== 0) {
+				if (pending.target !== "") {
+					root.errorMessage = "Connection failed";
+					pending.clear();
+				}
+				if (root.promptSsid !== "")
+					passInput.forceActiveFocus();
 			} else {
 				pending.clear();
-				root.promptSsid = "";
+				// nmcli exit 0 = success: never leave the password card
+				// hanging. refreshList() above already auto-closes on
+				// connected; this is a fallback for slow backend updates.
+				if (root.promptSsid !== "")
+					root.closePasswordPrompt();
 			}
 		}
 	}
@@ -182,9 +238,36 @@ Item {
 		if (!item)
 			return;
 
+		// Clicking the connected row must NOT disconnect: accidental
+		// clicks are too easy with a full-row MouseArea. Disconnect only
+		// via the explicit "Disconnect" button or Enter key.
+		if (item.connected)
+			return;
+		// Avoid duplicate attempts while a connect is already in flight.
+		if (pending.target === item.name && pending.status !== "")
+			return;
+		if (item.known || !isSecured(item.security)) {
+			connectNetwork(item);
+		} else {
+			openPasswordPrompt(item);
+		}
+	}
+
+	function toggleConnection(index): void {
+		if (index < 0 || index >= networkList.length)
+			return;
+		var item = networkList[index];
+		if (!item)
+			return;
+
+		// Avoid duplicate attempts while a connect is already in flight.
+		if (pending.target === item.name && pending.status !== "")
+			return;
 		if (item.connected) {
 			disconnectNetwork(item);
-		} else if (item.known || !isSecured(item.security)) {
+			return;
+		}
+		if (item.known || !isSecured(item.security)) {
 			connectNetwork(item);
 		} else {
 			openPasswordPrompt(item);
@@ -193,9 +276,17 @@ Item {
 
 	function connectNetwork(item): void {
 		errorMessage = "";
+		// Don't leave a stale password prompt for another network open.
+		if (promptSsid !== "" && promptSsid !== item.name)
+			closePasswordPrompt();
 		pending.start(item.name, "Connecting…");
 		if (item.net) {
-			try { item.net.connect(); } catch (e) {}
+			try {
+				item.net.connect();
+			} catch (e) {
+				errorMessage = "Connection failed";
+				pending.clear();
+			}
 		} else {
 			cliProc.command = ["nmcli", "device", "wifi", "connect", item.name];
 			cliProc.running = true;
@@ -204,57 +295,115 @@ Item {
 
 	function disconnectNetwork(item): void {
 		errorMessage = "";
+		if (promptSsid === item.name)
+			closePasswordPrompt();
 		if (item.net) {
 			try { item.net.disconnect(); } catch (e) {}
 		} else {
 			var devName = wifiDevice?.name || "wlan0";
 			Quickshell.execDetached(["nmcli", "device", "disconnect", devName]);
 		}
+		pending.clear();
 		root.refreshList();
 	}
 
 	function forgetNetwork(item): void {
+		if (!item || !item.name)
+			return;
+		// Two-step: first call arms, second call within 3s executes.
+		// Single X otherwise wipes a saved network (with password) by accident.
+		if (root.pendingForgetSsid !== item.name) {
+			root.pendingForgetSsid = item.name;
+			root.errorMessage = "Press X again to forget \"" + item.name + "\"";
+			forgetConfirmTimer.restart();
+			return;
+		}
+		forgetConfirmTimer.stop();
+		root.pendingForgetSsid = "";
 		errorMessage = "";
+		if (promptSsid === item.name)
+			closePasswordPrompt();
 		if (item.net) {
 			try { item.net.forget(); } catch (e) {}
 		}
 		Quickshell.execDetached(["nmcli", "connection", "delete", item.name]);
-		root.refreshList();
+		pending.clear();
+		// Don't refresh immediately — nmcli delete is async and the
+		// removed network would flicker back. Timer + autoRefresh converge.
+		forgetRefreshTimer.restart();
 	}
 
 	function openPasswordPrompt(item): void {
+		if (!item || item.connected)
+			return;
 		promptSsid = item.name;
 		promptNet = item.net;
 		passwordInput = "";
 		showPassword = false;
 		errorMessage = "";
+		pending.clear();
+		passInput.text = "";
 		passInput.forceActiveFocus();
 	}
 
-	function cancelPassword(): void {
+	function closePasswordPrompt(): void {
 		promptSsid = "";
 		promptNet = null;
 		passwordInput = "";
 		errorMessage = "";
+		pending.clear();
+		forgetConfirmTimer.stop();
+		root.pendingForgetSsid = "";
+		if (passInput)
+			passInput.text = "";
 		root.forceActiveFocus();
 	}
 
+	function cancelPassword(): void {
+		pending.clear();
+		closePasswordPrompt();
+	}
+
 	function submitPassword(): void {
-		if (passwordInput.trim() === "")
+		// Idempotent: the same Enter keypress can arrive via both
+		// TextInput.onAccepted and bubbled Keys.onPressed. The second
+		// call must be a no-op instead of starting a connect with an
+		// empty SSID and corrupting `pending`.
+		if (promptSsid === "")
 			return;
+		if (pending.target === promptSsid && pending.status !== "")
+			return;
+		// TextInput is the source of truth; passwordInput only mirrors it
+		// (binding `text: root.passwordInput` breaks on first keystroke).
+		var pass = passInput ? passInput.text : passwordInput;
+		if (!pass || pass.trim() === "") {
+			if (passInput)
+				passInput.forceActiveFocus();
+			return;
+		}
 		var ssid = promptSsid;
-		var pass = passwordInput;
+		passwordInput = pass;
 		pending.start(ssid, "Connecting…");
 		errorMessage = "";
 
 		if (promptNet && promptNet.connectWithPsk) {
-			try { promptNet.connectWithPsk(pass); } catch (e) {}
+			try {
+				promptNet.connectWithPsk(pass);
+			} catch (e) {
+				errorMessage = "Connection failed";
+				pending.clear();
+				passInput.forceActiveFocus();
+				return;
+			}
 		} else {
 			cliProc.command = ["nmcli", "device", "wifi", "connect", ssid, "password", pass];
 			cliProc.running = true;
 		}
-		promptSsid = "";
-		root.forceActiveFocus();
+		// Keep the prompt open until success is visible (refreshList
+		// auto-closes on connected, cliProc.onExited closes on exit 0).
+		// Closing optimistically here is what made errors invisible and,
+		// combined with the broken text binding, made the field stick.
+		passInput.forceActiveFocus();
 	}
 
 	onVisibleChanged: {
@@ -264,6 +413,12 @@ Item {
 				rescan();
 			currentIndex = 0;
 			root.forceActiveFocus();
+		} else {
+			// Never keep a WPA password in memory while hidden.
+			if (promptSsid !== "")
+				closePasswordPrompt();
+			else
+				pending.clear();
 		}
 	}
 
@@ -273,8 +428,15 @@ Item {
 			if (event.key === Qt.Key_Escape) {
 				cancelPassword();
 				event.accepted = true;
-			} else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
+			} else if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter) && !(passInput && passInput.activeFocus)) {
+				// Enter inside the TextInput is already handled by
+				// onAccepted; handling it here too would submit twice
+				// (second submit with empty SSID corrupts `pending`).
 				submitPassword();
+				event.accepted = true;
+			} else if (event.key === Qt.Key_J || event.key === Qt.Key_K || event.key === Qt.Key_Down || event.key === Qt.Key_Up) {
+				// Swallow list navigation while the prompt is open so
+				// typing j/k into the password field can't move selection.
 				event.accepted = true;
 			}
 			return;
@@ -300,14 +462,16 @@ Item {
 			currentIndex = Math.max(0, networkList.length - 1);
 			listView.positionViewAtIndex(currentIndex, ListView.Contain);
 			event.accepted = true;
-		} else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Space) {
-			if (!root.wifiEnabled)
+		} else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
+			if (!event.isAutoRepeat && root.wifiEnabled)
+				toggleConnection(currentIndex);
+			event.accepted = true;
+		} else if (event.key === Qt.Key_Space) {
+			if (!event.isAutoRepeat)
 				toggleWifi();
-			else
-				selectItem(currentIndex);
 			event.accepted = true;
 		} else if (event.key === Qt.Key_X || event.key === Qt.Key_Delete) {
-			if (currentIndex >= 0 && currentIndex < networkList.length)
+			if (!event.isAutoRepeat && currentIndex >= 0 && currentIndex < networkList.length)
 				forgetNetwork(networkList[currentIndex]);
 			event.accepted = true;
 		} else if (event.key === Qt.Key_R) {
@@ -343,6 +507,41 @@ Item {
 			Layout.fillWidth: true
 			Layout.preferredHeight: 1
 			color: Theme.border
+		}
+
+		// Inline error for actions without a password prompt
+		// (e.g. connecting to a saved network failed). Errors for the
+		// password flow are shown inside the password card instead.
+		// NOTE: Theme.critical is a string, so .r/.g/.b needs Qt.color().
+		Rectangle {
+			Layout.fillWidth: true
+			visible: root.errorMessage !== "" && root.promptSsid === "" && root.wifiEnabled
+			radius: Theme.roundingElement
+			color: Qt.rgba(Qt.color(Theme.critical).r, Qt.color(Theme.critical).g, Qt.color(Theme.critical).b, 0.10)
+			border.color: Qt.rgba(Qt.color(Theme.critical).r, Qt.color(Theme.critical).g, Qt.color(Theme.critical).b, 0.40)
+			border.width: 1
+			implicitHeight: errRow.implicitHeight + 16
+
+			RowLayout {
+				id: errRow
+				anchors.fill: parent
+				anchors.margins: 8
+				spacing: 8
+
+				Text {
+					text: "⚠"
+					font.pixelSize: Theme.fontSizeSmall
+					color: Theme.critical
+				}
+				Text {
+					Layout.fillWidth: true
+					text: root.errorMessage
+					font.family: Theme.fontMono
+					font.pixelSize: Theme.fontSizeSmall - 1
+					color: Theme.critical
+					elide: Text.ElideRight
+				}
+			}
 		}
 
 		// ─── Off-state Placeholder ─────────────────────────────────────
@@ -396,10 +595,10 @@ Item {
 
 					color: delegateArea.containsMouse
 						? Theme.bgHover
-						: (isConnected ? Qt.rgba(Theme.accentBlue.r, Theme.accentBlue.g, Theme.accentBlue.b, 0.08) : Theme.bgMain)
+						: (isConnected ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.08) : Theme.bgMain)
 
 					border.color: isConnected
-						? Qt.rgba(Theme.accentBlue.r, Theme.accentBlue.g, Theme.accentBlue.b, 0.40)
+						? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.40)
 						: (delegateArea.containsMouse ? Theme.textDim : Theme.border)
 					border.width: 1
 
@@ -409,7 +608,7 @@ Item {
 					Rectangle {
 						anchors.fill: parent
 						radius: parent.radius
-						color: isConnected ? Qt.rgba(Theme.accentBlue.r, Theme.accentBlue.g, Theme.accentBlue.b, 0.20) : Theme.selectionBg
+						color: isConnected ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.20) : Theme.selectionBg
 						border.color: Theme.selectionBorder
 						border.width: 1
 						opacity: isSelected ? 1.0 : 0.0
@@ -427,7 +626,8 @@ Item {
 						hoverEnabled: true
 						cursorShape: Qt.PointingHandCursor
 						z: 1
-						onClicked: {
+						onClicked: mouse => {
+							mouse.accepted = true;
 							root.currentIndex = index;
 							root.selectItem(index);
 						}
@@ -438,6 +638,9 @@ Item {
 						anchors.leftMargin: 12
 						anchors.rightMargin: 12
 						spacing: 10
+						// Must sit above delegateArea, otherwise the full-row
+						// MouseArea swallows clicks meant for the buttons.
+						z: 2
 
 						// Signal Strength Icon
 						Text {
@@ -523,7 +726,10 @@ Item {
 									anchors.fill: parent
 									hoverEnabled: true
 									cursorShape: Qt.PointingHandCursor
-									onClicked: root.disconnectNetwork(modelData)
+									onClicked: mouse => {
+										mouse.accepted = true;
+										root.disconnectNetwork(modelData);
+									}
 								}
 							}
 
@@ -550,7 +756,10 @@ Item {
 									anchors.fill: parent
 									hoverEnabled: true
 									cursorShape: Qt.PointingHandCursor
-									onClicked: root.forgetNetwork(modelData)
+									onClicked: mouse => {
+										mouse.accepted = true;
+										root.forgetNetwork(modelData);
+									}
 								}
 							}
 
@@ -650,7 +859,13 @@ Item {
 						TextInput {
 							id: passInput
 							Layout.fillWidth: true
-							text: root.passwordInput
+							// NOTE: intentionally no `text: root.passwordInput`
+							// binding. It breaks on the first keystroke (direct
+							// assignment removes the binding), so later
+							// `passwordInput = ""` no longer clears the field
+							// and submit could read a stale/empty value.
+							// TextInput is the source of truth; passwordInput
+							// only mirrors it for the submit guard.
 							echoMode: root.showPassword ? TextInput.Normal : TextInput.Password
 							font.family: Theme.fontMono
 							font.pixelSize: Theme.fontSizeSmall
@@ -695,14 +910,14 @@ Item {
 					}
 				}
 
-				// Error message if any
+				// Error / status message
 				Text {
-					visible: root.errorMessage !== ""
+					visible: root.errorMessage !== "" || (pending.target === root.promptSsid && pending.status !== "")
 					Layout.fillWidth: true
-					text: root.errorMessage
+					text: root.errorMessage !== "" ? root.errorMessage : (pending.target === root.promptSsid ? pending.status : "")
 					font.family: Theme.fontMono
 					font.pixelSize: Theme.fontSizeSmall - 2
-					color: Theme.critical
+					color: root.errorMessage !== "" ? Theme.critical : Theme.warning
 				}
 
 				// Actions
@@ -742,12 +957,14 @@ Item {
 						implicitWidth: connectLabel.implicitWidth + 20
 						implicitHeight: 30
 						radius: Theme.roundingSubtle
+						// Dim while a connect for this SSID is in flight.
+						opacity: (pending.target === root.promptSsid && pending.status !== "") ? 0.6 : 1.0
 						color: connectBtnArea.containsMouse ? Qt.lighter(Theme.accentBlue, 1.15) : Theme.accentBlue
 
 						Text {
 							id: connectLabel
 							anchors.centerIn: parent
-							text: "Connect (Enter)"
+							text: (pending.target === root.promptSsid && pending.status !== "") ? "Connecting…" : "Connect (Enter)"
 							font.family: Theme.fontFamily
 							font.pixelSize: Theme.fontSizeSmall - 1
 							font.bold: true

@@ -42,6 +42,10 @@ Rectangle {
 		id: buttonArea
 		anchors.fill: parent
 		hoverEnabled: true
-		onClicked: Notifications.invokeByIdentifier(root.notifId, root.identifier)
+		cursorShape: Qt.PointingHandCursor
+		onClicked: mouse => {
+			mouse.accepted = true;
+			Notifications.invokeByIdentifier(root.notifId, root.identifier);
+		}
 	}
 }

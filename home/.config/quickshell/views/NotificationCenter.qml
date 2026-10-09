@@ -236,15 +236,20 @@ SideDrawer {
 						}
 						event.accepted = true;
 					} else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
-						if (count > 0 && win.currentIndex >= 0 && win.currentIndex < count) {
-							Notifications.activate(centerList.rowId(win.currentIndex));
+						if (!event.isAutoRepeat && count > 0 && win.currentIndex >= 0 && win.currentIndex < count) {
+							var actId = centerList.rowId(win.currentIndex);
+							if (actId !== -1)
+								Notifications.activate(actId);
 						}
 						event.accepted = true;
 					} else if (event.key === Qt.Key_X) {
-						if (count > 0 && win.currentIndex >= 0 && win.currentIndex < count) {
-							Notifications.dismissEntry(centerList.rowId(win.currentIndex));
-							if (win.currentIndex >= count - 1) {
-								win.currentIndex = Math.max(0, count - 2);
+						if (!event.isAutoRepeat && count > 0 && win.currentIndex >= 0 && win.currentIndex < count) {
+							var disId = centerList.rowId(win.currentIndex);
+							if (disId !== -1) {
+								Notifications.dismissEntry(disId);
+								if (win.currentIndex >= count - 1) {
+									win.currentIndex = Math.max(0, count - 2);
+								}
 							}
 						}
 						event.accepted = true;

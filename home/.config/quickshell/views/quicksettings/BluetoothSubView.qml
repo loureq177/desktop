@@ -1,7 +1,7 @@
 // Bluetooth sub-menu: replaces bluetui terminal app.
 // Allows scanning, connecting, pairing, disconnecting, and forgetting devices.
 // Displays battery readouts and device-specific icons.
-// Full Vim key navigation (h/j/k/l, g/G, Enter/Space select, Space toggles on when off, r, b, x, Esc, q).
+// Full Vim key navigation (h/j/k/l, g/G, Enter connect/disconnect, Space toggles radio, r, b, x, Esc, q).
 import "../.."
 import "../../widgets"
 import "."
@@ -38,19 +38,39 @@ Item {
 	}
 	readonly property string actionStatus: pending.status
 	readonly property string targetDeviceAddress: pending.target
+	property string errorMessage: ""
+	// Two-step forget confirm (M5): first X arms, second X within 3s executes.
+	property string pendingForgetAddr: ""
 
 	function clearAction(): void {
 		pending.clear();
 	}
 
+	Timer {
+		id: forgetConfirmTimer
+		interval: 3000
+		onTriggered: {
+			root.pendingForgetAddr = "";
+			if (root.errorMessage.indexOf("Press X again") === 0)
+				root.errorMessage = "";
+		}
+	}
+
 	PendingAction {
 		id: pending
-		onTimedOut: root.refreshDevices()
+		onTimedOut: expired => {
+			if (expired !== "") {
+				root.errorMessage = "Action timed out — device didn't respond";
+				root.refreshDevices();
+			}
+		}
 	}
 
 	onBtEnabledChanged: {
-		if (!btEnabled)
+		if (!btEnabled) {
 			root.clearAction();
+			root.errorMessage = "";
+		}
 	}
 
 	function getDeviceIcon(d) {
@@ -72,7 +92,7 @@ Item {
 	}
 
 	function refreshDevices(): void {
-		if (!btAdapter || !btAdapter.devices) {
+		if (!btAdapter || !btAdapter.devices || !btAdapter.devices.values) {
 			pairedList = [];
 			availableList = [];
 			allItems = [];
@@ -81,7 +101,7 @@ Item {
 			return;
 		}
 
-		var raw = btAdapter.devices.values;
+		var raw = btAdapter.devices.values || [];
 		var paired = [];
 		var available = [];
 
@@ -132,7 +152,16 @@ Item {
 		for (var a = 0; a < available.length; a++)
 			all.push(available[a]);
 
+		var curAddr = (currentIndex >= 0 && currentIndex < allItems.length && allItems[currentIndex]) ? allItems[currentIndex].address : "";
 		allItems = all;
+		if (curAddr !== "") {
+			for (var s = 0; s < all.length; s++) {
+				if (all[s].address === curAddr) {
+					currentIndex = s;
+					break;
+				}
+			}
+		}
 		if (currentIndex >= all.length)
 			currentIndex = Math.max(0, all.length - 1);
 
@@ -149,10 +178,12 @@ Item {
 			}
 			if (!target) {
 				clearAction();
-			} else if ((actionStatus === "Connecting…" || actionStatus === "Pairing…") && target.connected) {
+			} else if ((actionStatus === "Connecting…" || actionStatus.indexOf("Pairing") === 0) && target.connected) {
 				clearAction();
+				errorMessage = "";
 			} else if (actionStatus === "Disconnecting…" && !target.connected) {
 				clearAction();
+				errorMessage = "";
 			}
 		}
 	}
@@ -183,8 +214,21 @@ Item {
 		id: cliBtActionProc
 		onExited: code => {
 			root.refreshDevices();
+			if (code !== 0) {
+				root.errorMessage = "Bluetooth action failed";
+			} else {
+				root.errorMessage = "";
+			}
 			root.clearAction();
 		}
+	}
+
+	// Delayed refresh after forget/remove: bluetoothctl is async and an
+	// immediate refresh re-shows the just-removed device (race).
+	Timer {
+		id: forgetRefreshTimer
+		interval: 600
+		onTriggered: root.refreshDevices()
 	}
 
 	Timer {
@@ -209,9 +253,19 @@ Item {
 	}
 
 	function connectDevice(item): void {
+		if (!item || !item.address)
+			return;
+		if (pending.target === item.address && pending.status !== "")
+			return;
+		errorMessage = "";
 		pending.start(item.address, "Connecting…");
 		if (item.device) {
-			try { item.device.connect(); } catch (e) {}
+			try {
+				item.device.connect();
+			} catch (e) {
+				errorMessage = "Connect failed";
+				pending.clear();
+			}
 		} else {
 			cliBtActionProc.command = ["bluetoothctl", "connect", item.address];
 			cliBtActionProc.running = true;
@@ -219,9 +273,17 @@ Item {
 	}
 
 	function disconnectDevice(item): void {
+		if (!item || !item.address)
+			return;
+		errorMessage = "";
 		pending.start(item.address, "Disconnecting…");
 		if (item.device) {
-			try { item.device.disconnect(); } catch (e) {}
+			try {
+				item.device.disconnect();
+			} catch (e) {
+				errorMessage = "Disconnect failed";
+				pending.clear();
+			}
 		} else {
 			cliBtActionProc.command = ["bluetoothctl", "disconnect", item.address];
 			cliBtActionProc.running = true;
@@ -229,9 +291,21 @@ Item {
 	}
 
 	function pairDevice(item): void {
-		pending.start(item.address, "Pairing…");
+		if (!item || !item.address)
+			return;
+		if (pending.target === item.address && pending.status !== "")
+			return;
+		errorMessage = "";
+		// NOTE: devices needing a PIN/passkey have no agent UI here yet —
+		// confirm the pairing on the device itself if it stays on Pairing….
+		pending.start(item.address, "Pairing… confirm on device");
 		if (item.device) {
-			try { item.device.pair(); } catch (e) {}
+			try {
+				item.device.pair();
+			} catch (e) {
+				errorMessage = "Pairing failed";
+				pending.clear();
+			}
 		} else {
 			cliBtActionProc.command = ["sh", "-c", "bluetoothctl pair " + item.address + " && bluetoothctl connect " + item.address];
 			cliBtActionProc.running = true;
@@ -239,11 +313,28 @@ Item {
 	}
 
 	function forgetDevice(item): void {
+		if (!item || !item.address)
+			return;
+		// Two-step: first call arms, second call within 3s executes.
+		if (root.pendingForgetAddr !== item.address) {
+			root.pendingForgetAddr = item.address;
+			root.errorMessage = "Press X again to unpair \"" + item.name + "\"";
+			forgetConfirmTimer.restart();
+			return;
+		}
+		forgetConfirmTimer.stop();
+		root.pendingForgetAddr = "";
+		errorMessage = "";
+		if (pending.target === item.address)
+			pending.clear();
 		if (item.device) {
 			try { item.device.unpair(); } catch (e) {}
 		}
 		Quickshell.execDetached(["bluetoothctl", "remove", item.address]);
-		root.refreshDevices();
+		// Don't refresh immediately — the daemon hasn't processed the
+		// remove yet and the device would flicker back. The timer +
+		// autoRefresh will converge shortly.
+		forgetRefreshTimer.restart();
 	}
 
 	function selectItem(index): void {
@@ -253,9 +344,34 @@ Item {
 		if (!item || item.isHeader)
 			return;
 
+		// Same rule as Wi-Fi: clicking the connected row must NOT
+		// disconnect. Use the explicit Disconnect button or Enter key
+		// instead — full-row clicks disconnect far too easily.
+		if (item.connected)
+			return;
+		if (pending.target === item.address && pending.status !== "")
+			return;
+		if (item.paired) {
+			connectDevice(item);
+		} else {
+			pairDevice(item);
+		}
+	}
+
+	function toggleConnection(index): void {
+		if (index < 0 || index >= allItems.length)
+			return;
+		var item = allItems[index];
+		if (!item || item.isHeader)
+			return;
+
+		if (pending.target === item.address && pending.status !== "")
+			return;
 		if (item.connected) {
 			disconnectDevice(item);
-		} else if (item.paired) {
+			return;
+		}
+		if (item.paired) {
 			connectDevice(item);
 		} else {
 			pairDevice(item);
@@ -264,11 +380,14 @@ Item {
 
 	onVisibleChanged: {
 		if (visible) {
+			errorMessage = "";
 			refreshDevices();
 			if (btEnabled)
 				startScan();
 			currentIndex = 0;
 			root.forceActiveFocus();
+		} else {
+			clearAction();
 		}
 	}
 
@@ -294,14 +413,16 @@ Item {
 			currentIndex = Math.max(0, allItems.length - 1);
 			listView.positionViewAtIndex(currentIndex, ListView.Contain);
 			event.accepted = true;
-		} else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Space) {
-			if (!root.btEnabled)
+		} else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
+			if (!event.isAutoRepeat && root.btEnabled)
+				toggleConnection(currentIndex);
+			event.accepted = true;
+		} else if (event.key === Qt.Key_Space) {
+			if (!event.isAutoRepeat)
 				toggleBluetooth();
-			else
-				selectItem(currentIndex);
 			event.accepted = true;
 		} else if (event.key === Qt.Key_X || event.key === Qt.Key_Delete) {
-			if (currentIndex >= 0 && currentIndex < allItems.length)
+			if (!event.isAutoRepeat && currentIndex >= 0 && currentIndex < allItems.length)
 				forgetDevice(allItems[currentIndex]);
 			event.accepted = true;
 		} else if (event.key === Qt.Key_R) {
@@ -339,6 +460,41 @@ Item {
 			Layout.fillWidth: true
 			Layout.preferredHeight: 1
 			color: Theme.border
+		}
+
+		// Inline error banner (timeouts, cli failures). Previously BT had
+		// no error surface at all — failed pair/connect just stuck on
+		// "Connecting…" until the 15s timeout silently cleared it.
+		// NOTE: Theme.critical is a string, so .r/.g/.b needs Qt.color().
+		Rectangle {
+			Layout.fillWidth: true
+			visible: root.errorMessage !== "" && root.btEnabled
+			radius: Theme.roundingElement
+			color: Qt.rgba(Qt.color(Theme.critical).r, Qt.color(Theme.critical).g, Qt.color(Theme.critical).b, 0.10)
+			border.color: Qt.rgba(Qt.color(Theme.critical).r, Qt.color(Theme.critical).g, Qt.color(Theme.critical).b, 0.40)
+			border.width: 1
+			implicitHeight: btErrRow.implicitHeight + 16
+
+			RowLayout {
+				id: btErrRow
+				anchors.fill: parent
+				anchors.margins: 8
+				spacing: 8
+
+				Text {
+					text: "⚠"
+					font.pixelSize: Theme.fontSizeSmall
+					color: Theme.critical
+				}
+				Text {
+					Layout.fillWidth: true
+					text: root.errorMessage
+					font.family: Theme.fontMono
+					font.pixelSize: Theme.fontSizeSmall - 1
+					color: Theme.critical
+					elide: Text.ElideRight
+				}
+			}
 		}
 
 		// ─── Off-state Placeholder ─────────────────────────────────────
@@ -392,10 +548,10 @@ Item {
 
 					color: delegateArea.containsMouse
 						? Theme.bgHover
-						: (isConnected ? Qt.rgba(Theme.accentBlue.r, Theme.accentBlue.g, Theme.accentBlue.b, 0.08) : Theme.bgMain)
+						: (isConnected ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.08) : Theme.bgMain)
 
 					border.color: isConnected
-						? Qt.rgba(Theme.accentBlue.r, Theme.accentBlue.g, Theme.accentBlue.b, 0.40)
+						? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.40)
 						: (delegateArea.containsMouse ? Theme.textDim : Theme.border)
 					border.width: 1
 
@@ -405,7 +561,7 @@ Item {
 					Rectangle {
 						anchors.fill: parent
 						radius: parent.radius
-						color: isConnected ? Qt.rgba(Theme.accentBlue.r, Theme.accentBlue.g, Theme.accentBlue.b, 0.20) : Theme.selectionBg
+						color: isConnected ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.20) : Theme.selectionBg
 						border.color: Theme.selectionBorder
 						border.width: 1
 						opacity: isSelected ? 1.0 : 0.0
@@ -423,7 +579,8 @@ Item {
 						hoverEnabled: true
 						cursorShape: Qt.PointingHandCursor
 						z: 1
-						onClicked: {
+						onClicked: mouse => {
+							mouse.accepted = true;
 							root.currentIndex = index;
 							root.selectItem(index);
 						}
@@ -434,6 +591,9 @@ Item {
 						anchors.leftMargin: 12
 						anchors.rightMargin: 12
 						spacing: 10
+						// Must sit above delegateArea, otherwise the full-row
+						// MouseArea swallows clicks meant for the buttons.
+						z: 2
 
 						// Device Type Icon
 						Text {
@@ -513,7 +673,10 @@ Item {
 									anchors.fill: parent
 									hoverEnabled: true
 									cursorShape: Qt.PointingHandCursor
-									onClicked: root.disconnectDevice(modelData)
+									onClicked: mouse => {
+										mouse.accepted = true;
+										root.disconnectDevice(modelData);
+									}
 								}
 							}
 
@@ -540,7 +703,10 @@ Item {
 									anchors.fill: parent
 									hoverEnabled: true
 									cursorShape: Qt.PointingHandCursor
-									onClicked: root.forgetDevice(modelData)
+									onClicked: mouse => {
+										mouse.accepted = true;
+										root.forgetDevice(modelData);
+									}
 								}
 							}
 

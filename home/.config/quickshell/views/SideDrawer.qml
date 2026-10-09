@@ -1,6 +1,6 @@
-// Shared chrome for the top-right slide-in drawers (notification center,
-// quick settings): full-screen window, dim backdrop (click/Esc dismisses),
-// card geometry, slide animations and deferred unmap until slide-out ends.
+// Shared chrome for the slide-in drawers (right by default, left via fromLeft):
+// full-screen window, dim backdrop (click/Esc dismisses), card geometry,
+// slide animations and deferred unmap until slide-out ends.
 //
 // Callers bind `shown`, handle `opened` (close the competing drawer,
 // refresh polled state) and `dismissed` (close self), and put their body
@@ -23,8 +23,11 @@ PanelWindow {
 	signal dismissed()
 	signal drawerClosed()
 
-	// 0 = on screen; width + margin = fully off the right edge.
+	// 0 = on screen; width + margin = fully off screen (right edge,
+	// or left edge when fromLeft).
 	property int slide: root.cardWidth + Theme.notifRightMargin
+	// When true the card docks to the left edge and slides in from the left.
+	property bool fromLeft: false
 	property real backdropOpacity: 0.0
 	// When true, the next hide snaps shut with no animation (screen-freezing
 	// callers such as the capture tools arm it via QuickSettings.closeInstant).
@@ -161,7 +164,7 @@ PanelWindow {
 	Rectangle {
 		id: card
 
-		x: parent.width - width - Theme.notifRightMargin + root.slide
+		x: root.fromLeft ? Theme.notifRightMargin - root.slide : parent.width - width - Theme.notifRightMargin + root.slide
 		y: Theme.notifTopMargin
 		width: root.cardWidth
 		height: root.cardHeight

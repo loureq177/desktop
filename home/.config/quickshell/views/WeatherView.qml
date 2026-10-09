@@ -8,6 +8,7 @@ import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Wayland
 import QtQuick
+import QtQuick.Layouts
 import "../WeatherModel.js" as WeatherModel
 
 PanelWindow {
@@ -130,7 +131,7 @@ PanelWindow {
 			anchors.fill: parent
 			enabled: root.shown
 			onPressed: {
-				root.dismissed();
+				root.requestDismiss();
 			}
 		}
 	}
@@ -331,7 +332,10 @@ PanelWindow {
 								anchors.leftMargin: 8
 								anchors.rightMargin: 8
 								verticalAlignment: TextInput.AlignVCenter
-								text: Weather.configuredLocation
+								// NOTE: no `text: Weather.configuredLocation`
+								// binding — it breaks on first keystroke and
+								// would then ignore external file updates.
+								// Synced explicitly on show (below).
 								color: Theme.textMain
 								font.family: Theme.fontMono
 								font.pixelSize: Theme.fontSizeSmall
@@ -535,14 +539,52 @@ PanelWindow {
 				}
 			}
 
-			// Loading placeholder
-			Text {
+			// Loading / error placeholder (M4: offline was infinite
+			// "Fetching..." with retry only via 15-min timer or reopen).
+			ColumnLayout {
 				visible: !Weather.current
-				text: "Fetching weather..."
-				color: Theme.textDim
-				font.family: Theme.fontFamily
-				font.pixelSize: Theme.fontSizeSmall
-				font.italic: true
+				width: parent.width
+				spacing: 6
+
+				Text {
+					Layout.alignment: Qt.AlignHCenter
+					text: Weather.lastError !== "" ? Weather.lastError : "Fetching weather..."
+					color: Weather.lastError !== "" ? Theme.critical : Theme.textDim
+					font.family: Theme.fontFamily
+					font.pixelSize: Theme.fontSizeSmall
+					font.italic: Weather.lastError === ""
+				}
+
+				Rectangle {
+					visible: Weather.lastError !== ""
+					Layout.alignment: Qt.AlignHCenter
+					implicitWidth: retryLabel.implicitWidth + 18
+					implicitHeight: 28
+					radius: Theme.roundingSubtle
+					color: retryArea.containsMouse ? Theme.bgHover : "transparent"
+					border.color: retryArea.containsMouse ? Theme.textDim : Theme.border
+					border.width: 1
+
+					Text {
+						id: retryLabel
+						anchors.centerIn: parent
+						text: "Retry"
+						font.family: Theme.fontFamily
+						font.pixelSize: Theme.fontSizeSmall - 1
+						color: Theme.accentBlue
+					}
+
+					MouseArea {
+						id: retryArea
+						anchors.fill: parent
+						hoverEnabled: true
+						cursorShape: Qt.PointingHandCursor
+						onClicked: mouse => {
+							mouse.accepted = true;
+							Weather.refresh();
+						}
+					}
+				}
 			}
 
 			// ─── Divider ───────────────────────────────────────────────────────

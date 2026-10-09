@@ -1,4 +1,4 @@
-// Quick settings state: owns the top-right OneUI/GNOME-style panel with
+// Quick settings state: owns the slide-in panel with
 // volume/brightness sliders and toggle tiles.
 // Control via IPC: `qs ipc call quicksettings <toggle|open|close>`
 // (SUPER + A).

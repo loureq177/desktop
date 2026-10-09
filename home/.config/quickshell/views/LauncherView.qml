@@ -40,6 +40,19 @@ CenterModal {
 	property var emojis: []
 	property var runCache: []
 	property bool runLoaded: false
+	// M1: two-step confirm for destructive power actions. First Enter arms,
+	// second Enter within 4s executes. Single Enter must never shutdown.
+	property string pendingPower: ""
+
+	Timer {
+		id: powerConfirmTimer
+		interval: 4000
+		onTriggered: {
+			window.pendingPower = "";
+			if (window.lastError.indexOf("Press Enter again") === 0)
+				window.lastError = "";
+		}
+	}
 
 	readonly property var validModes: ["apps", "emoji", "power"]
 
@@ -62,7 +75,6 @@ CenterModal {
 		{ label: "Suspend", icon: "system-suspend", kind: "power", action: "suspend", keywords: "suspend sleep uspij uśpij drzemka" },
 		{ label: "Reboot", icon: "system-reboot", kind: "power", action: "reboot", keywords: "reboot restart uruchom ponownie zrestartuj" },
 		{ label: "Power off", icon: "system-shutdown", kind: "power", action: "poweroff", keywords: "poweroff shutdown wylacz wyłącz power exit wyloguj" },
-		{ label: "Pick wallpaper", icon: "preferences-desktop-wallpaper", kind: "action", cmd: ["ghostty", "--class=wallpaper-picker", "-e", Quickshell.env("HOME") + "/.local/bin/wallpaper", "pick"], keywords: "wallpaper tapeta tło background picker" },
 		{ label: "System update", icon: "system-software-update", kind: "action", cmd: ["ghostty", "--class=sysupdate", "-e", Quickshell.env("HOME") + "/.local/bin/sysupdate"], keywords: "update sysupdate aktualizacja pacman paru system" }
 	]
 
@@ -184,6 +196,8 @@ CenterModal {
 
 	function refilter() {
 		lastError = "";
+		powerConfirmTimer.stop();
+		pendingPower = "";
 		var q = query.trim();
 
 		if (mode === "apps") {
@@ -329,6 +343,15 @@ CenterModal {
 		}
 		if (item.kind === "power") {
 			var pKey = item.action || item.label;
+			// Lock/suspend are reversible; reboot/poweroff are not.
+			if ((pKey === "reboot" || pKey === "poweroff") && window.pendingPower !== pKey) {
+				window.pendingPower = pKey;
+				window.lastError = "Press Enter again to confirm " + pKey;
+				powerConfirmTimer.restart();
+				return false;
+			}
+			powerConfirmTimer.stop();
+			window.pendingPower = "";
 			var cmd = powerCommands[pKey];
 			if (!cmd) {
 				lastError = "Unknown power action";
@@ -596,7 +619,10 @@ CenterModal {
 				MouseArea {
 					anchors.fill: parent
 					hoverEnabled: true
-					onEntered: window.currentIndex = index
+					onEntered: {
+						if (!grid.moving && !grid.flicking)
+							window.currentIndex = index;
+					}
 					onClicked: {
 						window.currentIndex = index;
 						window.activate();
@@ -682,7 +708,10 @@ CenterModal {
 				MouseArea {
 					anchors.fill: parent
 					hoverEnabled: true
-					onEntered: window.currentIndex = index
+					onEntered: {
+						if (!list.moving && !list.flicking)
+							window.currentIndex = index;
+					}
 					onClicked: {
 						window.currentIndex = index;
 						window.activate();

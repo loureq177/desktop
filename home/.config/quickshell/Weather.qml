@@ -65,6 +65,9 @@ Singleton {
 	property string reportHumidity: ""
 	property string reportTodayHigh: ""
 	property string reportTodayLow: ""
+	// M4: fetch/parse failure surface. Without it offline = infinite
+	// "Fetching weather..." with no retry until the 15-min timer.
+	property string lastError: ""
 
 	readonly property int refreshMinutes: 15
 
@@ -103,6 +106,10 @@ Singleton {
 	}
 
 	function refresh() {
+		// Clear stale offline error while a new attempt is in flight;
+		// onExited re-sets it if this attempt also fails.
+		if (lastError !== "")
+			lastError = "";
 		var lat = parseFloat(String(root.configuredLocationState.latitude));
 		var lon = parseFloat(String(root.configuredLocationState.longitude));
 		if (!isNaN(lat) && !isNaN(lon)) {
@@ -261,6 +268,14 @@ Singleton {
 
 	Process {
 		id: forecastProc
+		onExited: code => {
+			if (code !== 0) {
+				if (!root.current)
+					root.lastError = "Offline — couldn't fetch forecast";
+			} else if (root.lastError.indexOf("Offline") === 0) {
+				root.lastError = "";
+			}
+		}
 		stdout: StdioCollector {
 			waitForEnd: true
 			onStreamFinished: {
@@ -285,6 +300,8 @@ Singleton {
 					root.finishSavingLocation();
 				} catch (e) {
 					console.warn("Weather forecast parse error:", e);
+					if (!root.current)
+						root.lastError = "Couldn't parse forecast";
 				}
 			}
 		}

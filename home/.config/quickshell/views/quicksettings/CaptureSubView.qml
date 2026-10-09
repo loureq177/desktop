@@ -93,7 +93,8 @@ Item {
 			root.currentIndex = Math.max(0, root.currentIndex - 1);
 			event.accepted = true;
 		} else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Space) {
-			root.activateCurrent();
+			if (!event.isAutoRepeat)
+				root.activateCurrent();
 			event.accepted = true;
 		} else if (event.key === Qt.Key_Escape || event.key === Qt.Key_H || event.key === Qt.Key_Q || event.key === Qt.Key_Back) {
 			root.backRequested();
@@ -141,7 +142,7 @@ Item {
 				implicitHeight: actionCol.implicitHeight + 20
 				radius: Theme.roundingElement
 				color: modelData.isRecording
-					? Qt.rgba(Theme.critical.r, Theme.critical.g, Theme.critical.b, 0.18)
+					? Qt.rgba(Qt.color(Theme.critical).r, Qt.color(Theme.critical).g, Qt.color(Theme.critical).b, 0.18)
 					: (rowHover.containsMouse ? Theme.bgHover : Theme.bgMain)
 				border.color: modelData.isRecording
 					? Theme.critical
@@ -175,7 +176,8 @@ Item {
 					hoverEnabled: true
 					cursorShape: Qt.PointingHandCursor
 					z: 1
-					onClicked: {
+					onClicked: mouse => {
+						mouse.accepted = true;
 						root.currentIndex = index;
 						if (modelData.cmd) {
 							root.runCommand(modelData.cmd);
@@ -188,6 +190,9 @@ Item {
 					anchors.fill: parent
 					anchors.margins: 10
 					spacing: 12
+					// Future-proof: content above the full-row MouseArea so
+					// any added button stays clickable (Wi-Fi/BT bug class).
+					z: 2
 
 					// Icon
 					Text {

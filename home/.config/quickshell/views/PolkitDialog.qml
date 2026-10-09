@@ -22,6 +22,9 @@ Item {
 
 	property string displayCommand: ""
 
+	property string inputPromptText: ""
+
+
 	function updateCommandInfo() {
 		if (!currentMessage) {
 			displayCommand = "Authentication";
@@ -37,7 +40,7 @@ Item {
 			displayCommand = parts.join(" ").replace(/\s+--$/, "");
 			return;
 		}
-		var matchSvc = m.match(/to (?:restart|start|stop|reload) ['"`]([^'"`]+)['"`]/i);
+		var matchSvc = m.match(/to (restart|start|stop|reload) ['"`]([^'"`]+)['"`]/i);
 		if (matchSvc) {
 			displayCommand = "systemctl " + matchSvc[1] + " " + matchSvc[2];
 			return;
@@ -60,6 +63,7 @@ Item {
 		responseRequired = !!flow.isResponseRequired;
 		responseVisible = !!flow.responseVisible;
 		failed = !!flow.failed;
+		inputPromptText = String(flow.inputPrompt || "");
 		if (responseRequired)
 			submitted = false;
 		updateCommandInfo();
@@ -70,6 +74,7 @@ Item {
 		closing = false;
 		submitted = false;
 		failed = false;
+		inputPromptText = "";
 		passwordInput.text = "";
 		cardTrans.x = 0;
 		syncFromFlow();
@@ -111,6 +116,7 @@ Item {
 			responseRequired = false;
 			failed = false;
 			submitted = false;
+			inputPromptText = "";
 			passwordInput.text = "";
 		}
 	}
@@ -134,6 +140,10 @@ Item {
 		target: agent.flow
 
 		function onIsResponseRequiredChanged() {
+			root.syncFromFlow();
+			Qt.callLater(root.refocus);
+		}
+		function onInputPromptChanged() {
 			root.syncFromFlow();
 			Qt.callLater(root.refocus);
 		}
@@ -253,17 +263,6 @@ Item {
 					Layout.fillWidth: true
 					spacing: 10
 
-					Text {
-						text: ""
-						color: root.submitted ? Theme.accentGreen : (root.failed ? Theme.critical : Theme.accentBlue)
-						font.family: Theme.fontFamily
-						font.pixelSize: 18
-						Layout.alignment: Qt.AlignTop
-
-						Behavior on color {
-							ColorAnimation { duration: 150 }
-						}
-					}
 
 					Text {
 						Layout.fillWidth: true
@@ -279,41 +278,8 @@ Item {
 					}
 				}
 
-				// 2. Identity picker (only if >1 identity)
-				ColumnLayout {
-					spacing: 4
-					visible: agent.flow && agent.flow.identities.length > 1
-					Layout.fillWidth: true
 
-					Repeater {
-						model: agent.flow ? agent.flow.identities : []
-
-						delegate: Rectangle {
-							required property var modelData
-							Layout.fillWidth: true
-							implicitHeight: 32
-							color: agent.flow && agent.flow.selectedIdentity === modelData ? Theme.selectionBg : "transparent"
-							border.color: agent.flow && agent.flow.selectedIdentity === modelData ? Theme.accentBlue : Theme.border
-							border.width: 1
-							radius: Theme.roundingElement
-
-							Text {
-								anchors.centerIn: parent
-								text: String(modelData.displayName || "")
-								color: Theme.textMain
-								font.family: Theme.fontFamily
-								font.pixelSize: 15
-							}
-
-							MouseArea {
-								anchors.fill: parent
-								onClicked: agent.flow.selectedIdentity = modelData
-							}
-						}
-					}
-				}
-
-				// 3. Hyprlock input field
+				// 2. Password field
 				Rectangle {
 					Layout.fillWidth: true
 					implicitHeight: 54
@@ -350,7 +316,7 @@ Item {
 								root.failed = false;
 						}
 						Keys.onPressed: function (event) {
-							if (event.key === Qt.Key_Escape) {
+							if (event.key === Qt.Key_Escape && !event.isAutoRepeat) {
 								root.cancelRequest();
 								event.accepted = true;
 							}
@@ -362,7 +328,7 @@ Item {
 						anchors.leftMargin: 18
 						anchors.rightMargin: 18
 						verticalAlignment: Text.AlignVCenter
-						text: root.submitted ? "Checking…" : (root.failed ? "Wrong password, try again" : "Password…")
+						text: root.submitted ? "Checking…" : (root.failed ? "Wrong password, try again" : ((root.responseRequired && root.inputPromptText) ? root.inputPromptText : "Password…"))
 						textFormat: Text.PlainText
 						color: root.submitted ? Theme.accentGreen : (root.failed ? Theme.critical : Theme.textMuted)
 						font.family: Theme.fontFamily
@@ -372,47 +338,6 @@ Item {
 
 						Behavior on color {
 							ColorAnimation { duration: 150 }
-						}
-					}
-				}
-
-				// 4. Subtle footer hints: esc to cancel • enter to submit
-				RowLayout {
-					Layout.fillWidth: true
-
-					MouseArea {
-						Layout.fillWidth: true
-						implicitHeight: 28
-						hoverEnabled: true
-						cursorShape: Qt.PointingHandCursor
-						onClicked: root.cancelRequest()
-
-						Text {
-							anchors.left: parent.left
-							anchors.verticalCenter: parent.verticalCenter
-							text: "esc  cancel"
-							color: parent.containsMouse ? Theme.textMain : Theme.textMuted
-							font.family: Theme.fontMono
-							font.pixelSize: 14
-						}
-					}
-
-					MouseArea {
-						Layout.fillWidth: true
-						implicitHeight: 28
-						hoverEnabled: true
-						enabled: passwordInput.text.length > 0 && !root.submitted
-						cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
-						onClicked: root.submitResponse()
-
-						Text {
-							anchors.right: parent.right
-							anchors.verticalCenter: parent.verticalCenter
-							text: root.submitted ? "checking…" : "enter  submit ↵"
-							color: !parent.enabled ? Theme.textMuted : (parent.containsMouse ? Theme.accentPurple : Theme.accentBlue)
-							font.family: Theme.fontMono
-							font.pixelSize: 14
-							font.bold: parent.enabled
 						}
 					}
 				}

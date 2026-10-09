@@ -34,8 +34,12 @@ CenterModal {
 	property string decodedText: ""
 	// Id requested for the in-flight text decode; guards against stale results.
 	property string textReqId: ""
+	// Id requested for the in-flight image decode; same guard as text.
+	property string imgReqId: ""
 	// Set after the preview decode for the current entry succeeds.
 	property string decodedId: ""
+	// True when `cliphist list` failed (vs genuinely empty history).
+	property bool listFailed: false
 
 	// "[[ binary data 496 KiB png 2539x1765 ]]" is how cliphist previews images.
 	readonly property var currentEntry: filtered.length > 0 && currentIndex < filtered.length ? filtered[currentIndex] : null
@@ -83,6 +87,7 @@ CenterModal {
 
 	function open() {
 		query = "";
+		win.listFailed = false;
 		searchBar.clear();
 		listLoader.running = true;
 		win.shown = true;
@@ -90,7 +95,13 @@ CenterModal {
 	}
 
 	function close() {
+		// L4: never keep decoded clipboard contents (possibly secrets)
+		// in memory while hidden.
 		win.shown = false;
+		win.decodedText = "";
+		win.decodedId = "";
+		win.textReqId = "";
+		win.imgReqId = "";
 	}
 
 	function toggle() {
@@ -125,12 +136,14 @@ CenterModal {
 			win.decodedId = "";
 			win.decodedText = "";
 			win.textReqId = "";
+			win.imgReqId = "";
 			decodeProc.running = false;
 			textDecodeProc.running = false;
 			var e = win.currentEntry;
 			if (!e)
 				return;
 			if (win.currentIsImage) {
+				win.imgReqId = String(e.id);
 				decodeProc.running = true;
 			} else {
 				win.textReqId = String(e.id);
@@ -150,8 +163,11 @@ CenterModal {
 			return ["sh", "-c", 'cliphist decode "$1" > "$XDG_RUNTIME_DIR/clipboard-preview"', "sh", String(e.id)];
 		}
 		onExited: function (exitCode) {
-			if (exitCode === 0 && win.currentEntry)
-				win.decodedId = win.currentEntry.id;
+			// L8: same reqId guard as the text path — a slow decode for a
+			// previous selection must not set the preview for the new one.
+			var reqId = win.imgReqId;
+			if (exitCode === 0 && reqId !== "" && win.currentEntry && String(win.currentEntry.id) === reqId)
+				win.decodedId = reqId;
 		}
 	}
 
@@ -177,6 +193,9 @@ CenterModal {
 	Process {
 		id: listLoader
 		command: ["cliphist", "list"]
+		onExited: function (exitCode) {
+			win.listFailed = (exitCode !== 0);
+		}
 		stdout: StdioCollector {
 			onStreamFinished: {
 				var out = [];
@@ -315,7 +334,11 @@ CenterModal {
 				MouseArea {
 					anchors.fill: parent
 					hoverEnabled: true
-					onEntered: win.currentIndex = row.index
+					// L15: don't let hover steal keyboard selection while scrolling.
+					onEntered: {
+						if (!list.moving && !list.flicking)
+							win.currentIndex = row.index;
+					}
 					onClicked: {
 						win.currentIndex = row.index;
 						win.activate();
@@ -330,7 +353,7 @@ CenterModal {
 			font.family: Theme.fontMono
 			font.pointSize: Theme.fontSizeBar
 			color: Theme.textDim
-			text: win.entries.length === 0 ? "No clipboard entries" : "No match"
+			text: win.listFailed ? "cliphist failed — is it installed?" : (win.entries.length === 0 ? "No clipboard entries" : "No match")
 		}
 
 		// Large Preview pane on the right

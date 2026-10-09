@@ -1,4 +1,5 @@
-// Quick settings panel: OneUI/GNOME-style slide-in drawer from top-right.
+// Quick settings panel: OneUI/GNOME-style slide-in drawer from top-left
+// (anchored to the Arch button side).
 // Pill sliders on top, toggle tiles below (Wi-Fi, Bluetooth,
 // battery saver, DND, awake, night light) and a power button.
 // Toggle via IPC: `qs ipc call quicksettings toggle` (SUPER + A).
@@ -22,6 +23,7 @@ SideDrawer {
 	instantHide: QuickSettings.instantHide
 	dismissOnEsc: QuickSettings.subView === "main"
 	cardWidth: 520
+	fromLeft: true
 	readonly property int mainContentHeight: Math.min((contentCol.implicitHeight > 0 ? contentCol.implicitHeight : 430) + Theme.paddingCard * 2, win.height - Theme.notifTopMargin - 20)
 	readonly property int currentSubViewHeight: {
 		if (QuickSettings.subView === "wifi")
@@ -237,10 +239,10 @@ SideDrawer {
 	readonly property bool btEnabled: win.btAdapter?.enabled ?? false
 	readonly property int btConnected: {
 		var a = win.btAdapter;
-		if (!a)
+		if (!a || !a.devices || !a.devices.values)
 			return 0;
 		var n = 0;
-		var vals = a.devices.values;
+		var vals = a.devices.values || [];
 		for (var i = 0; i < vals.length; i++)
 			if (vals[i].connected)
 				n++;
@@ -252,7 +254,7 @@ SideDrawer {
 		if (win.btConnected > 1)
 			return win.btConnected + " connected";
 		if (win.btConnected === 1) {
-			var vals = win.btAdapter.devices.values;
+			var vals = (win.btAdapter.devices && win.btAdapter.devices.values) || [];
 			for (var i = 0; i < vals.length; i++) {
 				if (vals[i].connected)
 					return vals[i].name || vals[i].deviceName || "Connected";

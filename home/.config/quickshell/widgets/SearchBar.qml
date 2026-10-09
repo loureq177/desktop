@@ -110,10 +110,12 @@ Rectangle {
 						event.accepted = true;
 					}
 				} else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
-					bar.accepted();
+					if (!event.isAutoRepeat)
+						bar.accepted();
 					event.accepted = true;
 				} else if (event.key === Qt.Key_Escape) {
-					bar.cancelled();
+					if (!event.isAutoRepeat)
+						bar.cancelled();
 					event.accepted = true;
 				} else if (event.key === Qt.Key_Tab) {
 					if (bar.completeOnTab)

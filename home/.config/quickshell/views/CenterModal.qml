@@ -1,4 +1,4 @@
-// Shared modal dialog window for centered overlays (Launcher, Keybindings, Clipboard).
+// Shared modal dialog window for centered overlays (Launcher, Clipboard).
 // Encapsulates the layer-shell window, monitor tracking, dimmed backdrop,
 // centered card container, integrated SearchBar, and footer status bar.
 import ".."

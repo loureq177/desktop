@@ -212,7 +212,7 @@ PanelWindow {
 		implicitHeight: Theme.barHeight
 		implicitWidth: (text !== "" || value !== "") ? pillRow.implicitWidth + 14 : 0
 		visible: text !== "" || value !== ""
-		color: pillArea.containsMouse ? Theme.bgHover : (isActive ? Qt.rgba(Theme.accentBlue.r, Theme.accentBlue.g, Theme.accentBlue.b, 0.16) : "transparent")
+		color: pillArea.containsMouse ? Theme.bgHover : (isActive ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.16) : "transparent")
 		border.width: 0
 		radius: Theme.roundingElement
 
@@ -297,6 +297,15 @@ PanelWindow {
 			anchors.verticalCenter: parent.verticalCenter
 			spacing: 6
 
+			// Arch button: opens the Quick actions panel (same as SUPER + A)
+			Pill {
+				text: "󰣇"
+				textColor: QuickSettings.panelOpen ? Theme.accentBlue : Theme.textMain
+				isActive: QuickSettings.panelOpen
+				tooltipText: "Quick actions"
+				onActivated: QuickSettings.toggle()
+			}
+
 			// Workspaces container with wheel switching
 			Rectangle {
 				id: wsContainer
@@ -325,7 +334,7 @@ PanelWindow {
 							Layout.alignment: Qt.AlignVCenter
 							implicitHeight: Theme.barHeight
 							implicitWidth: wsLabel.implicitWidth + 14
-							color: wsArea.containsMouse ? Theme.bgHover : (isActive ? Qt.rgba(Theme.accentBlue.r, Theme.accentBlue.g, Theme.accentBlue.b, 0.18) : "transparent")
+							color: wsArea.containsMouse ? Theme.bgHover : (isActive ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.18) : "transparent")
 							border.width: 0
 							radius: Theme.roundingElement
 
@@ -493,10 +502,10 @@ PanelWindow {
 				readonly property var adapter: Bluetooth.defaultAdapter
 				readonly property int connectedCount: {
 					var a = adapter;
-					if (!a)
+					if (!a || !a.devices || !a.devices.values)
 						return 0;
 					var n = 0;
-					var vals = a.devices.values;
+					var vals = a.devices.values || [];
 					for (var i = 0; i < vals.length; i++)
 						if (vals[i].connected)
 							n++;
@@ -511,7 +520,7 @@ PanelWindow {
 					if (connectedCount === 0)
 						return "Bluetooth: Disconnected";
 					var connectedNames = [];
-					var vals = adapter.devices.values;
+					var vals = (adapter.devices && adapter.devices.values) || [];
 					for (var i = 0; i < vals.length; i++) {
 						if (vals[i].connected) {
 							var name = vals[i].name || vals[i].deviceName || vals[i].address;

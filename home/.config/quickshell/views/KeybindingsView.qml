@@ -1,31 +1,138 @@
+// Keybindings cheatsheet: fullscreen blurred overlay showing every
+// shortcut at once, grouped by category in balanced columns.
+// Read-only: Esc or click outside closes. No search, no dispatch.
+// Toggle via IPC: `qs ipc call shell toggle keybindings ''` (SUPER + /).
 import ".."
-import "../widgets"
 import Quickshell
+import Quickshell.Hyprland
 import Quickshell.Io
+import Quickshell.Wayland
 import QtQuick
 import QtQuick.Layouts
 
-CenterModal {
+PanelWindow {
 	id: window
 
-	searchTitle: "Keys"
-	searchPlaceholder: "Search..."
-	showFooter: true
-	statusText: window.statusText()
-	errorText: window.lastError
+	property bool shown: false
+	signal opened()
+	signal dismissed()
 
-	onSearchQueryChanged: {
-		window.query = searchQuery;
-		window.refilter();
+	function open() {
+		if (entries.length === 0 && !loader.running)
+			loader.running = true;
+		window.shown = true;
 	}
-	onSearchAccepted: window.activate()
-	onSearchStepped: delta => window.move(delta)
+
+	function close() {
+		window.shown = false;
+	}
+
+	function toggle() {
+		if (window.shown)
+			close();
+		else
+			open();
+	}
+
+	onShownChanged: {
+		if (shown) {
+			exitAnim.stop();
+			enterAnim.restart();
+			window.opened();
+		} else {
+			enterAnim.stop();
+			exitAnim.restart();
+			window.dismissed();
+		}
+	}
+
+	ParallelAnimation {
+		id: enterAnim
+
+		NumberAnimation {
+			target: backdrop
+			property: "opacity"
+			from: 0.0
+			to: 1.0
+			duration: Theme.animFast
+			easing.type: Easing.OutCubic
+		}
+
+		NumberAnimation {
+			target: sheetCard
+			property: "opacity"
+			from: 0.0
+			to: 1.0
+			duration: Theme.animFast
+			easing.type: Easing.OutCubic
+		}
+
+		NumberAnimation {
+			target: sheetCard
+			property: "scale"
+			from: 0.96
+			to: 1.0
+			duration: Theme.animNormal
+			easing.type: Easing.BezierSpline
+			easing.bezierCurve: Theme.easeOutQuint
+		}
+	}
+
+	ParallelAnimation {
+		id: exitAnim
+
+		NumberAnimation {
+			target: backdrop
+			property: "opacity"
+			to: 0.0
+			duration: Theme.animFast
+			easing.type: Easing.OutCubic
+		}
+
+		NumberAnimation {
+			target: sheetCard
+			property: "opacity"
+			to: 0.0
+			duration: Theme.animFast
+			easing.type: Easing.OutCubic
+		}
+
+		NumberAnimation {
+			target: sheetCard
+			property: "scale"
+			to: 0.97
+			duration: Theme.animFast
+			easing.type: Easing.InCubic
+		}
+	}
+
+	visible: shown || exitAnim.running
+	color: "transparent"
+	exclusionMode: ExclusionMode.Ignore
+	exclusiveZone: 0
+
+	WlrLayershell.layer: WlrLayer.Overlay
+	WlrLayershell.keyboardFocus: shown ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+	WlrLayershell.namespace: "quickshell-keybindings"
+
+	screen: Quickshell.screens.find(s => s.name === Hyprland.focusedMonitor?.name) ?? Quickshell.screens[0] ?? null
+
+	anchors {
+		top: true
+		bottom: true
+		left: true
+		right: true
+	}
+
+	Shortcut {
+		sequences: ["Esc"]
+		enabled: window.visible
+		onActivated: window.close()
+	}
 
 	property var entries: []
-	property var filtered: []
-	property int currentIndex: 0
-	property string query: ""
-	property string lastError: ""
+	// Balanced into 3 columns: each item is { category, items }.
+	property var columns: [[], [], []]
 	property bool loading: true
 
 	readonly property var categoryOrder: [
@@ -45,37 +152,25 @@ CenterModal {
 			category: "Gestures",
 			chord: "Touchpad 3-Finger ↔",
 			action: "Switch workspace",
-			dispatcher: "",
-			arg: "",
-			order: 1,
-			keywords: "gesture gestures gesty swipe trackpad touchpad gładzik workspace switch pulpit przełącz"
+			order: 1
 		},
 		{
 			category: "Gestures",
 			chord: "Touchpad 3-Finger ↑",
 			action: "Open special workspace",
-			dispatcher: "",
-			arg: "",
-			order: 2,
-			keywords: "gesture gestures gesty swipe trackpad touchpad gładzik special scratchpad open otwórz"
+			order: 2
 		},
 		{
 			category: "Gestures",
 			chord: "Touchpad 3-Finger ↓",
 			action: "Hide special workspace",
-			dispatcher: "",
-			arg: "",
-			order: 3,
-			keywords: "gesture gestures gesty swipe trackpad touchpad gładzik special scratchpad hide close ukryj zamknij"
+			order: 3
 		},
 		{
 			category: "Gestures",
 			chord: "Touchpad 3-Finger ↔ (Special)",
 			action: "Cycle special workspaces",
-			dispatcher: "",
-			arg: "",
-			order: 4,
-			keywords: "gesture gestures gesty swipe trackpad touchpad gładzik special scratchpad cycle next prev przełącz"
+			order: 4
 		}
 	]
 
@@ -100,21 +195,6 @@ CenterModal {
 			}
 		}
 		return "Essential";
-	}
-
-	readonly property var categoryKeywords: ({
-		"Navigation & Workspaces": "pulpit pulpity przełącz nawigacja okna 1 2 3 4 5 6 7 8 9 [1..9]",
-		"Window Management": "okno okna zarządzanie przesuń zamknij",
-		"Special Workspaces": "pulpit specjalny scratchpad skróty",
-		"Capture & OCR": "zrzut ekranu nagrywanie przechwytywanie kolor ocr dyktowanie",
-		"Clipboard & Selection": "schowek historia kopiuj wklej zaznacz",
-		"Notifications": "powiadomienia powiadomienie",
-		"System & Tools": "system narzędzia aktualizacja blokada pogoda"
-	})
-
-	function getKeywords(cat, desc, chord) {
-		var extra = categoryKeywords[cat] || "";
-		return [cat, desc, chord, extra].join(" ").toLowerCase();
 	}
 
 	readonly property var rankPriorities: ({
@@ -149,111 +229,46 @@ CenterModal {
 		return (catIdx * 1000) + subRank;
 	}
 
-	function refilter() {
-		lastError = "";
-		var q = query.toLowerCase().trim();
-		var out = [];
+	// Group entries by categoryOrder, then greedily balance the groups
+	// across 3 columns by row count so everything fits on one screen.
+	function rebuildColumns() {
+		var map = {};
 		for (var i = 0; i < entries.length; i++) {
 			var e = entries[i];
-			if (q === ""
-				|| (e.action && e.action.toLowerCase().indexOf(q) !== -1)
-				|| (e.chord && e.chord.toLowerCase().indexOf(q) !== -1)
-				|| (e.category && e.category.toLowerCase().indexOf(q) !== -1)
-				|| (e.keywords && e.keywords.toLowerCase().indexOf(q) !== -1))
-			{
-				out.push(e);
-			}
+			var cat = e.category || "Essential";
+			if (!map[cat])
+				map[cat] = [];
+			map[cat].push(e);
 		}
-		filtered = out;
-		currentIndex = 0;
-		list.positionViewAtBeginning();
-	}
-
-	function move(delta) {
-		var n = filtered.length;
-		if (n === 0) {
-			currentIndex = 0;
-			return;
+		var groups = [];
+		for (var g = 0; g < categoryOrder.length; g++) {
+			var c = categoryOrder[g];
+			if (map[c] && map[c].length > 0)
+				groups.push({ category: c, items: map[c] });
 		}
-
-		var topIndex = list.indexAt(20, list.contentY + 20);
-		var bottomIndex = list.indexAt(20, list.contentY + list.height - 20);
-
-		if (topIndex >= 0 && (currentIndex < topIndex || (bottomIndex >= 0 && currentIndex > bottomIndex))) {
-			if (delta > 0)
-				currentIndex = Math.min(n - 1, topIndex + 1);
-			else
-				currentIndex = Math.max(0, (bottomIndex >= 0 ? bottomIndex : topIndex) - 1);
-		} else {
-			currentIndex = Math.max(0, Math.min(n - 1, currentIndex + delta));
+		for (var k in map) {
+			if (categoryOrder.indexOf(k) === -1 && map[k].length > 0)
+				groups.push({ category: k, items: map[k] });
 		}
-
-		list.positionViewAtIndex(currentIndex, ListView.Contain);
-	}
-
-	function dispatch(entry) {
-		lastError = "";
-		if (!entry) {
-			lastError = "Nothing selected";
-			return false;
+		var cols = [[], [], []];
+		var heights = [0, 0, 0];
+		for (var n = 0; n < groups.length; n++) {
+			var shortest = 0;
+			if (heights[1] < heights[shortest]) shortest = 1;
+			if (heights[2] < heights[shortest]) shortest = 2;
+			cols[shortest].push(groups[n]);
+			heights[shortest] += groups[n].items.length + 1;
 		}
-
-		if (entry.dispatcher === "exec" && entry.arg !== "") {
-			Quickshell.execDetached(["hyprctl", "dispatch", "exec", entry.arg]);
-			return true;
-		} else if (entry.dispatcher === "__lua" && entry.arg !== "") {
-			Quickshell.execDetached(["hyprctl", "dispatch", "__lua", entry.arg]);
-			return true;
-		} else if (entry.dispatcher !== "" && entry.dispatcher !== "lua" && entry.dispatcher !== "__lua" && entry.arg !== "") {
-			Quickshell.execDetached(["hyprctl", "dispatch", entry.dispatcher, entry.arg]);
-			return true;
-		} else if (entry.dispatcher !== "" && entry.dispatcher !== "lua" && entry.dispatcher !== "__lua") {
-			Quickshell.execDetached(["hyprctl", "dispatch", entry.dispatcher]);
-			return true;
-		}
-
-		return true;
-	}
-
-	function open() {
-		query = "";
-		searchBar.clear();
-		if (entries.length === 0 && !loader.running) {
-			loading = true;
-			loader.running = true;
-		} else {
-			refilter();
-		}
-		window.shown = true;
-		searchBar.focusInput();
-	}
-
-	function close() {
-		window.shown = false;
-	}
-
-	function toggle() {
-		if (window.shown)
-			close();
-		else
-			open();
-	}
-
-	function activate() {
-		if (dispatch(filtered[currentIndex]))
-			close();
+		columns = cols;
 	}
 
 	function statusText() {
 		if (loading) return "Loading keybindings...";
-		var n = filtered.length;
 		var gestureCount = 0;
-		for (var i = 0; i < filtered.length; i++) {
-			if (filtered[i].category === "Gestures") gestureCount++;
+		for (var i = 0; i < entries.length; i++) {
+			if (entries[i].category === "Gestures") gestureCount++;
 		}
-		var keyCount = n - gestureCount;
-		if (n === 0) return "No matches";
-		return n + " items (" + keyCount + " keys, " + gestureCount + " gestures)";
+		return entries.length + " items (" + (entries.length - gestureCount) + " keys, " + gestureCount + " gestures)";
 	}
 
 	Process {
@@ -323,10 +338,7 @@ CenterModal {
 							list.push({
 								category: cat,
 								chord: chord,
-								action: desc,
-								dispatcher: (rawKey === "[1..9]") ? "" : (b.dispatcher || ""),
-								arg: (rawKey === "[1..9]") ? "" : (b.arg || ""),
-								keywords: window.getKeywords(cat, desc, chord)
+								action: desc
 							});
 						}
 					}
@@ -343,126 +355,187 @@ CenterModal {
 					window.entries = list;
 				} catch (e) {
 					window.entries = [].concat(window.staticGestures);
-					window.lastError = "Could not query hyprctl binds";
 				}
 				window.loading = false;
-				window.refilter();
+				window.rebuildColumns();
 			}
 		}
 	}
 
-	// Main body slot for CenterModal
-	Item {
-		id: contentBox
+	// Full-screen dim backdrop (translucent so Hyprland blurs behind it).
+	Rectangle {
+		id: backdrop
 		anchors.fill: parent
+		color: Qt.rgba(0, 0, 0, 0.55)
 
-		ListView {
-			id: list
+		MouseArea {
 			anchors.fill: parent
-			clip: true
-			boundsBehavior: Flickable.DragAndOvershootBounds
-			flickDeceleration: Theme.flickDecel
-			maximumFlickVelocity: Theme.maxFlickVel
-			pixelAligned: true
-			spacing: 2
-			model: window.filtered
-			currentIndex: window.currentIndex
+			enabled: window.shown
+			// Dismiss on press, same layer-surface split reason as the
+			// CenterModal/SideDrawer backdrops.
+			onPressed: window.close()
+		}
+	}
 
-			section.property: "category"
-			section.criteria: ViewSection.FullString
-			section.labelPositioning: ViewSection.InlineLabels
-			section.delegate: Component {
-				Item {
-					width: list.width
-					height: 36
+	// Centered cheatsheet card.
+	Rectangle {
+		id: sheetCard
+		anchors.centerIn: parent
+		width: Math.min(1440, window.width - 96)
+		height: Math.min(900, window.height - 96)
+		color: Theme.bgMain
+		border.color: Theme.border
+		border.width: Theme.borderSize
+		radius: Theme.roundingWindow
+		clip: true
 
-					RowLayout {
-						anchors.left: parent.left
-						anchors.right: parent.right
-						anchors.bottom: parent.bottom
-						anchors.bottomMargin: 4
-						anchors.leftMargin: 8
-						anchors.rightMargin: 8
-						spacing: 12
-
-						Text {
-							text: section.toUpperCase()
-							font.family: Theme.fontMono
-							font.pointSize: 11.5
-							font.bold: true
-							color: section === "Gestures" ? Theme.accentGreen : Theme.accentPurple
-						}
-
-						Rectangle {
-							Layout.fillWidth: true
-							Layout.preferredHeight: 1
-							color: Theme.border
-							opacity: 0.7
-						}
-					}
-				}
-			}
-
-			delegate: Rectangle {
-				width: list.width
-				height: 38
-				color: index === window.currentIndex ? Theme.selectionBg : "transparent"
-				border.color: index === window.currentIndex ? Theme.selectionBorder : "transparent"
-				border.width: 1
-				radius: Theme.roundingElement
-
-				Behavior on color { ColorAnimation { duration: 100 } }
-
-				RowLayout {
-					anchors.fill: parent
-					anchors.leftMargin: 14
-					anchors.rightMargin: 14
-					spacing: 16
-
-					Text {
-						Layout.preferredWidth: 340
-						Layout.alignment: Qt.AlignVCenter
-						font.family: Theme.fontMono
-						font.pointSize: 13.5
-						font.bold: true
-						color: modelData.category === "Gestures" ? Theme.accentGreen : Theme.accentBlue
-						elide: Text.ElideRight
-						text: modelData.chord || ""
-					}
-
-					Text {
-						Layout.fillWidth: true
-						Layout.alignment: Qt.AlignVCenter
-						font.family: Theme.fontMono
-						font.pointSize: 13.5
-						color: Theme.textMain
-						elide: Text.ElideRight
-						text: modelData.action || ""
-					}
-				}
-
-				MouseArea {
-					anchors.fill: parent
-					hoverEnabled: true
-					onEntered: {
-						if (!list.moving && !list.flicking)
-							window.currentIndex = index;
-					}
-					onClicked: {
-						window.currentIndex = index;
-						window.activate();
-					}
-				}
-			}
+		// Absorb clicks inside the card so they don't reach the backdrop.
+		MouseArea {
+			anchors.fill: parent
+			enabled: window.shown
 		}
 
-		Text {
-			visible: !window.loading && window.filtered.length === 0
-			anchors.centerIn: parent
-			font.family: Theme.fontMono
-			font.pointSize: 14
-			color: Theme.textDim
-			text: "No keybindings or gestures match"
+		ColumnLayout {
+			anchors.fill: parent
+			anchors.margins: Theme.paddingCard + 8
+			spacing: 12
+
+			RowLayout {
+				Layout.fillWidth: true
+				spacing: 16
+
+				Text {
+					text: "Keybindings"
+					font.family: Theme.fontFamily
+					font.pixelSize: Theme.fontSize + 2
+					font.bold: true
+					color: Theme.textMain
+				}
+
+				Text {
+					Layout.fillWidth: true
+					text: window.statusText()
+					font.family: Theme.fontMono
+					font.pointSize: Theme.fontSizeSmall
+					color: Theme.textDim
+					elide: Text.ElideRight
+				}
+
+				Text {
+					text: "esc closes"
+					font.family: Theme.fontMono
+					font.pointSize: Theme.fontSizeSmall
+					color: Theme.textMuted
+				}
+			}
+
+			Rectangle {
+				Layout.fillWidth: true
+				Layout.preferredHeight: 1
+				color: Theme.border
+			}
+
+			Flickable {
+				Layout.fillWidth: true
+				Layout.fillHeight: true
+				clip: true
+				contentWidth: width
+				contentHeight: sheetGrid.implicitHeight
+				boundsBehavior: Flickable.DragAndOvershootBounds
+				flickDeceleration: Theme.flickDecel
+				maximumFlickVelocity: Theme.maxFlickVel
+				pixelAligned: true
+
+				RowLayout {
+					id: sheetGrid
+					width: parent.width
+					anchors.top: parent.top
+					spacing: 32
+
+					Repeater {
+						model: window.columns
+
+						delegate: ColumnLayout {
+							required property var modelData
+							Layout.fillWidth: true
+							Layout.alignment: Qt.AlignTop
+							spacing: 20
+
+							Repeater {
+								model: modelData
+
+								delegate: ColumnLayout {
+									required property var modelData
+									Layout.fillWidth: true
+									spacing: 6
+
+									RowLayout {
+										Layout.fillWidth: true
+										spacing: 12
+
+										Text {
+											text: modelData.category.toUpperCase()
+											font.family: Theme.fontMono
+											font.pointSize: 11.5
+											font.bold: true
+											color: modelData.category === "Gestures" ? Theme.accentGreen : Theme.accentPurple
+										}
+
+										Rectangle {
+											Layout.fillWidth: true
+											Layout.preferredHeight: 1
+											color: Theme.border
+											opacity: 0.7
+										}
+									}
+
+									Repeater {
+										model: modelData.items
+
+										delegate: RowLayout {
+											required property var modelData
+											Layout.fillWidth: true
+											spacing: 12
+
+											Text {
+												Layout.preferredWidth: 168
+												Layout.alignment: Qt.AlignTop
+												font.family: Theme.fontMono
+												font.pointSize: 12
+												font.bold: true
+												color: modelData.category === "Gestures" ? Theme.accentGreen : Theme.accentBlue
+												elide: Text.ElideRight
+												text: modelData.chord || ""
+											}
+
+											Text {
+												Layout.fillWidth: true
+												Layout.alignment: Qt.AlignTop
+												font.family: Theme.fontMono
+												font.pointSize: 12
+												color: Theme.textMain
+												wrapMode: Text.WrapAtWordBoundaryOrAnywhere
+												maximumLineCount: 2
+												elide: Text.ElideRight
+												text: modelData.action || ""
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+
+			Text {
+				visible: !window.loading && window.entries.length === 0
+				Layout.alignment: Qt.AlignCenter
+				font.family: Theme.fontMono
+				font.pointSize: 14
+				color: Theme.textDim
+				text: "No keybindings found (is Hyprland running?)"
+			}
 		}
 	}
 }
