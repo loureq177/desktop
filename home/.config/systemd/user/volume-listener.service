@@ -1,0 +1,12 @@
+[Unit]
+Description=Real-time volume listener for QuickShell OSD and QuickSettings
+After=pipewire.service wireplumber.service
+PartOf=graphical-session.target
+
+[Service]
+ExecStart=%h/.local/bin/volume-listener
+Restart=always
+RestartSec=1
+
+[Install]
+WantedBy=default.target

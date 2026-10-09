@@ -26,4 +26,5 @@ else
     }
 fi
 rm -f "$tmp"
+sleep 0.05
 wtype -M shift -k Insert -m shift 2>/dev/null || true

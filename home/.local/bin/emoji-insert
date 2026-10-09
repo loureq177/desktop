@@ -5,5 +5,6 @@ emoji="${1:-}"
 [ -n "$emoji" ] || exit 0
 printf '%s' "$emoji" | wl-copy --type text/plain --sensitive --foreground &
 copy_pid=$!
+sleep 0.05
 wtype -M shift -k Insert -m shift 2>/dev/null || true
-kill "$copy_pid" 2>/dev/null || true
+( sleep 0.5 && kill "$copy_pid" 2>/dev/null ) &
