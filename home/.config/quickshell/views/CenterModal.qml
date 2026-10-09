@@ -20,6 +20,7 @@ PanelWindow {
 	property string searchPlaceholder: ""
 	property bool searchCompleteOnTab: false
 	property bool searchLeftRightNavigate: false
+	property bool searchScopeHints: false
 	property alias searchQuery: search.text
 	readonly property alias searchBar: search
 
@@ -196,6 +197,7 @@ PanelWindow {
 				Layout.preferredHeight: 48
 				title: root.searchTitle
 				placeholder: root.searchPlaceholder
+				showScopeHints: root.searchScopeHints
 				completeOnTab: root.searchCompleteOnTab
 				leftRightNavigate: root.searchLeftRightNavigate
 

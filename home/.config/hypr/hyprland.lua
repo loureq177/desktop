@@ -419,8 +419,10 @@ hl.config({
 			color = ui.colors.shadow or "rgba(010409ee)",
 		},
 		blur = {
+			enabled = true,
 			size = 9,
 			passes = 3,
+			ignore_opacity = true,
 			vibrancy = 0.2,
 		},
 	},
@@ -605,7 +607,7 @@ local cmds = {
 
 	--  ─── Quick menus ────────────────────────────────────────────
 
-	["SUPER + space"] = { programs.launcher, "Launch apps" },
+	["SUPER + space"] = { programs.launcher, "Launcher" },
 	["SUPER + A"] = { "qs ipc call quicksettings toggle", "Quick actions" },
 	["SUPER + N"] = { "qs ipc call notifications toggle", "Toggle notification center" },
 	["SUPER + comma"] = { "qs ipc call notifications dismissLatest", "Close latest notification" },
@@ -616,9 +618,7 @@ local cmds = {
 	["SUPER + W"] = { "qs ipc call weather toggle", "Weather" },
 	["SUPER + E"] = { "qs ipc call shell toggle launcher emoji", "Emoji picker" },
 	["SUPER + C"] = { "qs ipc call shell toggle clipboard ''", "Clipboard history" },
-	["SUPER + R"] = { "qs ipc call shell toggle launcher run", "Run commands" },
 	["SUPER + escape"] = { "hyprlock", "Lock system" },
-	["SUPER + SHIFT + escape"] = { "qs ipc call shell toggle launcher power", "Power menu" },
 	["SUPER + slash"] = { "qs ipc call shell toggle keybindings ''", "Keybindings" },
 
 	-- ─── Capture ─────────────────────────────────────────────────────────

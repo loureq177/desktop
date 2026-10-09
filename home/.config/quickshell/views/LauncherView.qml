@@ -9,10 +9,11 @@ import QtQuick.Layouts
 CenterModal {
 	id: window
 
-	searchTitle: window.modeTitle()
+	searchTitle: window.mode === "apps" ? "" : window.modeTitle()
 	searchPlaceholder: window.modePlaceholder()
-	searchCompleteOnTab: window.mode === "run"
-	searchLeftRightNavigate: window.mode === "apps" || window.mode === "emoji"
+	searchCompleteOnTab: window.isCommandQuery()
+	searchLeftRightNavigate: (window.mode === "apps" && !window.isCommandQuery()) || window.mode === "emoji"
+	searchScopeHints: window.mode === "apps"
 	statusText: window.statusText()
 	errorText: window.lastError
 	showFooter: window.mode === "emoji" || window.lastError !== ""
@@ -25,8 +26,10 @@ CenterModal {
 	onSearchStepped: delta => window.moveRows(delta, window.gridColumns())
 	onSearchSteppedColumn: delta => window.move(delta)
 	onSearchCompleted: {
-		if (window.mode === "run" && window.filtered.length > 0)
-			searchBar.complete(window.filtered[window.currentIndex].label);
+		if (window.isCommandQuery() && window.filtered.length > 0 && window.currentIndex < window.filtered.length) {
+			var compLabel = window.filtered[window.currentIndex].label;
+			searchBar.complete("> " + compLabel);
+		}
 	}
 
 	property string mode: "apps"
@@ -38,7 +41,7 @@ CenterModal {
 	property var runCache: []
 	property bool runLoaded: false
 
-	readonly property var validModes: ["apps", "run", "emoji", "power"]
+	readonly property var validModes: ["apps", "emoji", "power"]
 
 	readonly property var powerList: [
 		{ label: "lock", icon: "system-lock-screen", kind: "power" },
@@ -54,17 +57,24 @@ CenterModal {
 		"poweroff": ["hyprshutdown", "--post-cmd", "systemctl poweroff"]
 	})
 
+	readonly property var systemActions: [
+		{ label: "Lock session", icon: "system-lock-screen", kind: "power", action: "lock", keywords: "lock zablokuj ekran lockscreen" },
+		{ label: "Suspend", icon: "system-suspend", kind: "power", action: "suspend", keywords: "suspend sleep uspij uśpij drzemka" },
+		{ label: "Reboot", icon: "system-reboot", kind: "power", action: "reboot", keywords: "reboot restart uruchom ponownie zrestartuj" },
+		{ label: "Power off", icon: "system-shutdown", kind: "power", action: "poweroff", keywords: "poweroff shutdown wylacz wyłącz power exit wyloguj" },
+		{ label: "Pick wallpaper", icon: "preferences-desktop-wallpaper", kind: "action", cmd: ["ghostty", "--class=wallpaper-picker", "-e", Quickshell.env("HOME") + "/.local/bin/wallpaper", "pick"], keywords: "wallpaper tapeta tło background picker" },
+		{ label: "System update", icon: "system-software-update", kind: "action", cmd: ["ghostty", "--class=sysupdate", "-e", Quickshell.env("HOME") + "/.local/bin/sysupdate"], keywords: "update sysupdate aktualizacja pacman paru system" }
+	]
+
 	readonly property var modeTitles: ({
-		"apps": "Apps",
-		"run": "Run",
+		"apps": "",
 		"emoji": "Emoji",
 		"power": "Power"
 	})
 
 	readonly property var modePlaceholders: ({
 		"apps": "Search...",
-		"run": "Run command...",
-		"emoji": "Search...",
+		"emoji": "Search emoji...",
 		"power": "lock / suspend / reboot / poweroff"
 	})
 
@@ -73,17 +83,48 @@ CenterModal {
 	}
 
 	function setMode(m) {
-		if (m === "drun")
+		if (m === "drun" || m === "run")
 			m = "apps"; // deprecated pre-migration alias
 		if (isMode(m)) {
 			mode = m;
 		}
 	}
 
+	function isCommandQuery() {
+		return mode === "apps" && query.trim().startsWith(">");
+	}
+
+	function tryCalculate(raw) {
+		var s = (raw || "").trim();
+		if (s.startsWith("="))
+			s = s.substring(1).trim();
+		if (s === "")
+			return null;
+		if (!/^[0-9+\-*/^().,% xX÷]+$/.test(s))
+			return null;
+		s = s.replace(/x|X/g, "*").replace(/÷/g, "/");
+		if (!/[+\-*/^%]/.test(s))
+			return null;
+		s = s.replace(/\^/g, "**");
+		s = s.replace(/(\d+(?:\.\d+)?)%/g, "($1/100)");
+
+		try {
+			var fn = new Function("return (" + s + ")");
+			var res = fn();
+			if (typeof res === "number" && isFinite(res) && !isNaN(res)) {
+				var rounded = Math.round(res * 1e10) / 1e10;
+				return String(rounded);
+			}
+		} catch (e) {
+			return null;
+		}
+		return null;
+	}
+
 	function open(newMode) {
 		if (newMode !== undefined && newMode !== null && newMode !== "")
 			setMode(newMode);
-		if (mode === "run" && !runLoaded && !runLoader.running)
+		if (!runLoaded && !runLoader.running)
 			runLoader.running = true;
 		query = "";
 		searchBar.clear();
@@ -146,21 +187,86 @@ CenterModal {
 		var q = query.trim();
 
 		if (mode === "apps") {
+			// 1. Command execution mode (> cmd)
+			if (q.startsWith(">")) {
+				if (!runLoaded && !runLoader.running)
+					runLoader.running = true;
+				var cmdQuery = q.substring(1).trim().toLowerCase();
+				var cmdResults = [];
+				if (cmdQuery !== "") {
+					cmdResults.push({ kind: "run", label: q.substring(1).trim(), isDirect: true });
+					for (var k = 0; k < runCache.length && cmdResults.length < 50; k++) {
+						var cand = runCache[k].toLowerCase();
+						if (cand !== cmdQuery && cand.indexOf(cmdQuery) === 0)
+							cmdResults.push({ kind: "run", label: runCache[k] });
+					}
+					for (var m = 0; m < runCache.length && cmdResults.length < 50; m++) {
+						var cand2 = runCache[m].toLowerCase();
+						if (cand2.indexOf(cmdQuery) > 0)
+							cmdResults.push({ kind: "run", label: runCache[m] });
+					}
+				}
+				filtered = cmdResults;
+				currentIndex = 0;
+				return;
+			}
+
+			// 2. Calculator check
+			var calcResult = tryCalculate(q);
+
+			// 3. System actions matching
+			var matchedActions = [];
+			if (q !== "") {
+				var ql = q.toLowerCase();
+				for (var a = 0; a < systemActions.length; a++) {
+					var act = systemActions[a];
+					var sScore = fieldScore(act.label, ql);
+					if (sScore === -1 && act.keywords)
+						sScore = fieldScore(act.keywords, ql);
+					if (sScore !== -1)
+						matchedActions.push({ score: sScore, item: act });
+				}
+				matchedActions.sort(function(x, y) { return x.score - y.score; });
+			}
+
+			// 4. Applications matching
 			var apps = DesktopEntries.applications.values || [];
-			var scored = [];
+			var scoredApps = [];
 			for (var i = 0; i < apps.length; i++) {
 				var s = appMatchScore(apps[i], q);
 				if (q === "" || s !== -1)
-					scored.push({ score: s, item: apps[i] });
+					scoredApps.push({ score: s, item: apps[i] });
 			}
-			scored.sort(function(a, b) {
+			scoredApps.sort(function(a, b) {
 				if (a.score !== b.score)
 					return a.score - b.score;
 				return (a.item.name || "").localeCompare(b.item.name || "");
 			});
-			filtered = scored.map(function(s2) {
+
+			var appItems = scoredApps.map(function(s2) {
 				return { kind: "app", entry: s2.item, label: s2.item.name || s2.item.id };
 			});
+
+			var actionItems = matchedActions.map(function(ma) {
+				return ma.item;
+			});
+
+			// Combine results:
+			var combined = [];
+			if (calcResult !== null) {
+				combined.push({ kind: "calc", label: calcResult, rawExpr: q });
+			}
+
+			// Exact prefix command match on system action takes precedence over apps
+			if (actionItems.length > 0 && matchedActions[0].score === 0 && (scoredApps.length === 0 || scoredApps[0].score > 0)) {
+				combined = combined.concat(actionItems);
+				combined = combined.concat(appItems);
+			} else {
+				combined = combined.concat(appItems);
+				combined = combined.concat(actionItems);
+			}
+
+			filtered = combined;
 		} else if (mode === "emoji") {
 			var needle = q.toLowerCase();
 			var out = [];
@@ -173,27 +279,10 @@ CenterModal {
 			}
 			filtered = out;
 		} else if (mode === "power") {
-			var ql = q.toLowerCase();
+			var pql = q.toLowerCase();
 			filtered = powerList.filter(function(p) {
-				return q === "" || p.label.toLowerCase().indexOf(ql) !== -1;
+				return q === "" || p.label.toLowerCase().indexOf(pql) !== -1;
 			});
-		} else if (mode === "run") {
-			if (q === "") {
-				filtered = [];
-			} else {
-				var rql = q.toLowerCase();
-				var runs = [];
-				for (var k = 0; k < runCache.length && runs.length < 50; k++) {
-					if (runCache[k].toLowerCase().indexOf(rql) === 0)
-						runs.push({ kind: "run", label: runCache[k] });
-				}
-				for (var m = 0; m < runCache.length && runs.length < 50; m++) {
-					var cand = runCache[m].toLowerCase();
-					if (cand.indexOf(rql) > 0)
-						runs.push({ kind: "run", label: runCache[m] });
-				}
-				filtered = runs;
-			}
 		}
 		currentIndex = 0;
 	}
@@ -225,6 +314,10 @@ CenterModal {
 				e.execute();
 			return true;
 		}
+		if (item.kind === "calc") {
+			Quickshell.execDetached(["wl-copy", String(item.label)]);
+			return true;
+		}
 		if (item.kind === "run") {
 			Quickshell.execDetached(["sh", "-c", item.label]);
 			return true;
@@ -235,7 +328,8 @@ CenterModal {
 			return true;
 		}
 		if (item.kind === "power") {
-			var cmd = powerCommands[item.label];
+			var pKey = item.action || item.label;
+			var cmd = powerCommands[pKey];
 			if (!cmd) {
 				lastError = "Unknown power action";
 				return false;
@@ -243,22 +337,37 @@ CenterModal {
 			Quickshell.execDetached(cmd);
 			return true;
 		}
+		if (item.kind === "action") {
+			if (item.cmd) {
+				Quickshell.execDetached(item.cmd);
+				return true;
+			}
+			return false;
+		}
 		lastError = "Unknown item type";
 		return false;
 	}
 
 	function activate() {
-		if (mode === "run" && filtered.length === 0 && query.trim() !== "") {
-			lastError = "";
-			Quickshell.execDetached(["sh", "-c", query.trim()]);
-			close();
-			return;
+		var q = query.trim();
+		if (isCommandQuery()) {
+			var rawCmd = q.substring(1).trim();
+			if (filtered.length === 0 && rawCmd !== "") {
+				lastError = "";
+				Quickshell.execDetached(["sh", "-c", rawCmd]);
+				close();
+				return;
+			}
 		}
-		if (execute(filtered[currentIndex]))
-			close();
+		if (filtered.length > 0 && currentIndex >= 0 && currentIndex < filtered.length) {
+			if (execute(filtered[currentIndex]))
+				close();
+		}
 	}
 
 	function gridColumns() {
+		if (isCommandQuery())
+			return 1;
 		return gridColumnCount();
 	}
 
@@ -276,7 +385,7 @@ CenterModal {
 	}
 
 	function modeTitle() {
-		return modeTitles[mode] || "Apps";
+		return modeTitles[mode] || "";
 	}
 
 	function modePlaceholder() {
@@ -284,11 +393,11 @@ CenterModal {
 	}
 
 	function emptyText() {
-		if (mode === "run")
-			return query.trim() === "" ? "Type a command — Tab completes, Enter runs" : "No match — Enter runs it anyway";
+		if (isCommandQuery())
+			return query.trim() === "" ? "Type a command — Enter runs" : "No matching command — Enter runs it anyway";
 		if (mode === "power") return "No matching power action";
 		if (mode === "emoji") return emojis.length === 0 ? "Loading emojis..." : "No matching emojis";
-		return "No matching applications";
+		return "No matching applications or actions";
 	}
 
 	function statusText() {
@@ -346,7 +455,7 @@ CenterModal {
 				}
 				window.runCache = clean;
 				window.runLoaded = true;
-				if (window.mode === "run" && window.shown)
+				if (window.isCommandQuery() && window.shown)
 					window.refilter();
 			}
 		}
@@ -359,7 +468,7 @@ CenterModal {
 
 		GridView {
 			id: grid
-			visible: window.mode === "apps" || window.mode === "emoji"
+			visible: (window.mode === "apps" && !window.isCommandQuery()) || window.mode === "emoji"
 			anchors.top: parent.top
 			anchors.bottom: parent.bottom
 			anchors.horizontalCenter: parent.horizontalCenter
@@ -415,6 +524,66 @@ CenterModal {
 						}
 					}
 
+					// Power & System action in grid
+					ColumnLayout {
+						visible: modelData.kind === "power" || modelData.kind === "action"
+						anchors.fill: parent
+						anchors.margins: Theme.paddingItem
+						spacing: 4
+
+						IconImage {
+							Layout.alignment: Qt.AlignHCenter
+							implicitSize: 48
+							source: modelData.icon ? Quickshell.iconPath(modelData.icon, true) : ""
+							asynchronous: true
+						}
+
+						Text {
+							Layout.fillWidth: true
+							Layout.fillHeight: true
+							horizontalAlignment: Text.AlignHCenter
+							verticalAlignment: Text.AlignVCenter
+							wrapMode: Text.Wrap
+							maximumLineCount: 2
+							elide: Text.ElideRight
+							font.family: Theme.fontMono
+							font.pointSize: Theme.fontSizeGrid
+							color: index === window.currentIndex ? Theme.accentBlue : Theme.textMain
+							text: modelData.label || ""
+						}
+					}
+
+					// Calculator result card in grid
+					ColumnLayout {
+						visible: modelData.kind === "calc"
+						anchors.fill: parent
+						anchors.margins: Theme.paddingItem
+						spacing: 4
+
+						Text {
+							Layout.alignment: Qt.AlignHCenter
+							text: "󰪚"
+							font.family: Theme.fontFamily
+							font.pixelSize: 40
+							color: index === window.currentIndex ? Theme.accentGreen : Theme.accentBlue
+						}
+
+						Text {
+							Layout.fillWidth: true
+							Layout.fillHeight: true
+							horizontalAlignment: Text.AlignHCenter
+							verticalAlignment: Text.AlignVCenter
+							wrapMode: Text.Wrap
+							maximumLineCount: 2
+							elide: Text.ElideRight
+							font.family: Theme.fontMono
+							font.pointSize: Theme.fontSizeGrid + 1
+							font.bold: true
+							color: index === window.currentIndex ? Theme.accentGreen : Theme.textMain
+							text: "= " + (modelData.label || "")
+						}
+					}
+
 					// Emoji glyph for emoji mode
 					Text {
 						visible: modelData.kind === "emoji"
@@ -438,7 +607,7 @@ CenterModal {
 
 		ListView {
 			id: list
-			visible: window.mode === "run" || window.mode === "power"
+			visible: window.mode === "power" || (window.mode === "apps" && window.isCommandQuery())
 			anchors.fill: parent
 			clip: true
 			boundsBehavior: Flickable.DragAndOvershootBounds
@@ -462,6 +631,15 @@ CenterModal {
 					anchors.rightMargin: 14
 					spacing: 14
 
+					Text {
+						visible: modelData.kind === "run"
+						Layout.alignment: Qt.AlignVCenter
+						text: "󰞷"
+						font.family: Theme.fontFamily
+						font.pixelSize: 20
+						color: Theme.accentPurple
+					}
+
 					IconImage {
 						visible: modelData.kind === "power"
 						Layout.alignment: Qt.AlignVCenter
@@ -478,6 +656,26 @@ CenterModal {
 						color: index === window.currentIndex ? Theme.accentBlue : Theme.textMain
 						elide: Text.ElideRight
 						text: modelData.label || ""
+					}
+
+					Rectangle {
+						visible: modelData.kind === "run"
+						Layout.alignment: Qt.AlignVCenter
+						implicitWidth: badgeText.implicitWidth + 10
+						implicitHeight: 22
+						radius: Theme.roundingSubtle
+						color: Theme.bgCard
+						border.color: Theme.border
+						border.width: 1
+
+						Text {
+							id: badgeText
+							anchors.centerIn: parent
+							text: "Terminal"
+							font.family: Theme.fontMono
+							font.pointSize: Theme.fontSizeSmall - 2
+							color: Theme.textDim
+						}
 					}
 				}
 

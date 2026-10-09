@@ -10,6 +10,7 @@ Rectangle {
 	property alias text: input.text
 	property bool completeOnTab: false
 	property bool leftRightNavigate: false
+	property bool showScopeHints: false
 
 	signal accepted()
 	signal cancelled()
@@ -131,6 +132,33 @@ Rectangle {
 				verticalAlignment: Text.AlignVCenter
 				elide: Text.ElideRight
 				visible: input.text === ""
+			}
+		}
+
+		RowLayout {
+			visible: bar.showScopeHints && input.text === ""
+			spacing: 12
+			Layout.alignment: Qt.AlignVCenter
+
+			Text {
+				text: "󰐥"
+				font.family: Theme.fontFamily
+				font.pixelSize: 15
+				color: Theme.textMuted
+			}
+
+			Text {
+				text: "󰪚"
+				font.family: Theme.fontFamily
+				font.pixelSize: 15
+				color: Theme.textMuted
+			}
+
+			Text {
+				text: ">"
+				font.family: Theme.fontMono
+				font.pixelSize: 13
+				color: Theme.textMuted
 			}
 		}
 	}
