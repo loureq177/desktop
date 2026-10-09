@@ -22,8 +22,14 @@ PanelWindow {
 
 	screen: modelData
 	color: "transparent"
-	WlrLayershell.layer: WlrLayer.Top
+	WlrLayershell.layer: WlrLayer.Overlay
 	WlrLayershell.namespace: "quickshell-bar"
+
+	readonly property bool hasFullscreen: {
+		var ws = Hyprland.workspaces.values.find(w => w.monitor?.name === bar.screenName && w.active);
+		return ws?.hasFullscreen ?? false;
+	}
+	visible: !hasFullscreen
 
 	anchors {
 		top: true
@@ -253,10 +259,9 @@ PanelWindow {
 			onExited: {
 				bar.hideTooltip(pill);
 			}
-			// Act on press, not on click: toggling maps an overlay window
-			// above the bar, so press and release can land on different
-			// layer surfaces and a click pair never completes without
-			// moving the mouse first.
+			// Act on press for instant responsiveness. Bar is on Overlay layer
+			// above drawer backdrops (on Top layer), ensuring press and release
+			// always land cleanly on the bar without layer-surface splitting.
 			onPressed: mouse => {
 				bar.hideTooltipNow();
 				if (mouse.button === Qt.RightButton) {
@@ -277,8 +282,7 @@ PanelWindow {
 		MouseArea {
 			anchors.fill: parent
 			z: -1
-			// Press-driven like the pills: dismissing unmaps the overlay,
-			// so a press/release pair can split across layer surfaces.
+			enabled: QuickSettings.panelOpen || Notifications.centerOpen || Weather.panelOpen
 			onPressed: {
 				QuickSettings.close();
 				Notifications.closeCenter();

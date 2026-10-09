@@ -85,7 +85,7 @@ CenterModal {
 		{ cat: "Notifications", match: ["notification", "do not disturb"] },
 		{ cat: "Clipboard & Selection", match: ["clipboard"] },
 		{ cat: "Special Workspaces", match: ["calendar", "tasks", "whatsapp", "mail", "discord", "spotify", "gemini", "yazi", "notes", "calculator", "activity monitor"] },
-		{ cat: "System & Tools", match: ["system update", "lock system", "idle inhibit", "run commands", "emoji", "audio controls", "bluetooth", "wifi", "power", "battery", "jolt", "touchpad", "quick settings", "weather"] },
+		{ cat: "System & Tools", match: ["system update", "lock system", "idle inhibit", "run commands", "emoji", "audio controls", "bluetooth", "wifi", "power", "battery", "jolt", "touchpad", "quick settings", "quick actions", "weather"] },
 		{ cat: "Window Management", match: ["close window", "fullscreen", "split", "floating", "swap window", "resize window", "drag window"] },
 		{ cat: "Navigation & Workspaces", match: ["focus", "workspace"] }
 	]
@@ -273,7 +273,7 @@ CenterModal {
 					var keyMap = {
 						"comma": ",", "period": ".", "slash": "/", "space": "SPACE",
 						"return": "RETURN", "escape": "ESC", "print": "PRINT",
-						"[1..9]": "[1..9]"
+						"[1..9]": "[1..9]", "fn + f10": "Fn + F10"
 					};
 
 					var workspaceSwitchSeen = false;
@@ -288,9 +288,12 @@ CenterModal {
 						var rawKey = (b.key || "").trim();
 						var rawLower = rawKey.toLowerCase();
 
-						// Filter out hardware keys (XF86*) and hardware switches
-						if (rawLower.indexOf("xf86") !== -1 || rawLower.indexOf("switch:") !== -1)
+						// Filter out hardware keys (XF86*) and hardware switches, except touchpad toggle (Fn + F10)
+						if (rawLower === "xf86touchpadtoggle") {
+							rawKey = "fn + f10";
+						} else if (rawLower.indexOf("xf86") !== -1 || rawLower.indexOf("switch:") !== -1) {
 							continue;
+						}
 
 						if (desc.indexOf("Switch to workspace ") === 0) {
 							if (workspaceSwitchSeen) continue;

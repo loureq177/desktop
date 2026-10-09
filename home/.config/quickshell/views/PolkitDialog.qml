@@ -85,6 +85,7 @@ Item {
 		var flow = agent.flow;
 		if (!flow || !flow.isResponseRequired || passwordInput.text.length === 0)
 			return;
+		failed = false;
 		submitted = true;
 		flow.submit(passwordInput.text);
 		passwordInput.text = "";
@@ -215,7 +216,7 @@ Item {
 			width: Math.min(460, panel.width - 40)
 			implicitHeight: cardLayout.implicitHeight + 48
 			color: Qt.rgba(Theme.bgCardColor.r, Theme.bgCardColor.g, Theme.bgCardColor.b, 0.92)
-			border.color: root.failed ? Theme.critical : (root.submitted ? Theme.accentGreen : Theme.border)
+			border.color: root.submitted ? Theme.accentGreen : (root.failed ? Theme.critical : Theme.border)
 			border.width: Theme.borderSize
 			radius: Theme.roundingWindow
 			clip: true
@@ -254,7 +255,7 @@ Item {
 
 					Text {
 						text: ""
-						color: root.failed ? Theme.critical : (root.submitted ? Theme.accentGreen : Theme.accentBlue)
+						color: root.submitted ? Theme.accentGreen : (root.failed ? Theme.critical : Theme.accentBlue)
 						font.family: Theme.fontFamily
 						font.pixelSize: 18
 						Layout.alignment: Qt.AlignTop
@@ -317,7 +318,7 @@ Item {
 					Layout.fillWidth: true
 					implicitHeight: 54
 					color: Theme.bgMain
-					border.color: root.failed ? Theme.critical : (root.submitted ? Theme.accentGreen : (passwordInput.activeFocus ? Theme.accentBlue : Theme.border))
+					border.color: root.submitted ? Theme.accentGreen : (root.failed ? Theme.critical : (passwordInput.activeFocus ? Theme.accentBlue : Theme.border))
 					border.width: Theme.borderSize
 					radius: Theme.roundingWindow
 
@@ -344,6 +345,10 @@ Item {
 						activeFocusOnPress: true
 						enabled: root.dialogVisible && !root.submitted
 						onAccepted: root.submitResponse()
+						onTextChanged: {
+							if (text.length > 0 && root.failed)
+								root.failed = false;
+						}
 						Keys.onPressed: function (event) {
 							if (event.key === Qt.Key_Escape) {
 								root.cancelRequest();
@@ -357,9 +362,9 @@ Item {
 						anchors.leftMargin: 18
 						anchors.rightMargin: 18
 						verticalAlignment: Text.AlignVCenter
-						text: root.failed ? "Wrong password, try again" : (root.submitted ? "Checking…" : "Password…")
+						text: root.submitted ? "Checking…" : (root.failed ? "Wrong password, try again" : "Password…")
 						textFormat: Text.PlainText
-						color: root.failed ? Theme.critical : (root.submitted ? Theme.accentGreen : Theme.textMuted)
+						color: root.submitted ? Theme.accentGreen : (root.failed ? Theme.critical : Theme.textMuted)
 						font.family: Theme.fontFamily
 						font.pixelSize: 17
 						elide: Text.ElideRight

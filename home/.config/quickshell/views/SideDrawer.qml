@@ -106,7 +106,7 @@ PanelWindow {
 
 	property int keyboardFocusMode: WlrKeyboardFocus.OnDemand
 
-	WlrLayershell.layer: WlrLayer.Overlay
+	WlrLayershell.layer: WlrLayer.Top
 	WlrLayershell.keyboardFocus: shown ? keyboardFocusMode : WlrKeyboardFocus.None
 	WlrLayershell.namespace: "quickshell"
 
@@ -123,9 +123,6 @@ PanelWindow {
 		bottom: true
 		left: true
 		right: true
-	}
-	margins {
-		top: Theme.barMarginY * 2 + Theme.barHeight
 	}
 
 	property bool dismissOnEsc: true
@@ -165,7 +162,7 @@ PanelWindow {
 		id: card
 
 		x: parent.width - width - Theme.notifRightMargin + root.slide
-		y: Theme.notifTopMargin - (Theme.barMarginY * 2 + Theme.barHeight)
+		y: Theme.notifTopMargin
 		width: root.cardWidth
 		height: root.cardHeight
 		color: Theme.bgCard

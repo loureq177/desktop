@@ -606,10 +606,13 @@ local cmds = {
 	--  ─── Quick menus ────────────────────────────────────────────
 
 	["SUPER + space"] = { programs.launcher, "Launch apps" },
-	["SUPER + A"] = { "qs ipc call quicksettings toggle", "Quick settings" },
+	["SUPER + A"] = { "qs ipc call quicksettings toggle", "Quick actions" },
 	["SUPER + N"] = { "qs ipc call notifications toggle", "Toggle notification center" },
 	["SUPER + comma"] = { "qs ipc call notifications dismissLatest", "Close latest notification" },
-	["SUPER + SHIFT + comma"] = { "qs ipc call notifications invokeDefault", "Activate latest notification" },
+	["SUPER + SHIFT + comma"] = {
+		"qs ipc call notifications invokeDefault",
+		"Activate latest notification",
+	},
 	["SUPER + W"] = { "qs ipc call weather toggle", "Weather" },
 	["SUPER + E"] = { "qs ipc call shell toggle launcher emoji", "Emoji picker" },
 	["SUPER + C"] = { "qs ipc call shell toggle clipboard ''", "Clipboard history" },
@@ -666,7 +669,9 @@ local media = {
 	},
 	{ "XF86MonBrightnessUp", "~/.local/bin/brightness up", true, "Brightness up" },
 	{ "XF86MonBrightnessDown", "~/.local/bin/brightness down", true, "Brightness down" },
-	{ "XF86TouchpadToggle", "~/.local/bin/touchpad toggle", nil, "Touchpad toggle" },
+	{ "XF86TouchpadToggle", "~/.local/bin/touchpad toggle", nil, "Toggle touchpad" },
+	{ "XF86TouchpadOn", "~/.local/bin/touchpad on", nil, "Touchpad on" },
+	{ "XF86TouchpadOff", "~/.local/bin/touchpad off", nil, "Touchpad off" },
 	{ "XF86AudioNext", "playerctl next", nil, "Next track" },
 	{ "XF86AudioPause", "playerctl play-pause", nil, "Pause track" },
 	{ "XF86AudioPlay", "playerctl play-pause", nil, "Play track" },
@@ -680,11 +685,29 @@ end
 -- ─── Mouse Drag / Resize ─────────────────────────────────────────────────────
 
 hl.bind("SUPER + mouse:272", hl.dsp.window.drag(), { mouse = true, description = "Move window" })
-hl.bind("SUPER + mouse:273", hl.dsp.window.resize(), { mouse = true, description = "Resize window" })
+hl.bind(
+	"SUPER + mouse:273",
+	hl.dsp.window.resize(),
+	{ mouse = true, description = "Resize window" }
+)
 
 -- ─── Power Shortcuts (locked = true) ─────────────────────────────────────────
 
-b("SUPER + SHIFT + Delete", "Power off", hl.dsp.exec_cmd("hyprshutdown --post-cmd 'systemctl poweroff'"), { locked = true })
-b("SUPER + SHIFT + R", "Reboot", hl.dsp.exec_cmd("hyprshutdown --post-cmd 'systemctl reboot'"), { locked = true })
-b("SUPER + SHIFT + Z", "Suspend", hl.dsp.exec_cmd("loginctl lock-session && systemctl suspend"), { locked = true })
-
+b(
+	"F1",
+	"Power off",
+	hl.dsp.exec_cmd("pidof hyprlock >/dev/null && hyprshutdown --post-cmd 'systemctl poweroff'"),
+	{ locked = true }
+)
+b(
+	"F2",
+	"Reboot",
+	hl.dsp.exec_cmd("pidof hyprlock >/dev/null && hyprshutdown --post-cmd 'systemctl reboot'"),
+	{ locked = true }
+)
+b(
+	"F3",
+	"Suspend",
+	hl.dsp.exec_cmd("pidof hyprlock >/dev/null && systemctl suspend"),
+	{ locked = true }
+)

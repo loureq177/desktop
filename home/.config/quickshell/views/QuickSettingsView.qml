@@ -453,41 +453,30 @@ SideDrawer {
 				}
 			}
 
-			RowLayout {
+			Text {
+				visible: stile.hasDetails
 				Layout.alignment: Qt.AlignVCenter
-				spacing: 4
-
-				Rectangle {
-					visible: stile.hotkey !== ""
-					Layout.preferredWidth: 20
-					Layout.preferredHeight: 20
-					radius: Theme.roundingSubtle
-					color: stile.isSelected
-						? Qt.rgba(Theme.accentBlue.r, Theme.accentBlue.g, Theme.accentBlue.b, 0.20)
-						: (stile.bodyHovered ? Theme.bgCard : Qt.rgba(Theme.bgCardColor.r, Theme.bgCardColor.g, Theme.bgCardColor.b, 0.5))
-					border.color: stile.isSelected ? Theme.accentBlue : Theme.border
-					border.width: 1
-
-					Text {
-						anchors.centerIn: parent
-						text: stile.hotkey
-						font.family: Theme.fontMono
-						font.pixelSize: 11
-						font.bold: true
-						color: stile.isSelected ? Theme.accentBlue : Theme.textDim
-					}
-				}
-
-				Text {
-					visible: stile.hasDetails
-					Layout.alignment: Qt.AlignVCenter
-					text: "›"
-					font.family: Theme.fontFamily
-					font.pixelSize: 16
-					font.bold: true
-					color: stile.isSelected ? Theme.accentBlue : Theme.textDim
-				}
+				text: "›"
+				font.family: Theme.fontFamily
+				font.pixelSize: 16
+				font.bold: true
+				color: stile.isSelected ? Theme.accentBlue : Theme.textDim
 			}
+		}
+
+		Text {
+			visible: stile.hotkey !== ""
+			anchors.right: parent.right
+			anchors.bottom: parent.bottom
+			anchors.rightMargin: 10
+			anchors.bottomMargin: 6
+			text: stile.hotkey
+			font.family: Theme.fontMono
+			font.pixelSize: 10
+			font.bold: true
+			color: stile.isSelected ? Theme.accentBlue : Theme.textDim
+			opacity: stile.isSelected ? 0.9 : 0.4
+			z: 2
 		}
 	}
 
@@ -715,7 +704,7 @@ SideDrawer {
 
 			Text {
 				Layout.fillWidth: true
-				text: "Quick settings"
+				text: "Quick actions"
 				font.family: Theme.fontFamily
 				font.pixelSize: Theme.fontSize + 1
 				font.bold: true

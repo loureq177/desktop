@@ -160,4 +160,55 @@ Singleton {
 			root.resetNightLightToAuto();
 		}
 	}
+
+	IpcHandler {
+		target: "quickactions"
+
+		function toggle(): void {
+			root.toggle();
+		}
+		function toggleView(view: string): void {
+			root.toggle(view);
+		}
+		function toggleWifi(): void {
+			root.toggleWifi();
+		}
+		function toggleBluetooth(): void {
+			root.toggleBluetooth();
+		}
+		function toggleCapture(): void {
+			root.toggleCapture();
+		}
+		function open(): void {
+			root.open();
+		}
+		function openView(view: string): void {
+			root.open(view);
+		}
+		function openWifi(): void {
+			root.openWifi();
+		}
+		function openBluetooth(): void {
+			root.openBluetooth();
+		}
+		function openCapture(): void {
+			root.openCapture();
+		}
+		function close(): void {
+			root.close();
+		}
+		function closeInstant(): void {
+			root.closeInstant();
+		}
+		function refresh(): void {
+			root.refresh();
+		}
+		function toggleNightLight(): void {
+			root.toggleNightLight();
+		}
+		function resetNightLightToAuto(): void {
+			root.resetNightLightToAuto();
+		}
+	}
 }
+

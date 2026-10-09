@@ -33,7 +33,7 @@ PanelWindow {
 	exclusionMode: ExclusionMode.Ignore
 	exclusiveZone: 0
 
-	WlrLayershell.layer: WlrLayer.Overlay
+	WlrLayershell.layer: WlrLayer.Top
 	WlrLayershell.keyboardFocus: shown ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
 	WlrLayershell.namespace: "quickshell"
 
@@ -50,9 +50,6 @@ PanelWindow {
 		bottom: true
 		left: true
 		right: true
-	}
-	margins {
-		top: Theme.barMarginY * 2 + Theme.barHeight
 	}
 
 	onShownChanged: {
@@ -142,7 +139,7 @@ PanelWindow {
 	Rectangle {
 		id: card
 		anchors.horizontalCenter: parent.horizontalCenter
-		y: (Theme.notifTopMargin - (Theme.barMarginY * 2 + Theme.barHeight)) - root.slide
+		y: Theme.notifTopMargin - root.slide
 		width: Math.min(576, root.width - 32)
 		height: weatherCol.implicitHeight + Theme.paddingCard * 2
 		color: Theme.bgCard
