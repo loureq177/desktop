@@ -4,6 +4,7 @@ set -euo pipefail
 
 STATE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/touchpad"
 STATE_FILE="$STATE_DIR/enabled" # 1 = on, 0 = off; absent means on
+LOCK_FILE="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/touchpad.lock"
 ACTION="${1:-toggle}"
 
 case "$ACTION" in
@@ -11,7 +12,7 @@ case "$ACTION" in
     *) echo "touchpad: want toggle|on|off|status" >&2; exit 2 ;;
 esac
 
-devices_json="$(hyprctl devices -j 2>/dev/null)" || exit 1
+devices_json="$(timeout 5 hyprctl devices -j 2>/dev/null)" || exit 1
 mapfile -t DEVICES < <(jq -r '.mice[]? | select(.name | test("touchpad"; "i")) | .name' <<<"$devices_json")
 
 if ((${#DEVICES[@]} == 0)); then
@@ -34,13 +35,28 @@ case "$ACTION" in
     toggle) target=$((1 - current)) ;;
 esac
 
+# Serialize read-modify-write: shortcut + quicksettings click at once must
+# not both read the same value and lose one toggle. Fast section: wait
+# briefly instead of dropping the second click.
+if [[ "$ACTION" != "status" ]]; then
+    exec 200>"$LOCK_FILE"
+    flock -w 2 200 || exit 0
+    # Re-read under lock (value may have changed since line 1 check).
+    current=1
+    [[ -f "$STATE_FILE" ]] && current=$(<"$STATE_FILE")
+    [[ "$current" =~ ^[01]$ ]] || current=1
+    if [[ "$ACTION" == "toggle" ]]; then
+        target=$((1 - current))
+    fi
+fi
+
 lua_bool="false"
 [[ "$target" == 1 ]] && lua_bool="true"
 
 for dev in "${DEVICES[@]}"; do
     esc="${dev//\\/\\\\}"
     esc="${esc//\"/\\\"}"
-    hyprctl eval "hl.device({ name = \"$esc\", enabled = $lua_bool })" >/dev/null 2>&1 || true
+    timeout 5 hyprctl eval "hl.device({ name = \"$esc\", enabled = $lua_bool })" >/dev/null 2>&1 || true
 done
 
 mkdir -p "$STATE_DIR"

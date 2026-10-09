@@ -1,10 +1,8 @@
 #!/bin/sh
-# Insert an emoji into the focused app via clipboard + Shift+Insert.
+# Insert an emoji into the focused app directly via wtype.
 set -eu
 emoji="${1:-}"
 [ -n "$emoji" ] || exit 0
-printf '%s' "$emoji" | wl-copy --type text/plain --sensitive --foreground &
-copy_pid=$!
 sleep 0.05
-wtype -M shift -k Insert -m shift 2>/dev/null || true
-( sleep 0.5 && kill "$copy_pid" 2>/dev/null ) &
+wtype -- "$emoji" 2>/dev/null || true
+

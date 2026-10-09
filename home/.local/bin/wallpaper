@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Wallpaper manager: animated transitions via awww (+ hyprpaper fallback).
-# Usage: wallpaper [list|current|effects|set <name|path> [effect]|next [effect]|prev [effect]|random|pick|restore|init]
+# Usage: wallpaper [list|current|effects|set <name|path> [effect]|next [effect]|prev [effect]|random|restore|init]
 # Effects (awww): simple fade left right top bottom wipe wave grow center outer any random none
 # Defaults can be tuned with $WALLPAPER_TRANSITION, $WALLPAPER_FPS, $WALLPAPER_BACKEND (awww|hyprpaper).
 # Wallpapers live outside the repo in $WALL_DIR (default: ~/Pictures/Wallpapers) —
@@ -52,13 +52,13 @@ current_path() {
         }
     fi
     local active=""
-    active="$(hyprctl hyprpaper listactive 2>/dev/null | head -n 1 | sed 's/^[^:]*:[[:space:]]*//' || true)"
+    active="$(timeout 5 hyprctl hyprpaper listactive 2>/dev/null | head -n 1 | sed 's/^[^:]*:[[:space:]]*//' || true)"
     if [[ -n "$active" && -f "$active" ]]; then
         printf '%s\n' "$active"
         return 0
     fi
     local from_conf=""
-    from_conf="$(grep -m1 -E '^\s*path\s*=' "$CONF" 2>/dev/null | sed 's/^[^=]*=\s*//' | tr -d ' ' || true)"
+    from_conf="$(grep -m1 -E '^\s*path\s*=' "$CONF" 2>/dev/null | sed -E 's/^[^=]*=[[:space:]]*//; s/[[:space:]]+$//' || true)"
     from_conf="${from_conf/#\~/$HOME}"
     if [[ -n "$from_conf" && -f "$from_conf" ]]; then
         printf '%s\n' "$from_conf"
@@ -92,7 +92,7 @@ resolve_name() { # $1: name|substring|path -> prints full path
         return 0
     fi
     # Unique substring match on the basename (e.g. "wallpaper-01").
-    matches="$(list_files | grep -F "$target" || true)"
+    matches="$(list_files | grep -F -- "$target" || true)"
     [[ -z "$matches" ]] && die "no wallpaper matching '$target' (see: wallpaper list)"
     if [[ "$(printf '%s\n' "$matches" | wc -l)" -gt 1 ]]; then
         echo "wallpaper: ambiguous '$target', matches:" >&2
@@ -139,15 +139,15 @@ splash = false
 ipc = true
 EOF
 
-    if hyprctl monitors -j >/dev/null 2>&1; then
+    if timeout 5 hyprctl monitors -j >/dev/null 2>&1; then
         local mons=""
-        mons="$(hyprctl monitors -j 2>/dev/null | jq -r '.[].name' 2>/dev/null || true)"
+        mons="$(timeout 5 hyprctl monitors -j 2>/dev/null | jq -r '.[].name' 2>/dev/null || true)"
         if [[ -n "$mons" ]]; then
             while IFS= read -r mon; do
-                [[ -n "$mon" ]] && hyprctl hyprpaper wallpaper "$mon,$resolved" >/dev/null 2>&1 || true
+                [[ -n "$mon" ]] && timeout 5 hyprctl hyprpaper wallpaper "$mon,$resolved" >/dev/null 2>&1 || true
             done <<<"$mons"
         else
-            hyprctl hyprpaper wallpaper ",$resolved" >/dev/null 2>&1 || true
+            timeout 5 hyprctl hyprpaper wallpaper ",$resolved" >/dev/null 2>&1 || true
         fi
     fi
 }
@@ -156,7 +156,6 @@ EOF
 set_wallpaper() { # $1: name|path, $2 (optional): effect
     local resolved=""
     resolved="$(resolve_name "$1")"
-    save_state "$resolved"
     if [[ "$(backend)" == "awww" ]]; then
         set_awww "$resolved" "$(check_effect "${2:-}")"
     else
@@ -164,6 +163,7 @@ set_wallpaper() { # $1: name|path, $2 (optional): effect
         [[ -n "${2:-}" ]] && check_effect "$2" >/dev/null
         set_hyprpaper "$resolved"
     fi
+    save_state "$resolved"
 }
 
 step() { # $1: +1 | -1, $2 (optional): effect — cycle through the sorted list
@@ -202,21 +202,10 @@ pick_random() {
     cur="$(basename "$(current_path 2>/dev/null || true)" 2>/dev/null || true)"
     pick="$(printf '%s\n' "${files[@]}" | shuf -n 1)"
     if [[ -n "$cur" && "$pick" == "$cur" ]]; then
-        pick="$(printf '%s\n' "${files[@]}" | grep -vxF "$cur" | shuf -n 1 || true)"
+        pick="$(printf '%s\n' "${files[@]}" | grep -vxF -- "$cur" | shuf -n 1 || true)"
         [[ -z "$pick" ]] && pick="$cur"
     fi
     set_wallpaper "$pick" "$effect"
-}
-
-pick_interactive() {
-    command -v fzf >/dev/null 2>&1 || die "fzf not installed"
-    local sel preview_cmd=()
-    if command -v chafa >/dev/null 2>&1; then
-        preview_cmd=(--preview "chafa -s 60x30 '$WALL_DIR/{}' 2>/dev/null || file '$WALL_DIR/{}'")
-    fi
-    sel="$(list_files | fzf --prompt='wallpaper> ' "${preview_cmd[@]}")" || exit 0
-    [[ -z "${sel:-}" ]] && exit 0
-    set_wallpaper "$sel" "${1:-}"
 }
 
 restore_state() { # no animation at login; falls back to hyprland.png
@@ -241,29 +230,39 @@ init_daemon() { # autostart entry: start the right daemon, kill the other, resto
         if ! awww query >/dev/null 2>&1; then
             pkill -x hyprpaper >/dev/null 2>&1 || true
             awww-daemon >/dev/null 2>&1 &
+            # Wait for readiness: restore_state talks IPC that may not
+            # listen yet after kill+start. Poll instead of sleeping blindly.
+            for _ in $(seq 1 50); do
+                awww query >/dev/null 2>&1 && break
+                sleep 0.1
+            done
         fi
-    elif ! hyprctl hyprpaper listactive >/dev/null 2>&1; then
+    elif ! timeout 5 hyprctl hyprpaper listactive >/dev/null 2>&1; then
+        pkill -x hyprpaper >/dev/null 2>&1 || true
         hyprpaper >/dev/null 2>&1 &
+        for _ in $(seq 1 50); do
+            timeout 5 hyprctl hyprpaper listactive >/dev/null 2>&1 && break
+            sleep 0.1
+        done
     fi
     restore_state
 }
 
 usage() {
     cat <<EOF
-Usage: wallpaper [list|current|effects|set <name|path> [effect]|next [effect]|prev [effect]|random [effect]|pick [effect]|restore|init]
+Usage: wallpaper [list|current|effects|set <name|path> [effect]|next [effect]|prev [effect]|random [effect]|restore|init]
   list              list available wallpapers
   current           show the active wallpaper
   effects           list transition effects (awww backend)
   set <name> [fx]   set wallpaper (basename or unique substring) + transition
   next|prev [fx]    cycle through wallpapers (alphabetical)
   random [fx]       random wallpaper + random transition (default)
-  pick [fx]         fuzzy-picker with image preview (fzf + chafa)
   restore           re-apply saved wallpaper without animation (for autostart)
   init              start wallpaper daemon and restore (autostart entry)
 Env: WALLPAPER_TRANSITION (default: wipe), WALLPAPER_FPS (default: awww default),
      WALLPAPER_BACKEND=awww|hyprpaper (default: auto-detect),
      WALL_DIR (default: ~/Pictures/Wallpapers).
-Binds: SUPER+P picker, SUPER+SHIFT+P next wallpaper in order.
+Binds: SUPER+P next wallpaper in order.
 EOF
 }
 
@@ -271,12 +270,12 @@ cmd="${1:-}"
 case "$cmd" in
 list) list_files ;;
 current) current_path || die "cannot determine current wallpaper" ;;
-effects) printf '%s\n' $EFFECTS ;;
+effects) # shellcheck disable=SC2086 # intentional split: EFFECTS is a word list
+    printf '%s\n' ${EFFECTS} ;;
 set) [[ -n "${2:-}" ]] || die "usage: wallpaper set <name|path> [effect>"; set_wallpaper "$2" "${3:-}" ;;
 next) step 1 "${2:-}" ;;
 prev) step -1 "${2:-}" ;;
 random) pick_random "${2:-}" ;;
-pick) pick_interactive "${2:-}" ;;
 restore) restore_state ;;
 init) init_daemon ;;
 "" | -h | --help | help) usage ;;

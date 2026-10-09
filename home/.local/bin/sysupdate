@@ -17,10 +17,11 @@ if [ -f /var/log/pacman.log ]; then
 fi
 
 echo "==> Updating system & AUR packages..."
+# Esc/cancel = pkexec returns 126/127. No `|| true` here so abort stops everything.
 if command -v paru >/dev/null 2>&1; then
-    paru -Syu --devel --noconfirm --skipreview --sudo pkexec || true
+    paru -Syu --devel --noconfirm --skipreview --sudo pkexec || { rc=$?; echo "operation aborted" >&2; exit $rc; }
 elif command -v pacman >/dev/null 2>&1; then
-    pkexec pacman -Syu --noconfirm || true
+    pkexec pacman -Syu --noconfirm || { rc=$?; echo "operation aborted" >&2; exit $rc; }
 fi
 
 echo "\n==> Updating Zsh plugins (zinit)..."

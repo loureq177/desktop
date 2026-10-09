@@ -27,11 +27,14 @@ for arg in "$@"; do
     esac
 done
 
-# Non-blocking lock: prevent concurrent execution / double-trigger races
+# Serialize toggles: wait briefly for a running instance instead of dropping
+# the second click (flock -n silently ignored it, forcing a manual cooldown).
+# The critical section below is fast (~150ms), so -w 2 only ever sleeps
+# through one in-flight toggle; a hung holder still times out.
 if [[ "$action" != "status" ]]; then
     LOCK_FILE="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/powersave.lock"
     exec 201>"$LOCK_FILE"
-    if ! flock -n 201; then
+    if ! flock -w 2 201; then
         exit 0
     fi
 fi
@@ -51,49 +54,81 @@ _is_active() {
 }
 
 bri() {
-    brightnessctl -c backlight "$@" >/dev/null 2>&1 || true
+    timeout 5 brightnessctl -c backlight "$@" >/dev/null 2>&1 || true
 }
 
 _report_brightness() {
     local pct
-    pct="$(brightnessctl -c backlight -m 2>/dev/null | head -n 1 | cut -d, -f4 | tr -dc '0-9' || true)"
-    [[ -n "${pct:-}" ]] && qs ipc call osd brightness "$pct" >/dev/null 2>&1 || true
-    qs ipc call quicksettings refresh >/dev/null 2>&1 || true
+    pct="$(timeout 5 brightnessctl -c backlight -m 2>/dev/null | head -n 1 | cut -d, -f4 | tr -dc '0-9' || true)"
+    # OSD + tile refresh are fire-and-forget: don't hold the lock for IPC.
+    # exec 201>&- first: background subshells inherit the lock fd, and an
+    # open copy would keep the flock held until they exit.
+    (
+        exec 201>&-
+        if [[ -n "${pct:-}" ]]; then
+            qs ipc call osd brightness "$pct" >/dev/null 2>&1 || true
+        fi
+        qs ipc call quicksettings refresh >/dev/null 2>&1 || true
+    ) >/dev/null 2>&1 &
 }
 
 prof() {
     powerprofilesctl set "$1" >/dev/null 2>&1 || true
 }
 
-_set_look() {
-    hyprctl eval "hl.config({ animations = { enabled = true }, decoration = { blur = { enabled = $1, ignore_opacity = $1 }, shadow = { enabled = $1 } } })" >/dev/null 2>&1 || true
+_slow_tail() { # $1: power-saver|balanced — ghostty reload + profile, detached
+    # File writes (shader/perf) are already done synchronously above; only
+    # the slow consumers (systemd reload, powerprofilesctl, qs IPC) go here.
+    (
+        exec 201>&-
+        _ghostty_reload
+        prof "$1"
+        qs ipc call quicksettings refresh >/dev/null 2>&1 || true
+    ) >/dev/null 2>&1 &
 }
 
-_set_refresh_rate() {
+_apply_display() { # $1: 60|max — single monitors fetch + single hyprctl eval
     local target_hz="$1"
-    local mon_info
-    mon_info=$(hyprctl monitors -j 2>/dev/null | jq -r '
+    local mon_json mon_info
+    # One hyprctl round-trip per process (was: two monitors -j calls).
+    mon_json="$(timeout 5 hyprctl monitors -j 2>/dev/null || echo '[]')"
+    mon_info=$(jq -r '
         .[] | select(.name | startswith("eDP")) |
         "\(if .description and (.description | length > 0) then "desc:\(.description)" else .name end)|\(.width)|\(.height)|\(.x)x\(.y)|\(.scale)"
-    ' 2>/dev/null | head -n 1 || true)
+    ' <<<"$mon_json" 2>/dev/null | head -n 1 || true)
 
     [[ -z "$mon_info" ]] && return 0
 
     local desc width height pos scale
     IFS="|" read -r desc width height pos scale <<<"$mon_info"
+    # Guard the eval below: compositor JSON is untrusted input for Lua.
+    [[ "$width" =~ ^[0-9]+$ && "$height" =~ ^[0-9]+$ ]] || return 0
+    [[ "$scale" =~ ^[0-9]+(\.[0-9]+)?$ ]] || return 0
+    desc="${desc//\'/\\\'}"
+    [[ "$pos" =~ ^-?[0-9]+x-?[0-9]+$ ]] || return 0
 
     local hz="$target_hz"
     if [[ "$target_hz" == "max" || "$target_hz" == "high" ]]; then
+        # Reuse the same JSON (was: a second hyprctl monitors -j).
         local detected_max
-        detected_max=$(hyprctl monitors -j 2>/dev/null | jq -r '
+        detected_max=$(jq -r '
             .[] | select(.name | startswith("eDP")) |
             .availableModes[]? | select(startswith("'"${width}x${height}"'"))
-        ' 2>/dev/null | sed -E 's/.*@([0-9]+(\.[0-9]+)?).*/\1/' | sort -n | tail -n 1 || true)
+        ' <<<"$mon_json" 2>/dev/null | sed -E 's/.*@([0-9]+(\.[0-9]+)?).*/\1/' | sort -n | tail -n 1 || true)
         detected_max="${detected_max%%.*}"
+        [[ "$detected_max" =~ ^[0-9]+$ ]] || detected_max=""
         hz="${detected_max:-165}"
     fi
 
-    hyprctl eval "hl.monitor({ output = '${desc}', mode = '${width}x${height}@${hz}', position = '${pos}', scale = ${scale} })" >/dev/null 2>&1 || true
+    # One IPC round-trip: modeset + decoration together (was: two hyprctl
+    # eval calls). Blur follows the mode: off on battery (perf), on in
+    # eye-candy to match hyprland.lua (enabled + ignore_opacity).
+    local blur_enabled="true"
+    if [[ "$target_hz" == "60" ]]; then
+        blur_enabled="false"
+    fi
+    [[ "$hz" =~ ^[0-9]+$ ]] || return 0
+    timeout 5 hyprctl eval "hl.monitor({ output = '${desc}', mode = '${width}x${height}@${hz}', position = '${pos}', scale = ${scale} }); hl.config({ animations = { enabled = true }, decoration = { blur = { enabled = ${blur_enabled}, ignore_opacity = true }, shadow = { enabled = false } } })" >/dev/null 2>&1 || true
 }
 
 _ghostty_reload() {
@@ -131,7 +166,7 @@ _ghostty_shader() { # $1: on|off
         return 0
     fi
     mkdir -p "$(dirname "$GHOSTTY_SHADER")" || return 0
-    tmp="$GHOSTTY_SHADER.tmp.$$"
+    tmp="$(mktemp "$(dirname "$GHOSTTY_SHADER")/.shader.XXXXXX")" || return 0
     if ! ln -sfn "$want" "$tmp" || ! mv -f "$tmp" "$GHOSTTY_SHADER"; then
         rm -f "$tmp"
         return 0
@@ -160,10 +195,13 @@ EOF
     else
         cat >"$tmp" <<'EOF'
 # Managed by power-save. Do not edit.
+# background-opacity<1: Ghostty wysyła bufor z alfą, dopiero wtedy Hyprland
+# bluruje tło za oknem (przy 1.0 bufor jest nieprzeźroczysty i blur nie ma
+# czego łapać — docs: background-blur na Linuksie tylko pod KDE).
 custom-shader-animation = true
-background-opacity = 0.95
-background-blur = true
-minimum-contrast = 1.1
+background-opacity = 0.97
+background-blur = false
+minimum-contrast = 1
 EOF
     fi
     mv -f "$tmp" "$GHOSTTY_PERF" || rm -f "$tmp"
@@ -207,13 +245,14 @@ _opencode_anims() { # $1: true|false (persists TUI animation state in kv.json fo
 _status() {
     local max_hz="High"
     local detected_max
-    detected_max=$(hyprctl monitors -j 2>/dev/null | jq -r '.[] | select(.name | startswith("eDP")) | .availableModes[0] // ""' 2>/dev/null | sed -E 's/.*@([0-9]+).*/\1/' || true)
+    detected_max=$(timeout 5 hyprctl monitors -j 2>/dev/null | jq -r '.[] | select(.name | startswith("eDP")) | .availableModes[0] // ""' 2>/dev/null | sed -E 's/.*@([0-9]+).*/\1/' || true)
+    [[ "$detected_max" =~ ^[0-9]+$ ]] || detected_max=""
     [[ -n "$detected_max" ]] && max_hz="${detected_max} Hz"
 
     if _is_active; then
         printf '%s\n' '{"text": "󰌪", "alt": "on", "class": "on", "tooltip": "Power Saving Mode: ON\n• Refresh rate: 60 Hz\n• Blur: Disabled\n• Ghostty: Static opaque (shader/animation/blur off)\n• OpenCode anims: Disabled\n• Brightness: Reduced (-20%)\n• Profile: Power-saver\n\nClick to disable"}'
     else
-        printf '%s\n' '{"text": "󰌪", "alt": "off", "class": "off", "tooltip": "Power Saving Mode: OFF\n• Refresh rate: '"$max_hz"'\n• Blur: Enabled\n• Ghostty: Eye-candy (warp shader + blur)\n• OpenCode anims: Enabled\n\nClick to enable"}'
+        printf '%s\n' '{"text": "󰌪", "alt": "off", "class": "off", "tooltip": "Power Saving Mode: OFF\n• Refresh rate: '"$max_hz"'\n• Blur: Enabled\n• Ghostty: Translucent + blur (warp shader + anim on)\n• OpenCode anims: Enabled\n\nClick to enable"}'
     fi
 }
 
@@ -227,7 +266,7 @@ _enable() {
 
     if $with_brightness && command -v brightnessctl >/dev/null 2>&1; then
         local cur_b
-        cur_b=$(brightnessctl -c backlight get 2>/dev/null || echo "")
+        cur_b=$(timeout 5 brightnessctl -c backlight get 2>/dev/null || echo "")
         if [[ ! -f "$PREV_BRIGHTNESS_FILE" ]] && [[ -n "$cur_b" ]]; then
             echo "$cur_b" >"$PREV_BRIGHTNESS_FILE"
         fi
@@ -235,15 +274,14 @@ _enable() {
         _report_brightness
     fi
 
-    _set_refresh_rate 60
-    _set_look false
+    _apply_display 60
     _ghostty_perf off
     _ghostty_shader off
-    _ghostty_reload
     _opencode_anims false
-    prof power-saver
-    # Fallback: re-assert backlight once dGPU settling timeout expires
-    (sleep 12 && restore-backlight) >/dev/null 2>&1 &
+    _slow_tail power-saver
+    # Fallback: re-assert backlight once dGPU settling timeout expires.
+    # 201>&-: the 12s sleep must not inherit the lock fd (see above).
+    (exec 201>&-; sleep 12 && restore-backlight) >/dev/null 2>&1 &
 }
 
 _disable() {
@@ -262,7 +300,7 @@ _disable() {
         fi
 
         local cur_b
-        cur_b=$(brightnessctl -c backlight get 2>/dev/null || echo "")
+        cur_b=$(timeout 5 brightnessctl -c backlight get 2>/dev/null || echo "")
 
         if [[ "$prev_b" =~ ^[0-9]+$ ]] && [[ "$cur_b" =~ ^[0-9]+$ ]] && (( prev_b > cur_b )); then
             bri set "$prev_b"
@@ -272,15 +310,14 @@ _disable() {
         _report_brightness
     fi
 
-    _set_refresh_rate max
-    _set_look true
+    _apply_display max
     _ghostty_perf on
     _ghostty_shader on
-    _ghostty_reload
     _opencode_anims true
-    prof balanced
-    # Fallback: re-assert backlight once dGPU settling timeout (modeset wake) expires
-    (sleep 12 && restore-backlight) >/dev/null 2>&1 &
+    _slow_tail balanced
+    # Fallback: re-assert backlight once dGPU settling timeout (modeset wake) expires.
+    # 201>&-: the 12s sleep must not inherit the lock fd (see above).
+    (exec 201>&-; sleep 12 && restore-backlight) >/dev/null 2>&1 &
 }
 
 _toggle() {
@@ -289,9 +326,8 @@ _toggle() {
     else
         _enable "${1:-}"
     fi
-    # Marker file flipped even with --no-brightness: nudge the QuickSettings
-    # tiles (they poll markers every 3s otherwise).
-    qs ipc call quicksettings refresh >/dev/null 2>&1 || true
+    # No direct qs call here: _report_brightness and _slow_tail already queue
+    # exactly one quicksettings refresh each, detached (was: 3rd sync IPC).
 }
 
 # Self-seed: on a fresh clone the tracked ghostty config points at this link

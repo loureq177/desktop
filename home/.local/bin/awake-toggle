@@ -3,9 +3,34 @@
 set -euo pipefail
 
 INHIBIT_PID_FILE="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/awake_inhibit.pid"
+LOCK_FILE="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/awake_toggle.lock"
+
+UNIT_NAME="awake-inhibit"
+
+# Fast critical section (systemd-run + show + qs IPC): wait briefly for a
+# running instance instead of dropping the second click.
+# (--status never takes the lock.)
+if [[ "${1:-}" != "--status" ]]; then
+    exec 200>"$LOCK_FILE"
+    flock -w 2 200 || exit 0
+fi
 
 _is_active() {
-    [[ -f "$INHIBIT_PID_FILE" ]] && kill -0 "$(<"$INHIBIT_PID_FILE")" 2>/dev/null
+    if systemctl --user is-active --quiet "$UNIT_NAME.service" 2>/dev/null; then
+        return 0
+    fi
+    # PID-file fallback: guard against PID reuse — check the process is
+    # really our `sleep infinity` under systemd-inhibit before trusting it.
+    if [[ -f "$INHIBIT_PID_FILE" ]]; then
+        local pid=""
+        pid="$(<"$INHIBIT_PID_FILE")"
+        if [[ "$pid" =~ ^[0-9]+$ ]] && kill -0 "$pid" 2>/dev/null; then
+            if tr '\0' ' ' <"/proc/$pid/cmdline" 2>/dev/null | grep -q "sleep infinity"; then
+                return 0
+            fi
+        fi
+    fi
+    return 1
 }
 
 if [[ "${1:-}" == "--status" ]]; then
@@ -14,32 +39,27 @@ if [[ "${1:-}" == "--status" ]]; then
 fi
 
 if _is_active; then
-    pid="$(<"$INHIBIT_PID_FILE")"
-    # PID file holds systemd-inhibit itself (see below), whose PGID == PID
-    # for a background job. Kill the whole group so the `sleep infinity`
-    # child dies too; fall back to plain kill if group kill is unavailable.
-    kill -- "-$pid" 2>/dev/null || kill "$pid" 2>/dev/null || true
-    # Reap if it was our child; otherwise poll until it exits.
-    wait "$pid" 2>/dev/null || true
-    for _ in {1..20}; do
-        kill -0 "$pid" 2>/dev/null || break
-        sleep 0.05
-    done
-    rm -f "$INHIBIT_PID_FILE"
+    systemctl --user stop "$UNIT_NAME.service" 2>/dev/null || true
+    if [[ -f "$INHIBIT_PID_FILE" ]]; then
+        pid="$(<"$INHIBIT_PID_FILE")"
+        if [[ "$pid" =~ ^[0-9]+$ ]]; then
+            kill -- "-$pid" 2>/dev/null || kill "$pid" 2>/dev/null || true
+        fi
+        rm -f "$INHIBIT_PID_FILE"
+    fi
 else
-    # No setsid: $! must be systemd-inhibit's PID so stop() can kill it.
-    # (setsid forks when it is a group leader, making $! stale.) disown
-    # already detaches the job from this short-lived script; no TTY HUP
-    # applies when launched from a Hyprland keybind.
-    systemd-inhibit --what=idle --who=awake \
+    systemd-run --user --unit="$UNIT_NAME" --collect \
+        systemd-inhibit --what=idle:sleep:handle-lid-switch --who=awake \
         --why="Awake mode" --mode=block \
-        sleep infinity >/dev/null 2>&1 &
-    echo $! >"$INHIBIT_PID_FILE"
-    disown
-    for _ in {1..10}; do
-        [[ -f "$INHIBIT_PID_FILE" ]] && break
-        sleep 0.005
-    done
+        sleep infinity >/dev/null 2>&1
+    pid="$(systemctl --user show -p MainPID --value "$UNIT_NAME.service" 2>/dev/null || true)"
+    # Never fall back to $$ (short-lived toggle process): a stale own-PID
+    # in the file fakes "active" after PID reuse. Empty is safer.
+    if [[ "$pid" =~ ^[0-9]+$ && "$pid" != "0" ]]; then
+        printf '%s\n' "$pid" >"$INHIBIT_PID_FILE"
+    else
+        rm -f "$INHIBIT_PID_FILE"
+    fi
 fi
 
 qs ipc call quicksettings refresh >/dev/null 2>&1 || true

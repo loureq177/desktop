@@ -20,29 +20,33 @@ sound() {
 
 _report() { # $1: SINK|SOURCE — push the current state to the OSD
     local line frac pct
-    line="$(wpctl get-volume "@DEFAULT_${1}@" 2>/dev/null || true)"
+    line="$(timeout 5 wpctl get-volume "@DEFAULT_${1}@" 2>/dev/null || true)"
     # wpctl prints a fraction ("Volume: 0.65"); the OSD wants percent.
-    frac="${line#*: }"
-    frac="${frac%% *}"
+    # Guard: empty/garbage line (PipeWire down, no default) must not
+    # coerce to 0% silently — report nothing instead of a wrong 0.
+    if [[ ! "$line" =~ Volume:[[:space:]]+([0-9]*\.?[0-9]+) ]]; then
+        return 0
+    fi
+    frac="${BASH_REMATCH[1]}"
     # Round, do not truncate: printf "%d" on a binary float drops a percent
     # (0.29 * 100 is 28.999...), so the OSD lagged one step behind wpctl.
     pct="$(awk -v f="$frac" 'BEGIN { printf "%d", int(f * 100 + 0.5) }' || true)"
-    [[ -z "$pct" ]] && pct=0
+    [[ "$pct" =~ ^[0-9]+$ ]] || return 0
     if grep -qF '[MUTED]' <<<"$line"; then
-        qs ipc call osd volume "$pct" true
+        qs ipc call osd volume "$pct" true || true
     else
-        qs ipc call osd volume "$pct" false
+        qs ipc call osd volume "$pct" false || true
     fi
 }
 
 case "$TARGET" in
 output)
     case "$ACTION" in
-    raise) wpctl set-volume -l 1.0 @DEFAULT_AUDIO_SINK@ 5%+ ;;
-    lower) wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%- ;;
-    mute-toggle) wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle ;;
-    mute) wpctl set-mute @DEFAULT_AUDIO_SINK@ 1 ;;
-    unmute) wpctl set-mute @DEFAULT_AUDIO_SINK@ 0 ;;
+    raise) timeout 5 wpctl set-volume -l 1.0 @DEFAULT_AUDIO_SINK@ 5%+ || true ;;
+    lower) timeout 5 wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%- || true ;;
+    mute-toggle) timeout 5 wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle || true ;;
+    mute) timeout 5 wpctl set-mute @DEFAULT_AUDIO_SINK@ 1 || true ;;
+    unmute) timeout 5 wpctl set-mute @DEFAULT_AUDIO_SINK@ 0 || true ;;
     *) echo "volume: unknown action '$ACTION'" >&2; exit 2 ;;
     esac
     _report SINK
@@ -50,22 +54,22 @@ output)
     # refresh instead of letting it lag behind hardware keys.
     qs ipc call quicksettings refresh >/dev/null 2>&1 &
     # Muted speakers cannot play feedback; silence is the confirmation.
-    if [[ "$ACTION" == mute* ]] && wpctl get-volume @DEFAULT_AUDIO_SINK@ 2>/dev/null | grep -qF '[MUTED]'; then
+    if [[ "$ACTION" == mute* ]] && timeout 5 wpctl get-volume @DEFAULT_AUDIO_SINK@ 2>/dev/null | grep -qF '[MUTED]'; then
         exit 0
     fi
     sound --replace audio-volume-change
     ;;
 input)
     case "$ACTION" in
-    mute-toggle) wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle ;;
-    mute) wpctl set-mute @DEFAULT_AUDIO_SOURCE@ 1 ;;
-    unmute) wpctl set-mute @DEFAULT_AUDIO_SOURCE@ 0 ;;
+    mute-toggle) timeout 5 wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle || true ;;
+    mute) timeout 5 wpctl set-mute @DEFAULT_AUDIO_SOURCE@ 1 || true ;;
+    unmute) timeout 5 wpctl set-mute @DEFAULT_AUDIO_SOURCE@ 0 || true ;;
     *) echo "volume: unknown action '$ACTION'" >&2; exit 2 ;;
     esac
-    if wpctl get-volume @DEFAULT_AUDIO_SOURCE@ 2>/dev/null | grep -qF '[MUTED]'; then
-        qs ipc call osd mic true
+    if timeout 5 wpctl get-volume @DEFAULT_AUDIO_SOURCE@ 2>/dev/null | grep -qF '[MUTED]'; then
+        qs ipc call osd mic true || true
     else
-        qs ipc call osd mic false
+        qs ipc call osd mic false || true
     fi
     sound --replace audio-volume-change
     ;;

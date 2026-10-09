@@ -20,7 +20,7 @@ command -v jq >/dev/null 2>&1 || exit 0
 
 t=0
 while [ "$t" -lt "$TRIES" ]; do
-    mon_json="$(hyprctl monitors -j 2>/dev/null || true)"
+    mon_json="$(timeout 5 hyprctl monitors -j 2>/dev/null || true)"
     entry="$(printf '%s' "$mon_json" | jq -c --arg m "$MON_MATCH" '[.[] | select(.description | contains($m))][0] // empty' 2>/dev/null || true)"
     if [ -n "$entry" ]; then
         # Best advertised mode for the wanted geometry (e.g. 2560x1440@73.99Hz).
@@ -40,8 +40,12 @@ while [ "$t" -lt "$TRIES" ]; do
                 x="$(printf '%s' "$entry" | jq -r '.x')"
                 y="$(printf '%s' "$entry" | jq -r '.y')"
                 scale="$(printf '%s' "$entry" | jq -r '.scale')"
+                # JSON z compositora ląduje w Lua: escapuj ' i odrzuć śmieci.
+                desc="${desc//\'/\\\'}"
+                [[ "$x" =~ ^-?[0-9]+$ && "$y" =~ ^-?[0-9]+$ ]] || exit 0
+                [[ "$scale" =~ ^[0-9]+(\.[0-9]+)?$ ]] || exit 0
                 mode="${WANT_GEOM}@${target_hz}"
-                if hyprctl eval "hl.monitor({ output = 'desc:${desc}', mode = '${mode}', position = '${x}x${y}', scale = ${scale} })" >/dev/null 2>&1; then
+                if timeout 5 hyprctl eval "hl.monitor({ output = 'desc:${desc}', mode = '${mode}', position = '${x}x${y}', scale = ${scale} })" >/dev/null 2>&1; then
                     logger -t ensure-74hz "switched ${MON_MATCH} to ${mode}" 2>/dev/null || true
                     command -v notify-send >/dev/null 2>&1 && notify-send -a ensure-74hz "Monitor 74Hz" "${MON_MATCH} switched to ${mode}" 2>/dev/null || true
                 fi

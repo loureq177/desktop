@@ -153,7 +153,7 @@ else
         fi
         pacman -Qo "$dir" &>/dev/null && continue
         echo "Removing orphaned modules directory: $dir"
-        sudo rm -rf "$dir"
+        sudo rm -rf -- "${dir:?module dir unset}"
     done
 fi
 
