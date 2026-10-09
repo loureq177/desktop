@@ -563,6 +563,7 @@ SideDrawer {
 		enabled: visible
 
 		Keys.onPressed: event => {
+			if (event.isAutoRepeat) return;
 			if (event.key === Qt.Key_J || event.key === Qt.Key_Down) {
 				var nextRow = win.navRow + 1;
 				if (nextRow === win.rowBrightness && !win.brightnessReady)

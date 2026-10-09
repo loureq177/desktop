@@ -578,9 +578,6 @@ PanelWindow {
 			Pill {
 				id: batteryPill
 				readonly property var device: bar.batteryDevice
-				readonly property var bucketIcons: [
-					"󰂎", "󰁺", "󰁻", "󰁼", "󰁽", "󰁾", "󰁿", "󰂀", "󰂁", "󰂂", "󰁹"
-				]
 				readonly property int pct: device ? Math.round(device.percentage * 100) : 0
 				readonly property bool full: device && device.state === UPowerDeviceState.FullyCharged
 				readonly property bool charging: device && (device.state === UPowerDeviceState.Charging
@@ -600,7 +597,7 @@ PanelWindow {
 				}
 
 				visible: device !== null
-				text: charging ? "󰂄" : (full ? "󰁹" : bucketIcons[Math.min(10, Math.max(0, Math.floor(pct / 10)))])
+				text: ""
 				value: visible ? String(pct) + "%" : ""
 				textColor: charging || full ? Theme.accentGreen
 					: pct <= 10 ? Theme.critical

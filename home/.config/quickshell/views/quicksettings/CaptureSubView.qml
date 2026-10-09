@@ -1,4 +1,4 @@
-// Capture sub-menu: provides screenshot (interactive region/window & fullscreen),
+// Capture sub-menu: provides screenshot (interactive region/window),
 // screen recording, color picker, OCR, and voice dictation tools.
 // Full Vim key navigation (h/j/k/l, Enter, Space, Esc, q).
 import "../.."
@@ -26,14 +26,6 @@ Item {
 			icon: "󰄀",
 			isRecording: false,
 			cmd: "sleep 0.15 && ~/.local/bin/screenshot region"
-		},
-		{
-			id: "fullscreen",
-			title: "Fullscreen",
-			desc: "Capture entire focused display",
-			icon: "󰹑",
-			isRecording: false,
-			cmd: "sleep 0.15 && ~/.local/bin/screenshot fullscreen"
 		},
 		{
 			id: "record",
@@ -69,7 +61,7 @@ Item {
 		}
 	]
 
-	readonly property int preferredHeight: 460
+	readonly property int preferredHeight: 390
 
 	onVisibleChanged: {
 		if (visible) {
