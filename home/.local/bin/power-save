@@ -2,6 +2,40 @@
 # Toggles Hyprland power-save mode (refresh rate 60/165Hz, blur, brightness, ghostty shader, opencode anims). Usage: [--status|--enable|--disable]
 set -euo pipefail
 
+action="toggle"
+with_brightness=true
+
+for arg in "$@"; do
+    case "$arg" in
+    --status|status)
+        action="status"
+        ;;
+    --enable|enable)
+        action="enable"
+        ;;
+    --disable|disable)
+        action="disable"
+        ;;
+    --toggle|toggle)
+        action="toggle"
+        ;;
+    --no-brightness)
+        with_brightness=false
+        ;;
+    *)
+        ;;
+    esac
+done
+
+# Non-blocking lock: prevent concurrent execution / double-trigger races
+if [[ "$action" != "status" ]]; then
+    LOCK_FILE="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/powersave.lock"
+    exec 201>"$LOCK_FILE"
+    if ! flock -n 201; then
+        exit 0
+    fi
+fi
+
 STATE_FILE="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/powersave_mode"
 PREV_BRIGHTNESS_FILE="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/powersave_prev_brightness"
 GHOSTTY_SHADERS="${XDG_CONFIG_HOME:-$HOME/.config}/ghostty/shaders"
@@ -32,7 +66,7 @@ prof() {
 }
 
 _set_look() {
-    hyprctl eval "hl.config({ animations = { enabled = true }, decoration = { blur = { enabled = $1 }, shadow = { enabled = $1 } } })" >/dev/null 2>&1 || true
+    hyprctl eval "hl.config({ animations = { enabled = true }, decoration = { blur = { enabled = $1, ignore_opacity = $1 }, shadow = { enabled = $1 } } })" >/dev/null 2>&1 || true
 }
 
 _set_refresh_rate() {
@@ -66,10 +100,11 @@ _ghostty_reload() {
     # Ghostty does not watch the config file; the same reload as
     # ctrl+shift+, (reload_config) must be triggered explicitly.
     # SIGUSR2 is the supported reload signal; the systemd unit wraps it.
-    if systemctl reload --user app-com.mitchellh.ghostty.service >/dev/null 2>&1; then
-        return 0
+    if systemctl --user is-active -q app-com.mitchellh.ghostty.service 2>/dev/null; then
+        systemctl reload --user app-com.mitchellh.ghostty.service >/dev/null 2>&1 || true
+    else
+        pkill -SIGUSR2 -x ghostty >/dev/null 2>&1 || true
     fi
-    pkill -SIGUSR2 -x ghostty >/dev/null 2>&1 || true
 }
 
 _shader_target() { # $1: on|off -> stowed shader file to point at
@@ -106,7 +141,7 @@ _ghostty_shader() { # $1: on|off
 _ghostty_perf() { # $1: on|off (on = eye-candy, off = static opaque)
     # The shader symlink alone is not enough: custom-shader-animation=true
     # forces a full-rate redraw even with the noop shader, and
-    # background-opacity<1 + blur-radius + minimum-contrast keep the
+    # background-opacity<1 + blur + minimum-contrast keep the
     # compositor busy every frame. This file overrides those four keys;
     # it is included last via `config-file` in ghostty/config.
     local mode="$1"
@@ -119,7 +154,7 @@ _ghostty_perf() { # $1: on|off (on = eye-candy, off = static opaque)
 # Managed by power-save. Do not edit.
 custom-shader-animation = false
 background-opacity = 1.0
-background-blur-radius = 0
+background-blur = false
 minimum-contrast = 1
 EOF
     else
@@ -127,7 +162,7 @@ EOF
 # Managed by power-save. Do not edit.
 custom-shader-animation = true
 background-opacity = 0.95
-background-blur-radius = 20
+background-blur = true
 minimum-contrast = 1.1
 EOF
     fi
@@ -142,18 +177,30 @@ _opencode_anims() { # $1: true|false (persists TUI animation state in kv.json fo
     local enabled="$1"
     [[ "$enabled" == "true" || "$enabled" == "false" ]] || return 0
     mkdir -p "$(dirname "$OPENCODE_KV")"
-    if [[ ! -f "$OPENCODE_KV" ]]; then
-        printf '{"animations_enabled":%s}' "$enabled" >"$OPENCODE_KV"
+    if [[ ! -s "$OPENCODE_KV" ]]; then
+        printf '{"animations_enabled":%s}\n' "$enabled" >"$OPENCODE_KV"
         return 0
     fi
     local tmp
     tmp=$(mktemp "$(dirname "$OPENCODE_KV")/.kv.json.XXXXXX") || return 0
+    local ok=false
     if command -v jq >/dev/null 2>&1; then
-        jq --argjson v "$enabled" '.animations_enabled = $v' "$OPENCODE_KV" >"$tmp" 2>/dev/null && mv "$tmp" "$OPENCODE_KV" || rm -f "$tmp"
+        if jq --argjson v "$enabled" '.animations_enabled = $v' "$OPENCODE_KV" >"$tmp" 2>/dev/null && [[ -s "$tmp" ]]; then
+            ok=true
+        fi
     else
         # Atomic too: stage into $tmp first so a kill mid-write cannot
         # leave kv.json empty/truncated (previous code wrote in place).
-        python3 -c 'import json,sys; p=sys.argv[1]; v=sys.argv[2]=="true"; t=sys.argv[3]; d=json.load(open(p)); d["animations_enabled"]=v; json.dump(d,open(t,"w"))' "$OPENCODE_KV" "$enabled" "$tmp" 2>/dev/null && mv "$tmp" "$OPENCODE_KV" || rm -f "$tmp"
+        if python3 -c 'import json,sys; p=sys.argv[1]; v=sys.argv[2]=="true"; t=sys.argv[3]; d=json.load(open(p)); d["animations_enabled"]=v; json.dump(d,open(t,"w"))' "$OPENCODE_KV" "$enabled" "$tmp" 2>/dev/null && [[ -s "$tmp" ]]; then
+            ok=true
+        fi
+    fi
+
+    if $ok; then
+        mv -f "$tmp" "$OPENCODE_KV"
+    else
+        rm -f "$tmp"
+        printf '{"animations_enabled":%s}\n' "$enabled" >"$OPENCODE_KV"
     fi
 }
 
@@ -172,7 +219,9 @@ _status() {
 
 _enable() {
     local with_brightness=true
-    [[ "${1:-}" == "--no-brightness" ]] && with_brightness=false
+    if [[ "${1:-}" == "false" || "${1:-}" == "--no-brightness" ]]; then
+        with_brightness=false
+    fi
 
     touch "$STATE_FILE"
 
@@ -199,7 +248,9 @@ _enable() {
 
 _disable() {
     local with_brightness=true
-    [[ "${1:-}" == "--no-brightness" ]] && with_brightness=false
+    if [[ "${1:-}" == "false" || "${1:-}" == "--no-brightness" ]]; then
+        with_brightness=false
+    fi
 
     rm -f "$STATE_FILE"
 
@@ -245,8 +296,8 @@ _toggle() {
 
 # Self-seed: on a fresh clone the tracked ghostty config points at this link
 # before it exists. Cheap and idempotent; only ever flips on a real change.
-# Skipped for --status: status queries (e.g. bar polling) must be read-only.
-if [[ "${1:-}" != "--status" ]]; then
+# Skipped for status: status queries (e.g. bar polling) must be read-only.
+if [[ "$action" != "status" ]]; then
     [[ -e "$GHOSTTY_SHADER" ]] || _ghostty_shader on
     # Seed the perf profile without reload; the action below reloads.
     if [[ ! -e "$GHOSTTY_PERF" ]]; then
@@ -254,13 +305,17 @@ if [[ "${1:-}" != "--status" ]]; then
     fi
 fi
 
-case "${1:-}" in
---status) _status ;;
---enable)
-    _enable "${2:-}"
+case "$action" in
+status)
+    _status
     ;;
---disable)
-    _disable "${2:-}"
+enable)
+    _enable "$with_brightness"
     ;;
-*) _toggle "${2:-}" ;;
+disable)
+    _disable "$with_brightness"
+    ;;
+toggle)
+    _toggle "$with_brightness"
+    ;;
 esac
