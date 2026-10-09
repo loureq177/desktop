@@ -35,7 +35,7 @@ menu_item = 8                # Quickshell menu item padding (px)
 
 [opacity]
 active = 1.0        # Active window opacity in Hyprland
-inactive = 0.92     # Inactive window opacity in Hyprland
+inactive = 0.96     # Inactive window opacity in Hyprland
 dim_special = 0.20  # Dimming for special workspace in Hyprland & backdrops in Quickshell
 
 [animations]

@@ -52,11 +52,4 @@ return {
 
 	-- Set to true if you define custom Lid Switch handling in monitors()
 	custom_lid_switch = false,
-
-	-- Input overrides (optional)
-	input = {
-		-- kb_layout = "pl",
-		-- kb_options = "caps:escape,altwin:swap_lalt_lwin",
-		-- sensitivity = 0.2,
-	},
 }

@@ -18,7 +18,21 @@ _log_warn() { _log "${YELLOW}[WARN]" "$@"; }
 _log_error() { _log "${RED}[ERROR]" "$@"; }
 
 set -euo pipefail
-cd "$(dirname "$0")"
+# Resolve via BASH_SOURCE so invocation through a symlink/PATH still finds
+# the repo (plain $0 points at the link location, breaking pkglist paths).
+cd "$(dirname "${BASH_SOURCE[0]:-$0}")"
+
+# Flags: --no-upgrade skips the full `pacman -Syu` (re-runs for configs only).
+NO_UPGRADE=0
+for arg in "$@"; do
+    case "$arg" in
+    --no-upgrade) NO_UPGRADE=1 ;;
+    -h | --help)
+        echo "Usage: $0 [--no-upgrade]"
+        exit 0
+        ;;
+    esac
+done
 
 if ! command -v git &>/dev/null; then
     _log_error "'git' is not installed."
@@ -43,9 +57,27 @@ pac_install() {
     printf '%s\n' "$pkgs" | sudo pacman -S --noconfirm --needed -
 }
 # One stow entry point: same flags + log line on both OS branches.
+# Pre-flight with --no-action first: an existing regular file (not symlink)
+# would otherwise abort `restow` midway (common linked, archlinux not).
 restow_pkg() {
     _log_info "Applying $1 Stow configs..."
+    if ! stow --no-action --restow --target ~ "$2" 2>/tmp/stow-check.err; then
+        _log_error "stow pre-flight failed for '$2' (existing files in the way):"
+        cat /tmp/stow-check.err >&2 || true
+        _log_error "Move them aside or back them up, then re-run."
+        return 1
+    fi
     stow --verbose --restow --target ~ "$2"
+}
+_backup_etc_file() {
+    # Keep one timestamped backup before overwriting anything under /etc.
+    local dest="$1"
+    local bk
+    if [ -e "$dest" ] && [ ! -L "$dest" ]; then
+        bk="${dest}.dotfiles-bak-$(date +%Y%m%d%H%M%S)"
+        _log_warn "$dest exists — backing up to $bk"
+        sudo cp -a "$dest" "$bk"
+    fi
 }
 
 if [ "$OS" = "Linux" ]; then
@@ -60,7 +92,11 @@ if [ "$OS" = "Linux" ]; then
     fi
 
     _log_info "Detected Arch Linux. Updating system and installing official packages..."
-    sudo pacman -Syu --noconfirm
+    if [ "$NO_UPGRADE" -eq 1 ]; then
+        _log_info "Skipping full system upgrade (--no-upgrade)."
+    else
+        sudo pacman -Syu --noconfirm
+    fi
     pac_install archlinux/packages.txt
     _log_ok "Pacman packages installed."
 
@@ -97,8 +133,10 @@ if [ "$OS" = "Linux" ]; then
         _log_info "Configuring Ly display manager..."
         sudo mkdir -p /etc/ly
         # Link the stowed copies in $HOME (stable across repo moves), not $(pwd).
+        _backup_etc_file /etc/ly/config.ini
         sudo ln -sfv "$HOME/.config/ly/config.ini" /etc/ly/config.ini
         if [ -f "archlinux/.config/ly/startup.sh" ]; then
+            _backup_etc_file /etc/ly/startup.sh
             sudo ln -sfv "$HOME/.config/ly/startup.sh" /etc/ly/startup.sh
         fi
     fi
@@ -106,6 +144,7 @@ if [ "$OS" = "Linux" ]; then
     if [ -f "archlinux/.config/keyd/default.conf" ]; then
         _log_info "Configuring keyd keyboard remapper..."
         sudo mkdir -p /etc/keyd
+        _backup_etc_file /etc/keyd/default.conf
         sudo ln -sfv "$HOME/.config/keyd/default.conf" /etc/keyd/default.conf
         sudo systemctl enable --now keyd 2>/dev/null || _log_warn "Failed to enable keyd."
     fi

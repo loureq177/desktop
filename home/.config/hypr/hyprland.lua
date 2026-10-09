@@ -9,7 +9,7 @@ if not ui_ok then
 		rounding = { window = 0, element = 0, subtle = 0 },
 		border = { size = 2 },
 		spacing = { gaps_in = 10, gaps_out = 20 },
-		opacity = { active = 1.0, inactive = 0.92 },
+		opacity = { active = 1.0, inactive = 0.96 },
 		theme = { cursor = "Bibata-Modern-Classic", icon = "Papirus-Dark", gtk = "Adwaita-dark" },
 		font = {
 			family = "JetBrainsMono Nerd Font Propo",
@@ -100,6 +100,14 @@ for _, var in ipairs({ "XDG_CURRENT_DESKTOP", "XDG_SESSION_DESKTOP" }) do
 	hl.env(var, "Hyprland")
 end
 hl.env("GDK_BACKEND", "wayland,x11")
+-- Ghostty ≥1.2 (GTK) binds ext_background_effect_manager_v1 and Hyprland
+-- then defers backdrop-blur decisions to the client, which requests nothing
+-- (background-blur=false) — net effect: no blur behind Ghostty, only flat
+-- transparency. Disabling the protocol forces classic compositor-side
+-- decoration blur. Cf. r/hyprland "ghostty blur not working" (Oct 2026).
+-- Requires full Ghostty restart (single-instance: env is read once at
+-- process start, new windows join the old process).
+hl.env("GDK_WAYLAND_DISABLE", "ext_background_effect_manager_v1")
 hl.env("QT_QPA_PLATFORM", "wayland;xcb")
 hl.env("QS_ICON_THEME", ui.theme.icon)
 hl.env("SDL_VIDEODRIVER", "wayland")
@@ -119,6 +127,9 @@ local function gset(key, val)
 end
 
 hl.on("hyprland.start", function()
+	-- Singleton guards: hyprland.start can re-fire on reload. Bare starts
+	-- would stack a second wl-paste watcher (double cliphist store), a
+	-- second quickshell and a second hyprsunset per reload.
 	local cmds = {
 		gset("cursor-theme", ui.theme.cursor),
 		gset("icon-theme", ui.theme.icon),
@@ -127,19 +138,19 @@ hl.on("hyprland.start", function()
 		gset("gtk-theme", ui.theme.gtk),
 		gset("monospace-font-name", ui.font.mono .. " 12"),
 
-		"dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP HYPRLAND_INSTANCE_SIGNATURE AQ_DRM_DEVICES VK_DRIVER_FILES VK_ICD_FILENAMES LIBVA_DRIVER_NAME GSK_RENDERER",
+		"dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP HYPRLAND_INSTANCE_SIGNATURE AQ_DRM_DEVICES VK_DRIVER_FILES VK_ICD_FILENAMES LIBVA_DRIVER_NAME GSK_RENDERER QT_QPA_PLATFORM SDL_VIDEODRIVER CLUTTER_BACKEND MOZ_ENABLE_WAYLAND ELECTRON_OZONE_PLATFORM_HINT",
 		"systemctl --user start hyprland-session.target",
 
-		"wl-paste --type text --watch cliphist -max-items 100 store",
-		"wl-paste --type image/png --watch cliphist -max-items 100 store",
+		"sh -c 'pgrep -f \"[w]l-paste --type text\" >/dev/null || wl-paste --type text --watch cliphist -max-items 100 store'",
+		"sh -c 'pgrep -f \"[w]l-paste --type image\" >/dev/null || wl-paste --type image/png --watch cliphist -max-items 100 store'",
 		"wpctl set-volume @DEFAULT_AUDIO_SOURCE@ 0.25",
 		"~/.local/bin/wallpaper init",
 		-- Reassert patched 74Hz on the iiyama if the EDID override landed
 		-- late (hotplug race / dGPU D3cold resume). No-op when undocked or
 		-- already at 74Hz; never forces an unadvertised mode (panic-safe).
 		"~/.local/bin/ensure-74hz",
-		"quickshell -d",
-		"hyprsunset",
+		"sh -c 'pidof quickshell >/dev/null || quickshell -d'",
+		"sh -c 'pidof hyprsunset >/dev/null || hyprsunset'",
 	}
 
 	for _, cmd in ipairs(cmds) do
@@ -160,40 +171,179 @@ hl.monitor({
 	scale = 1,
 })
 
-if local_cfg.lid_switch ~= false and not local_cfg.custom_lid_switch then
-	hl.bind("switch:on:Lid Switch", function()
-		local mons = hl.get_monitors()
-		if #mons > 1 then
-			for _, m in ipairs(mons) do
-				if (m.name or ""):find("^eDP") then
-					hl.dsp.dpms({ action = "off", monitor = m.name })
-					break
+-- ─── Workspaces: keep numeric IDs compact (1..N) across topology changes ──
+-- Root cause of the "2,3 instead of 1,2 after lid-close" bug: lid-close only
+-- blanked eDP (dpms off) while keeping it enabled, so its (empty) workspace
+-- kept its number alive as a ghost. Fix: disable eDP when an external
+-- monitor exists (Hyprland then evacuates windows to the remaining monitors
+-- and destroys eDP's empty workspaces), re-enable on lid-open by
+-- re-applying the local.lua monitor specs. compact_workspaces() below is a
+-- safety net for leftover gaps (dock/undock, pre-existing gaps, races): it
+-- renumbers numeric workspaces to 1..N preserving order, focus and monitor
+-- assignment. Special and named workspaces are untouched. It runs ONLY on
+-- topology changes (lid, monitor added/removed), never on normal workspace
+-- open/close, so SUPER+1..9 muscle memory stays stable.
+
+local compacting = false
+local compact_gen = 0
+
+local function is_compactable_ws(ws)
+	if ws == nil or ws.special then
+		return false
+	end
+	local id = ws.id
+	if type(id) ~= "number" or id < 1 or id ~= math.floor(id) then
+		return false
+	end
+	if not tostring(ws.name or ""):match("^%d+$") then
+		return false
+	end
+	return true
+end
+
+local function compact_workspaces()
+	if compacting then
+		return
+	end
+	compacting = true
+	pcall(function()
+		local all = hl.get_workspaces and hl.get_workspaces() or {}
+		local nums = {}
+		for _, ws in ipairs(all) do
+			if is_compactable_ws(ws) then
+				table.insert(nums, ws)
+			end
+		end
+		if #nums == 0 then
+			return
+		end
+		table.sort(nums, function(a, b)
+			return a.id < b.id
+		end)
+		local active = hl.get_active_workspace and hl.get_active_workspace() or nil
+		local focused_old = active ~= nil and active.id or nil
+		local focused_new = focused_old
+		for idx, ws in ipairs(nums) do
+			if ws.id ~= idx then
+				-- Compacting down in ascending order guarantees the target
+				-- is free (idx <= ws.id, lower IDs already claimed). If a
+				-- race occupied it, skip: the next topology event retries.
+				local target = hl.get_workspace and hl.get_workspace(idx) or nil
+				if target == nil then
+					hl.dispatch(hl.dsp.workspace.change_id({ workspace = ws.id, id = idx }))
+					if focused_old == ws.id then
+						focused_new = idx
+					end
 				end
 			end
 		end
+		if focused_new ~= nil and focused_new ~= focused_old then
+			pcall(function()
+				hl.dispatch(hl.dsp.focus({ workspace = focused_new }))
+			end)
+		end
+	end)
+	compacting = false
+end
+
+local function schedule_compact(ms)
+	compact_gen = compact_gen + 1
+	local gen = compact_gen
+	hl.timer(function()
+		if gen ~= compact_gen then
+			return
+		end
+		compact_workspaces()
+	end, { timeout = ms or 500, type = "oneshot" })
+end
+
+local function find_edp()
+	for _, m in ipairs(hl.get_monitors()) do
+		if (m.name or ""):find("^eDP") then
+			return m
+		end
+	end
+	return nil
+end
+
+local function has_external_monitor(edp_name)
+	for _, m in ipairs(hl.get_monitors()) do
+		if m.name ~= edp_name then
+			return true
+		end
+	end
+	return false
+end
+
+if local_cfg.lid_switch ~= false and not local_cfg.custom_lid_switch then
+	local last_edp_output = nil
+	hl.bind("switch:on:Lid Switch", function()
+		local edp = find_edp()
+		if edp == nil then
+			return
+		end
+		last_edp_output = edp.name
+		if has_external_monitor(edp.name) then
+			-- Disable, not just dpms off: Hyprland evacuates windows from
+			-- eDP to the remaining monitors and destroys its empty
+			-- workspaces, so no ghost number is kept alive. Windows stay
+			-- grouped on their workspace; only the workspace changes
+			-- monitor. Empty eDP workspaces simply die (that's what frees
+			-- the number: 1,2,3 -> 1,2).
+			hl.monitor({ output = edp.name, disabled = true })
+		else
+			-- Sole monitor (on the go): only blank, suspend is handled by
+			-- hypridle/systemd. Never disable the last screen.
+			hl.dispatch(hl.dsp.dpms({ action = "off", monitor = edp.name }))
+		end
+		schedule_compact(500)
 	end, { locked = true })
 
 	hl.bind("switch:off:Lid Switch", function()
-		hl.dsp.dpms({ action = "on" })
+		hl.dispatch(hl.dsp.dpms({ action = "on" }))
+		-- Re-apply local.lua monitor specs: re-enables eDP with its
+		-- mode/position/scale. Hyprland gives it the next free workspace
+		-- number, so there is no renumbering fight. Evacuated windows stay
+		-- where they are (predictable); move them back manually with
+		-- SUPER+SHIFT+<num> when needed.
+		if type(local_cfg.monitors) == "function" then
+			local ok = pcall(local_cfg.monitors)
+			if not ok and last_edp_output ~= nil then
+				-- Fallback: at least re-enable by connector name.
+				pcall(hl.monitor, { output = last_edp_output, disabled = false })
+			end
+		end
+		schedule_compact(800)
 	end, { locked = true })
+
+	-- Dock/undock (dwie HP-ki, iiyama) goes through the same path:
+	-- Hyprland evacuates/creates, we only fix leftover number gaps.
+	hl.on("monitor.added", function()
+		schedule_compact(500)
+	end)
+	hl.on("monitor.removed", function()
+		schedule_compact(500)
+	end)
 end
 
 -- ─── Input & Gestures ────────────────────────────────────────────────────────
 
 hl.config({
 	input = {
-		kb_layout = (local_cfg.input and local_cfg.input.kb_layout) or "pl",
-		kb_variant = (local_cfg.input and local_cfg.input.kb_variant) or "",
-		kb_model = (local_cfg.input and local_cfg.input.kb_model) or "",
-		kb_options = (local_cfg.input and local_cfg.input.kb_options) or "altwin:swap_lalt_lwin",
+		kb_layout = "pl",
+		kb_variant = "",
+		kb_model = "",
+		kb_options = "altwin:swap_lalt_lwin",
 		kb_rules = "",
 		repeat_delay = 200,
 		repeat_rate = 20,
 		follow_mouse = 1,
-		sensitivity = (local_cfg.input and local_cfg.input.sensitivity) or 0.2,
+		sensitivity = 0.2,
+		scroll_factor = 0.3,
 		touchpad = {
 			natural_scroll = true,
 			tap_to_click = true,
+			scroll_factor = 0.5,
 		},
 	},
 	cursor = {
@@ -420,7 +570,7 @@ hl.config({
 		},
 		blur = {
 			enabled = true,
-			size = 9,
+			size = 8,
 			passes = 3,
 			ignore_opacity = true,
 			vibrancy = 0.2,
@@ -490,6 +640,13 @@ hl.layer_rule({
 	match = { namespace = "^(hyprpicker|selection)$" },
 	no_anim = true,
 })
+-- Keybindings cheatsheet: fullscreen blurred overlay (quickshell-keybindings).
+hl.layer_rule({
+	name = "blur-keybindings-cheatsheet",
+	match = { namespace = "^quickshell-keybindings$" },
+	blur = true,
+	ignore_alpha = 0.2,
+})
 hl.window_rule({
 	name = "suppress-maximize-events",
 	match = { class = ".*" },
@@ -551,10 +708,9 @@ hl.window_rule({
 })
 
 hl.window_rule({
-	name = "wallpaper-picker",
-	match = { class = "wallpaper-picker" },
-	float = true,
-	center = true,
+	name = "ghostty-focus-opacity",
+	match = { class = "^(com.mitchellh.ghostty|yazi|btop|jolt)$" },
+	opacity = "1.0 0.97",
 })
 
 -- ─── Keybindings ────────────────────────────────────────────────────────────────
@@ -562,6 +718,12 @@ hl.window_rule({
 local function b(keys, desc, dispatcher, opts)
 	opts = opts or {}
 	opts.description = desc
+	-- Pin the default: toggles must not flicker on key hold (SUPER+A held
+	-- = panel open/close strobe). Repeating actions (resize, volume,
+	-- brightness) opt in explicitly with repeating = true.
+	if opts.repeating == nil then
+		opts.repeating = false
+	end
 	hl.bind(keys, dispatcher, opts)
 end
 
@@ -624,17 +786,13 @@ local cmds = {
 	-- ─── Capture ─────────────────────────────────────────────────────────
 
 	["SUPER + D"] = { "~/.local/bin/dictation", "Dictation" },
-	["SUPER + P"] = {
-		"ghostty --class=wallpaper-picker -e ~/.local/bin/wallpaper pick",
-		"Pick wallpaper",
-	},
-	["SUPER + SHIFT + P"] = { "~/.local/bin/wallpaper next", "Next wallpaper" },
+	["SUPER + P"] = { "~/.local/bin/wallpaper next", "Next wallpaper" },
 	["print"] = { "~/.local/bin/screenshot region", "Screenshot (region)" },
 	["SHIFT + print"] = { "~/.local/bin/screenshot fullscreen", "Screenshot (full)" },
 }
 
 for bind, entry in pairs(cmds) do
-	b(bind, entry[2], hl.dsp.exec_cmd(entry[1]))
+	b(bind, entry[2], hl.dsp.exec_cmd(entry[1]), { repeating = false })
 end
 
 local special_apps = {
@@ -649,7 +807,12 @@ local special_apps = {
 }
 
 for bind, entry in pairs(special_apps) do
-	b(bind, entry[2], hl.dsp.workspace.toggle_special(programs.special[entry[1]].ws))
+	b(
+		bind,
+		entry[2],
+		hl.dsp.workspace.toggle_special(programs.special[entry[1]].ws),
+		{ repeating = false }
+	)
 end
 
 local media = {
@@ -692,22 +855,24 @@ hl.bind(
 )
 
 -- ─── Power Shortcuts (locked = true) ─────────────────────────────────────────
+-- non_consuming: bare F1-F3 must still reach apps (F1 help, F3 find).
+-- The pidof hyprlock guard makes them no-ops on an unlocked desktop anyway.
 
 b(
 	"F1",
 	"Power off",
 	hl.dsp.exec_cmd("pidof hyprlock >/dev/null && hyprshutdown --post-cmd 'systemctl poweroff'"),
-	{ locked = true }
+	{ locked = true, non_consuming = true }
 )
 b(
 	"F2",
 	"Reboot",
 	hl.dsp.exec_cmd("pidof hyprlock >/dev/null && hyprshutdown --post-cmd 'systemctl reboot'"),
-	{ locked = true }
+	{ locked = true, non_consuming = true }
 )
 b(
 	"F3",
 	"Suspend",
 	hl.dsp.exec_cmd("pidof hyprlock >/dev/null && systemctl suspend"),
-	{ locked = true }
+	{ locked = true, non_consuming = true }
 )

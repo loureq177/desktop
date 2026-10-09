@@ -17,7 +17,7 @@ return {
     },
     opacity = {
         active = 1.0,
-        inactive = 0.92,
+        inactive = 0.96,
         dim_special = 0.2,
     },
     font = {

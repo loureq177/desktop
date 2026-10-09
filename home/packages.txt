@@ -30,6 +30,7 @@ fd
 firefox
 flatpak
 freecad
+fprintd
 fwupd
 fzf
 ghostty
@@ -59,7 +60,6 @@ hyprland
 hyprlock
 hyprpaper
 hyprpicker
-hyprpolkitagent
 hyprshutdown
 hyprsunset
 impala
