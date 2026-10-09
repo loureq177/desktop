@@ -45,7 +45,7 @@ SEL="$(awk '
     /^\[Install/  { save(); section = "install"; next }
     /^\[Profile/  { save(); section = "profile"; p_path = ""; p_rel = "1"; p_def = 0; next }
     /^\[/         { save(); section = ""; next }
-    section == "install" && /^Default=/ { install_default = val(); next }
+    section == "install" && /^Default=/ { if (install_default == "") install_default = val(); next }
     section == "profile" && /^Path=/ { p_path = val(); next }
     section == "profile" && /^IsRelative=/ { p_rel = val(); next }
     section == "profile" && /^Default=/ { if (val() + 0 == 1) p_def = 1; next }

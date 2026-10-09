@@ -38,7 +38,8 @@ user_pref("extensions.ml.enabled", false);
 // -- Vertical tabs (sidebar revamp) -----------------------------------------
 user_pref("sidebar.revamp", true);
 user_pref("sidebar.verticalTabs", true);
-user_pref("sidebar.visibility", "expand-on-hover");
+user_pref("sidebar.visibility", "always-show");
+user_pref("sidebar.backupState", "{\"command\":\"\",\"panelOpen\":false,\"bookmarksExpandedFolders\":[],\"launcherWidth\":255,\"expandedLauncherWidth\":255,\"launcherExpanded\":true,\"launcherVisible\":true}");
 
 // -- Browsing ---------------------------------------------------------------
 user_pref("image.jxl.enabled", true);
