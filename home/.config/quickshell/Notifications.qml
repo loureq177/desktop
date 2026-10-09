@@ -277,21 +277,40 @@ Singleton {
 		}
 	}
 
-	// Body click: run the app's default action (open the chat, etc.),
-	// then dismiss and clear from toasts and history.
+	// Body click / Enter: run the app's default action (open the chat, etc.),
+	// focus the app window if possible, remove toast and close the center drawer
+	// instead of wiping the entry from history.
 	function activate(id: var): void {
 		var targetId = id !== undefined && id !== null && id >= 0 ? id : root.latestToastId();
 		if (targetId < 0)
 			return;
+		var snap = root.historyById(targetId);
 		var found = root.liveById(targetId);
-		var acts = (found && found.actions) ? found.actions : [];
-		for (var i = 0; i < acts.length; i++) {
-			if (acts[i] && acts[i].identifier === "default") {
-				acts[i].invoke();
-				break;
+		var invoked = false;
+
+		if (root.handleLocalAction(targetId, "default") || root.handleLocalAction(targetId, "update")) {
+			invoked = true;
+		} else if (found && found.actions) {
+			for (var i = 0; i < found.actions.length; i++) {
+				if (found.actions[i] && found.actions[i].identifier === "default") {
+					found.actions[i].invoke();
+					invoked = true;
+					break;
+				}
+			}
+			if (!invoked && found.actions.length > 0) {
+				found.actions[0].invoke();
+				invoked = true;
 			}
 		}
-		root.dismissEntry(targetId);
+
+		var appTarget = (found && (found.desktopEntry || found.appName)) || (snap && (snap.desktopEntry || snap.appName)) || "";
+		if (appTarget !== "") {
+			Quickshell.execDetached(["hyprctl", "dispatch", "focuswindow", appTarget]);
+		}
+
+		root.removeToast(targetId);
+		root.closeCenter();
 	}
 
 
