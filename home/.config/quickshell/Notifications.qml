@@ -1,13 +1,3 @@
-// Notification service: owns org.freedesktop.Notifications via NotificationServer.
-// Toasts survive focus changes and new windows. Opening any panel (center,
-// quick settings, weather, launcher, clipboard, keybindings) drops the
-// visual toast stack for good; history and live senders are kept regardless.
-// Non-critical toasts expire after toastTimeoutMs; critical ones stay until
-// dismissed. Everything is kept in history regardless.
-// Critical notifications always pop and never expire. Non-critical popups are
-// suppressed while DND is on but are still kept in history.
-// Control via IPC: `qs ipc call notifications <toggle|toggleDnd|dndOn|dndOff|
-// clear|dismissLatest|invokeAction|invokeDefault|status>`.
 pragma Singleton
 import Quickshell
 import Quickshell.Io
@@ -19,30 +9,16 @@ Singleton {
 
 	property bool dnd: false
 	property bool centerOpen: false
-	// Live toast objects (sticky, newest first). Reassigned on every change
-	// so bindings update (in-place mutation does not notify).
 	property var toasts: []
-	// Plain snapshots for the control center (live objects die on dismiss).
 	property var history: []
 	property int historyLimit: 100
 	property int maxToasts: 4
 
-	// Non-critical toasts clear themselves after this long (critical ones
-	// stay until dismissed). Focus changes and new windows never dismiss
-	// toasts; the timeout exists so a forgotten stack stops covering the
-	// top-right corner on its own. Everything stays in history regardless.
 	property int toastTimeoutMs: 5000
-	// Arrival timestamp per toast id, for the expiry sweeper below.
 	property var toastArrivedAt: ({})
 
-
-	// Each call spawns paplay, so collapse bursts: a flood of notifications
-	// would otherwise fork one process per notification.
 	property int lastSoundAt: 0
 
-	// Opening the center hides visible toasts for good (they must not pop
-	// back when the center closes). Other panels cover themselves
-	// (QuickSettings, Weather, shell views).
 	onCenterOpenChanged: {
 		if (root.centerOpen)
 			root.hideToasts();
@@ -101,8 +77,6 @@ Singleton {
 		return null;
 	}
 
-	// dismiss() on an already-destroyed Notification logs
-	// "Cannot close destroyed notification", so verify membership first.
 	function safeDismiss(n): void {
 		if (!n)
 			return;
@@ -120,8 +94,6 @@ Singleton {
 		root.removeToast(id);
 	}
 
-	// Center entries: dismiss the live notification (if any) and drop the
-	// history snapshot, so the ✕ works on dead entries too.
 	function removeHistory(id: var): void {
 		var idStr = String(id);
 		var kept = [];
@@ -139,8 +111,6 @@ Singleton {
 		root.removeHistory(id);
 	}
 
-	// Actions shown as buttons: mirrors entriesFromActions so the keybind
-	// actions operate on exactly the rendered buttons.
 	function visibleActions(n): var {
 		var entries = root.entriesFromActions(n ? n.id : -1, n ? n.actions : []);
 		var want = {};
@@ -156,13 +126,6 @@ Singleton {
 		return out;
 	}
 
-	// Buttons for one action row: extra actions only, each with a real
-	// label. The "default" action NEVER becomes a button — a click on the
-	// notification body already invokes it (activate()), so a button would
-	// just duplicate it. Chromium's "settings" action (opens browser
-	// notification settings on web apps like WhatsApp Web) is dropped as
-	// noise. Actions without a real label (empty, "Action", "Activate")
-	// are skipped instead of rendered with a placeholder.
 	function entriesFromActions(id, acts): var {
 		var out = [];
 		var all = acts || [];
@@ -179,23 +142,14 @@ Singleton {
 		return out;
 	}
 
-	// Action entries for a history/snapshot card, snapshot.actions as the
-	// stable source (plain data). Buttons render even when the live
-	// notification is gone; invokeByIdentifier safely no-ops then and the
-	// button disables itself via invitesLive.
 	function historyActionEntries(snap): var {
 		return root.entriesFromActions(snap.id, snap.actions);
 	}
 
-	// Whether the live notification backing a snapshot still exists.
-	// History cards use it to disable dead notification actions.
 	function isLive(id: int): bool {
 		return root.liveById(id) !== null;
 	}
 
-	// Arrival timestamp of a notification by id, from the history snapshot.
-	// Toasts use it so the toast and the center card show the same time
-	// (the toast would otherwise show its render time).
 	function historyTimeById(id: var): var {
 		var idStr = String(id);
 		for (var i = 0; i < root.history.length; i++) {
@@ -205,7 +159,6 @@ Singleton {
 		return null;
 	}
 
-	// Snapshot lookup by id (stable source once the sender is gone).
 	function historyById(id: var): var {
 		var idStr = String(id);
 		for (var i = 0; i < root.history.length; i++) {
@@ -215,16 +168,10 @@ Singleton {
 		return null;
 	}
 
-	// check-updates sends fire-and-forget (it must not block the systemd
-	// service on a listener), so the "update" action has no live sender to
-	// answer it. Handle it locally instead: open the updater in a terminal
-	// (same command as the launcher's "System update" action).
 	function launchSysupdate(): void {
-		Quickshell.execDetached(["ghostty", "--class=sysupdate", "-e", Quickshell.env("HOME") + "/.local/bin/sysupdate"]);
+		Quickshell.execDetached(["ghostty", "+new-window", "-e", Quickshell.env("HOME") + "/.local/bin/sysupdate"]);
 	}
 
-	// Focus the sender's window. The desktop entry is the window class for
-	// most apps; matched as a literal, case-insensitive class.
 	function focusApp(appTarget: string): void {
 		var literal = appTarget.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 		var selector = "class:^(?i)" + literal + "$";
@@ -232,9 +179,6 @@ Singleton {
 		Quickshell.execDetached(["hyprctl", "dispatch", 'hl.dsp.focus({ window = "' + lua + '" })']);
 	}
 
-	// Locally-handled actions: currently only the "System Update" update
-	// button. Works from the live object or the history snapshot, so clicks
-	// keep working long after the sender exited.
 	function handleLocalAction(id: int, identifier: string): bool {
 		if (identifier !== "update")
 			return false;
@@ -251,13 +195,7 @@ Singleton {
 		return true;
 	}
 
-	// Shared action invocation for toasts, center buttons and keybinds.
-	// Index-based for keybinds (SUPER+ALT+1..3 act on the latest toast,
-	// indexing the visible actions); identifier-based for buttons.
 	function invokeAction(index: int, id: var): void {
-		// Explicit -1 (e.g. stale rowId) must be a no-op, never a fallback
-		// to the latest toast — otherwise X/Enter on a swept row hits a
-		// random newest notification.
 		if (id === -1)
 			return;
 		var targetId = id !== undefined && id !== null && id >= 0 ? id : root.latestToastId();
@@ -292,11 +230,7 @@ Singleton {
 		}
 	}
 
-	// Body click / Enter: run the app's default action (open the chat, etc.),
-	// focus the app window if possible, remove toast and close the center drawer
-	// instead of wiping the entry from history.
 	function activate(id: var): void {
-		// Same no-op rule as invokeAction: stale -1 never falls back.
 		if (id === -1)
 			return;
 		var targetId = id !== undefined && id !== null && id >= 0 ? id : root.latestToastId();
@@ -316,9 +250,6 @@ Singleton {
 					break;
 				}
 			}
-			// NOTE: intentionally no fallback to actions[0]. A body click
-			// must run the default action only — firing an arbitrary first
-			// action (e.g. "Delete" instead of "Open") is destructive.
 		}
 
 		var appTarget = (found && (found.desktopEntry || found.appName)) || (snap && (snap.desktopEntry || snap.appName)) || "";
@@ -328,9 +259,6 @@ Singleton {
 		root.removeToast(targetId);
 		root.closeCenter();
 	}
-
-
-	// ─── Operations (used by IPC, the center UI and scripts alike) ─────────────
 
 	function toggle(): void {
 		if (root.centerOpen)
@@ -352,9 +280,6 @@ Singleton {
 		root.toasts = [];
 	}
 
-	// Drop the visual toast stack without touching history or live
-	// senders: opening a panel slides the toast out and it never comes
-	// back, while center action buttons stay live.
 	function hideToasts(): void {
 		root.toastArrivedAt = {};
 		if (root.toasts.length > 0)
@@ -374,8 +299,6 @@ Singleton {
 	}
 
 	function clear(): void {
-		// safeDismiss, not dismiss(): dismissing an already-destroyed
-		// notification logs "Cannot close destroyed notification".
 		var vals = server.trackedNotifications.values.slice();
 		for (var i = 0; i < vals.length; i++)
 			root.safeDismiss(vals[i]);
@@ -383,8 +306,6 @@ Singleton {
 		root.history = [];
 	}
 
-	// Removal from history is enough: the center's visual model keeps the
-	// row until its collapse animation finishes (same for ✕, X, SUPER+,).
 	function dismissLatest(): void {
 		var targetId = -1;
 		var t = root.latestToast();
@@ -404,19 +325,12 @@ Singleton {
 
 	function toastTimeoutFor(t): int {
 		if (t.urgency === NotificationUrgency.Critical || t.expireTimeout === 0)
-			return 0; // 0 = never auto-expire
-		// DBus delivers expireTimeout in milliseconds (e.g. notify-send -t 5000 passes 5000).
-		// If a sender mistakenly passes seconds (e.g. < 100), convert to ms.
+			return 0;
 		if (t.expireTimeout > 0)
 			return t.expireTimeout < 100 ? Math.round(t.expireTimeout * 1000) : t.expireTimeout;
 		return root.toastTimeoutMs;
 	}
 
-	// Expiry sweeper: non-critical toasts drop off the visual stack after
-	// the requested timeout (expireTimeout) or toastTimeoutMs so a forgotten stack
-	// cannot block its corner forever. Expired notifications are also dismissed
-	// so waiting senders (e.g. notify-send -A) unblock cleanly.
-	// Ticks only while toasts exist.
 	Timer {
 		interval: 500
 		running: root.toasts.length > 0
@@ -450,9 +364,6 @@ Singleton {
 		}
 	}
 
-	// Close live notifications that fell out of the history cap so tracked
-	// state cannot grow without bound (toast expiry keeps them alive on
-	// purpose — see the sweeper note above).
 	function pruneHistory(): void {
 		if (root.history.length <= root.historyLimit)
 			return;
@@ -507,7 +418,6 @@ Singleton {
 					}
 					root.toasts = updated;
 				}
-				// Silent while DND is on; critical notifications still announce.
 				if (!root.dnd || critical)
 					root.playSound();
 			}

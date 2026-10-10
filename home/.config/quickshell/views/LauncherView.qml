@@ -40,8 +40,6 @@ CenterModal {
 	property var emojis: []
 	property var runCache: []
 	property bool runLoaded: false
-	// Two-step confirm for destructive power actions. First Enter arms,
-	// second Enter within 4s executes. Single Enter must never shutdown.
 	property string pendingPower: ""
 
 	Timer {
@@ -75,7 +73,7 @@ CenterModal {
 		{ label: "Suspend", icon: "system-suspend", kind: "power", action: "suspend", keywords: "suspend sleep uspij uśpij drzemka" },
 		{ label: "Reboot", icon: "system-reboot", kind: "power", action: "reboot", keywords: "reboot restart uruchom ponownie zrestartuj" },
 		{ label: "Power off", icon: "system-shutdown", kind: "power", action: "poweroff", keywords: "poweroff shutdown wylacz wyłącz power exit wyloguj" },
-		{ label: "System update", icon: "system-software-update", kind: "action", cmd: ["ghostty", "--class=sysupdate", "-e", Quickshell.env("HOME") + "/.local/bin/sysupdate"], keywords: "update sysupdate aktualizacja pacman paru system" }
+		{ label: "System update", icon: "system-software-update", kind: "action", cmd: ["ghostty", "+new-window", "-e", Quickshell.env("HOME") + "/.local/bin/sysupdate"], keywords: "update sysupdate aktualizacja pacman paru system" }
 	]
 
 	readonly property var modeTitles: ({
@@ -89,6 +87,14 @@ CenterModal {
 		"emoji": "Search emoji...",
 		"power": "lock / suspend / reboot / poweroff"
 	})
+
+	function spawn(command, workingDirectory) {
+		var clean = ["env", "-u", "__EGL_VENDOR_LIBRARY_FILENAMES", "-u", "MALLOC_CONF"].concat(command);
+		if (workingDirectory)
+			Quickshell.execDetached({ command: clean, workingDirectory: workingDirectory });
+		else
+			Quickshell.execDetached(clean);
+	}
 
 	function isMode(m) {
 		return validModes.indexOf(m) !== -1;
@@ -112,8 +118,6 @@ CenterModal {
 			return null;
 		if (!/^[0-9+\-*/^().,% xX÷]+$/.test(s))
 			return null;
-		// Decimal comma (1,5 + 2): without this JS reads "," as the comma
-		// operator and silently answers 7.
 		s = s.replace(/(\d),(\d)/g, "$1.$2");
 		if (s.indexOf(",") !== -1)
 			return null;
@@ -159,7 +163,6 @@ CenterModal {
 			open(newMode);
 	}
 
-	// Ranked substring match, name first.
 	function fieldScore(text, ql) {
 		var h = (text || "").toLowerCase();
 		if (h === "" || ql === "")
@@ -204,7 +207,6 @@ CenterModal {
 		var q = query.trim();
 
 		if (mode === "apps") {
-			// 1. Command execution mode (> cmd)
 			if (q.startsWith(">")) {
 				if (!runLoaded && !runLoader.running)
 					runLoader.running = true;
@@ -228,10 +230,8 @@ CenterModal {
 				return;
 			}
 
-			// 2. Calculator check
 			var calcResult = tryCalculate(q);
 
-			// 3. System actions matching
 			var matchedActions = [];
 			if (q !== "") {
 				var ql = q.toLowerCase();
@@ -246,7 +246,6 @@ CenterModal {
 				matchedActions.sort(function(x, y) { return x.score - y.score; });
 			}
 
-			// 4. Applications matching
 			var apps = DesktopEntries.applications.values || [];
 			var scoredApps = [];
 			for (var i = 0; i < apps.length; i++) {
@@ -268,13 +267,11 @@ CenterModal {
 				return ma.item;
 			});
 
-			// Combine results:
 			var combined = [];
 			if (calcResult !== null) {
 				combined.push({ kind: "calc", label: calcResult, rawExpr: q });
 			}
 
-			// Exact prefix command match on system action takes precedence over apps
 			if (actionItems.length > 0 && matchedActions[0].score === 0 && (scoredApps.length === 0 || scoredApps[0].score > 0)) {
 				combined = combined.concat(actionItems);
 				combined = combined.concat(appItems);
@@ -326,9 +323,9 @@ CenterModal {
 		if (item.kind === "app") {
 			var e = item.entry;
 			if (e.runInTerminal)
-				Quickshell.execDetached({ command: ["ghostty", "-e"].concat(e.command), workingDirectory: e.workingDirectory });
+				spawn(["ghostty", "-e"].concat(e.command), e.workingDirectory);
 			else
-				e.execute();
+				spawn(e.command, e.workingDirectory);
 			return true;
 		}
 		if (item.kind === "calc") {
@@ -336,7 +333,7 @@ CenterModal {
 			return true;
 		}
 		if (item.kind === "run") {
-			Quickshell.execDetached(["sh", "-c", item.label]);
+			spawn(["sh", "-c", item.label]);
 			return true;
 		}
 		if (item.kind === "emoji") {
@@ -346,7 +343,6 @@ CenterModal {
 		}
 		if (item.kind === "power") {
 			var pKey = item.action || item.label;
-			// Lock/suspend are reversible; reboot/poweroff are not.
 			if ((pKey === "reboot" || pKey === "poweroff") && window.pendingPower !== pKey) {
 				window.pendingPower = pKey;
 				window.lastError = "Press Enter again to confirm " + pKey;
@@ -360,12 +356,12 @@ CenterModal {
 				lastError = "Unknown power action";
 				return false;
 			}
-			Quickshell.execDetached(cmd);
+			spawn(cmd);
 			return true;
 		}
 		if (item.kind === "action") {
 			if (item.cmd) {
-				Quickshell.execDetached(item.cmd);
+				spawn(item.cmd);
 				return true;
 			}
 			return false;
@@ -380,7 +376,7 @@ CenterModal {
 			var rawCmd = q.substring(1).trim();
 			if (filtered.length === 0 && rawCmd !== "") {
 				lastError = "";
-				Quickshell.execDetached(["sh", "-c", rawCmd]);
+				spawn(["sh", "-c", rawCmd]);
 				close();
 				return;
 			}
@@ -437,6 +433,11 @@ CenterModal {
 		return "";
 	}
 
+	onVisibleChanged: {
+		if (!visible)
+			filtered = [];
+	}
+
 	onCurrentIndexChanged: {
 		if (grid.visible)
 			grid.positionViewAtIndex(currentIndex, GridView.Contain);
@@ -461,7 +462,7 @@ CenterModal {
 	Connections {
 		target: DesktopEntries.applications
 		function onValuesChanged() {
-			if (window.mode === "apps")
+			if (window.shown && window.mode === "apps")
 				window.refilter();
 		}
 	}
@@ -487,7 +488,6 @@ CenterModal {
 		}
 	}
 
-	// Main body slot for CenterModal
 	Item {
 		id: contentBox
 		anchors.fill: parent
@@ -521,7 +521,6 @@ CenterModal {
 
 					Behavior on color { ColorAnimation { duration: 100 } }
 
-					// App icon & title for apps mode
 					ColumnLayout {
 						visible: modelData.kind === "app"
 						anchors.fill: parent
@@ -550,7 +549,6 @@ CenterModal {
 						}
 					}
 
-					// Power & System action in grid
 					ColumnLayout {
 						visible: modelData.kind === "power" || modelData.kind === "action"
 						anchors.fill: parent
@@ -579,7 +577,6 @@ CenterModal {
 						}
 					}
 
-					// Calculator result card in grid
 					ColumnLayout {
 						visible: modelData.kind === "calc"
 						anchors.fill: parent
@@ -610,7 +607,6 @@ CenterModal {
 						}
 					}
 
-					// Emoji glyph for emoji mode
 					Text {
 						visible: modelData.kind === "emoji"
 						anchors.centerIn: parent
