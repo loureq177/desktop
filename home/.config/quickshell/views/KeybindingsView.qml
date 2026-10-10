@@ -18,7 +18,8 @@ PanelWindow {
 	signal dismissed()
 
 	function open() {
-		if (entries.length === 0 && !loader.running)
+		// Re-read on every open: binds change with each Hyprland reload.
+		if (!loader.running)
 			loader.running = true;
 		window.shown = true;
 	}

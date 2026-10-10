@@ -20,6 +20,8 @@ known_hosts*
 local.lua
 config.local
 *.local
+# Machine state: rewritten by `wallpaper set` (created by `wallpaper init`).
+archlinux/.config/hypr/hyprpaper.conf
 # Only the default wallpaper is tracked; the rest lives in ~/Pictures/Wallpapers/
 archlinux/.config/hypr/wallpapers/*
 !archlinux/.config/hypr/wallpapers/hyprland.png

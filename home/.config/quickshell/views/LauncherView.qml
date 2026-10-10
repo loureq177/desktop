@@ -40,7 +40,7 @@ CenterModal {
 	property var emojis: []
 	property var runCache: []
 	property bool runLoaded: false
-	// M1: two-step confirm for destructive power actions. First Enter arms,
+	// Two-step confirm for destructive power actions. First Enter arms,
 	// second Enter within 4s executes. Single Enter must never shutdown.
 	property string pendingPower: ""
 
@@ -95,8 +95,6 @@ CenterModal {
 	}
 
 	function setMode(m) {
-		if (m === "drun" || m === "run")
-			m = "apps"; // deprecated pre-migration alias
 		if (isMode(m)) {
 			mode = m;
 		}
@@ -113,6 +111,11 @@ CenterModal {
 		if (s === "")
 			return null;
 		if (!/^[0-9+\-*/^().,% xX÷]+$/.test(s))
+			return null;
+		// Decimal comma (1,5 + 2): without this JS reads "," as the comma
+		// operator and silently answers 7.
+		s = s.replace(/(\d),(\d)/g, "$1.$2");
+		if (s.indexOf(",") !== -1)
 			return null;
 		s = s.replace(/x|X/g, "*").replace(/÷/g, "/");
 		if (!/[+\-*/^%]/.test(s))

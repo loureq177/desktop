@@ -12,6 +12,9 @@ CONF="$HOME/.config/hypr/hyprpaper.conf"
 STATE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/wallpaper"
 STATE_FILE="$STATE_DIR/current"
 DEFAULT_WALLPAPER="$WALL_DIR/hyprland.png"
+# Fresh machine: $WALL_DIR is still empty, only the wallpaper shipped with
+# the dotfiles exists.
+[[ -f "$DEFAULT_WALLPAPER" ]] || DEFAULT_WALLPAPER="$HOME/.config/hypr/wallpapers/hyprland.png"
 
 EFFECTS="simple fade left right top bottom wipe wave grow center outer any random none"
 

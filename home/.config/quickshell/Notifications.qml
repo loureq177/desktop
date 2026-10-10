@@ -60,6 +60,7 @@ Singleton {
 		return {
 			id: n.id,
 			appName: n.appName || n.desktopEntry || "",
+			desktopEntry: n.desktopEntry || "",
 			summary: n.summary || "",
 			body: n.body || "",
 			urgency: n.urgency,
@@ -216,10 +217,19 @@ Singleton {
 
 	// check-updates sends fire-and-forget (it must not block the systemd
 	// service on a listener), so the "update" action has no live sender to
-	// answer it. Handle it locally instead: open the updater in a terminal.
-	// The Hyprland rule floats it by window title (ghostty ignores --class).
+	// answer it. Handle it locally instead: open the updater in a terminal
+	// (same command as the launcher's "System update" action).
 	function launchSysupdate(): void {
-		Quickshell.execDetached(["ghostty", "-e", Quickshell.env("HOME") + "/.local/bin/sysupdate"]);
+		Quickshell.execDetached(["ghostty", "--class=sysupdate", "-e", Quickshell.env("HOME") + "/.local/bin/sysupdate"]);
+	}
+
+	// Focus the sender's window. The desktop entry is the window class for
+	// most apps; matched as a literal, case-insensitive class.
+	function focusApp(appTarget: string): void {
+		var literal = appTarget.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+		var selector = "class:^(?i)" + literal + "$";
+		var lua = selector.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+		Quickshell.execDetached(["hyprctl", "dispatch", 'hl.dsp.focus({ window = "' + lua + '" })']);
 	}
 
 	// Locally-handled actions: currently only the "System Update" update
@@ -296,7 +306,7 @@ Singleton {
 		var found = root.liveById(targetId);
 		var invoked = false;
 
-		if (root.handleLocalAction(targetId, "default") || root.handleLocalAction(targetId, "update")) {
+		if (root.handleLocalAction(targetId, "update")) {
 			invoked = true;
 		} else if (found && found.actions) {
 			for (var i = 0; i < found.actions.length; i++) {
@@ -312,9 +322,8 @@ Singleton {
 		}
 
 		var appTarget = (found && (found.desktopEntry || found.appName)) || (snap && (snap.desktopEntry || snap.appName)) || "";
-		if (appTarget !== "") {
-			Quickshell.execDetached(["hyprctl", "dispatch", "focuswindow", appTarget]);
-		}
+		if (appTarget !== "")
+			root.focusApp(appTarget);
 
 		root.removeToast(targetId);
 		root.closeCenter();

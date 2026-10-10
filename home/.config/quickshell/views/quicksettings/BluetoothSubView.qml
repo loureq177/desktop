@@ -39,7 +39,7 @@ Item {
 	readonly property string actionStatus: pending.status
 	readonly property string targetDeviceAddress: pending.target
 	property string errorMessage: ""
-	// Two-step forget confirm (M5): first X arms, second X within 3s executes.
+	// Two-step forget confirm: first X arms, second X within 3s executes.
 	property string pendingForgetAddr: ""
 
 	function clearAction(): void {
@@ -210,19 +210,6 @@ Item {
 		scanTimer.restart();
 	}
 
-	Process {
-		id: cliBtActionProc
-		onExited: code => {
-			root.refreshDevices();
-			if (code !== 0) {
-				root.errorMessage = "Bluetooth action failed";
-			} else {
-				root.errorMessage = "";
-			}
-			root.clearAction();
-		}
-	}
-
 	// Delayed refresh after forget/remove: bluetoothctl is async and an
 	// immediate refresh re-shows the just-removed device (race).
 	Timer {
@@ -259,16 +246,11 @@ Item {
 			return;
 		errorMessage = "";
 		pending.start(item.address, "Connecting…");
-		if (item.device) {
-			try {
-				item.device.connect();
-			} catch (e) {
-				errorMessage = "Connect failed";
-				pending.clear();
-			}
-		} else {
-			cliBtActionProc.command = ["bluetoothctl", "connect", item.address];
-			cliBtActionProc.running = true;
+		try {
+			item.device.connect();
+		} catch (e) {
+			errorMessage = "Connect failed";
+			pending.clear();
 		}
 	}
 
@@ -277,16 +259,11 @@ Item {
 			return;
 		errorMessage = "";
 		pending.start(item.address, "Disconnecting…");
-		if (item.device) {
-			try {
-				item.device.disconnect();
-			} catch (e) {
-				errorMessage = "Disconnect failed";
-				pending.clear();
-			}
-		} else {
-			cliBtActionProc.command = ["bluetoothctl", "disconnect", item.address];
-			cliBtActionProc.running = true;
+		try {
+			item.device.disconnect();
+		} catch (e) {
+			errorMessage = "Disconnect failed";
+			pending.clear();
 		}
 	}
 
@@ -299,16 +276,11 @@ Item {
 		// NOTE: devices needing a PIN/passkey have no agent UI here yet —
 		// confirm the pairing on the device itself if it stays on Pairing….
 		pending.start(item.address, "Pairing… confirm on device");
-		if (item.device) {
-			try {
-				item.device.pair();
-			} catch (e) {
-				errorMessage = "Pairing failed";
-				pending.clear();
-			}
-		} else {
-			cliBtActionProc.command = ["sh", "-c", "bluetoothctl pair " + item.address + " && bluetoothctl connect " + item.address];
-			cliBtActionProc.running = true;
+		try {
+			item.device.pair();
+		} catch (e) {
+			errorMessage = "Pairing failed";
+			pending.clear();
 		}
 	}
 

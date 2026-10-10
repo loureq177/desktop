@@ -31,7 +31,11 @@ return {
 	-- external DP-1 is wired to NVIDIA, so each of its frames is copied
 	-- AMD->NVIDIA. If frame drops persist after 74Hz locks in, the remaining
 	-- lever is rendering on NVIDIA first (at the cost of idle power).
-	monitors = function()
+	monitors = function(state)
+		-- state.laptop_disabled: true when the lid is closed and an external
+		-- monitor is connected (set by hyprland.lua). Pass it as `disabled`
+		-- on the laptop panel rule so reloads never re-enable it.
+		state = state or {}
 		-- Example: Laptop display + external monitor
 		-- local laptop_output = "desc:BOE 0x0998"
 		-- local external_output = "desc:iiyama Corporation PL2792Q 1152011401936"
@@ -41,6 +45,7 @@ return {
 		-- 	mode = "1920x1080@165",
 		-- 	position = "320x1440",
 		-- 	scale = 1,
+		-- 	disabled = state.laptop_disabled, -- lid closed + external monitor present
 		-- })
 		-- hl.monitor({
 		-- 	output = external_output,

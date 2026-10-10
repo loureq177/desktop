@@ -1,5 +1,5 @@
 // Clipboard history picker: replaces the cliphist + fzf + Ghostty special
-// workspace. Toggled with SUPER + CTRL + V (`qs ipc call clipboard toggle`).
+// workspace. Toggled with SUPER + C (`qs ipc call shell toggle clipboard ''`).
 // Two-column dialog: entry list on the left, large preview pane on the
 // right (images decoded from cliphist, text shown in full). Enter or click
 // copies the entry and auto-pastes it via clipboard-insert
@@ -95,9 +95,11 @@ CenterModal {
 	}
 
 	function close() {
-		// L4: never keep decoded clipboard contents (possibly secrets)
-		// in memory while hidden.
+		// Never keep decoded clipboard contents (possibly secrets)
+		// around while hidden, in memory or as the decoded preview file.
 		win.shown = false;
+		decodeProc.running = false;
+		Quickshell.execDetached(["rm", "-f", Quickshell.env("XDG_RUNTIME_DIR") + "/clipboard-preview"]);
 		win.decodedText = "";
 		win.decodedId = "";
 		win.textReqId = "";
@@ -163,7 +165,7 @@ CenterModal {
 			return ["sh", "-c", 'cliphist decode "$1" > "$XDG_RUNTIME_DIR/clipboard-preview"', "sh", String(e.id)];
 		}
 		onExited: function (exitCode) {
-			// L8: same reqId guard as the text path — a slow decode for a
+			// Same reqId guard as the text path — a slow decode for a
 			// previous selection must not set the preview for the new one.
 			var reqId = win.imgReqId;
 			if (exitCode === 0 && reqId !== "" && win.currentEntry && String(win.currentEntry.id) === reqId)
@@ -334,7 +336,7 @@ CenterModal {
 				MouseArea {
 					anchors.fill: parent
 					hoverEnabled: true
-					// L15: don't let hover steal keyboard selection while scrolling.
+					// Don't let hover steal keyboard selection while scrolling.
 					onEntered: {
 						if (!list.moving && !list.flicking)
 							win.currentIndex = row.index;

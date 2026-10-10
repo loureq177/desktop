@@ -65,9 +65,11 @@ Singleton {
 	property string reportHumidity: ""
 	property string reportTodayHigh: ""
 	property string reportTodayLow: ""
-	// M4: fetch/parse failure surface. Without it offline = infinite
+	// Fetch/parse failure surface. Without it offline = infinite
 	// "Fetching weather..." with no retry until the 15-min timer.
 	property string lastError: ""
+	// Forecast URL requested while another fetch was running.
+	property string pendingForecastUrl: ""
 
 	readonly property int refreshMinutes: 15
 
@@ -130,9 +132,15 @@ Singleton {
 			+ "&forecast_hours=27"
 			+ "&forecast_days=4"
 			+ "&timezone=auto";
+		// A fetch for the previous location may still be in flight: queue
+		// this one instead of dropping it (the panel would otherwise keep
+		// showing the old city until the next 15-minute refresh).
+		if (forecastProc.running) {
+			root.pendingForecastUrl = url;
+			return;
+		}
 		forecastProc.command = ["curl", "-fsS", "--max-time", "6", url];
-		if (!forecastProc.running)
-			forecastProc.running = true;
+		forecastProc.running = true;
 	}
 
 	function startEditingLocation() {
@@ -244,6 +252,10 @@ Singleton {
 	Process {
 		id: ipProc
 		command: ["curl", "-fsS", "--max-time", "4", "https://geolocation-db.com/json/"]
+		onExited: code => {
+			if (code !== 0 && !root.current)
+				root.lastError = "Offline — couldn't detect location";
+		}
 		stdout: StdioCollector {
 			waitForEnd: true
 			onStreamFinished: {
@@ -269,6 +281,13 @@ Singleton {
 	Process {
 		id: forecastProc
 		onExited: code => {
+			if (root.pendingForecastUrl !== "") {
+				var next = root.pendingForecastUrl;
+				root.pendingForecastUrl = "";
+				forecastProc.command = ["curl", "-fsS", "--max-time", "6", next];
+				forecastProc.running = true;
+				return;
+			}
 			if (code !== 0) {
 				if (!root.current)
 					root.lastError = "Offline — couldn't fetch forecast";

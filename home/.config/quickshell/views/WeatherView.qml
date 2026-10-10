@@ -539,7 +539,7 @@ PanelWindow {
 				}
 			}
 
-			// Loading / error placeholder (M4: offline was infinite
+			// Loading / error placeholder (Offline was infinite
 			// "Fetching..." with retry only via 15-min timer or reopen).
 			ColumnLayout {
 				visible: !Weather.current

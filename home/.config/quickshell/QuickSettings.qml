@@ -30,27 +30,6 @@ Singleton {
 		refreshRequested();
 	}
 
-	readonly property bool nightLightAuto: {
-		var h = new Date().getHours();
-		return h >= 20 || h < 6;
-	}
-	property bool nightLightManualOverride: false
-	property bool nightLightManual: false
-	property bool nightLight: nightLightManualOverride ? nightLightManual : nightLightAuto
-
-	function toggleNightLight(): void {
-		root.nightLightManual = !root.nightLight;
-		root.nightLightManualOverride = true;
-		if (root.nightLight)
-			Quickshell.execDetached(["hyprctl", "hyprsunset", "temperature", "4500"]);
-		else
-			Quickshell.execDetached(["hyprctl", "hyprsunset", "identity"]);
-	}
-
-	function resetNightLightToAuto(): void {
-		root.nightLightManualOverride = false;
-	}
-
 	function toggle(view): void {
 		if (root.panelOpen) {
 			if (view && view !== "" && root.subView !== view) {
@@ -97,7 +76,6 @@ Singleton {
 	function close(): void {
 		root.instantHide = false;
 		root.panelOpen = false;
-		Quickshell.execDetached(["hyprctl", "dispatch", "hl.dsp.submap('reset')"]);
 	}
 
 	// Immediate hide without the slide-out animation, for actions that
@@ -108,7 +86,6 @@ Singleton {
 		if (root.panelOpen)
 			root.instantHide = true;
 		root.panelOpen = false;
-		Quickshell.execDetached(["hyprctl", "dispatch", "hl.dsp.submap('reset')"]);
 	}
 
 	IpcHandler {
@@ -153,62 +130,5 @@ Singleton {
 		function refresh(): void {
 			root.refresh();
 		}
-		function toggleNightLight(): void {
-			root.toggleNightLight();
-		}
-		function resetNightLightToAuto(): void {
-			root.resetNightLightToAuto();
-		}
-	}
-
-	IpcHandler {
-		target: "quickactions"
-
-		function toggle(): void {
-			root.toggle();
-		}
-		function toggleView(view: string): void {
-			root.toggle(view);
-		}
-		function toggleWifi(): void {
-			root.toggleWifi();
-		}
-		function toggleBluetooth(): void {
-			root.toggleBluetooth();
-		}
-		function toggleCapture(): void {
-			root.toggleCapture();
-		}
-		function open(): void {
-			root.open();
-		}
-		function openView(view: string): void {
-			root.open(view);
-		}
-		function openWifi(): void {
-			root.openWifi();
-		}
-		function openBluetooth(): void {
-			root.openBluetooth();
-		}
-		function openCapture(): void {
-			root.openCapture();
-		}
-		function close(): void {
-			root.close();
-		}
-		function closeInstant(): void {
-			root.closeInstant();
-		}
-		function refresh(): void {
-			root.refresh();
-		}
-		function toggleNightLight(): void {
-			root.toggleNightLight();
-		}
-		function resetNightLightToAuto(): void {
-			root.resetNightLightToAuto();
-		}
 	}
 }
-

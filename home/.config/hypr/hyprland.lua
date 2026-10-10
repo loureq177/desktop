@@ -160,16 +160,57 @@ end)
 
 -- ─── Monitors ────────────────────────────────────────────────────────────────
 
-if type(local_cfg.monitors) == "function" then
-	local_cfg.monitors()
+-- The desired monitor topology is a pure function of two facts: lid state and
+-- whether an external monitor is present. With the lid closed and an external
+-- monitor connected the laptop panel is disabled (Hyprland then evacuates its
+-- windows and destroys its empty workspaces); otherwise it is enabled. The
+-- same rules are applied on load/reload, lid events and hotplug, so eDP is
+-- never briefly re-enabled behind a closed lid (which used to steal focus).
+
+local function lid_is_closed()
+	local f = io.popen("cat /proc/acpi/button/lid/*/state 2>/dev/null")
+	if f == nil then
+		return false
+	end
+	local out = f:read("*a") or ""
+	f:close()
+	return out:find("closed", 1, true) ~= nil
 end
 
-hl.monitor({
-	output = "",
-	mode = "preferred",
-	position = "auto",
-	scale = 1,
-})
+local function has_external_monitor()
+	for _, m in ipairs(hl.get_monitors()) do
+		if not (m.name or ""):find("^eDP") then
+			return true
+		end
+	end
+	return false
+end
+
+local laptop_disabled = nil
+
+local function apply_monitors()
+	laptop_disabled = lid_is_closed() and has_external_monitor()
+	if type(local_cfg.monitors) == "function" then
+		local_cfg.monitors({ laptop_disabled = laptop_disabled })
+	end
+	hl.monitor({
+		output = "",
+		mode = "preferred",
+		position = "auto",
+		scale = 1,
+	})
+end
+
+-- Re-apply only when the desired laptop state actually changed.
+local function sync_monitors()
+	if (lid_is_closed() and has_external_monitor()) ~= laptop_disabled then
+		apply_monitors()
+		return true
+	end
+	return false
+end
+
+apply_monitors()
 
 -- ─── Workspaces: keep numeric IDs compact (1..N) across topology changes ──
 -- Root cause of the "2,3 instead of 1,2 after lid-close" bug: lid-close only
@@ -257,71 +298,34 @@ local function schedule_compact(ms)
 	end, { timeout = ms or 500, type = "oneshot" })
 end
 
-local function find_edp()
-	for _, m in ipairs(hl.get_monitors()) do
-		if (m.name or ""):find("^eDP") then
-			return m
-		end
-	end
-	return nil
-end
-
-local function has_external_monitor(edp_name)
-	for _, m in ipairs(hl.get_monitors()) do
-		if m.name ~= edp_name then
-			return true
-		end
-	end
-	return false
-end
-
 if local_cfg.lid_switch ~= false and not local_cfg.custom_lid_switch then
-	local last_edp_output = nil
 	hl.bind("switch:on:Lid Switch", function()
-		local edp = find_edp()
-		if edp == nil then
-			return
-		end
-		last_edp_output = edp.name
-		if has_external_monitor(edp.name) then
-			-- Disable, not just dpms off: Hyprland evacuates windows from
-			-- eDP to the remaining monitors and destroys its empty
-			-- workspaces, so no ghost number is kept alive. Windows stay
-			-- grouped on their workspace; only the workspace changes
-			-- monitor. Empty eDP workspaces simply die (that's what frees
-			-- the number: 1,2,3 -> 1,2).
-			hl.monitor({ output = edp.name, disabled = true })
-		else
+		if not sync_monitors() and not has_external_monitor() then
 			-- Sole monitor (on the go): only blank, suspend is handled by
 			-- hypridle/systemd. Never disable the last screen.
-			hl.dispatch(hl.dsp.dpms({ action = "off", monitor = edp.name }))
+			hl.dispatch(hl.dsp.dpms({ action = "off" }))
 		end
 		schedule_compact(500)
 	end, { locked = true })
 
 	hl.bind("switch:off:Lid Switch", function()
 		hl.dispatch(hl.dsp.dpms({ action = "on" }))
-		-- Re-apply local.lua monitor specs: re-enables eDP with its
-		-- mode/position/scale. Hyprland gives it the next free workspace
-		-- number, so there is no renumbering fight. Evacuated windows stay
-		-- where they are (predictable); move them back manually with
-		-- SUPER+SHIFT+<num> when needed.
-		if type(local_cfg.monitors) == "function" then
-			local ok = pcall(local_cfg.monitors)
-			if not ok and last_edp_output ~= nil then
-				-- Fallback: at least re-enable by connector name.
-				pcall(hl.monitor, { output = last_edp_output, disabled = false })
-			end
-		end
+		-- Re-enables eDP with the mode/position/scale from local.lua. Hyprland
+		-- gives it the next free workspace number, so there is no renumbering
+		-- fight. Evacuated windows stay where they are (predictable); move
+		-- them back manually with SUPER+SHIFT+<num> when needed.
+		sync_monitors()
 		schedule_compact(800)
 	end, { locked = true })
 
 	-- Dock/undock (dwie HP-ki, iiyama) goes through the same path:
 	-- Hyprland evacuates/creates, we only fix leftover number gaps.
 	hl.on("monitor.added", function()
+		sync_monitors()
 		schedule_compact(500)
 	end)
 	hl.on("monitor.removed", function()
+		sync_monitors()
 		schedule_compact(500)
 	end)
 end
@@ -734,11 +738,97 @@ b("SUPER + F", "Toggle fullscreen", hl.dsp.window.fullscreen())
 b("SUPER + T", "Toggle window split", hl.dsp.layout("togglesplit"))
 
 local directions = { H = "left", L = "right", K = "up", J = "down" }
+local mon_short = { left = "l", right = "r", up = "u", down = "d" }
 local step = 25
+
+-- Swap z oknem w danym kierunku, a gdy nie ma z czym (krawędź
+-- layoutu), przerzuć okno na sąsiedni monitor w tym kierunku.
+-- UWAGA: fallback dla góra/dół wyłączony — move({ monitor = 'u'/'d' })
+-- crashuje Hyprlanda (Oops screen) przy przerzucie między HP (NVIDIA)
+-- a eDP (AMD iGPU), v0.56.2. Działa tylko dla l/r.
+local function monitor_in_direction(dir)
+	local win = hl.get_active_window()
+	local cur = (win ~= nil and win.monitor) or hl.get_active_monitor()
+	if cur == nil then
+		return false
+	end
+	local function overlap(a1, a2, b1, b2)
+		return a1 < b2 and a2 > b1
+	end
+	for _, m in ipairs(hl.get_monitors()) do
+		if m.name ~= cur.name then
+			if dir == "left" and m.x + m.width <= cur.x and overlap(m.y, m.y + m.height, cur.y, cur.y + cur.height) then
+				return true
+			elseif dir == "right" and m.x >= cur.x + cur.width and overlap(m.y, m.y + m.height, cur.y, cur.y + cur.height) then
+				return true
+			elseif dir == "up" and m.y + m.height <= cur.y and overlap(m.x, m.x + m.width, cur.x, cur.x + cur.width) then
+				return true
+			elseif dir == "down" and m.y >= cur.y + cur.height and overlap(m.x, m.x + m.width, cur.x, cur.x + cur.width) then
+				return true
+			end
+		end
+	end
+	return false
+end
+
+local function same_workspace_neighbor(dir)
+	local active = hl.get_active_window()
+	if active == nil or active.workspace == nil then
+		return false
+	end
+	local wsid = active.workspace.id
+	local ax, ay = active.at.x, active.at.y
+	local aw, ah = active.size.x, active.size.y
+	local acx, acy = ax + aw / 2, ay + ah / 2
+	local function overlap(a1, a2, b1, b2)
+		return a1 < b2 and a2 > b1
+	end
+	for _, w in ipairs(hl.get_windows()) do
+		if
+			w.address ~= active.address
+			and w.workspace ~= nil
+			and w.workspace.id == wsid
+			and not w.floating
+			and w.mapped
+			and not w.hidden
+		then
+			local cx, cy = w.at.x + w.size.x / 2, w.at.y + w.size.y / 2
+			if dir == "left" and cx < acx and overlap(w.at.y, w.at.y + w.size.y, ay, ay + ah) then
+				return true
+			elseif dir == "right" and cx > acx and overlap(w.at.y, w.at.y + w.size.y, ay, ay + ah) then
+				return true
+			elseif dir == "up" and cy < acy and overlap(w.at.x, w.at.x + w.size.x, ax, ax + aw) then
+				return true
+			elseif dir == "down" and cy > acy and overlap(w.at.x, w.at.x + w.size.x, ax, ax + aw) then
+				return true
+			end
+		end
+	end
+	return false
+end
+
+local function swap_or_throw(dir)
+	-- Hyprlandowy swap w kierunku potrafi sięgnąć po okno z SĄSIEDNIEGO
+	-- monitora zamiast zgłosić błąd, więc o tym, czy swapować, decydujemy
+	-- sami: sąsiad na tym samym workspace → swap, inaczej (krawędź
+	-- monitora) → przeniesienie okna na monitor obok.
+	if same_workspace_neighbor(dir) then
+		pcall(hl.dispatch, hl.dsp.window.swap({ direction = dir }))
+		return
+	end
+	local mon = mon_short[dir]
+	if (mon == "l" or mon == "r") and monitor_in_direction(dir) then
+		pcall(hl.dispatch, hl.dsp.window.move({ monitor = mon }))
+	end
+	-- u/d na krawędzi: nic (move crashuje compositor, a swap
+	-- między monitorami jest niepożądany).
+end
 
 for key, dir in pairs(directions) do
 	b("SUPER + " .. key, "Focus " .. dir, hl.dsp.focus({ direction = dir }))
-	b("SUPER + SHIFT + " .. key, "Swap window " .. dir, hl.dsp.window.swap({ direction = dir }))
+	b("SUPER + SHIFT + " .. key, "Swap window " .. dir, function()
+		swap_or_throw(dir)
+	end)
 
 	b(
 		"SUPER + CTRL + " .. key,
@@ -854,25 +944,6 @@ hl.bind(
 	{ mouse = true, description = "Resize window" }
 )
 
--- ─── Power Shortcuts (locked = true) ─────────────────────────────────────────
--- non_consuming: bare F1-F3 must still reach apps (F1 help, F3 find).
--- The pidof hyprlock guard makes them no-ops on an unlocked desktop anyway.
-
-b(
-	"F1",
-	"Power off",
-	hl.dsp.exec_cmd("pidof hyprlock >/dev/null && hyprshutdown --post-cmd 'systemctl poweroff'"),
-	{ locked = true, non_consuming = true }
-)
-b(
-	"F2",
-	"Reboot",
-	hl.dsp.exec_cmd("pidof hyprlock >/dev/null && hyprshutdown --post-cmd 'systemctl reboot'"),
-	{ locked = true, non_consuming = true }
-)
-b(
-	"F3",
-	"Suspend",
-	hl.dsp.exec_cmd("pidof hyprlock >/dev/null && systemctl suspend"),
-	{ locked = true, non_consuming = true }
-)
+-- NOTE (2026-10-10): lock-screen F1-F3 power shortcuts removed entirely.
+-- Bare F1-F3 arrive as XF86 media keys on this laptop (fn_lock=0) and the
+-- binds crashed the compositor. Power off/reboot/suspend via Ly or launcher.

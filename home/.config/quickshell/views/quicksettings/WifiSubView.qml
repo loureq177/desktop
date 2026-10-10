@@ -49,7 +49,7 @@ Item {
 	property string passwordInput: ""
 	property bool showPassword: false
 	property string errorMessage: ""
-	// Two-step forget confirm (M5): first X arms, second X within 3s executes.
+	// Two-step forget confirm: first X arms, second X within 3s executes.
 	property string pendingForgetSsid: ""
 	readonly property string connectingSsid: pending.target
 
@@ -138,7 +138,7 @@ Item {
 
 		var curName = (currentIndex >= 0 && currentIndex < networkList.length && networkList[currentIndex]) ? networkList[currentIndex].name : "";
 		networkList = arr;
-		// L1: keep keyboard selection stable across the 3s rebuilds.
+		// Keep keyboard selection stable across the 3s rebuilds.
 		// Without this currentIndex points at a different network after
 		// every re-sort (by signal), so Enter can hit the wrong SSID.
 		if (curName !== "") {
@@ -184,28 +184,6 @@ Item {
 			wifiDevice.scannerEnabled = true;
 		Quickshell.execDetached(["nmcli", "device", "wifi", "rescan"]);
 		scanTimer.restart();
-	}
-
-	Process {
-		id: cliProc
-		onExited: code => {
-			root.refreshList();
-			if (code !== 0) {
-				if (pending.target !== "") {
-					root.errorMessage = "Connection failed";
-					pending.clear();
-				}
-				if (root.promptSsid !== "")
-					passInput.forceActiveFocus();
-			} else {
-				pending.clear();
-				// nmcli exit 0 = success: never leave the password card
-				// hanging. refreshList() above already auto-closes on
-				// connected; this is a fallback for slow backend updates.
-				if (root.promptSsid !== "")
-					root.closePasswordPrompt();
-			}
-		}
 	}
 
 	Timer {
@@ -280,16 +258,11 @@ Item {
 		if (promptSsid !== "" && promptSsid !== item.name)
 			closePasswordPrompt();
 		pending.start(item.name, "Connecting…");
-		if (item.net) {
-			try {
-				item.net.connect();
-			} catch (e) {
-				errorMessage = "Connection failed";
-				pending.clear();
-			}
-		} else {
-			cliProc.command = ["nmcli", "device", "wifi", "connect", item.name];
-			cliProc.running = true;
+		try {
+			item.net.connect();
+		} catch (e) {
+			errorMessage = "Connection failed";
+			pending.clear();
 		}
 	}
 
@@ -297,12 +270,7 @@ Item {
 		errorMessage = "";
 		if (promptSsid === item.name)
 			closePasswordPrompt();
-		if (item.net) {
-			try { item.net.disconnect(); } catch (e) {}
-		} else {
-			var devName = wifiDevice?.name || "wlan0";
-			Quickshell.execDetached(["nmcli", "device", "disconnect", devName]);
-		}
+		try { item.net.disconnect(); } catch (e) {}
 		pending.clear();
 		root.refreshList();
 	}
@@ -386,23 +354,16 @@ Item {
 		pending.start(ssid, "Connecting…");
 		errorMessage = "";
 
-		if (promptNet && promptNet.connectWithPsk) {
-			try {
-				promptNet.connectWithPsk(pass);
-			} catch (e) {
-				errorMessage = "Connection failed";
-				pending.clear();
-				passInput.forceActiveFocus();
-				return;
-			}
-		} else {
-			cliProc.command = ["nmcli", "device", "wifi", "connect", ssid, "password", pass];
-			cliProc.running = true;
+		try {
+			promptNet.connectWithPsk(pass);
+		} catch (e) {
+			errorMessage = "Connection failed";
+			pending.clear();
+			passInput.forceActiveFocus();
+			return;
 		}
 		// Keep the prompt open until success is visible (refreshList
-		// auto-closes on connected, cliProc.onExited closes on exit 0).
-		// Closing optimistically here is what made errors invisible and,
-		// combined with the broken text binding, made the field stick.
+		// auto-closes on connected); closing optimistically hid errors.
 		passInput.forceActiveFocus();
 	}
 
