@@ -10,29 +10,12 @@ if [ -z "$APP_NAME" ] || [ -z "$APP_URL" ]; then
   exit 1
 fi
 
-if ! command -v firefox >/dev/null 2>&1; then
-  echo "firefox-webapp: firefox not found in PATH" >&2
-  exit 127
-fi
-
 DATA_DIR="${XDG_DATA_HOME:-$HOME/.local/share}"
 PROFILE_DIR="$DATA_DIR/firefox-webapps"
 
 mkdir -p "$PROFILE_DIR/chrome"
 
-provision_if_changed() {
-    local dest="$1"
-    local tmp
-    tmp=$(mktemp "$(dirname "$dest")/.provision.XXXXXX")
-    cat >"$tmp"
-    if ! cmp -s "$tmp" "$dest" 2>/dev/null; then
-        mv -f "$tmp" "$dest"
-    else
-        rm -f "$tmp"
-    fi
-}
-
-provision_if_changed "$PROFILE_DIR/chrome/userChrome.css" << 'EOF'
+cat >"$PROFILE_DIR/chrome/userChrome.css" <<'EOF'
 /* Clean standalone PWA app window */
 #TabsToolbar,
 #nav-bar,
@@ -44,7 +27,7 @@ provision_if_changed "$PROFILE_DIR/chrome/userChrome.css" << 'EOF'
 }
 EOF
 
-provision_if_changed "$PROFILE_DIR/user.js" << 'EOF'
+cat >"$PROFILE_DIR/user.js" <<'EOF'
 // Shared webapps profile settings
 user_pref("toolkit.legacyUserProfileCustomizations.stylesheets", true);
 
@@ -99,14 +82,8 @@ if command -v sqlite3 >/dev/null 2>&1; then
 CREATE TABLE IF NOT EXISTS groups (id INTEGER PRIMARY KEY, name TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS settings (id INTEGER PRIMARY KEY, name TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS prefs (id INTEGER PRIMARY KEY, groupID INTEGER REFERENCES groups(id), settingID INTEGER NOT NULL REFERENCES settings(id), value BLOB, timestamp INTEGER NOT NULL DEFAULT 0);
--- Neither name column is UNIQUE in Firefox's schema, so INSERT OR IGNORE
--- never ignores anything: guard with NOT EXISTS, and look the setting up by
--- name instead of assuming it got id 1.
 INSERT INTO settings (name) SELECT 'browser.content.full-zoom'
 WHERE NOT EXISTS (SELECT 1 FROM settings WHERE name = 'browser.content.full-zoom');
--- Collapse duplicate group rows left behind by older versions of this script.
-DELETE FROM prefs WHERE groupID IN (SELECT id FROM groups WHERE id NOT IN (SELECT MIN(id) FROM groups GROUP BY name));
-DELETE FROM groups WHERE id NOT IN (SELECT MIN(id) FROM groups GROUP BY name);
 DELETE FROM prefs WHERE groupID IS NULL
   AND settingID IN (SELECT id FROM settings WHERE name = 'browser.content.full-zoom');
 INSERT INTO prefs (groupID, settingID, value, timestamp)
@@ -115,7 +92,6 @@ SQL
 
     if [[ "$APP_URL" =~ ^https?://([^/:]+) ]]; then
         domain="${BASH_REMATCH[1]}"
-        domain="${domain//\'/\'\'}"
         sqlite3 "$PROFILE_DIR/content-prefs.sqlite" << SQL >/dev/null 2>&1 || true
 INSERT INTO groups (name) SELECT '$domain'
 WHERE NOT EXISTS (SELECT 1 FROM groups WHERE name = '$domain');

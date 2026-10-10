@@ -1,163 +1,50 @@
 #!/usr/bin/env python3
 
-import sys
 import os
 import re
-import tomllib
 import subprocess
+import sys
+import tomllib
 from pathlib import Path
 
-def hex_to_rgb(hex_str):
-    hex_str = hex_str.strip().lstrip('#')
-    return tuple(int(hex_str[i:i+2], 16) for i in (0, 2, 4))
+CONFIG_DIR = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
 
-def hex_to_hypr_rgba(hex_str, alpha="ee"):
-    hex_str = hex_str.strip().lstrip('#')
-    return f"rgba({hex_str}{alpha})"
 
-def hex_to_ly(hex_str, style="00"):
-    return f"0x{style}{hex_str.strip().lstrip('#').lower()}"
+def hex_to_rgb(h):
+    h = h.lstrip("#")
+    return tuple(int(h[i:i + 2], 16) for i in (0, 2, 4))
 
-def get_config_path():
-    candidates = [
-        Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "ui" / "ui.toml",
-        Path.home() / ".files" / "archlinux" / ".config" / "ui" / "ui.toml",
-    ]
-    for c in candidates:
-        if c.is_file():
-            return c
-    raise FileNotFoundError("Could not find ui.toml configuration file.")
 
-def safe_write(path: Path, content: str, check_mode: bool = False) -> bool:
-    target = path.resolve(strict=False)
-    if check_mode:
-        if not target.exists():
-            print(f"  \033[31m✗\033[0m Missing file: {path} (resolves to {target})")
-            return False
-        if target.read_text() != content:
-            print(f"  \033[31m✗\033[0m Out of sync with ui.toml: {target}")
-            return False
-        print(f"  \033[32m✓\033[0m In sync: {target}")
-        return True
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(content)
-    print(f"  \033[32m✓\033[0m Generated: {target}")
-    return True
+def hypr_rgba(h, alpha="ee"):
+    return f"rgba({h.lstrip('#')}{alpha})"
+
+
+def ly_color(h, style="00"):
+    return f"0x{style}{h.lstrip('#').lower()}"
+
+
+def write(path, content):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(content)
+    print(f"  \033[32m✓\033[0m Generated: {path}")
+
 
 def main():
-    check_mode = "--check" in sys.argv
-    reload_apps = "--no-reload" not in sys.argv and not check_mode
+    with open(CONFIG_DIR / "ui" / "ui.toml", "rb") as f:
+        cfg = tomllib.load(f)
 
-    config_file = get_config_path()
-    print(f"\033[34m[INFO]\033[0m Reading UI configuration from: {config_file}")
+    r, b, s, p, o = (cfg[k] for k in ("rounding", "border", "spacing", "padding", "opacity"))
+    fnt, thm, c = cfg["font"], cfg["theme"], cfg["colors"]
+    hl_lock, ly, launcher = cfg["hyprlock"], cfg["ly"], cfg["launcher"]
+    notif, anim = cfg["notifications"], cfg["animations"]
 
-    try:
-        with open(config_file, "rb") as f:
-            cfg = tomllib.load(f)
-    except tomllib.TOMLDecodeError as exc:
-        raise SystemExit(f"\033[31m[ERROR]\033[0m {config_file} is not valid TOML: {exc}") from exc
-
-    r = cfg.get("rounding", {})
-    b = cfg.get("border", {})
-    s = cfg.get("spacing", {})
-    p = cfg.get("padding", {})
-    o = cfg.get("opacity", {})
-    fnt = cfg.get("font", {})
-    thm = cfg.get("theme", {})
-    c = cfg.get("colors", {})
-    hl_lock = cfg.get("hyprlock", {})
-    ly = cfg.get("ly", {})
-    launcher = cfg.get("launcher", {})
-    notif = cfg.get("notifications", {})
-    anim = cfg.get("animations", {})
-
-    _hex_re = re.compile(r"#[0-9a-fA-F]{6}")
-    for _label, _table, _keys in (
-        ("colors", c, None),
-        ("ly", ly, ("matrix_fg", "tty_purple_dark", "tty_cyan_bright", "tty_white")),
-    ):
-        for _key, _value in _table.items():
-            if _keys is not None and _key not in _keys:
-                continue
-            if not isinstance(_value, str) or not _hex_re.fullmatch(_value.strip()):
-                raise SystemExit(
-                    f"\033[31m[ERROR]\033[0m ui.toml: [{_label}] {_key} must be a "
-                    f'6-digit hex colour like "#0d1117", got {_value!r}.'
-                )
-
-    c = {k: (v.strip() if isinstance(v, str) else v) for k, v in c.items()}
-    for _k in ("matrix_fg", "tty_purple_dark", "tty_cyan_bright", "tty_white"):
-        if isinstance(ly.get(_k), str):
-            ly[_k] = ly[_k].strip()
-
-    def lua_escape(value):
-        return (
-            value.replace("\\", "\\\\")
-            .replace('"', '\\"')
-            .replace("\n", "\\n")
-            .replace("\r", "\\r")
-            .replace("\t", "\\t")
-        )
-
-    for _label, _table, _keys in (
-        ("font", fnt, ("family", "mono", "ui")),
-        ("theme", thm, ("cursor", "icon", "gtk")),
-    ):
-        for _key in _keys:
-            _value = _table.get(_key)
-            if _value is None:
-                continue
-            if not isinstance(_value, str) or re.search(r"[\x00-\x1f\x7f]", _value):
-                raise SystemExit(
-                    f"\033[31m[ERROR]\033[0m ui.toml: [{_label}] {_key} must be a "
-                    f"single-line string, got {_value!r}."
-                )
-    for _fkey in ("family", "mono", "ui"):
-        _fam = fnt.get(_fkey)
-        if isinstance(_fam, str) and "#" in _fam:
-            raise SystemExit(
-                f"\033[31m[ERROR]\033[0m ui.toml: [font] {_fkey} must not contain '#'"
-                f" (truncated as comment in hypr/ui.conf), got {_fam!r}."
-            )
-
-    def _fail_num(label, key, got, want):
-        raise SystemExit(
-            f"\033[31m[ERROR]\033[0m ui.toml: [{label}] {key} must be {want}, got {got!r}."
-        )
-
-    _num_specs = (
-        (r, "rounding", (("window", "int"), ("element", "int"), ("subtle", "int"), ("power", "num"))),
-        (b, "border", (("size", "int"),)),
-        (s, "spacing", (("gaps_in", "int"), ("gaps_out", "int"), ("bar_height", "int"), ("bar_spacing", "int"), ("bar_margin_x", "int"), ("bar_margin_y", "int"))),
-        (p, "padding", (("menu_card", "int"), ("menu_item", "int"), ("bar_pad", "int"), ("notif_pad_v", "int"), ("notif_pad_h", "int"))),
-        (o, "opacity", (("active", "num"), ("inactive", "num"), ("dim_special", "num"))),
-        (fnt, "font", (("size_bar", "int"), ("size_menu", "int"), ("size_notif", "int"), ("size_cursor", "int"), ("size_grid", "int"), ("size_search", "int"), ("size_bar_icon", "int"))),
-        (launcher, "launcher", (("width", "int"), ("height", "int"))),
-        (notif, "notifications", (("width", "int"), ("top_margin", "int"))),
-        (anim, "animations", (("duration_fast", "int"), ("duration_normal", "int"), ("duration_smooth", "int"), ("flick_deceleration", "int"), ("max_flick_velocity", "int"))),
-        (hl_lock, "hyprlock", (("blur_size", "int"), ("blur_passes", "int"), ("noise", "num"), ("contrast", "num"), ("brightness", "num"), ("vibrancy", "num"), ("vibrancy_darkness", "num"))),
-        (ly, "ly", (("frame_delay", "int"),)),
-    )
-    for _table, _label, _keys in _num_specs:
-        for _key, _kind in _keys:
-            _v = _table.get(_key)
-            if _v is None:
-                continue
-            if isinstance(_v, bool):
-                _fail_num(_label, _key, _v, "an integer" if _kind == "int" else "a number")
-            if _kind == "int":
-                if not isinstance(_v, int):
-                    _fail_num(_label, _key, _v, "an integer")
-            elif not isinstance(_v, (int, float)):
-                _fail_num(_label, _key, _v, "a number")
-
-    r_win = r.get("window", 0)
-    r_elem = r.get("element", 0)
-    r_subtle = r.get("subtle", 0)
-    r_power = r.get("power", 2.0)
-    b_size = b.get("size", 2)
-
-    config_dir = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
+    bg_main, bg_card, bg_hover = c["bg_main"], c["bg_card"], c["bg_hover"]
+    border_color = c["border"]
+    accent_blue, accent_purple, accent_green = c["accent_blue"], c["accent_purple"], c["accent_green"]
+    warning, critical = c["warning"], c["critical"]
+    text_main, text_dim = c["text_main"], c["text_dim"]
+    r_win, r_elem, r_subtle, r_power = r["window"], r["element"], r["subtle"], r["power"]
+    b_size = b["size"]
 
     lua_content = f"""-- Auto-generated by apply-ui. DO NOT EDIT DIRECTLY.
 -- Modify ~/.config/ui/ui.toml and run 'apply-ui'.
@@ -173,88 +60,80 @@ return {{
         size = {b_size},
     }},
     spacing = {{
-        gaps_in = {s.get("gaps_in", 10)},
-        gaps_out = {s.get("gaps_out", 20)},
+        gaps_in = {s["gaps_in"]},
+        gaps_out = {s["gaps_out"]},
     }},
     opacity = {{
-        active = {o.get("active", 1.0)},
-        inactive = {o.get("inactive", 0.75)},
-        dim_special = {o.get("dim_special", 0.20)},
+        active = {o["active"]},
+        inactive = {o["inactive"]},
+        dim_special = {o["dim_special"]},
     }},
     font = {{
-        family = "{lua_escape(fnt.get("family", "JetBrainsMono Nerd Font Propo"))}",
-        mono = "{lua_escape(fnt.get("mono", "JetBrainsMono Nerd Font Mono"))}",
-        ui = "{lua_escape(fnt.get("ui", "Adwaita Sans 12"))}",
-        size_bar = {fnt.get("size_bar", 15)},
-        size_menu = {fnt.get("size_menu", 14)},
-        size_notif = {fnt.get("size_notif", 17)},
-        size_cursor = {fnt.get("size_cursor", 24)},
+        family = "{fnt["family"]}",
+        mono = "{fnt["mono"]}",
+        ui = "{fnt["ui"]}",
+        size_bar = {fnt["size_bar"]},
+        size_menu = {fnt["size_menu"]},
+        size_notif = {fnt["size_notif"]},
+        size_cursor = {fnt["size_cursor"]},
     }},
     theme = {{
-        cursor = "{lua_escape(thm.get("cursor", "Bibata-Modern-Classic"))}",
-        icon = "{lua_escape(thm.get("icon", "Papirus-Dark"))}",
-        gtk = "{lua_escape(thm.get("gtk", "Adwaita-dark"))}",
+        cursor = "{thm["cursor"]}",
+        icon = "{thm["icon"]}",
+        gtk = "{thm["gtk"]}",
     }},
     colors = {{
-        bg_main = "{c.get("bg_main", "#0d1117")}",
-        bg_card = "{c.get("bg_card", "#161b22")}",
-        bg_hover = "{c.get("bg_hover", "#21262d")}",
-        border = "{hex_to_hypr_rgba(c.get("border", "#30363d"))}",
-        accent_blue = "{hex_to_hypr_rgba(c.get("accent_blue", "#58a6ff"))}",
-        accent_purple = "{hex_to_hypr_rgba(c.get("accent_purple", "#bc8cff"))}",
-        accent_green = "{hex_to_hypr_rgba(c.get("accent_green", "#3fb950"))}",
-        warning = "{hex_to_hypr_rgba(c.get("warning", "#d29922"))}",
-        critical = "{hex_to_hypr_rgba(c.get("critical", "#f85149"))}",
-        text_main = "{c.get("text_main", "#c9d1d9")}",
-        text_dim = "{c.get("text_dim", "#8b949e")}",
-        text_muted = "{c.get("text_muted", "#484f58")}",
-        shadow = "{hex_to_hypr_rgba(c.get("shadow", "#010409"))}",
+        bg_main = "{bg_main}",
+        bg_card = "{bg_card}",
+        bg_hover = "{bg_hover}",
+        border = "{hypr_rgba(border_color)}",
+        accent_blue = "{hypr_rgba(accent_blue)}",
+        accent_purple = "{hypr_rgba(accent_purple)}",
+        accent_green = "{hypr_rgba(accent_green)}",
+        warning = "{hypr_rgba(warning)}",
+        critical = "{hypr_rgba(critical)}",
+        text_main = "{text_main}",
+        text_dim = "{text_dim}",
+        text_muted = "{c["text_muted"]}",
+        shadow = "{hypr_rgba(c["shadow"])}",
     }},
 }}
 """
-    r1 = safe_write(config_dir / "hypr" / "ui.lua", lua_content, check_mode)
+    write(CONFIG_DIR / "hypr" / "ui.lua", lua_content)
 
-    r_text, g_text, b_text = hex_to_rgb(c.get("text_main", "#c9d1d9"))
-    r_card, g_card, b_card = hex_to_rgb(c.get("bg_card", "#161b22"))
+    r_text, g_text, b_text = hex_to_rgb(text_main)
+    r_card, g_card, b_card = hex_to_rgb(bg_card)
     conf_content = f"""# Auto-generated by apply-ui. DO NOT EDIT DIRECTLY.
 # Modify ~/.config/ui/ui.toml and run 'apply-ui'.
 
-$font = {fnt.get("family", "JetBrainsMono Nerd Font Propo")}
+$font = {fnt["family"]}
 $rounding = {r_win}
 $rounding_power = {r_power}
 $outline_thickness = {b_size}
 
-$accent_blue = {hex_to_hypr_rgba(c.get("accent_blue", "#58a6ff"))}
-$accent_purple = {hex_to_hypr_rgba(c.get("accent_purple", "#bc8cff"))}
-$accent_green = {hex_to_hypr_rgba(c.get("accent_green", "#3fb950"))}
-$warning = {hex_to_hypr_rgba(c.get("warning", "#d29922"))}
-$critical = {hex_to_hypr_rgba(c.get("critical", "#f85149"))}
+$accent_blue = {hypr_rgba(accent_blue)}
+$accent_purple = {hypr_rgba(accent_purple)}
+$accent_green = {hypr_rgba(accent_green)}
+$warning = {hypr_rgba(warning)}
+$critical = {hypr_rgba(critical)}
 $text_main = rgb({r_text}, {g_text}, {b_text})
 $inner_color = rgba({r_card}, {g_card}, {b_card}, 0.65)
 
-$hyprlock_blur_size = {hl_lock.get("blur_size", 8)}
-$hyprlock_blur_passes = {hl_lock.get("blur_passes", 3)}
-$hyprlock_noise = {hl_lock.get("noise", 0.0117)}
-$hyprlock_contrast = {hl_lock.get("contrast", 1.0)}
-$hyprlock_brightness = {hl_lock.get("brightness", 0.55)}
-$hyprlock_vibrancy = {hl_lock.get("vibrancy", 0.2)}
-$hyprlock_vibrancy_darkness = {hl_lock.get("vibrancy_darkness", 0.0)}
+$hyprlock_blur_size = {hl_lock["blur_size"]}
+$hyprlock_blur_passes = {hl_lock["blur_passes"]}
+$hyprlock_noise = {hl_lock["noise"]}
+$hyprlock_contrast = {hl_lock["contrast"]}
+$hyprlock_brightness = {hl_lock["brightness"]}
+$hyprlock_vibrancy = {hl_lock["vibrancy"]}
+$hyprlock_vibrancy_darkness = {hl_lock["vibrancy_darkness"]}
 """
-    r2 = safe_write(config_dir / "hypr" / "ui.conf", conf_content, check_mode)
+    write(CONFIG_DIR / "hypr" / "ui.conf", conf_content)
 
-    bg_main = c.get("bg_main", "#0d1117")
-    bg_card = c.get("bg_card", "#161b22")
-    bg_hover = c.get("bg_hover", "#21262d")
-    accent_blue = c.get("accent_blue", "#58a6ff")
-    accent_purple = c.get("accent_purple", "#bc8cff")
-    accent_green = c.get("accent_green", "#3fb950")
-    warning = c.get("warning", "#d29922")
-    critical = c.get("critical", "#f85149")
-    border_color = c.get("border", "#30363d")
-    text_main = c.get("text_main", "#c9d1d9")
-    text_dim = c.get("text_dim", "#8b949e")
-    fzf_theme = f"bg+:{bg_hover},bg:{bg_main},fg:{text_main},hl:{accent_blue},fg+:{text_main},hl+:{accent_blue},header:{accent_blue},info:{text_dim},pointer:{accent_blue},marker:{accent_green},prompt:{accent_blue},spinner:{accent_blue},border:{border_color}"
-
+    fzf_theme = (
+        f"bg+:{bg_hover},bg:{bg_main},fg:{text_main},hl:{accent_blue},fg+:{text_main},"
+        f"hl+:{accent_blue},header:{accent_blue},info:{text_dim},pointer:{accent_blue},"
+        f"marker:{accent_green},prompt:{accent_blue},spinner:{accent_blue},border:{border_color}"
+    )
     slurp_args = f'-d -b "{bg_main}b0" -c "{accent_blue}" -s "{accent_blue}20" -w {b_size} -B "#00000000"'
     ui_sh = f"""# Auto-generated by apply-ui. DO NOT EDIT DIRECTLY.
 # Modify ~/.config/ui/ui.toml and run 'apply-ui'.
@@ -262,8 +141,8 @@ $hyprlock_vibrancy_darkness = {hl_lock.get("vibrancy_darkness", 0.0)}
 # before adding more).
 
 export UI_ACCENT_GREEN="{accent_green}"
-export UI_WARNING="{c.get("warning", "#d29922")}"
-export UI_CRITICAL="{c.get("critical", "#f85149")}"
+export UI_WARNING="{warning}"
+export UI_CRITICAL="{critical}"
 export UI_TEXT_MAIN="{text_main}"
 
 # Sourced, not exported: arrays cannot be exported.
@@ -271,16 +150,11 @@ export UI_TEXT_MAIN="{text_main}"
 SLURP_ARGS=({slurp_args})
 export UI_FZF_THEME="{fzf_theme}"
 """
-    r5 = safe_write(config_dir / "ui" / "ui.sh", ui_sh, check_mode)
+    write(CONFIG_DIR / "ui" / "ui.sh", ui_sh)
 
-    ly_in_sync = True
-    ly_startup_in_sync = True
-    ly_config = config_dir / "ly" / "config.ini"
-    ly_glyph = ly.get("matrix_fg", accent_blue)
-    ly_frame_delay = ly.get("frame_delay", 5)
-    ly_truecolor = bool(ly.get("full_color", True))
-    ly_full_color = "true" if ly_truecolor else "false"
-    def _ly_idx(base, bright=False, bold=False):
+    ly_glyph = ly["matrix_fg"]
+
+    def ly_idx(base, bright=False, bold=False):
         v = base & 0x0F
         if bold:
             v |= 0x01000000
@@ -288,102 +162,41 @@ export UI_FZF_THEME="{fzf_theme}"
             v |= 0x40000000
         return f"0x{v:08x}"
 
-    _ly_spec = (
-        ("bg", hex_to_ly(bg_main), (1, False, False)),
-        ("border_fg", hex_to_ly(border_color), (1, True, False)),
-        ("fg", hex_to_ly(text_main), (8, False, False)),
-        ("error_fg", hex_to_ly(c.get("critical", "#f85149"), style="01"), (2, True, True)),
-        ("colormix_col1", hex_to_ly(bg_main), (1, False, False)),
-        ("colormix_col2", hex_to_ly(accent_blue), (5, True, False)),
-        ("colormix_col3", hex_to_ly(c.get("accent_purple", "#bc8cff")), (6, True, False)),
-        ("doom_top_color", hex_to_ly(ly.get("tty_purple_dark", "#8957e5")), (6, False, False)),
-        ("doom_middle_color", hex_to_ly(accent_blue), (5, True, False)),
-        ("doom_bottom_color", hex_to_ly(text_main), (8, False, False)),
-        ("cmatrix_fg", hex_to_ly(ly_glyph), (5, False, False)),
-        ("cmatrix_head_col", hex_to_ly(text_main, style="01"), (8, False, True)),
-        ("gameoflife_fg", hex_to_ly(ly_glyph), (5, False, False)),
+    ly_spec = (
+        ("bg", ly_color(bg_main), (1, False, False)),
+        ("border_fg", ly_color(border_color), (1, True, False)),
+        ("fg", ly_color(text_main), (8, False, False)),
+        ("error_fg", ly_color(critical, style="01"), (2, True, True)),
+        ("colormix_col1", ly_color(bg_main), (1, False, False)),
+        ("colormix_col2", ly_color(accent_blue), (5, True, False)),
+        ("colormix_col3", ly_color(accent_purple), (6, True, False)),
+        ("doom_top_color", ly_color(ly["tty_purple_dark"]), (6, False, False)),
+        ("doom_middle_color", ly_color(accent_blue), (5, True, False)),
+        ("doom_bottom_color", ly_color(text_main), (8, False, False)),
+        ("cmatrix_fg", ly_color(ly_glyph), (5, False, False)),
+        ("cmatrix_head_col", ly_color(text_main, style="01"), (8, False, True)),
+        ("gameoflife_fg", ly_color(ly_glyph), (5, False, False)),
     )
-    if ly_truecolor:
-        _ly_colors = {k: true for k, true, _idx in _ly_spec}
-    else:
-        _ly_colors = {k: _ly_idx(*idx) for k, _true, idx in _ly_spec}
-    if not ly_config.exists():
-        _ly_template = Path.home() / ".files" / "archlinux" / ".config" / "ly" / "config.ini"
-        if not check_mode and _ly_template.is_file():
-            try:
-                _ly_dest = ly_config.resolve(strict=False) if (ly_config.is_symlink() or ly_config.exists()) else ly_config
-                if _ly_dest.resolve(strict=False) != _ly_template.resolve(strict=False):
-                    _ly_dest.parent.mkdir(parents=True, exist_ok=True)
-                    _ly_dest.write_text(_ly_template.read_text())
-                    print(f"  \033[32m✓\033[0m Seeded Ly config from: {_ly_template}")
-            except OSError as exc:
-                raise SystemExit(f"\033[31m[ERROR]\033[0m cannot seed {ly_config}: {exc}") from exc
-    if ly_config.exists():
-        target = ly_config.resolve()
-        txt = target.read_text()
-        new_txt = txt
-        new_txt = re.sub(
-            r"^(animation_frame_delay\s*=\s*)\d+",
-            rf"\g<1>{ly_frame_delay}",
-            new_txt,
-            flags=re.MULTILINE,
-        )
-        new_txt = re.sub(
-            r"^(full_color\s*=\s*).*$",
-            rf"\g<1>{ly_full_color}",
-            new_txt,
-            flags=re.MULTILINE,
-        )
-        for key, value in _ly_colors.items():
-            new_txt = re.sub(
-                rf"^({key}\s*=\s*).*$",
-                rf"\g<1>{value}",
-                new_txt,
-                flags=re.MULTILINE,
-            )
-        if check_mode:
-            if txt != new_txt:
-                print(f"  \033[31m✗\033[0m Out of sync with ui.toml: {target}")
-                ly_in_sync = False
-            else:
-                print(f"  \033[32m✓\033[0m In sync: {target}")
-        else:
-            if txt != new_txt:
-                target.write_text(new_txt)
-                print(f"  \033[32m✓\033[0m Updated Ly colors in: {target}")
-    else:
-        ly_in_sync = False
-        print(f"  \033[31m✗\033[0m Missing file: {ly_config}")
-        if not check_mode:
-            raise SystemExit(
-                f"\033[31m[ERROR]\033[0m {ly_config} not found and no repo template to seed from. "
-                "Stow the archlinux package or create the file, then re-run 'apply-ui'."
-            )
+    ly_settings = {
+        "animation_frame_delay": ly["frame_delay"],
+        "full_color": "true" if ly["full_color"] else "false",
+        **{k: (true if ly["full_color"] else ly_idx(*idx)) for k, true, idx in ly_spec},
+    }
+    ly_config = CONFIG_DIR / "ly" / "config.ini"
+    txt = ly_config.read_text()
+    new_txt = txt
+    for key, value in ly_settings.items():
+        new_txt = re.sub(rf"^({key}\s*=\s*).*$", rf"\g<1>{value}", new_txt, flags=re.MULTILINE)
+    if new_txt != txt:
+        ly_config.write_text(new_txt)
+        print(f"  \033[32m✓\033[0m Updated Ly colors in: {ly_config}")
 
-    def _vt(hex_str):
-        return hex_str.strip().lstrip("#").lower()
-
-    _tty = [
-        bg_main,
-        c.get("critical", "#f85149"),
-        c.get("accent_green", "#3fb950"),
-        c.get("warning", "#d29922"),
-        ly_glyph,
-        ly.get("tty_purple_dark", "#8957e5"),
-        accent_blue,
-        text_main,
-        border_color,
-        c.get("critical", "#f85149"),
-        c.get("accent_green", "#3fb950"),
-        c.get("warning", "#d29922"),
-        accent_blue,
-        c.get("accent_purple", "#bc8cff"),
-        ly.get("tty_cyan_bright", "#79c0ff"),
-        ly.get("tty_white", "#f0f6fc"),
+    tty = [
+        bg_main, critical, accent_green, warning, ly_glyph, ly["tty_purple_dark"], accent_blue, text_main,
+        border_color, critical, accent_green, warning, accent_blue, accent_purple,
+        ly["tty_cyan_bright"], ly["tty_white"],
     ]
-    _palette_lines = "\n".join(
-        f"    printf '\\033]P{X:X}{_vt(col)}'" for X, col in enumerate(_tty)
-    )
+    palette_lines = "\n".join(f"    printf '\\033]P{i:X}{col.lstrip('#').lower()}'" for i, col in enumerate(tty))
     ly_startup = f"""#!/bin/sh
 # Auto-generated by apply-ui. DO NOT EDIT DIRECTLY.
 # Modify ~/.config/ui/ui.toml ([colors], [ly]) and run 'apply-ui'.
@@ -392,27 +205,13 @@ export UI_FZF_THEME="{fzf_theme}"
 # Executed by ly via start_cmd before the TTY is taken over.
 set -eu
 if [ "${{TERM:-linux}}" = "linux" ]; then
-{_palette_lines}
+{palette_lines}
     clear # fix background artifacting after palette change
 fi
 """
-    _startup_path = config_dir / "ly" / "startup.sh"
-    if check_mode:
-        _resolved = _startup_path.resolve() if _startup_path.exists() or _startup_path.is_symlink() else _startup_path
-        if (
-            not _resolved.exists()
-            or _resolved.read_text() != ly_startup
-            or not os.access(_resolved, os.X_OK)
-        ):
-            print(f"  \033[31m✗\033[0m Out of sync with ui.toml: {_resolved}")
-            ly_startup_in_sync = False
-        else:
-            print(f"  \033[32m✓\033[0m In sync: {_resolved}")
-    else:
-        if safe_write(_startup_path, ly_startup, check_mode):
-            _resolved = _startup_path.resolve()
-            _resolved.chmod(0o755)
-            print(f"  \033[32m✓\033[0m Made executable: {_resolved}")
+    startup_path = CONFIG_DIR / "ly" / "startup.sh"
+    write(startup_path, ly_startup)
+    startup_path.chmod(0o755)
 
     yazi_theme = f"""# Auto-generated by apply-ui. DO NOT EDIT DIRECTLY.
 # Modify ~/.config/ui/ui.toml ([colors]) and run 'apply-ui'.
@@ -522,7 +321,7 @@ rules = [
 	{{ url = "*/", fg = "{accent_blue}", bold = true }},
 ]
 """
-    r6 = safe_write(config_dir / "yazi" / "theme.toml", yazi_theme, check_mode)
+    write(CONFIG_DIR / "yazi" / "theme.toml", yazi_theme)
 
     qs_theme = f"""// Auto-generated by apply-ui. DO NOT EDIT DIRECTLY.
 // Modify ~/.config/ui/ui.toml and run 'apply-ui'.
@@ -533,112 +332,104 @@ import QtQuick
 Singleton {{
 	id: theme
 
-	readonly property string bgMain: "{c.get("bg_main", "#0d1117")}"
-	readonly property string bgCard: "{c.get("bg_card", "#161b22")}"
-	readonly property string bgHover: "{c.get("bg_hover", "#21262d")}"
-	readonly property string border: "{c.get("border", "#30363d")}"
-	readonly property string accentBlue: "{c.get("accent_blue", "#58a6ff")}"
-	readonly property string accentPurple: "{c.get("accent_purple", "#bc8cff")}"
-	readonly property string accentGreen: "{c.get("accent_green", "#3fb950")}"
-	readonly property string warning: "{c.get("warning", "#d29922")}"
-	readonly property string critical: "{c.get("critical", "#f85149")}"
-	readonly property string textMain: "{c.get("text_main", "#c9d1d9")}"
-	readonly property string textDim: "{c.get("text_dim", "#8b949e")}"
-	readonly property string textMuted: "{c.get("text_muted", "#484f58")}"
-	readonly property string shadow: "{c.get("shadow", "#010409")}"
+	readonly property string bgMain: "{bg_main}"
+	readonly property string bgCard: "{bg_card}"
+	readonly property string bgHover: "{bg_hover}"
+	readonly property string border: "{border_color}"
+	readonly property string accentBlue: "{accent_blue}"
+	readonly property string accentPurple: "{accent_purple}"
+	readonly property string accentGreen: "{accent_green}"
+	readonly property string warning: "{warning}"
+	readonly property string critical: "{critical}"
+	readonly property string textMain: "{text_main}"
+	readonly property string textDim: "{text_dim}"
+	readonly property string textMuted: "{c["text_muted"]}"
+	readonly property string shadow: "{c["shadow"]}"
 
 	// Color-coerced aliases + derived overlays (strings have no .r/.g/.b).
 	readonly property color bgCardColor: bgCard
 	readonly property color barStripColor: Qt.rgba(bgCardColor.r, bgCardColor.g, bgCardColor.b, 0.85)
 	readonly property color overlayColor: Qt.rgba(bgCardColor.r, bgCardColor.g, bgCardColor.b, 0.94)
-	readonly property real backdropDim: {o.get("dim_special", 0.20)}
+	readonly property real backdropDim: {o["dim_special"]}
 	readonly property color backdropColor: Qt.rgba(0, 0, 0, backdropDim)
 
 	readonly property int borderSize: {b_size}
 	readonly property int roundingWindow: {r_win}
 	readonly property int roundingElement: {r_elem}
 	readonly property int roundingSubtle: {r_subtle}
-	readonly property int paddingCard: {int(p.get("menu_card", 16))}
-	readonly property int paddingItem: {int(p.get("menu_item", 8))}
-	readonly property int windowWidth: {launcher.get("width", 960)}
-	readonly property int windowHeight: {launcher.get("height", 600)}
+	readonly property int paddingCard: {p["menu_card"]}
+	readonly property int paddingItem: {p["menu_item"]}
+	readonly property int windowWidth: {launcher["width"]}
+	readonly property int windowHeight: {launcher["height"]}
 
-	readonly property string fontFamily: "{lua_escape(fnt.get("family", "JetBrainsMono Nerd Font Propo"))}"
-	readonly property string fontMono: "{lua_escape(fnt.get("mono", "JetBrainsMono Nerd Font Mono"))}"
-	readonly property int fontSize: {fnt.get("size_notif", 17)}
-	readonly property int fontSizeSmall: {fnt.get("size_menu", 14)}
-	readonly property int fontSizeGrid: {fnt.get("size_grid", 13)}
-	readonly property int fontSizeSearch: {fnt.get("size_search", fnt.get("size_bar", 15))}
-	readonly property int fontSizeBar: {fnt.get("size_bar", 15)}
-	readonly property int fontSizeBarIcon: {int(fnt.get("size_bar_icon", 18))}
+	readonly property string fontFamily: "{fnt["family"]}"
+	readonly property string fontMono: "{fnt["mono"]}"
+	readonly property int fontSize: {fnt["size_notif"]}
+	readonly property int fontSizeSmall: {fnt["size_menu"]}
+	readonly property int fontSizeGrid: {fnt["size_grid"]}
+	readonly property int fontSizeSearch: {fnt["size_search"]}
+	readonly property int fontSizeBar: {fnt["size_bar"]}
+	readonly property int fontSizeBarIcon: {fnt["size_bar_icon"]}
 
 	// Bar geometry: a single translucent strip with hover-highlighted modules.
-	readonly property int barHeight: {s.get("bar_height", 30)}
-	readonly property int barMarginX: {s.get("bar_margin_x", 20)}
-	readonly property int barMarginY: {s.get("bar_margin_y", 4)}
-	readonly property int barSpacing: {s.get("bar_spacing", 8)}
-	readonly property int barPad: {int(p.get("bar_pad", 10))}
+	readonly property int barHeight: {s["bar_height"]}
+	readonly property int barMarginX: {s["bar_margin_x"]}
+	readonly property int barMarginY: {s["bar_margin_y"]}
+	readonly property int barSpacing: {s["bar_spacing"]}
+	readonly property int barPad: {p["bar_pad"]}
 
 	// Notification surfaces: top-right panel below the bar.
-	readonly property int notifWidth: {notif.get("width", 500)}
-	readonly property int notifTopMargin: {notif.get("top_margin", 54)}
-	readonly property int notifRightMargin: {s.get("gaps_out", 20)}
-	readonly property int notifPadV: {int(p.get("notif_pad_v", 8))}
-	readonly property int notifPadH: {int(p.get("notif_pad_h", 12))}
+	readonly property int notifWidth: {notif["width"]}
+	readonly property int notifTopMargin: {notif["top_margin"]}
+	readonly property int notifRightMargin: {s["gaps_out"]}
+	readonly property int notifPadV: {p["notif_pad_v"]}
+	readonly property int notifPadH: {p["notif_pad_h"]}
 
 	readonly property color accent: accentBlue
+	function alpha(c, a) {{
+		var q = Qt.color(c);
+		return Qt.rgba(q.r, q.g, q.b, a);
+	}}
 	readonly property color selectionBg: Qt.rgba(accent.r, accent.g, accent.b, 0.12)
 	readonly property color selectionBorder: Qt.rgba(accent.r, accent.g, accent.b, 0.45)
 
 	// Animation durations & physics matching Hyprland curves.
-	readonly property int animFast: {anim.get("duration_fast", 150)}
-	readonly property int animNormal: {anim.get("duration_normal", 250)}
-	readonly property int animSmooth: {anim.get("duration_smooth", 280)}
-	readonly property int flickDecel: {anim.get("flick_deceleration", 1500)}
-	readonly property int maxFlickVel: {anim.get("max_flick_velocity", 6000)}
+	readonly property int animFast: {anim["duration_fast"]}
+	readonly property int animNormal: {anim["duration_normal"]}
+	readonly property int animSmooth: {anim["duration_smooth"]}
+	readonly property int flickDecel: {anim["flick_deceleration"]}
+	readonly property int maxFlickVel: {anim["max_flick_velocity"]}
 
 	// Cubic bezier control points matching Hyprland:
-	// myBezier = { { 0.05, 0.9 }, { 0.1, 1.05 } } (popin with subtle 1.05 bounce)
+	// myBezier = {{ {{ 0.05, 0.9 }}, {{ 0.1, 1.05 }} }} (popin with subtle 1.05 bounce)
 	readonly property var myBezier: [ 0.05, 0.9, 0.1, 1.05, 1.0, 1.0 ]
-	// easeOutQuint = { { 0.23, 1 }, { 0.32, 1 } }
+	// easeOutQuint = {{ {{ 0.23, 1 }}, {{ 0.32, 1 }} }}
 	readonly property var easeOutQuint: [ 0.23, 1.0, 0.32, 1.0, 1.0, 1.0 ]
 }}
 
 """
-    r7 = safe_write(config_dir / "quickshell" / "Theme.qml", qs_theme, check_mode)
+    write(CONFIG_DIR / "quickshell" / "Theme.qml", qs_theme)
 
-    if check_mode:
-        all_ok = all([r1, r2, r5, r6, r7, ly_in_sync, ly_startup_in_sync])
-        if all_ok:
-            print("\033[32m[OK]\033[0m All UI configuration files are up to date with ui.toml.")
-            sys.exit(0)
-        else:
-            print("\033[31m[FAIL]\033[0m Some generated UI files are missing or out of date. Run 'apply-ui' to regenerate.")
-            sys.exit(1)
+    if "--no-reload" in sys.argv:
+        return
 
-    print("\033[32m[OK]\033[0m All UI configuration files generated successfully.")
+    print("\033[34m[INFO]\033[0m Reloading running UI components...")
+    if subprocess.run(["pgrep", "-x", "Hyprland"], capture_output=True).returncode == 0:
+        subprocess.run(["hyprctl", "reload"], capture_output=True)
+        subprocess.run([str(Path.home() / ".local/bin/power-save"), "--reapply"], capture_output=True)
+        print("  \033[32m✓\033[0m Hyprland reloaded")
 
-    if reload_apps:
-        print("\033[34m[INFO]\033[0m Reloading running UI components...")
+    gsettings = {
+        "cursor-theme": thm["cursor"],
+        "icon-theme": thm["icon"],
+        "font-name": fnt["ui"],
+        "gtk-theme": thm["gtk"],
+        "monospace-font-name": f"{fnt['mono']} 12",
+    }
+    for key, value in gsettings.items():
+        subprocess.run(["gsettings", "set", "org.gnome.desktop.interface", key, value], capture_output=True)
+    print("  \033[32m✓\033[0m GNOME/GTK settings updated")
 
-        res = subprocess.run(["pgrep", "-x", "Hyprland"], capture_output=True)
-        if res.returncode == 0:
-            subprocess.run(["hyprctl", "reload"], capture_output=True)
-            subprocess.run([str(Path.home() / ".local/bin/power-save"), "--reapply"], capture_output=True)
-            print("  \033[32m✓\033[0m Hyprland reloaded")
-
-        cursor = thm.get("cursor", "Bibata-Modern-Classic")
-        icon = thm.get("icon", "Papirus-Dark")
-        ui_font = fnt.get("ui", "Adwaita Sans 12")
-        mono_font = f"{fnt.get('mono', 'JetBrainsMono Nerd Font Mono')} 12"
-        gtk_theme = thm.get("gtk", "Adwaita-dark")
-
-        subprocess.run(["gsettings", "set", "org.gnome.desktop.interface", "cursor-theme", cursor], capture_output=True)
-        subprocess.run(["gsettings", "set", "org.gnome.desktop.interface", "icon-theme", icon], capture_output=True)
-        subprocess.run(["gsettings", "set", "org.gnome.desktop.interface", "font-name", ui_font], capture_output=True)
-        subprocess.run(["gsettings", "set", "org.gnome.desktop.interface", "gtk-theme", gtk_theme], capture_output=True)
-        subprocess.run(["gsettings", "set", "org.gnome.desktop.interface", "monospace-font-name", mono_font], capture_output=True)
-        print("  \033[32m✓\033[0m GNOME/GTK settings updated")
 
 if __name__ == "__main__":
     main()

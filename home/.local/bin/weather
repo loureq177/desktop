@@ -1,139 +1,20 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-LOC_FILE="${XDG_STATE_HOME:-$HOME/.local/state}/weather/weather.json"
-
-_resolve_coords() {
-    local file="" lat="" lon="" city="" ip_data="" _loc=""
-    if [[ -s "$LOC_FILE" ]]; then
-        file="$LOC_FILE"
-    fi
-    if [[ -n "$file" ]]; then
-        city=$(jq -r '.name // ""' "$file" 2>/dev/null || true)
-        lat=$(jq -r '.latitude // ""' "$file" 2>/dev/null || true)
-        lon=$(jq -r '.longitude // ""' "$file" 2>/dev/null || true)
-    fi
-    if [[ -z "$lat" || -z "$lon" || "$lat" == "null" || "$lon" == "null" ]]; then
-        ip_data=$(curl -fsS --max-time 3 "https://ipapi.co/json/" 2>/dev/null || true)
-        if [[ -n "$ip_data" ]]; then
-            lat=$(echo "$ip_data" | jq -r '.latitude // .lat // ""' 2>/dev/null || true)
-            lon=$(echo "$ip_data" | jq -r '.longitude // .lon // ""' 2>/dev/null || true)
-            [[ -z "$city" ]] && city=$(echo "$ip_data" | jq -r '.city // ""' 2>/dev/null || true)
-        fi
-        if [[ -z "$lat" || -z "$lon" || "$lat" == "null" || "$lon" == "null" ]]; then
-            ip_data=$(curl -fsS --max-time 3 "https://ipinfo.io/json" 2>/dev/null || true)
-            if [[ -n "$ip_data" ]]; then
-                _loc=$(echo "$ip_data" | jq -r '.loc // ""' 2>/dev/null || true)
-                if [[ -n "$_loc" && "$_loc" == *,* ]]; then
-                    lat="${_loc%,*}"
-                    lon="${_loc#*,}"
-                else
-                    lat=$(echo "$ip_data" | jq -r '.latitude // .lat // ""' 2>/dev/null || true)
-                    lon=$(echo "$ip_data" | jq -r '.longitude // .lon // ""' 2>/dev/null || true)
-                fi
-                [[ -z "$city" ]] && city=$(echo "$ip_data" | jq -r '.city // ""' 2>/dev/null || true)
-            fi
-        fi
-    fi
-    if [[ -z "$lat" || -z "$lon" || "$lat" == "null" || "$lon" == "null" ]]; then
-        return 1
-    fi
-    printf '%s %s %s\n' "$lat" "$lon" "$city"
-}
-
-_fetch_current() {
-    curl -fsS --max-time 4 "https://api.open-meteo.com/v1/forecast?latitude=${1}&longitude=${2}&current=temperature_2m,wind_speed_10m,weather_code,is_day&timezone=auto" 2>/dev/null || true
-}
-
-_fallback_status() {
-    local resolved="" lat="" lon="" city="" weather_json="" temp="" wind=""
-    resolved=$(_resolve_coords) || { echo "Weather unavailable"; return 1; }
-    lat="${resolved%% *}"
-    lon="${resolved#* }"; lon="${lon%% *}"; city="${resolved#* * }"
-    [[ -z "$city" ]] && city="Weather"
-    weather_json=$(_fetch_current "$lat" "$lon")
-    if [[ -z "$weather_json" ]]; then
-        echo "Weather unavailable"
-        return 1
-    fi
-    temp=$(echo "$weather_json" | jq -r '.current.temperature_2m | round' 2>/dev/null || true)
-    wind=$(echo "$weather_json" | jq -r '.current.wind_speed_10m | round' 2>/dev/null || true)
-    if [[ -z "$temp" || "$temp" == "null" ]]; then
-        echo "Weather unavailable"
-        return 1
-    fi
-    echo "$city  ·  Temp ${temp}°C  ·  Wind ${wind} km/h"
-}
-
-_fallback_icon() {
-    local resolved="" lat="" lon="" weather_json="" code="" is_day="" icon=""
-    resolved=$(_resolve_coords) || return 1
-    lat="${resolved%% *}"
-    lon="${resolved#* }"; lon="${lon%% *}"
-    weather_json=$(_fetch_current "$lat" "$lon")
-    [[ -n "$weather_json" ]] || return 1
-    code=$(echo "$weather_json" | jq -r '.current.weather_code // 0')
-    is_day=$(echo "$weather_json" | jq -r '.current.is_day // 1')
-    case "$code" in
-
-    0) (( is_day == 1 )) && icon="" || icon="" ;;
-    1|2) (( is_day == 1 )) && icon="" || icon="" ;;
-    3) icon="" ;;
-    45|48) (( is_day == 1 )) && icon="" || icon="" ;;
-    51|53|55|61|63|65) icon="" ;;
-    56|57|66|67) icon="" ;;
-    71|73|75|77) icon="" ;;
-    80|81|82) (( is_day == 1 )) && icon="" || icon="" ;;
-    85|86) (( is_day == 1 )) && icon="" || icon="" ;;
-    95|96|99) icon="" ;;
-    *) (( is_day == 1 )) && icon="" || icon="" ;;
-    esac
-    printf '%s\n' "$icon"
-}
-
-cmd="${1:-status}"
-shift || true
-
-case "$cmd" in
-status)
-    stat=$(qs ipc call weather status 2>/dev/null || true)
-    if [[ -n "$stat" && "$stat" != "null" && "$stat" != "Weather unavailable" ]]; then
-        echo "$stat"
-    else
-        _fallback_status
-    fi
-    ;;
-toggle)
-    qs ipc call weather toggle >/dev/null 2>&1 || true
-    ;;
-open)
-    qs ipc call weather open >/dev/null 2>&1 || true
-    ;;
-close)
-    qs ipc call weather close >/dev/null 2>&1 || true
-    ;;
-refresh)
-    qs ipc call weather refresh >/dev/null 2>&1 || true
-    ;;
-icon)
-    ico=$(qs ipc call weather icon 2>/dev/null || true)
-    if [[ -n "$ico" && "$ico" != "null" && "$ico" != '""' ]]; then
-        ico="${ico%\"}"
-        ico="${ico#\"}"
-        echo "$ico"
-    else
-        _fallback_icon
-    fi
-    ;;
+case "${1:-status}" in
+status) qs ipc call weather status ;;
+toggle | open | close | refresh) qs ipc call weather "$1" ;;
+icon) qs ipc call weather icon | tr -d '"' ;;
 notify)
-    stat=$(weather status 2>/dev/null || true)
-    if [[ -n "$stat" && "$stat" != "Weather unavailable" ]]; then
+    stat=$(qs ipc call weather status || true)
+    if [[ -n "$stat" && "$stat" != "null" && "$stat" != "Weather unavailable" ]]; then
         notify-send -u low --app-name "Weather" -i "weather-clear" "Weather" "$stat"
     else
         notify-send -u low --app-name "Weather" -i "dialog-warning" "Weather" "Weather information unavailable."
     fi
     ;;
 location)
+    shift
     weather-location "$@"
     ;;
 *)

@@ -1,20 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-UI_SH="${XDG_CONFIG_HOME:-$HOME/.config}/ui/ui.sh"
-if [[ -f "$UI_SH" ]]; then
-    source "$UI_SH"
-fi
-SLURP_OPTS=(-d -b "#0d1117b0" -c "#58a6ff" -s "#58a6ff20" -w 2 -B "#00000000")
-if [[ -v SLURP_ARGS[@] ]]; then
-    SLURP_OPTS=("${SLURP_ARGS[@]}")
-fi
-
-LOCKFILE="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/screenshot_slurp.lock"
-exec 200>"$LOCKFILE"
-flock -n 200 || exit 0
-
-play_sound() { canberra-gtk-play -i "$1" >/dev/null 2>&1 || true; }
+source "$HOME/.local/lib/dotfiles/capture.sh"
+single_instance screenshot_slurp
 
 DIR="$HOME/Pictures/Screenshots"
 mkdir -p "$DIR"
@@ -28,44 +16,15 @@ if [[ -e "$FILE" ]]; then
     FILE="$BASE-$n.png"
 fi
 
-HYPRPICKER_PID=""
-cleanup() {
-    [ -n "$HYPRPICKER_PID" ] && kill "$HYPRPICKER_PID" 2>/dev/null || true
-}
-trap cleanup EXIT
+trap stop_picker EXIT
 
 if [ "${1:-region}" = "region" ]; then
-    WINDOW_RECTS=$(
-        jq -r --argjson mons "$(timeout 5 hyprctl monitors -j 2>/dev/null || echo "[]")" '
-          [ $mons[]? | (if .specialWorkspace.id != 0 then .specialWorkspace.id else .activeWorkspace.id end) ] as $ws |
-          [ .[]? | select(.fullscreen != 0) | .workspace.id ] as $fs_ws |
-          .[]? | select(
-            .mapped and (.hidden | not) and
-            (.workspace.id as $w | $ws | index($w)) and
-            ((.workspace.id as $w | $fs_ws | index($w) | not) or .fullscreen != 0 or .floating)
-          ) |
-          "\(.at[0]),\(.at[1]) \(.size[0])x\(.size[1])"
-        ' <<<"$(timeout 5 hyprctl clients -j 2>/dev/null || echo "[]")" 2>/dev/null || true
-    )
-
-    hyprpicker -r -z &
-    HYPRPICKER_PID=$!
-    sleep 0.2
-    if [[ -n "$WINDOW_RECTS" ]]; then
-        GEOM=$(printf "%s\n" "$WINDOW_RECTS" | slurp "${SLURP_OPTS[@]}") || exit 0
-    else
-        GEOM=$(slurp "${SLURP_OPTS[@]}") || exit 0
-    fi
-    kill "$HYPRPICKER_PID" 2>/dev/null || true
-    HYPRPICKER_PID=""
-
-    if [[ -z "$GEOM" || "$GEOM" =~ [[:space:]]1x1$ ]]; then
-        exit 0
-    fi
+    pick_region --freeze --windows || exit 0
+    is_click "$GEOM" && exit 0
 
     timeout 5 grim -g "$GEOM" "$FILE"
 elif [ "${1:-}" = "window" ]; then
-    GEOM=$(timeout 5 hyprctl activewindow -j 2>/dev/null | jq -r 'select(.at != null and .size != null) | "\(.at[0]),\(.at[1]) \(.size[0])x\(.size[1])"' 2>/dev/null || true)
+    GEOM=$(active_window_geom)
     if [[ -z "${GEOM:-}" || "$GEOM" == "null" ]]; then
         play_sound dialog-warning
         notify-send --app-name "Screenshot" -t 3000 --icon "dialog-warning" "No Window Found" "Unable to detect active window geometry."
@@ -73,7 +32,7 @@ elif [ "${1:-}" = "window" ]; then
     fi
     timeout 5 grim -g "$GEOM" "$FILE"
 elif [ "${1:-}" = "fullscreen" ] || [ "${1:-}" = "output" ] || [ "${1:-}" = "full" ]; then
-    FOCUSED_OUTPUT=$(timeout 5 hyprctl monitors -j 2>/dev/null | jq -r '.[] | select(.focused) | .name' 2>/dev/null || true)
+    FOCUSED_OUTPUT=$(focused_output)
     if [[ -n "${FOCUSED_OUTPUT:-}" ]]; then
         timeout 5 grim -o "$FOCUSED_OUTPUT" "$FILE" || timeout 5 grim "$FILE"
     else

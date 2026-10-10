@@ -1,300 +1,165 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-action="toggle"
+action=toggle
 with_brightness=true
-
 for arg in "$@"; do
-    case "$arg" in
-    --status|status)
-        action="status"
-        ;;
-    --enable|enable)
-        action="enable"
-        ;;
-    --disable|disable)
-        action="disable"
-        ;;
-    --toggle|toggle)
-        action="toggle"
-        ;;
-    --reapply|reapply)
-        action="reapply"
-        ;;
-    --no-brightness)
-        with_brightness=false
-        ;;
-    *)
-        ;;
+    case "${arg#--}" in
+    status | enable | disable | toggle | reapply) action="${arg#--}" ;;
+    no-brightness) with_brightness=false ;;
     esac
 done
+command -v brightnessctl >/dev/null || with_brightness=false
 
-if [[ "$action" != "status" ]]; then
-    LOCK_FILE="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/powersave.lock"
-    exec 201>"$LOCK_FILE"
-    if ! flock -w 2 201; then
-        exit 0
-    fi
+if [[ "$action" != status ]]; then
+    exec 201>"$XDG_RUNTIME_DIR/powersave.lock"
+    flock -w 2 201 || exit 0
 fi
 
-STATE_FILE="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/powersave_mode"
-PREV_BRIGHTNESS_FILE="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/powersave_prev_brightness"
-GHOSTTY_SHADERS="${XDG_CONFIG_HOME:-$HOME/.config}/ghostty/shaders"
-GHOSTTY_SHADER="${XDG_STATE_HOME:-$HOME/.local/state}/ghostty/active-shader.glsl"
-GHOSTTY_PERF="${XDG_STATE_HOME:-$HOME/.local/state}/ghostty/perf.conf"
-OPENCODE_KV="${XDG_STATE_HOME:-$HOME/.local/state}/opencode/kv.json"
+STATE_FILE="$XDG_RUNTIME_DIR/powersave_mode"
+PREV_BRIGHTNESS_FILE="$XDG_RUNTIME_DIR/powersave_prev_brightness"
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}"
+GHOSTTY_SHADER="$STATE_DIR/ghostty/active-shader.glsl"
+GHOSTTY_PERF="$STATE_DIR/ghostty/perf.conf"
+OPENCODE_KV="$STATE_DIR/opencode/kv.json"
 
-_is_active() {
-    [[ -f "$STATE_FILE" ]]
+is_active() { [[ -f "$STATE_FILE" ]]; }
+
+detach() { ( exec 201>&-; "$@" ) >/dev/null 2>&1 & }
+
+bri() { brightnessctl -c backlight "$@" >/dev/null || true; }
+
+notify_ui() {
+    [[ -z "${1:-}" ]] || qs ipc call osd brightness "$1" || true
+    qs ipc call quicksettings refresh || true
 }
 
-bri() {
-    timeout 5 brightnessctl -c backlight "$@" >/dev/null 2>&1 || true
-}
-
-_report_brightness() {
+report_brightness() {
     local pct
-    pct="$(timeout 5 brightnessctl -c backlight -m 2>/dev/null | head -n 1 | cut -d, -f4 | tr -dc '0-9' || true)"
-    (
-        exec 201>&-
-        if [[ -n "${pct:-}" ]]; then
-            qs ipc call osd brightness "$pct" >/dev/null 2>&1 || true
-        fi
-        qs ipc call quicksettings refresh >/dev/null 2>&1 || true
-    ) >/dev/null 2>&1 &
+    pct="$(brightnessctl -c backlight -m | head -n 1 | cut -d, -f4 | tr -dc '0-9' || true)"
+    detach notify_ui "$pct"
 }
 
-prof() {
-    powerprofilesctl set "$1" >/dev/null 2>&1 || true
-}
-
-_slow_tail() {
-    (
-        exec 201>&-
-        _ghostty_reload
-        prof "$1"
-        qs ipc call quicksettings refresh >/dev/null 2>&1 || true
-    ) >/dev/null 2>&1 &
-}
-
-_apply_display() {
-    local target_hz="$1"
-    local mon_json mon_info
-    mon_json="$(timeout 5 hyprctl monitors -j 2>/dev/null || echo '[]')"
-    mon_info=$(jq -r '
-        .[] | select(.name | startswith("eDP")) |
-        "\(if .description and (.description | length > 0) then "desc:\(.description)" else .name end)|\(.width)|\(.height)|\(.x)x\(.y)|\(.scale)"
-    ' <<<"$mon_json" 2>/dev/null | head -n 1 || true)
-
-    [[ -z "$mon_info" ]] && return 0
-
-    local desc width height pos scale
-    IFS="|" read -r desc width height pos scale <<<"$mon_info"
-    [[ "$width" =~ ^[0-9]+$ && "$height" =~ ^[0-9]+$ ]] || return 0
-    [[ "$scale" =~ ^[0-9]+(\.[0-9]+)?$ ]] || return 0
-    desc="${desc//\'/\\\'}"
-    [[ "$pos" =~ ^-?[0-9]+x-?[0-9]+$ ]] || return 0
-
-    local hz="$target_hz"
-    if [[ "$target_hz" == "max" || "$target_hz" == "high" ]]; then
-        local detected_max
-        detected_max=$(jq -r '
-            .[] | select(.name | startswith("eDP")) |
-            .availableModes[]? | select(startswith("'"${width}x${height}"'"))
-        ' <<<"$mon_json" 2>/dev/null | sed -E 's/.*@([0-9]+(\.[0-9]+)?).*/\1/' | sort -n | tail -n 1 || true)
-        detected_max="${detected_max%%.*}"
-        [[ "$detected_max" =~ ^[0-9]+$ ]] || detected_max=""
-        hz="${detected_max:-165}"
-    fi
-
-    local blur_enabled="true"
-    if [[ "$target_hz" == "60" ]]; then
-        blur_enabled="false"
-    fi
-    [[ "$hz" =~ ^[0-9]+$ ]] || return 0
-    timeout 5 hyprctl eval "hl.monitor({ output = '${desc}', mode = '${width}x${height}@${hz}', position = '${pos}', scale = ${scale} }); hl.config({ decoration = { blur = { enabled = ${blur_enabled} } } })" >/dev/null 2>&1 || true
-}
-
-_ghostty_reload() {
-    if systemctl --user is-active -q app-com.mitchellh.ghostty.service 2>/dev/null; then
-        systemctl reload --user app-com.mitchellh.ghostty.service >/dev/null 2>&1 || true
+ghostty_reload() {
+    if systemctl --user is-active -q app-com.mitchellh.ghostty.service; then
+        systemctl --user reload app-com.mitchellh.ghostty.service
     else
-        pkill -SIGUSR2 -x ghostty >/dev/null 2>&1 || true
-    fi
+        pkill -SIGUSR2 -x ghostty
+    fi || true
 }
 
-_shader_target() {
-    if [[ "$1" == "off" ]]; then
-        printf '%s\n' "$GHOSTTY_SHADERS/noop.glsl"
-    else
-        printf '%s\n' "$GHOSTTY_SHADERS/cursor_warp.glsl"
-    fi
+slow_tail() {
+    ghostty_reload
+    powerprofilesctl set "$1" || true
+    qs ipc call quicksettings refresh || true
 }
 
-_shader_state() {
-    case "$(readlink "$GHOSTTY_SHADER" 2>/dev/null || true)" in
-    *noop.glsl) printf 'off\n' ;;
-    *) printf 'on\n' ;;
-    esac
+restore_later() {
+    sleep 12
+    restore-backlight
 }
 
-_ghostty_shader() {
-    local want tmp
-    want="$(_shader_target "$1")"
-    [[ -f "$want" ]] || return 0
-    if [[ -e "$GHOSTTY_SHADER" ]] && [[ "$(_shader_state)" == "$1" ]]; then
-        return 0
-    fi
-    mkdir -p "$(dirname "$GHOSTTY_SHADER")" || return 0
-    tmp="$(mktemp "$(dirname "$GHOSTTY_SHADER")/.shader.XXXXXX")" || return 0
-    if ! ln -sfn "$want" "$tmp" || ! mv -f "$tmp" "$GHOSTTY_SHADER"; then
-        rm -f "$tmp"
-        return 0
-    fi
+apply_display() {
+    local fields desc width height pos scale hz blur=true
+    fields="$(hyprctl monitors -j | jq -r --arg hz "$1" '
+        first(.[] | select(.name | startswith("eDP"))) as $m
+        | ([$m.availableModes[] | select(startswith("\($m.width)x\($m.height)@"))
+            | sub(".*@"; "") | rtrimstr("Hz") | tonumber | floor] | max // 165) as $max
+        | [if ($m.description // "") != "" then "desc:\($m.description)" else $m.name end,
+           $m.width, $m.height, "\($m.x)x\($m.y)", $m.scale, (if $hz == "max" then $max else $hz end)]
+        | @tsv' || true)"
+    [[ -n "$fields" ]] || return 0
+    IFS=$'\t' read -r desc width height pos scale hz <<<"$fields"
+    [[ "$1" == 60 ]] && blur=false
+    hyprctl eval "hl.monitor({ output = '${desc}', mode = '${width}x${height}@${hz}', position = '${pos}', scale = ${scale} }); hl.config({ decoration = { blur = { enabled = ${blur} } } })" >/dev/null || true
 }
 
-_ghostty_perf() {
-    local mode="$1"
-    [[ "$mode" == "on" || "$mode" == "off" ]] || return 0
-    mkdir -p "$(dirname "$GHOSTTY_PERF")" || return 0
-    local tmp
-    tmp=$(mktemp "$(dirname "$GHOSTTY_PERF")/.perf.conf.XXXXXX") || return 0
-    if [[ "$mode" == "off" ]]; then
-        cat >"$tmp" <<'EOF'
-# Managed by power-save. Do not edit.
-custom-shader-animation = false
-background-opacity = 1.0
-background-blur = false
-minimum-contrast = 1
-EOF
-    else
-        cat >"$tmp" <<'EOF'
+ghostty_shader() {
+    local shader=cursor_warp
+    [[ "$1" == off ]] && shader=noop
+    mkdir -p "${GHOSTTY_SHADER%/*}"
+    ln -sfn "${XDG_CONFIG_HOME:-$HOME/.config}/ghostty/shaders/$shader.glsl" "$GHOSTTY_SHADER"
+}
+
+ghostty_perf() {
+    local anim=true opacity=0.97
+    [[ "$1" == off ]] && { anim=false; opacity=1.0; }
+    mkdir -p "${GHOSTTY_PERF%/*}"
+    cat >"$GHOSTTY_PERF" <<EOF
 # Managed by power-save. Do not edit.
 # background-opacity<1: Ghostty wysyła bufor z alfą, dopiero wtedy Hyprland
 # bluruje tło za oknem (przy 1.0 bufor jest nieprzeźroczysty i blur nie ma
 # czego łapać — docs: background-blur na Linuksie tylko pod KDE).
-custom-shader-animation = true
-background-opacity = 0.97
+custom-shader-animation = $anim
+background-opacity = $opacity
 background-blur = false
 minimum-contrast = 1
 EOF
-    fi
-    mv -f "$tmp" "$GHOSTTY_PERF" || rm -f "$tmp"
 }
 
-_opencode_anims() {
-    local enabled="$1"
-    [[ "$enabled" == "true" || "$enabled" == "false" ]] || return 0
-    mkdir -p "$(dirname "$OPENCODE_KV")"
-    if [[ ! -s "$OPENCODE_KV" ]]; then
-        printf '{"animations_enabled":%s}\n' "$enabled" >"$OPENCODE_KV"
-        return 0
-    fi
-    local tmp
-    tmp=$(mktemp "$(dirname "$OPENCODE_KV")/.kv.json.XXXXXX") || return 0
-    if jq --argjson v "$enabled" '.animations_enabled = $v' "$OPENCODE_KV" >"$tmp" 2>/dev/null && [[ -s "$tmp" ]]; then
-        mv -f "$tmp" "$OPENCODE_KV"
-    else
-        rm -f "$tmp"
-        printf '{"animations_enabled":%s}\n' "$enabled" >"$OPENCODE_KV"
-    fi
+opencode_anims() {
+    local json
+    mkdir -p "${OPENCODE_KV%/*}"
+    [[ -s "$OPENCODE_KV" ]] && json="$(<"$OPENCODE_KV")" || json='{}'
+    jq --argjson v "$1" '.animations_enabled = $v' <<<"$json" >"$OPENCODE_KV"
 }
 
-_status() {
-    if _is_active; then echo "on"; else echo "off"; fi
-}
-
-_enable() {
-    local with_brightness=true
-    if [[ "${1:-}" == "false" || "${1:-}" == "--no-brightness" ]]; then
-        with_brightness=false
-    fi
-
-    _is_active && return 0
+enable_mode() {
+    is_active && return 0
     touch "$STATE_FILE"
 
-    if $with_brightness && command -v brightnessctl >/dev/null 2>&1; then
-        local cur_b
-        cur_b=$(timeout 5 brightnessctl -c backlight get 2>/dev/null || echo "")
-        if [[ ! -f "$PREV_BRIGHTNESS_FILE" ]] && [[ -n "$cur_b" ]]; then
-            echo "$cur_b" >"$PREV_BRIGHTNESS_FILE"
-        fi
+    if $with_brightness; then
+        local cur
+        cur="$(brightnessctl -c backlight get || true)"
+        [[ -f "$PREV_BRIGHTNESS_FILE" || -z "$cur" ]] || echo "$cur" >"$PREV_BRIGHTNESS_FILE"
         bri --min-value=5 set 20%-
-        _report_brightness
+        report_brightness
     fi
 
-    _apply_display 60
-    _ghostty_perf off
-    _ghostty_shader off
-    _opencode_anims false
-    _slow_tail power-saver
-    (exec 201>&-; sleep 12 && restore-backlight) >/dev/null 2>&1 &
+    apply_display 60
+    ghostty_perf off
+    ghostty_shader off
+    opencode_anims false
+    detach slow_tail power-saver
+    detach restore_later
 }
 
-_disable() {
-    local with_brightness=true
-    if [[ "${1:-}" == "false" || "${1:-}" == "--no-brightness" ]]; then
-        with_brightness=false
-    fi
-
-    _is_active || return 0
+disable_mode() {
+    is_active || return 0
     rm -f "$STATE_FILE"
 
-    if $with_brightness && command -v brightnessctl >/dev/null 2>&1; then
-        local prev_b=""
-        if [[ -f "$PREV_BRIGHTNESS_FILE" ]] && [[ -s "$PREV_BRIGHTNESS_FILE" ]]; then
-            prev_b=$(cat "$PREV_BRIGHTNESS_FILE")
-            rm -f "$PREV_BRIGHTNESS_FILE"
-        fi
-
-        local cur_b
-        cur_b=$(timeout 5 brightnessctl -c backlight get 2>/dev/null || echo "")
-
-        if [[ "$prev_b" =~ ^[0-9]+$ ]] && [[ "$cur_b" =~ ^[0-9]+$ ]] && (( prev_b > cur_b )); then
-            bri set "$prev_b"
+    if $with_brightness; then
+        local prev="" cur
+        [[ -s "$PREV_BRIGHTNESS_FILE" ]] && prev="$(<"$PREV_BRIGHTNESS_FILE")"
+        rm -f "$PREV_BRIGHTNESS_FILE"
+        cur="$(brightnessctl -c backlight get || true)"
+        if ((${prev:-0} > ${cur:-0})); then
+            bri set "$prev"
         else
             bri set +20%
         fi
-        _report_brightness
+        report_brightness
     fi
 
-    _apply_display max
-    _ghostty_perf on
-    _ghostty_shader on
-    _opencode_anims true
-    _slow_tail balanced
-    (exec 201>&-; sleep 12 && restore-backlight) >/dev/null 2>&1 &
+    apply_display max
+    ghostty_perf on
+    ghostty_shader on
+    opencode_anims true
+    detach slow_tail balanced
+    detach restore_later
 }
 
-_toggle() {
-    if _is_active; then
-        _disable "${1:-}"
-    else
-        _enable "${1:-}"
-    fi
-}
-
-if [[ "$action" != "status" ]]; then
-    [[ -e "$GHOSTTY_SHADER" ]] || _ghostty_shader on
+if [[ "$action" != status ]]; then
+    [[ -e "$GHOSTTY_SHADER" ]] || ghostty_shader on
     if [[ ! -e "$GHOSTTY_PERF" ]]; then
-        if _is_active; then _ghostty_perf off; else _ghostty_perf on; fi
+        if is_active; then ghostty_perf off; else ghostty_perf on; fi
     fi
 fi
 
 case "$action" in
-status)
-    _status
-    ;;
-enable)
-    _enable "$with_brightness"
-    ;;
-disable)
-    _disable "$with_brightness"
-    ;;
-toggle)
-    _toggle "$with_brightness"
-    ;;
-reapply)
-    if _is_active; then _apply_display 60; fi
-    ;;
+status) if is_active; then echo on; else echo off; fi ;;
+enable) enable_mode ;;
+disable) disable_mode ;;
+toggle) if is_active; then disable_mode; else enable_mode; fi ;;
+reapply) if is_active; then apply_display 60; fi ;;
 esac

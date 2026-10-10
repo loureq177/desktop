@@ -17,8 +17,6 @@ if [ $# -gt 0 ] && [ "$1" = "--extensions" ]; then
 fi
 [ $# -eq 0 ] || usage
 
-[ -f "$SRC/user.js" ] || { echo "firefox-apply: $SRC/user.js not found" >&2; exit 1; }
-
 [ -f "$INIFILE" ] || { echo "firefox-apply: $INIFILE not found" >&2; exit 1; }
 
 SEL="$(awk '
@@ -47,18 +45,10 @@ PROFILE="${SEL#*$'\t'}"
 [ -n "$PROFILE" ] || { echo "firefox-apply: no profile found in profiles.ini" >&2; exit 1; }
 
 if [ "$ISREL" = "0" ]; then
-    case "$PROFILE" in
-        /*) PROFILE_CANDIDATE="$PROFILE" ;;
-        *) echo "firefox-apply: IsRelative=0 but Path is not absolute: $PROFILE" >&2; exit 1 ;;
-    esac
+    PROFILE_DIR="$PROFILE"
 else
-    case "$PROFILE" in
-        ""|*/*|*..*) echo "firefox-apply: unsafe relative profile path: $PROFILE" >&2; exit 1 ;;
-    esac
-    PROFILE_CANDIDATE="${XDG_CONFIG_HOME:-$HOME/.config}/mozilla/firefox/$PROFILE"
+    PROFILE_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/mozilla/firefox/$PROFILE"
 fi
-
-PROFILE_DIR="$(readlink -f "$PROFILE_CANDIDATE")" || { echo "firefox-apply: cannot resolve profile dir: $PROFILE_CANDIDATE" >&2; exit 1; }
 [ -d "$PROFILE_DIR" ] || { echo "firefox-apply: profile dir not found: $PROFILE_DIR" >&2; exit 1; }
 
 install -m 600 "$SRC/user.js" "$PROFILE_DIR/user.js"

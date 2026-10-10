@@ -23,39 +23,10 @@ avail_bytes() {
         awk 'NR>1 && !seen[$1]++ {sum+=$2} END {print sum+0}'
 }
 
-human_bytes() {
-    if command -v numfmt >/dev/null 2>&1; then
-        numfmt --to=iec-i --suffix=B -- "$1" 2>/dev/null || echo "$1 B"
-    else
-        echo "$1 B"
-    fi
-}
-
 print_total() {
-    local freed_h="$1"
-    local ui_sh="${XDG_CONFIG_HOME:-$HOME/.config}/ui/ui.sh"
-    [ -f "$ui_sh" ] && source "$ui_sh" 2>/dev/null || true
-    local hex="${UI_ACCENT_GREEN:-#3fb950}"
-    hex="${hex#\#}"
-    local green="" bold="" reset=""
-    if [ "${#hex}" = 6 ]; then
-        local hr="${hex:0:2}" hg="${hex:2:2}" hb="${hex:4:2}"
-        local r=$((16#$hr)) g=$((16#$hg)) b=$((16#$hb)) 2>/dev/null
-        if [ -n "${r:-}" ] && [ -n "${g:-}" ] && [ -n "${b:-}" ]; then
-            green="$(printf '\033[38;2;%d;%d;%dm' "$r" "$g" "$b")"
-            bold="$(printf '\033[1m')"
-            reset="$(printf '\033[0m')"
-        fi
-    fi
-    if [ -z "$green" ]; then
-        green="$(printf '\033[1;32m')"
-        bold=""
-        reset="$(printf '\033[0m')"
-    fi
-    echo ""
-    echo "${green}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${reset}"
-    echo "${bold}${green}  Total reclaimed space: ${freed_h}${reset}"
-    echo "${green}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${reset}"
+    local green=$'\033[1;32m' reset=$'\033[0m'
+    local line="━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "\n${green}${line}\n  Total reclaimed space: $1\n${line}${reset}"
 }
 
 CLEAN_MOUNTS=()
@@ -186,4 +157,4 @@ echo "\nSystem is clean."
 AVAIL_AFTER=$(avail_bytes "${CLEAN_MOUNTS[@]}")
 FREED_BYTES=$((AVAIL_AFTER - AVAIL_BEFORE))
 if [ "$FREED_BYTES" -lt 0 ]; then FREED_BYTES=0; fi
-print_total "$(human_bytes "$FREED_BYTES")"
+print_total "$(numfmt --to=iec-i --suffix=B -- "$FREED_BYTES")"

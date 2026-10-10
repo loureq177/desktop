@@ -1,15 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-command -v brightnessctl >/dev/null 2>&1 || exit 0
-
-_nudge() {
+nudge() {
     local cur
-    cur="$(brightnessctl -c backlight get 2>/dev/null || true)"
-    [[ "$cur" =~ ^[0-9]+$ ]] || return 0
-    brightnessctl -q -c backlight set "$((cur > 0 ? cur - 1 : 1))" >/dev/null 2>&1 || true
-    brightnessctl -q -c backlight set "$cur" >/dev/null 2>&1 || true
+    cur="$(brightnessctl -c backlight get)"
+    brightnessctl -q -c backlight set "$((cur > 0 ? cur - 1 : 1))"
+    brightnessctl -q -c backlight set "$cur"
 }
 
-_nudge
-(sleep 0.5 && _nudge) >/dev/null 2>&1 &
+nudge
+sleep 0.5
+nudge

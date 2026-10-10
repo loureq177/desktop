@@ -1,28 +1,19 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-UI_SH="${XDG_CONFIG_HOME:-$HOME/.config}/ui/ui.sh"
-if [[ -f "$UI_SH" ]]; then
-    source "$UI_SH"
-fi
+source "${XDG_CONFIG_HOME:-$HOME/.config}/ui/ui.sh"
 
-COLOR_GREEN="${UI_ACCENT_GREEN:-#3fb950}"
-COLOR_WARN="${UI_WARNING:-#d29922}"
-COLOR_CRIT="${UI_CRITICAL:-#f85149}"
-COLOR_NORMAL="${UI_TEXT_MAIN:-#c9d1d9}"
+COLOR_GREEN="$UI_ACCENT_GREEN"
+COLOR_WARN="$UI_WARNING"
+COLOR_CRIT="$UI_CRITICAL"
+COLOR_NORMAL="$UI_TEXT_MAIN"
 
 bats=(/sys/class/power_supply/BAT*/)
-BAT="${bats[0]:-}"
+BAT="${bats[0]}"
+[[ -d "$BAT" ]] || exit 0
 
-if [[ -z "${BAT:-}" ]] || [[ ! -d "$BAT" ]]; then
-    exit 0
-fi
-
-CAP=$(cat "$BAT/capacity" 2>/dev/null || echo 0)
-STATUS=$(cat "$BAT/status" 2>/dev/null || echo "Discharging")
-
-CAP="${CAP//[^0-9]/}"
-[[ -z "${CAP:-}" ]] && CAP=0
+CAP=$(<"$BAT/capacity")
+STATUS=$(<"$BAT/status")
 
 if [ "$STATUS" = "Charging" ]; then
     ICON="󰂄"

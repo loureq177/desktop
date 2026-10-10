@@ -1,32 +1,18 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-UI_SH="${XDG_CONFIG_HOME:-$HOME/.config}/ui/ui.sh"
-[[ -f "$UI_SH" ]] && source "$UI_SH"
-SLURP_OPTS=(-d -b "#0d1117b0" -c "#58a6ff" -s "#58a6ff20" -w 2 -B "#00000000")
-[[ -v SLURP_ARGS[@] ]] && SLURP_OPTS=("${SLURP_ARGS[@]}")
-
-LOCKFILE="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/ocr_slurp.lock"
-exec 200>"$LOCKFILE"
-flock -n 200 || exit 0
-
-play_sound() { canberra-gtk-play -i "$1" >/dev/null 2>&1 || true; }
+source "$HOME/.local/lib/dotfiles/capture.sh"
+single_instance ocr_slurp
 
 TMP_DIR=$(mktemp -d "${XDG_RUNTIME_DIR:-/tmp}/ocr.XXXXXX")
 TMP_IMG="$TMP_DIR/crop.png"
-HYPRPICKER_PID=""
 cleanup() {
-    [ -n "$HYPRPICKER_PID" ] && kill "$HYPRPICKER_PID" 2>/dev/null || true
+    stop_picker
     rm -rf "$TMP_DIR"
 }
 trap cleanup EXIT
 
-hyprpicker -r -z &
-HYPRPICKER_PID=$!
-sleep 0.2
-GEOM=$(slurp "${SLURP_OPTS[@]}") || exit 0
-kill "$HYPRPICKER_PID" 2>/dev/null || true
-HYPRPICKER_PID=""
+pick_region --freeze || exit 0
 grim -g "$GEOM" "$TMP_IMG" || exit 0
 [[ -s "$TMP_IMG" ]] || exit 0
 

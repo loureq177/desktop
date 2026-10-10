@@ -9,55 +9,40 @@ if [[ -z "$ACTION" ]]; then
     exit 2
 fi
 
-sound() {
-    canberra-gtk-play -i "$1" >/dev/null 2>&1 &
-}
+SINK=@DEFAULT_AUDIO_SINK@
+SOURCE=@DEFAULT_AUDIO_SOURCE@
 
-_report() {
-    local line frac pct
-    line="$(timeout 5 wpctl get-volume "@DEFAULT_${1}@" 2>/dev/null || true)"
-    if [[ ! "$line" =~ Volume:[[:space:]]+([0-9]*\.?[0-9]+) ]]; then
-        return 0
-    fi
-    frac="${BASH_REMATCH[1]}"
-    pct="$(awk -v f="$frac" 'BEGIN { printf "%d", int(f * 100 + 0.5) }' || true)"
-    [[ "$pct" =~ ^[0-9]+$ ]] || return 0
-    if grep -qF '[MUTED]' <<<"$line"; then
-        qs ipc call osd volume "$pct" true || true
-    else
-        qs ipc call osd volume "$pct" false || true
-    fi
+sound() { canberra-gtk-play -i "$1" >/dev/null 2>&1 & }
+
+set_mute() {
+    case "$2" in
+    mute-toggle) wpctl set-mute "$1" toggle ;;
+    mute) wpctl set-mute "$1" 1 ;;
+    unmute) wpctl set-mute "$1" 0 ;;
+    *) echo "volume: unknown action '$2'" >&2; exit 2 ;;
+    esac
 }
 
 case "$TARGET" in
 output)
     case "$ACTION" in
-    raise) timeout 5 wpctl set-volume -l 1.0 @DEFAULT_AUDIO_SINK@ 5%+ || true ;;
-    lower) timeout 5 wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%- || true ;;
-    mute-toggle) timeout 5 wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle || true ;;
-    mute) timeout 5 wpctl set-mute @DEFAULT_AUDIO_SINK@ 1 || true ;;
-    unmute) timeout 5 wpctl set-mute @DEFAULT_AUDIO_SINK@ 0 || true ;;
-    *) echo "volume: unknown action '$ACTION'" >&2; exit 2 ;;
+    raise) wpctl set-volume -l 1.0 "$SINK" 5%+ ;;
+    lower) wpctl set-volume "$SINK" 5%- ;;
+    *) set_mute "$SINK" "$ACTION" ;;
     esac
-    _report SINK
+    line="$(wpctl get-volume "$SINK")"
+    muted=false
+    [[ "$line" == *'[MUTED]'* ]] && muted=true
+    pct="$(awk '{ printf "%d", $2 * 100 + 0.5 }' <<<"$line")"
+    qs ipc call osd volume "$pct" "$muted" || true
     qs ipc call quicksettings refresh >/dev/null 2>&1 &
-    if [[ "$ACTION" == mute* ]] && timeout 5 wpctl get-volume @DEFAULT_AUDIO_SINK@ 2>/dev/null | grep -qF '[MUTED]'; then
-        exit 0
-    fi
-    sound audio-volume-change
+    [[ "$ACTION" == mute* && "$muted" == true ]] || sound audio-volume-change
     ;;
 input)
-    case "$ACTION" in
-    mute-toggle) timeout 5 wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle || true ;;
-    mute) timeout 5 wpctl set-mute @DEFAULT_AUDIO_SOURCE@ 1 || true ;;
-    unmute) timeout 5 wpctl set-mute @DEFAULT_AUDIO_SOURCE@ 0 || true ;;
-    *) echo "volume: unknown action '$ACTION'" >&2; exit 2 ;;
-    esac
-    if timeout 5 wpctl get-volume @DEFAULT_AUDIO_SOURCE@ 2>/dev/null | grep -qF '[MUTED]'; then
-        qs ipc call osd mic true || true
-    else
-        qs ipc call osd mic false || true
-    fi
+    set_mute "$SOURCE" "$ACTION"
+    muted=false
+    wpctl get-volume "$SOURCE" | grep -qF '[MUTED]' && muted=true
+    qs ipc call osd mic "$muted" || true
     sound audio-volume-change
     ;;
 *)

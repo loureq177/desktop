@@ -7,20 +7,8 @@ RUN_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
 STATUS_FILE="$RUN_DIR/recording_status"
 DND_MARKER="$RUN_DIR/recording_dnd"
 
-UI_SH="${XDG_CONFIG_HOME:-$HOME/.config}/ui/ui.sh"
-if [[ -f "$UI_SH" ]]; then
-    source "$UI_SH"
-fi
-SLURP_OPTS=(-d -b "#0d1117b0" -c "#58a6ff" -s "#58a6ff20" -w 2 -B "#00000000")
-if [[ -v SLURP_ARGS[@] ]]; then
-    SLURP_OPTS=("${SLURP_ARGS[@]}")
-fi
-
-LOCKFILE="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/record_slurp.lock"
-exec 200>"$LOCKFILE"
-flock -n 200 || exit 0
-
-play_sound() { canberra-gtk-play -i "$1" >/dev/null 2>&1 || true; }
+source "$HOME/.local/lib/dotfiles/capture.sh"
+single_instance record_slurp
 
 if pkill -INT -x wf-recorder; then
     if [ -f "$DND_MARKER" ]; then
@@ -70,12 +58,12 @@ MODE="${1:-region}"
 TARGET_ARGS=()
 
 if [ "$MODE" = "fullscreen" ] || [ "$MODE" = "full" ]; then
-    FOCUSED_OUTPUT=$(hyprctl monitors -j 2>/dev/null | jq -r '.[] | select(.focused) | .name' 2>/dev/null || true)
+    FOCUSED_OUTPUT=$(focused_output)
     if [[ -n "$FOCUSED_OUTPUT" ]]; then
         TARGET_ARGS=(-o "$FOCUSED_OUTPUT")
     fi
 elif [ "$MODE" = "window" ]; then
-    GEOM=$(hyprctl activewindow -j 2>/dev/null | jq -r 'select(.at != null and .size != null) | "\(.at[0]),\(.at[1]) \(.size[0])x\(.size[1])"' 2>/dev/null || true)
+    GEOM=$(active_window_geom)
     if [[ -z "${GEOM:-}" || "$GEOM" == "null" ]]; then
         play_sound dialog-warning
         notify-send --app-name "Screen Record" -i "dialog-warning" "No Window Found" "Unable to detect active window geometry."
@@ -83,28 +71,8 @@ elif [ "$MODE" = "window" ]; then
     fi
     TARGET_ARGS=(-g "$GEOM")
 else
-    WINDOW_RECTS=$(
-        jq -r --argjson mons "$(hyprctl monitors -j 2>/dev/null || echo "[]")" '
-          [ $mons[]? | (if .specialWorkspace.id != 0 then .specialWorkspace.id else .activeWorkspace.id end) ] as $ws |
-          [ .[]? | select(.fullscreen != 0) | .workspace.id ] as $fs_ws |
-          .[]? | select(
-            .mapped and (.hidden | not) and
-            (.workspace.id as $w | $ws | index($w)) and
-            ((.workspace.id as $w | $fs_ws | index($w) | not) or .fullscreen != 0 or .floating)
-          ) |
-          "\(.at[0]),\(.at[1]) \(.size[0])x\(.size[1])"
-        ' <<< "$(hyprctl clients -j 2>/dev/null || echo "[]")" 2>/dev/null || true
-    )
-
-    if [[ -n "$WINDOW_RECTS" ]]; then
-        GEOM=$(printf "%s\n" "$WINDOW_RECTS" | slurp "${SLURP_OPTS[@]}") || exit 0
-    else
-        GEOM=$(slurp "${SLURP_OPTS[@]}") || exit 0
-    fi
-
-    if [[ -z "$GEOM" || "$GEOM" =~ [[:space:]]1x1$ ]]; then
-        exit 0
-    fi
+    pick_region --windows || exit 0
+    is_click "$GEOM" && exit 0
     TARGET_ARGS=(-g "$GEOM")
 fi
 

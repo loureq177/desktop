@@ -1,57 +1,28 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-INHIBIT_PID_FILE="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/awake_inhibit.pid"
-LOCK_FILE="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/awake_toggle.lock"
+UNIT="awake-inhibit.service"
+PID_FILE="$XDG_RUNTIME_DIR/awake_inhibit.pid"
 
-UNIT_NAME="awake-inhibit"
-
-if [[ "${1:-}" != "--status" ]]; then
-    exec 200>"$LOCK_FILE"
-    flock -w 2 200 || exit 0
-fi
-
-_is_active() {
-    if systemctl --user is-active --quiet "$UNIT_NAME.service" 2>/dev/null; then
-        return 0
-    fi
-    if [[ -f "$INHIBIT_PID_FILE" ]]; then
-        local pid=""
-        pid="$(<"$INHIBIT_PID_FILE")"
-        if [[ "$pid" =~ ^[0-9]+$ ]] && kill -0 "$pid" 2>/dev/null; then
-            if tr '\0' ' ' <"/proc/$pid/cmdline" 2>/dev/null | grep -q "sleep infinity"; then
-                return 0
-            fi
-        fi
-    fi
-    return 1
-}
+is_active() { systemctl --user is-active --quiet "$UNIT"; }
 
 if [[ "${1:-}" == "--status" ]]; then
-    _is_active && echo "on" || echo "off"
+    if is_active; then echo on; else echo off; fi
     exit 0
 fi
 
-if _is_active; then
-    systemctl --user stop "$UNIT_NAME.service" 2>/dev/null || true
-    if [[ -f "$INHIBIT_PID_FILE" ]]; then
-        pid="$(<"$INHIBIT_PID_FILE")"
-        if [[ "$pid" =~ ^[0-9]+$ ]]; then
-            kill -- "-$pid" 2>/dev/null || kill "$pid" 2>/dev/null || true
-        fi
-        rm -f "$INHIBIT_PID_FILE"
-    fi
+exec 200>"$XDG_RUNTIME_DIR/awake_toggle.lock"
+flock -w 2 200 || exit 0
+
+if is_active; then
+    systemctl --user stop "$UNIT"
+    rm -f "$PID_FILE"
 else
-    systemd-run --user --unit="$UNIT_NAME" --collect \
+    systemd-run --user --unit="${UNIT%.service}" --collect \
         systemd-inhibit --what=idle:sleep:handle-lid-switch --who=awake \
         --why="Awake mode" --mode=block \
         sleep infinity >/dev/null 2>&1
-    pid="$(systemctl --user show -p MainPID --value "$UNIT_NAME.service" 2>/dev/null || true)"
-    if [[ "$pid" =~ ^[0-9]+$ && "$pid" != "0" ]]; then
-        printf '%s\n' "$pid" >"$INHIBIT_PID_FILE"
-    else
-        rm -f "$INHIBIT_PID_FILE"
-    fi
+    systemctl --user show -p MainPID --value "$UNIT" >"$PID_FILE"
 fi
 
 qs ipc call quicksettings refresh >/dev/null 2>&1 || true
