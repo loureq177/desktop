@@ -1,6 +1,3 @@
-// Shared notification picture: displays avatars/photos, app vector icons,
-// or a stylized fallback badge. Leverages Quickshell's iconPath resolution
-// without requiring hardcoded filesystem paths.
 import ".."
 import Quickshell
 import Quickshell.Widgets
@@ -17,7 +14,6 @@ Item {
 	implicitWidth: root.size
 	implicitHeight: root.size
 
-	// Check if image is a real photo/screenshot/avatar rather than an icon file
 	readonly property string resolvedImage: {
 		var img = (root.image || "").trim();
 		if (img === "")
@@ -30,7 +26,7 @@ Item {
 			return img.slice(13);
 		if (img.startsWith("/") || img.startsWith("file:")) {
 			if (img.includes("/icons/") || img.includes("/pixmaps/") || img.endsWith(".svg"))
-				return ""; // icon, not photo
+				return "";
 			return img.startsWith("/") ? ("file://" + img) : img;
 		}
 		return "";
@@ -85,7 +81,6 @@ Item {
 		return "󰂚";
 	}
 
-	// 1. Photo/screenshot image (clipped with theme rounding)
 	Rectangle {
 		id: imgContainer
 		anchors.fill: parent
@@ -106,7 +101,6 @@ Item {
 		}
 	}
 
-	// 2. Vector app icon via Quickshell IconImage (preserves icon theme without extra border)
 	IconImage {
 		id: iconImg
 		anchors.fill: parent
@@ -115,7 +109,6 @@ Item {
 		asynchronous: true
 	}
 
-	// 3. Fallback glyph badge
 	Rectangle {
 		anchors.fill: parent
 		visible: !imgContainer.visible && !iconImg.visible

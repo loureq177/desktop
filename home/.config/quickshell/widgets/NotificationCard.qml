@@ -1,6 +1,3 @@
-// Shared notification card component: used in both NotificationToasts (floating toasts)
-// and NotificationCenter (history drawer). Displays urgency indicator, picture/icon,
-// app name, timestamp, summary, body, inline reply field, and action buttons.
 import ".."
 import "."
 import Quickshell.Services.Notifications
@@ -36,7 +33,6 @@ Rectangle {
 	Behavior on color { ColorAnimation { duration: 100 } }
 	Behavior on border.color { ColorAnimation { duration: 100 } }
 
-	// Selection highlight overlay for keyboard navigation in center list
 	Rectangle {
 		anchors.fill: parent
 		visible: root.isSelected && !root.isToast
@@ -45,7 +41,6 @@ Rectangle {
 		z: 0
 	}
 
-	// Body click activates default action (or dismisses if no action)
 	MouseArea {
 		id: hoverArea
 		anchors.fill: parent
@@ -55,7 +50,6 @@ Rectangle {
 		onClicked: root.activated()
 	}
 
-	// Notification picture / icon
 	NotificationPicture {
 		id: notifPic
 		anchors.left: parent.left
@@ -68,7 +62,6 @@ Rectangle {
 		z: 1
 	}
 
-	// Main content column
 	ColumnLayout {
 		id: bodyCol
 		z: 2
@@ -79,7 +72,6 @@ Rectangle {
 		anchors.verticalCenter: parent.verticalCenter
 		spacing: 3
 
-		// Header: App name + time
 		RowLayout {
 			Layout.fillWidth: true
 			spacing: 8
@@ -108,7 +100,6 @@ Rectangle {
 			}
 		}
 
-		// Summary
 		Text {
 			Layout.fillWidth: true
 			text: root.notif ? (root.notif.summary || "") : ""
@@ -120,7 +111,6 @@ Rectangle {
 			visible: text !== ""
 		}
 
-		// Body text
 		Text {
 			Layout.fillWidth: true
 			text: root.notif ? (root.notif.body || "") : ""
@@ -133,7 +123,6 @@ Rectangle {
 			visible: text !== ""
 		}
 
-		// Inline reply field
 		NotificationReplyField {
 			Layout.fillWidth: true
 			Layout.topMargin: 4
@@ -145,7 +134,6 @@ Rectangle {
 			onReplied: root.dismissed()
 		}
 
-		// Action buttons
 		RowLayout {
 			Layout.fillWidth: true
 			Layout.topMargin: 4
@@ -154,12 +142,6 @@ Rectangle {
 
 			Repeater {
 				model: root.actionEntries
-				// Qt6 requires an explicit modelData declaration in the
-				// delegate; a bare `modelData` resolves to undefined and
-				// renders an empty button (see quickshell log
-				// "ReferenceError: modelData is not defined"). The wrapper
-				// carries it so the shared button keeps its plain
-				// notifId/identifier/label API.
 				delegate: Item {
 					id: actionWrap
 					required property var modelData
@@ -178,7 +160,6 @@ Rectangle {
 		}
 	}
 
-	// Close / Dismiss button
 	CloseButton {
 		id: closeBtn
 		anchors.top: parent.top

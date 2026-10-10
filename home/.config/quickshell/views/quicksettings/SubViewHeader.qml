@@ -1,7 +1,3 @@
-// Shared header for quick settings sub-menus (Wi-Fi, Bluetooth, Capture).
-// Contains back button, title, and optional subtitle on the left,
-// with secondary controls (scan button, power switch) aligned to the right.
-// Sub-menus do not have a close button (user navigates back or clicks outside/ESC).
 import "../.."
 import "../../widgets"
 import QtQuick
@@ -25,7 +21,6 @@ RowLayout {
 	Layout.preferredHeight: 34
 	spacing: 10
 
-	// Back button
 	Rectangle {
 		Layout.preferredWidth: 32
 		Layout.preferredHeight: 32
@@ -51,7 +46,6 @@ RowLayout {
 		}
 	}
 
-	// Title & status
 	ColumnLayout {
 		spacing: 0
 
@@ -72,12 +66,10 @@ RowLayout {
 		}
 	}
 
-	// Spacer pushing controls to the far right
 	Item {
 		Layout.fillWidth: true
 	}
 
-	// Scan / Refresh button
 	Rectangle {
 		Layout.preferredWidth: 32
 		Layout.preferredHeight: 32
@@ -113,7 +105,6 @@ RowLayout {
 		}
 	}
 
-	// Power Switch Pill
 	Rectangle {
 		id: powerSwitch
 		visible: root.showPowerSwitch

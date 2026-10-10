@@ -1,7 +1,3 @@
-// Sticky toast popups, top-right above everything (layer-shell overlay).
-// Geometry mirrors the old SwayNC setup: 500px wide, 54px below the top
-// (clears the bar), 20px from the right (matches Hyprland gaps_out).
-// Pops slide in from the right screen edge and slide back out right.
 import ".."
 import "../widgets"
 import Quickshell
@@ -14,14 +10,9 @@ import QtQuick
 PanelWindow {
 	id: win
 
-	// Shown while toasts exist and neither drawer is open; unmap is
-	// deferred until the slide-out animation finishes.
 	property bool shown: Notifications.toasts.length > 0 && !Notifications.centerOpen && !QuickSettings.panelOpen && !Weather.panelOpen
 	property int slide: Theme.notifWidth + Theme.notifRightMargin
 
-	// Incremental ListModel (roles: nid, snap, entering): insert/remove emit
-	// row signals, so kept cards are never rebuilt (a plain array reassign
-	// destroys and recreates every delegate, replaying animations).
 	ListModel {
 		id: toastModel
 	}
@@ -44,11 +35,6 @@ PanelWindow {
 		};
 	}
 
-	// Incremental visual sync: kept rows are untouched (delegates survive),
-	// new arrivals insert at the top with an entrance animation (only while
-	// the window is already open — the window slide covers the first batch),
-	// gone rows collapse in place and are swept after their exit animation.
-	// Order stays newest-first.
 	function syncToasts(): void {
 		var live = Notifications.toasts;
 		var liveIds = {};
@@ -61,8 +47,6 @@ PanelWindow {
 		for (i = 0; i < toastModel.count; i++)
 			have[toastModel.get(i).nid] = true;
 		var windowOpen = win.lastLiveCount > 0;
-		// Walk oldest-first, inserting missing rows at 0, so the block lands
-		// newest-first without touching kept rows.
 		for (i = live.length - 1; i >= 0; i--) {
 			if (live[i] && !have[String(live[i].id)]) {
 				var s = win.toSnapshot(live[i]);
@@ -91,8 +75,6 @@ PanelWindow {
 		}
 	}
 
-	// Drops exit-animated rows once their collapse finished. (The slideOut
-	// end handler converges to the same empty state when the window hides.)
 	Timer {
 		id: sweepTimer
 		interval: 280
@@ -115,7 +97,6 @@ PanelWindow {
 	exclusionMode: ExclusionMode.Ignore
 	exclusiveZone: 0
 
-	// Global inline-reply keyboard focus state
 	QtObject {
 		id: replyFocus
 
@@ -143,10 +124,6 @@ PanelWindow {
 		}
 	}
 
-	// Same slide physics as the SideDrawer drawers (notification center,
-	// quick settings): in on Theme.animSmooth/easeOutQuint, out on
-	// Theme.animNormal/InCubic. Toasts stay non-modal, so there is no
-	// backdrop fade to mirror.
 	ParallelAnimation {
 		id: slideIn
 
@@ -185,9 +162,6 @@ PanelWindow {
 
 	screen: Quickshell.screens.find(s => s.name === Hyprland.focusedMonitor?.name) ?? Quickshell.screens[0] ?? null
 
-	// Fullscreen like SideDrawer: the stack slides via its own x, so the
-	// window geometry never moves and the motion matches the drawers
-	// exactly (animating window margins rendered as a linear slide).
 	anchors {
 		top: true
 		bottom: true
@@ -205,11 +179,6 @@ PanelWindow {
 		Repeater {
 			model: toastModel
 
-			// Per-card wrapper: every toast animates its own entrance
-			// (grow + fade + slide) and exit (collapse + fade + slide), so
-			// stacked toasts glide instead of popping. `gone` derives from
-			// the live toast array (notifying); roles themselves are
-			// write-once at insert.
 			delegate: Item {
 				id: wrap
 
@@ -226,10 +195,6 @@ PanelWindow {
 					}
 					return true;
 				}
-				// Card exit runs only while the window stays open (mid-stack
-				// dismiss/expiry). When the window itself hides, its slide
-				// covers the exit and the card must stay whole — otherwise
-				// two animations play on top of each other (e.g. SUPER+,).
 				readonly property bool cardExit: gone && win.shown
 
 				width: stack.width

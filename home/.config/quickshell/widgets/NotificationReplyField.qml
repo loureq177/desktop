@@ -1,9 +1,3 @@
-// Inline reply field for a notification advertising the inline-reply action.
-// `notif` is the Quickshell live Notification object (null hides the row); the
-// typed text is delivered on Enter via Notification.sendInlineReply(). Closing
-// without sending (focus loss / Escape) just hides the field. The surface the
-// field lives on closes via onReplied, so a non-resident notification does not
-// linger as a zombie toast after replying.
 import ".."
 import Quickshell
 import QtQuick
@@ -16,8 +10,6 @@ Rectangle {
 	signal replied()
 	signal focusGained()
 	signal focusLost()
-	// Latest sent reply text (empty before the first send); available for
-	// debugging and tests.
 	property string submittedText: ""
 
 	implicitHeight: visible ? 30 : 0
@@ -59,7 +51,6 @@ Rectangle {
 				root.focusLost();
 		}
 
-		// Escape leaves the field without closing the toast / the center.
 		Keys.onEscapePressed: focus = false
 	}
 

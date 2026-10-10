@@ -1,4 +1,3 @@
-// Shared off-state placeholder for quick settings sub-menus (Wi-Fi, Bluetooth).
 import "../.."
 import QtQuick
 import QtQuick.Layouts

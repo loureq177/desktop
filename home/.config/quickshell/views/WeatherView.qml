@@ -1,7 +1,3 @@
-// Weather panel: popup card showing current conditions, stats, and 3-day forecast.
-// Directly mirrors the Omarchy Quattro weather popup with click-to-edit city search.
-// Toggle via IPC: `qs ipc call weather toggle` (SUPER + W).
-// ESC or clicking outside dismisses the panel.
 import ".."
 import "../widgets"
 import Quickshell
@@ -120,7 +116,6 @@ PanelWindow {
 		onActivated: root.requestDismiss()
 	}
 
-	// Full-screen dim backdrop
 	Rectangle {
 		id: backdrop
 		anchors.fill: parent
@@ -136,7 +131,6 @@ PanelWindow {
 		}
 	}
 
-	// Weather Card
 	Rectangle {
 		id: card
 		anchors.horizontalCenter: parent.horizontalCenter
@@ -170,9 +164,6 @@ PanelWindow {
 			}
 		}
 
-		// Absorb mouse clicks inside the card.
-		// Disabled with the panel so clicks during the slide-out
-		// animation fall through instead of dying on a leaving card.
 		MouseArea {
 			anchors.fill: parent
 			enabled: root.shown
@@ -187,12 +178,10 @@ PanelWindow {
 			anchors.margins: Theme.paddingCard
 			spacing: 16
 
-			// ─── Hero Row: Big Icon + Temp on left; Location + Stats on right ────
 			Item {
 				width: parent.width
 				height: Math.max(heroLeft.implicitHeight, heroRight.implicitHeight)
 
-				// Left: Big Condition Icon + Temp with High/Low underneath
 				Row {
 					id: heroLeft
 					anchors.left: parent.left
@@ -257,14 +246,12 @@ PanelWindow {
 					}
 				}
 
-				// Right: Location Title (Click to Edit) + Stats
 				Column {
 					id: heroRight
 					anchors.right: parent.right
 					anchors.verticalCenter: parent.verticalCenter
 					spacing: 8
 
-					// Location Display (Click to Edit)
 					Item {
 						anchors.right: parent.right
 						visible: !Weather.editingLocation
@@ -311,7 +298,6 @@ PanelWindow {
 						}
 					}
 
-					// Location Editor (when clicked)
 					Row {
 						id: editRow
 						anchors.right: parent.right
@@ -332,10 +318,6 @@ PanelWindow {
 								anchors.leftMargin: 8
 								anchors.rightMargin: 8
 								verticalAlignment: TextInput.AlignVCenter
-								// NOTE: no `text: Weather.configuredLocation`
-								// binding — it breaks on first keystroke and
-								// would then ignore external file updates.
-								// Synced explicitly on show (below).
 								color: Theme.textMain
 								font.family: Theme.fontMono
 								font.pixelSize: Theme.fontSizeSmall
@@ -379,7 +361,6 @@ PanelWindow {
 							}
 						}
 
-						// Clear button / spinner
 						Rectangle {
 							width: 32
 							height: 32
@@ -415,7 +396,6 @@ PanelWindow {
 						}
 					}
 
-					// Stats row (FEELS, WIND, HUMID)
 					Row {
 						id: weatherStats
 						anchors.right: parent.right
@@ -480,7 +460,6 @@ PanelWindow {
 				}
 			}
 
-			// ─── Geocoding suggestions dropdown (when editing) ─────────────────
 			Column {
 				visible: Weather.editingLocation && !Weather.savingLocation && Weather.locationSuggestions && Weather.locationSuggestions.length > 0
 				width: parent.width
@@ -539,8 +518,6 @@ PanelWindow {
 				}
 			}
 
-			// Loading / error placeholder (Offline was infinite
-			// "Fetching..." with retry only via 15-min timer or reopen).
 			ColumnLayout {
 				visible: !Weather.current
 				width: parent.width
@@ -587,7 +564,6 @@ PanelWindow {
 				}
 			}
 
-			// ─── Divider ───────────────────────────────────────────────────────
 			Rectangle {
 				visible: Weather.hourlyForecast && Weather.hourlyForecast.length > 0
 				width: parent.width
@@ -595,7 +571,6 @@ PanelWindow {
 				color: Theme.border
 			}
 
-			// ─── Hourly Forecast with Chart (Samsung / Google Weather style) ───
 			Flickable {
 				id: hourlyFlick
 				visible: Weather.hourlyForecast && Weather.hourlyForecast.length > 0
@@ -621,7 +596,6 @@ PanelWindow {
 					width: hourlyFlick.contentWidth
 					height: hourlyFlick.height
 
-					// Temperature spline curve with gradient area
 					Canvas {
 						id: chartCanvas
 						anchors.fill: parent
@@ -661,7 +635,6 @@ PanelWindow {
 								pts.push({ x: x, y: y });
 							}
 
-								// Gradient fill under the curve
 								ctx.beginPath();
 								ctx.moveTo(pts[0].x, bottomY);
 								ctx.lineTo(pts[0].x, pts[0].y);
@@ -682,7 +655,6 @@ PanelWindow {
 								ctx.fillStyle = grad;
 								ctx.fill();
 
-								// Smooth curve stroke
 								ctx.beginPath();
 								ctx.moveTo(pts[0].x, pts[0].y);
 								for (var i = 0; i < pts.length - 1; i++) {
@@ -695,7 +667,6 @@ PanelWindow {
 								ctx.lineWidth = 2.5;
 								ctx.stroke();
 
-								// Donut dots on points
 								for (var i = 0; i < pts.length; i++) {
 									ctx.beginPath();
 									ctx.arc(pts[i].x, pts[i].y, 4, 0, 2 * Math.PI);
@@ -709,7 +680,6 @@ PanelWindow {
 							}
 						}
 
-						// Text & Icon items positioned over each hour column
 						Repeater {
 							model: Weather.hourlyForecast
 
@@ -735,7 +705,6 @@ PanelWindow {
 								width: colW
 								height: parent.height
 
-								// Time (Now / 21:00 / ...)
 								Text {
 									anchors.horizontalCenter: parent.horizontalCenter
 									y: 2
@@ -746,7 +715,6 @@ PanelWindow {
 									color: index === 0 ? Theme.accentBlue : Theme.textDim
 								}
 
-								// Weather condition glyph
 								Text {
 									anchors.horizontalCenter: parent.horizontalCenter
 									y: 21
@@ -756,7 +724,6 @@ PanelWindow {
 									color: Theme.textMain
 								}
 
-								// Temperature centered directly above the curve point
 								Item {
 									anchors.horizontalCenter: parent.horizontalCenter
 									y: pointY - tempNum.implicitHeight - 6
@@ -785,7 +752,6 @@ PanelWindow {
 									}
 								}
 
-								// Rain probability if >= 10%
 								Row {
 									visible: modelData.pop >= 10
 									anchors.horizontalCenter: parent.horizontalCenter
@@ -812,7 +778,6 @@ PanelWindow {
 					}
 				}
 
-			// ─── Divider ───────────────────────────────────────────────────────
 			Rectangle {
 				visible: Weather.forecastDays.length > 0
 				width: parent.width
@@ -820,7 +785,6 @@ PanelWindow {
 				color: Theme.border
 			}
 
-			// ─── 3-Day Forecast Row ───────────────────────────────────────────
 			Item {
 				visible: Weather.forecastDays.length > 0
 				width: parent.width

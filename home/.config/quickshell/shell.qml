@@ -1,19 +1,4 @@
 //@ pragma IconTheme Papirus-Dark
-// Keep in sync with ui.toml [theme] icon and hyprland.lua QS_ICON_THEME.
-// Without a pinned theme Quickshell follows the Qt platform theme (hicolor
-// fallback here, since QT_QPA_PLATFORMTHEME is intentionally unset), so
-// LauncherView iconPath() intermittently misses Papirus icons.
-// Quickshell daemon: hosts the bar, launcher, keybindings cheatsheet,
-// notification surfaces (sticky toasts + control center) and the polkit
-// authentication dialog. Started from Hyprland autostart: `quickshell -d`.
-// Control via IPC:
-//   qs ipc call shell summon launcher apps|emoji|power
-//   qs ipc call shell summon keybindings ""
-//   qs ipc call shell toggle launcher apps
-//   qs ipc call shell hide launcher
-//   qs ipc call notifications toggle|toggleDnd|dndOn|dndOff|clear|dismissLatest|invokeAction|invokeDefault|status
-//   qs ipc call osd volume|brightness|mic|touchpad
-//   qs ipc call clipboard toggle|open|close
 import Quickshell
 import Quickshell.Io
 import QtQuick
@@ -22,7 +7,6 @@ import "views"
 ShellRoot {
 	id: root
 
-	// One status bar per screen.
 	Variants {
 		model: Quickshell.screens
 		Bar {

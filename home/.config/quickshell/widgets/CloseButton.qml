@@ -1,6 +1,3 @@
-// Shared close/dismiss button: icon-only button used across headers,
-// cards, and notification toasts. Uses the theme's Nerd Font close icon (󰅖)
-// with precise optical centering and consistent hover feedback.
 import ".."
 import QtQuick
 

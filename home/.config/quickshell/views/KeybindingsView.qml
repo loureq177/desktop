@@ -1,7 +1,3 @@
-// Keybindings cheatsheet: fullscreen blurred overlay showing every
-// shortcut at once, grouped by category in balanced columns.
-// Read-only: Esc or click outside closes. No search, no dispatch.
-// Toggle via IPC: `qs ipc call shell toggle keybindings ''` (SUPER + /).
 import ".."
 import Quickshell
 import Quickshell.Hyprland
@@ -18,7 +14,6 @@ PanelWindow {
 	signal dismissed()
 
 	function open() {
-		// Re-read on every open: binds change with each Hyprland reload.
 		if (!loader.running)
 			loader.running = true;
 		window.shown = true;
@@ -132,7 +127,6 @@ PanelWindow {
 	}
 
 	property var entries: []
-	// Balanced into 3 columns: each item is { category, items }.
 	property var columns: [[], [], []]
 	property bool loading: true
 
@@ -230,8 +224,6 @@ PanelWindow {
 		return (catIdx * 1000) + subRank;
 	}
 
-	// Group entries by categoryOrder, then greedily balance the groups
-	// across 3 columns by row count so everything fits on one screen.
 	function rebuildColumns() {
 		var map = {};
 		for (var i = 0; i < entries.length; i++) {
@@ -304,7 +296,6 @@ PanelWindow {
 						var rawKey = (b.key || "").trim();
 						var rawLower = rawKey.toLowerCase();
 
-						// Filter out hardware keys (XF86*) and hardware switches, except touchpad toggle (Fn + F10)
 						if (rawLower === "xf86touchpadtoggle") {
 							rawKey = "fn + f10";
 						} else if (rawLower.indexOf("xf86") !== -1 || rawLower.indexOf("switch:") !== -1) {
@@ -363,7 +354,6 @@ PanelWindow {
 		}
 	}
 
-	// Full-screen dim backdrop (translucent so Hyprland blurs behind it).
 	Rectangle {
 		id: backdrop
 		anchors.fill: parent
@@ -372,13 +362,10 @@ PanelWindow {
 		MouseArea {
 			anchors.fill: parent
 			enabled: window.shown
-			// Dismiss on press, same layer-surface split reason as the
-			// CenterModal/SideDrawer backdrops.
 			onPressed: window.close()
 		}
 	}
 
-	// Centered cheatsheet card.
 	Rectangle {
 		id: sheetCard
 		anchors.centerIn: parent
@@ -390,7 +377,6 @@ PanelWindow {
 		radius: Theme.roundingWindow
 		clip: true
 
-		// Absorb clicks inside the card so they don't reach the backdrop.
 		MouseArea {
 			anchors.fill: parent
 			enabled: window.shown

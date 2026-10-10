@@ -1,9 +1,3 @@
-// Status bar: one instance per screen (via shell.qml Variants).
-// Fully transparent, minimal bar with clean hover highlights,
-// hand cursors, and click passthrough.
-// Layout: workspaces / memory / dGPU / power-save on the left,
-// minimal time centered, record / screenshare / awake / bluetooth /
-// network / battery / notification center on the right.
 import ".."
 import Quickshell
 import Quickshell.Bluetooth
@@ -44,8 +38,6 @@ PanelWindow {
 
 	implicitHeight: Theme.barHeight
 
-	// ─── Native status data ─────────────────────────────────────────────
-
 	readonly property var batteryDevice: {
 		var vals = UPower.devices.values;
 		for (var i = 0; i < vals.length; i++)
@@ -70,7 +62,6 @@ PanelWindow {
 		return null;
 	}
 
-	// ─── Tooltip popup ───────────────────────────────────────────────────
 	property Item tooltipTarget: null
 	property string tooltipText: ""
 	property bool tooltipVisible: false
@@ -98,9 +89,6 @@ PanelWindow {
 		}
 	}
 
-	// Immediate hide for pill presses: the delayed hideTimer could unmap
-	// the tooltip popup between press and release, which moves pointer
-	// focus and breaks the click pair.
 	function hideTooltipNow(): void {
 		tipTimer.stop();
 		hideTimer.stop();
@@ -187,8 +175,6 @@ PanelWindow {
 		}
 	}
 
-	// ─── Reusable Pill component ─────────────────────────────────────────
-	// Minimal, borderless, transparent background with smooth hover feedback.
 	component Pill: Rectangle {
 		id: pill
 
@@ -259,9 +245,6 @@ PanelWindow {
 			onExited: {
 				bar.hideTooltip(pill);
 			}
-			// Act on press for instant responsiveness. Bar is on Overlay layer
-			// above drawer backdrops (on Top layer), ensuring press and release
-			// always land cleanly on the bar without layer-surface splitting.
 			onPressed: mouse => {
 				bar.hideTooltipNow();
 				if (mouse.button === Qt.RightButton) {
@@ -290,14 +273,12 @@ PanelWindow {
 			}
 		}
 
-		// ─── Left zone: Workspaces + System Resources ─────────────────────
 		RowLayout {
 			id: leftModules
 			anchors.left: parent.left
 			anchors.verticalCenter: parent.verticalCenter
 			spacing: 6
 
-			// Arch button: opens the Quick actions panel (same as SUPER + A)
 			Pill {
 				text: "󰣇"
 				textColor: QuickSettings.panelOpen ? Theme.accentBlue : Theme.textMain
@@ -306,7 +287,6 @@ PanelWindow {
 				onActivated: QuickSettings.toggle()
 			}
 
-			// Workspaces container with wheel switching
 			Rectangle {
 				id: wsContainer
 				Layout.alignment: Qt.AlignVCenter
@@ -380,7 +360,6 @@ PanelWindow {
 				}
 			}
 
-			// Memory / RAM pill
 			Pill {
 				visible: SystemStatus.memPercent !== ""
 				text: "󰍛"
@@ -392,7 +371,6 @@ PanelWindow {
 				])
 			}
 
-			// dGPU pill (NVIDIA) - minimal, icon-only, only shown when active
 			Pill {
 				visible: SystemStatus.gpuDevicePath !== "" && SystemStatus.gpuActive
 				text: "󰢮"
@@ -404,7 +382,6 @@ PanelWindow {
 				])
 			}
 
-			// Power-save mode pill (only shown when active)
 			Pill {
 				visible: SystemStatus.powerSaveActive
 				text: "󰌪"
@@ -414,7 +391,6 @@ PanelWindow {
 			}
 		}
 
-		// ─── Center zone: Minimal Time & Weather ─────────────────────────
 		RowLayout {
 			anchors.centerIn: parent
 			spacing: 4
@@ -450,14 +426,12 @@ PanelWindow {
 			}
 		}
 
-		// ─── Right zone: Tray / Status ────────────────────────────────────
 		RowLayout {
 			id: rightModules
 			anchors.right: parent.right
 			anchors.verticalCenter: parent.verticalCenter
 			spacing: 6
 
-			// Dictation indicator (red dot while recording, amber dots while transcribing)
 			Pill {
 				visible: SystemStatus.dictatingActive
 				text: SystemStatus.dictationState === "transcribing" ? "…" : "●"
@@ -467,7 +441,6 @@ PanelWindow {
 				onActivated: Quickshell.execDetached(["sh", "-c", "~/.local/bin/dictation stop"])
 			}
 
-			// Screen recording indicator
 			Pill {
 				visible: SystemStatus.recording
 				text: "●"
@@ -478,7 +451,6 @@ PanelWindow {
 				onActivated: Quickshell.execDetached(["sh", "-c", "~/.local/bin/record-screen"])
 			}
 
-			// Screencast indicator
 			Pill {
 				visible: SystemStatus.screencasts > 0
 				text: "󰒎"
@@ -487,7 +459,6 @@ PanelWindow {
 				tooltipText: "Screen sharing active (" + SystemStatus.screencasts + (SystemStatus.screencasts === 1 ? " stream)" : " streams)")
 			}
 
-			// Awake toggle indicator
 			Pill {
 				visible: SystemStatus.awakeActive
 				text: "󰖦"
@@ -496,7 +467,6 @@ PanelWindow {
 				onActivated: Quickshell.execDetached(["sh", "-c", "~/.local/bin/awake-toggle"])
 			}
 
-			// Bluetooth indicator
 			Pill {
 				id: bluetooth
 				readonly property var adapter: Bluetooth.defaultAdapter
@@ -544,7 +514,6 @@ PanelWindow {
 				onActivated: QuickSettings.toggleBluetooth()
 			}
 
-			// Network indicator (Wifi / Ethernet)
 			Pill {
 				readonly property bool isOpen: QuickSettings.panelOpen && QuickSettings.subView === "wifi"
 				readonly property bool wifiUp: bar.wifiDevice?.connected ?? false
@@ -583,7 +552,6 @@ PanelWindow {
 				onActivated: QuickSettings.toggleWifi()
 			}
 
-			// Battery indicator
 			Pill {
 				id: batteryPill
 				readonly property var device: bar.batteryDevice
@@ -618,7 +586,6 @@ PanelWindow {
 				])
 			}
 
-			// Notification center toggle bell
 			Pill {
 				readonly property int historyCount: Notifications.history.length
 				readonly property bool dnd: Notifications.dnd

@@ -1,8 +1,3 @@
-// Shared pending-action tracker with a single connection timeout (15s).
-// Used by WifiSubView (connectingSsid) and BluetoothSubView
-// (targetDeviceAddress) so the "Connecting…" state can never stick forever
-// when the native async call produces no callback (e.g. failed hotspot join).
-// Single source of truth for the timeout: change timeoutMs here, both follow.
 import QtQuick
 
 QtObject {

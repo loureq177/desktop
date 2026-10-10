@@ -1,6 +1,3 @@
-// System status singleton: tracks global hardware and session state
-// (memory, GPU, screen recording, screencast streams, awake, power-save).
-// Prevents duplicate polling and process spawning across multiple monitors.
 pragma Singleton
 import Quickshell
 import Quickshell.Hyprland
@@ -49,7 +46,6 @@ Singleton {
 		}
 	}
 
-	// 2s polling for fast lightweight checks (FileViews, no processes).
 	Timer {
 		interval: 2000
 		running: true
@@ -64,7 +60,6 @@ Singleton {
 		}
 	}
 
-	// 5s cadence for /proc/meminfo and pgrep wf-recorder.
 	Timer {
 		interval: 5000
 		running: true
@@ -95,7 +90,6 @@ Singleton {
 		}
 	}
 
-	// Probe the dGPU's PCI device once at startup.
 	Process {
 		id: gpuProbe
 		command: ["sh", "-c", "grep -lx 0x10de /sys/bus/pci/devices/*/vendor 2>/dev/null | head -1"]

@@ -1,6 +1,3 @@
-// Capture sub-menu: provides screenshot (interactive region/window),
-// screen recording, color picker, OCR, and voice dictation tools.
-// Full Vim key navigation (h/j/k/l, Enter, Space, Esc, q).
 import "../.."
 import "../../widgets"
 import "."
@@ -71,9 +68,6 @@ Item {
 	}
 
 	function runCommand(cmd) {
-		// Snap the panel shut with no animation: these tools freeze the
-		// screen (hyprpicker/slurp), which would otherwise capture a cut
-		// animation mid-flight.
 		QuickSettings.closeInstant();
 		Quickshell.execDetached(["sh", "-c", cmd]);
 	}
@@ -84,7 +78,6 @@ Item {
 		runCommand(item.cmd);
 	}
 
-	// ─── Vim Key Navigation ──────────────────────────────────────────
 	Keys.onPressed: event => {
 		if (event.key === Qt.Key_J || event.key === Qt.Key_Down) {
 			root.currentIndex = Math.min(root.captureActions.length - 1, root.currentIndex + 1);
@@ -190,11 +183,8 @@ Item {
 					anchors.fill: parent
 					anchors.margins: 10
 					spacing: 12
-					// Future-proof: content above the full-row MouseArea so
-					// any added button stays clickable (Wi-Fi/BT bug class).
 					z: 2
 
-					// Icon
 					Text {
 						text: modelData.icon
 						font.family: Theme.fontFamily
@@ -204,7 +194,6 @@ Item {
 						horizontalAlignment: Text.AlignHCenter
 					}
 
-					// Title & description
 					ColumnLayout {
 						Layout.fillWidth: true
 						spacing: 2

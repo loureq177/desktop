@@ -1,9 +1,3 @@
-// Quick settings panel: OneUI/GNOME-style slide-in drawer from top-left
-// (anchored to the Arch button side).
-// Pill sliders on top, toggle tiles below (Wi-Fi, Bluetooth,
-// battery saver, DND, awake, night light) and a power button.
-// Toggle via IPC: `qs ipc call quicksettings toggle` (SUPER + A).
-// ESC or clicking outside dismisses the panel.
 import ".."
 import "../widgets"
 import "./quicksettings"
@@ -37,7 +31,6 @@ SideDrawer {
 	readonly property int subViewHeight: Math.min(currentSubViewHeight, Math.min(680, win.height - Theme.notifTopMargin - 20))
 	cardHeight: QuickSettings.subView === "main" ? mainContentHeight : subViewHeight
 
-	// ─── 2D Navigation state ─────────────────────────────────────────
 	readonly property int rowVolume: 0
 	readonly property int rowBrightness: win.brightnessReady ? 1 : -1
 	readonly property int rowTilesStart: win.brightnessReady ? 2 : 1
@@ -95,19 +88,10 @@ SideDrawer {
 		}
 	}
 
-	// ─── Backend state ──────────────────────────────────────────────
-
-	// Audio output via wpctl (polled): the Pipewire QML node for the
-	// default sink stays unbound (writes fail with "not bound"), so the
-	// panel shells out exactly like volume instead.
 	property real volPct: 20
 	property bool volMuted: false
 	property bool volReady: false
-	// Volume capped at 100% (`-l 1.0`); the slider, OSD and
-	// PipeWire stay in the same range instead of boosting to 150%.
 	property int volMax: 100
-	// Thumb position: follows the finger while dragging, the backend
-	// readout otherwise (avoids snap-back between polls).
 	property real volShown: 20
 	readonly property string volIcon: win.volMuted ? "󰝟" : (win.volPct <= 1 ? "󰕿" : (win.volPct <= 50 ? "󰖀" : "󰕾"))
 
@@ -168,7 +152,6 @@ SideDrawer {
 		onTriggered: win.commitVolume()
 	}
 
-	// Backlight: polled via brightnessctl, writes debounced while dragging.
 	property int brightness: 50
 	property bool brightnessReady: false
 
@@ -207,7 +190,6 @@ SideDrawer {
 		onTriggered: win.commitBrightness()
 	}
 
-	// Wi-Fi: radio state from NetworkManager, SSID from the active network.
 	readonly property var wifiDevice: {
 		var vals = Networking.devices.values;
 		for (var i = 0; i < vals.length; i++)
@@ -234,7 +216,6 @@ SideDrawer {
 		return win.activeSsid !== "" ? win.activeSsid : (win.wifiUp ? "On" : "No connection");
 	}
 
-	// Bluetooth: adapter switch + connected-device count.
 	readonly property var btAdapter: Bluetooth.defaultAdapter
 	readonly property bool btEnabled: win.btAdapter?.enabled ?? false
 	readonly property int btConnected: {
@@ -264,7 +245,6 @@ SideDrawer {
 		return win.btEnabled ? "On" : "Off";
 	}
 
-	// Backlight & volume re-read while the panel is open.
 	Timer {
 		id: pollTimer
 		interval: 3000
@@ -279,14 +259,12 @@ SideDrawer {
 		}
 	}
 
-	// Optimistic refresh after marker-file toggles (scripts are async).
 	Timer {
 		id: markerRefresh
 		interval: 100
 		onTriggered: SystemStatus.refresh()
 	}
 
-	// External writers call `qs ipc call quicksettings refresh`
 	Connections {
 		target: QuickSettings
 		function onRefreshRequested(): void {
@@ -297,13 +275,6 @@ SideDrawer {
 		}
 	}
 
-	// ─── Reusable tiles ─────────────────────────────────────────────
-
-	// 2-column tile: tactile, rounded icon badge, large bold title,
-	// subtitle, hotkey, and subtle detail chevron (›).
-	// Icon badge toggles; body opens details when hasDetails.
-	// Vim keys: h/j/k/l 2D navigation, Enter/O opens details,
-	// Space toggles radio (wifi/bt) or marker tiles, W/B open wifi/bt (Shift+W/B toggles radio).
 	component SamsungTile: Rectangle {
 		id: stile
 
@@ -482,11 +453,6 @@ SideDrawer {
 		}
 	}
 
-	// OneUI-style pill slider: thick rounded track, fill = value, no
-	// detached handle. Value flows one way (parent -> pill); user drags
-	// emit scrubbed() and the parent writes back + debounces the commit.
-	// This avoids the QtQuick.Controls binding-break where a drag severs
-	// `value:` and the backend poll stops moving the thumb.
 	component PillSlider: Item {
 		id: pill
 
@@ -699,7 +665,6 @@ SideDrawer {
 			}
 		}
 
-		// ─── Header ─────────────────────────────────────────
 		RowLayout {
 			Layout.fillWidth: true
 			Layout.preferredHeight: 32
@@ -719,7 +684,6 @@ SideDrawer {
 			}
 		}
 
-		// ─── Volume slider ──────────────────────────────────
 		Rectangle {
 			Layout.fillWidth: true
 			Layout.preferredHeight: 48
@@ -812,7 +776,6 @@ SideDrawer {
 			}
 		}
 
-		// ─── Brightness slider ──────────────────────────────
 		Rectangle {
 			Layout.fillWidth: true
 			Layout.preferredHeight: 48
@@ -896,7 +859,6 @@ SideDrawer {
 			}
 		}
 
-		// ─── 2-Column Toggle tiles ───────────────────────────
 		GridLayout {
 			Layout.fillWidth: true
 			columns: 2

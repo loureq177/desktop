@@ -1,8 +1,3 @@
-// Notification center: slide-in drawer from top-right.
-// Displays notification history, live action triggers, DND toggle,
-// and individual / bulk dismissal.
-// Toggle via IPC: `qs ipc call notifications toggle` (SUPER + CTRL + comma).
-// ESC or clicking outside dismisses the panel.
 import ".."
 import "../widgets"
 import Quickshell.Services.Notifications
@@ -18,10 +13,6 @@ SideDrawer {
 	cardHeight: Math.min(680, win.height - Theme.notifTopMargin - 20)
 	property int currentIndex: 0
 
-	// Incremental visual mirror of history (role: entry). Row ops are
-	// incremental, so dismissing one entry never rebuilds the rest —
-	// rapid successive dismissals keep every collapse animation alive.
-	// Gone rows linger until the sweep drops them after their exit.
 	ListModel {
 		id: centerModel
 	}
@@ -79,7 +70,6 @@ SideDrawer {
 		}
 	}
 
-	// Drops exit-animated rows once their collapse finished.
 	Timer {
 		id: sweepTimer
 		interval: 280
@@ -102,13 +92,11 @@ SideDrawer {
 		anchors.fill: parent
 		spacing: 12
 
-			// ─── Header Bar ─────────────────────────────────────────────
 			RowLayout {
 				Layout.fillWidth: true
 				Layout.preferredHeight: 32
 				spacing: 10
 
-				// Title
 				Text {
 					text: "Notifications"
 					font.family: Theme.fontFamily
@@ -117,7 +105,6 @@ SideDrawer {
 					color: Theme.textMain
 				}
 
-				// Badge
 				Rectangle {
 					visible: Notifications.history.length > 0
 					implicitWidth: countLabel.implicitWidth + 12
@@ -138,12 +125,10 @@ SideDrawer {
 					}
 				}
 
-				// Push Clear All and Close button to the far right corner
 				Item {
 					Layout.fillWidth: true
 				}
 
-				// Clear all button
 				Rectangle {
 					visible: Notifications.history.length > 0
 					implicitWidth: clearRow.implicitWidth + 16
@@ -184,20 +169,17 @@ SideDrawer {
 					}
 				}
 
-				// Close (✕) button
 				CloseButton {
 					onClicked: Notifications.closeCenter()
 				}
 			}
 
-			// Subtle 1px separator
 			Rectangle {
 				Layout.fillWidth: true
 				Layout.preferredHeight: 1
 				color: Theme.border
 			}
 
-			// ─── Notification List ──────────────────────────────────────
 			ListView {
 				id: centerList
 				visible: centerModel.count > 0
@@ -275,10 +257,6 @@ SideDrawer {
 					id: entryWrap
 					required property var entry
 					required property int index
-					// Gone from history (✕, X, SUPER+,, clear): collapse in
-					// place; the sweep drops the row after the animation.
-					// Derives from the notifying history array, so rapid
-					// successive dismissals never rebuild surviving rows.
 					readonly property string nid: entry ? String(entry.id) : ""
 					readonly property bool gone: {
 						var h = Notifications.history;
@@ -311,9 +289,6 @@ SideDrawer {
 						isToast: false
 						showTime: true
 
-						// Fade in place + top-anchored collapse wipes the card
-						// bottom-to-top inside the panel. No sideways slide:
-						// entries must not exit like toasts.
 						opacity: entryWrap.gone ? 0.0 : 1.0
 						Behavior on opacity {
 							NumberAnimation { duration: 180; easing.type: Easing.OutCubic }
@@ -330,7 +305,6 @@ SideDrawer {
 				}
 			}
 
-			// ─── Empty State ────────────────────────────────────────────
 			Item {
 				visible: centerModel.count === 0
 				Layout.fillWidth: true

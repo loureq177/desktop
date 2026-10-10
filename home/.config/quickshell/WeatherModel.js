@@ -1,5 +1,3 @@
-// Open-Meteo Weather Model & Utilities
-
 function parseLocationFile(raw) {
   var unset = { name: "", latitude: null, longitude: null };
   try {
@@ -68,49 +66,48 @@ function dayName(dateString, formatter) {
   return ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][d.getDay()];
 }
 
-// WMO Weather Interpretation Codes (WW) → Nerd Font Weather Icons
 function iconForWmoCode(code, isDay) {
   var c = parseInt(String(code || "0"), 10);
   var day = (isDay === true || isDay === 1 || isDay === "1");
 
   switch (c) {
-    case 0: // Clear sky
+    case 0:
       return day ? "" : "";
-    case 1: // Mainly clear
-    case 2: // Partly cloudy
+    case 1:
+    case 2:
       return day ? "" : "";
-    case 3: // Overcast
+    case 3:
       return "";
-    case 45: // Fog
-    case 48: // Depositing rime fog
+    case 45:
+    case 48:
       return day ? "" : "";
-    case 51: // Drizzle: Light
-    case 53: // Drizzle: Moderate
-    case 55: // Drizzle: Dense
-    case 61: // Rain: Slight
-    case 63: // Rain: Moderate
-    case 65: // Rain: Heavy
+    case 51:
+    case 53:
+    case 55:
+    case 61:
+    case 63:
+    case 65:
       return "";
-    case 56: // Freezing Drizzle: Light
-    case 57: // Freezing Drizzle: Dense
-    case 66: // Freezing Rain: Light
-    case 67: // Freezing Rain: Heavy
+    case 56:
+    case 57:
+    case 66:
+    case 67:
       return "";
-    case 71: // Snow fall: Slight
-    case 73: // Snow fall: Moderate
-    case 75: // Snow fall: Heavy
-    case 77: // Snow grains
+    case 71:
+    case 73:
+    case 75:
+    case 77:
       return "";
-    case 80: // Rain showers: Slight
-    case 81: // Rain showers: Moderate
-    case 82: // Rain showers: Violent
+    case 80:
+    case 81:
+    case 82:
       return day ? "" : "";
-    case 85: // Snow showers: Slight
-    case 86: // Snow showers: Heavy
+    case 85:
+    case 86:
       return day ? "" : "";
-    case 95: // Thunderstorm: Slight or moderate
-    case 96: // Thunderstorm with slight hail
-    case 99: // Thunderstorm with heavy hail
+    case 95:
+    case 96:
+    case 99:
       return "";
     default:
       return day ? "" : "";

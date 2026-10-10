@@ -1,11 +1,3 @@
-// OSD overlay: replaces SwayOSD. Shows volume / microphone / brightness
-// state near the top center, fed by scripts via IPC:
-//   qs ipc call osd volume <0-100> [muted]
-//   qs ipc call osd brightness <0-100>
-//   qs ipc call osd mic <muted>
-//   qs ipc call osd touchpad <enabled>
-// Fades in and out instead of popping; overlapping updates (held keys) just
-// restart the hide timer, and re-shows mid-fade animate smoothly back up.
 import ".."
 import Quickshell
 import Quickshell.Hyprland
@@ -16,10 +8,9 @@ import QtQuick
 PanelWindow {
 	id: win
 
-	property string kind: "" // volume | brightness | mic | touchpad
+	property string kind: ""
 	property int value: 0
 	property bool muted: false
-	// Surface unmap is deferred through `shown` so hides can fade out first.
 	property bool shown: false
 
 	readonly property string icon: kind === "brightness" ? "󰃟"
@@ -27,13 +18,7 @@ PanelWindow {
 		: kind === "touchpad" ? (muted ? "󰟴" : "󰟸")
 		: (muted ? "󰝟" : value <= 1 ? "󰕿" : value <= 50 ? "󰖀" : "󰕾")
 
-	// Overlapping updates restart the hide timer; values update in place.
-	// Fades the card, not the window: QsWindow has no `opacity`.
 	function show(newKind, newValue, newMuted) {
-		// The QuickSettings panel already shows volume/brightness sliders,
-		// and scripts push it a refresh alongside the OSD call: showing the
-		// OSD on top would duplicate the feedback. Mic/touchpad have no
-		// panel surface, so they always pop.
 		if ((newKind === "volume" || newKind === "brightness") && QuickSettings.panelOpen)
 			return;
 		fadeOut.stop();
@@ -42,7 +27,7 @@ PanelWindow {
 			shown = true;
 			fadeIn.start();
 		} else if (fadeOut.running) {
-			fadeIn.start(); // animate back up from the current opacity
+			fadeIn.start();
 		}
 		if (kind !== newKind)
 			kind = newKind;
@@ -139,7 +124,6 @@ PanelWindow {
 					anchors.fill: parent
 					horizontalAlignment: Text.AlignHCenter
 					verticalAlignment: Text.AlignVCenter
-					// Mic has no level: show state instead of a bar.
 					text: win.kind === "mic" ? (win.muted ? "Muted" : "On") : win.kind === "touchpad" ? (win.muted ? "Off" : "On") : win.value + "%"
 					font.family: Theme.fontMono
 					font.pixelSize: Theme.fontSizeSmall

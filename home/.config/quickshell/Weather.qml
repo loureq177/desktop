@@ -1,6 +1,3 @@
-// Weather state singleton: fetches conditions from Open-Meteo,
-// manages location persistence, and coordinates the weather popup panel.
-// Control via IPC: `qs ipc call weather <toggle|open|close|refresh|status|icon>`
 pragma Singleton
 import Quickshell
 import Quickshell.Io
@@ -17,18 +14,15 @@ Singleton {
 			Notifications.hideToasts();
 	}
 
-	// Parsed Open-Meteo response
 	property var report: null
 	property var current: null
 	property var hourlyForecast: []
 	property var forecastDays: []
 
-	// IP-detected fallback location
 	property string ipCity: ""
 	property var ipLat: null
 	property var ipLon: null
 
-	// Configured location state from weather.json
 	property var configuredLocationState: ({ name: "", latitude: null, longitude: null })
 	readonly property string configuredLocation: configuredLocationState.name
 
@@ -48,7 +42,6 @@ Singleton {
 		}
 	}
 
-	// Click-to-edit state for the location label
 	property bool editingLocation: false
 	property bool savingLocation: false
 	property var locationSuggestions: []
@@ -56,7 +49,6 @@ Singleton {
 	property string geocodePendingQuery: ""
 	property string geocodeActiveQuery: ""
 
-	// Weather values for bar pill & hero view
 	property string label: ""
 	property string tempNum: ""
 	readonly property string tempUnit: "°C"
@@ -65,10 +57,7 @@ Singleton {
 	property string reportHumidity: ""
 	property string reportTodayHigh: ""
 	property string reportTodayLow: ""
-	// Fetch/parse failure surface. Without it offline = infinite
-	// "Fetching weather..." with no retry until the 15-min timer.
 	property string lastError: ""
-	// Forecast URL requested while another fetch was running.
 	property string pendingForecastUrl: ""
 
 	readonly property int refreshMinutes: 15
@@ -108,8 +97,6 @@ Singleton {
 	}
 
 	function refresh() {
-		// Clear stale offline error while a new attempt is in flight;
-		// onExited re-sets it if this attempt also fails.
 		if (lastError !== "")
 			lastError = "";
 		var lat = parseFloat(String(root.configuredLocationState.latitude));
@@ -132,9 +119,6 @@ Singleton {
 			+ "&forecast_hours=27"
 			+ "&forecast_days=4"
 			+ "&timezone=auto";
-		// A fetch for the previous location may still be in flight: queue
-		// this one instead of dropping it (the panel would otherwise keep
-		// showing the old city until the next 15-minute refresh).
 		if (forecastProc.running) {
 			root.pendingForecastUrl = url;
 			return;
@@ -246,8 +230,6 @@ Singleton {
 			s += "  ·  Wind " + reportWind;
 		return s;
 	}
-
-	// ─── Processes ────────────────────────────────────────────────────────
 
 	Process {
 		id: ipProc

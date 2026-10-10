@@ -1,7 +1,3 @@
-// Quick settings state: owns the slide-in panel with
-// volume/brightness sliders and toggle tiles.
-// Control via IPC: `qs ipc call quicksettings <toggle|open|close>`
-// (SUPER + A).
 pragma Singleton
 import Quickshell
 import Quickshell.Io
@@ -11,8 +7,7 @@ Singleton {
 	id: root
 
 	property bool panelOpen: false
-	property string subView: "main" // "main" | "wifi" | "bluetooth" | "capture"
-	// Armed by closeInstant(): the next hide snaps shut without animation.
+	property string subView: "main"
 	property bool instantHide: false
 
 	onPanelOpenChanged: {
@@ -20,10 +15,6 @@ Singleton {
 			Notifications.hideToasts();
 	}
 
-	// Emitted when an external writer (volume, brightness,
-	// power-save) changed audio/backlight/marker state behind the
-	// panel's back. QuickSettingsView refreshes its polled readouts on it
-	// instead of lagging up to one poll interval behind the OSD.
 	signal refreshRequested()
 
 	function refresh(): void {
@@ -78,10 +69,6 @@ Singleton {
 		root.panelOpen = false;
 	}
 
-	// Immediate hide without the slide-out animation, for actions that
-	// freeze the screen (capture tools): a running animation would be
-	// captured mid-flight by the freeze. The view snaps shut via
-	// instantHide and resets the flag in onDrawerClosed.
 	function closeInstant(): void {
 		if (root.panelOpen)
 			root.instantHide = true;

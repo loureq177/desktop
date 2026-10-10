@@ -1,5 +1,3 @@
-// Polkit authentication dialog: pure hyprlock minimalist style.
-// Test with: pkexec true
 import ".."
 import Quickshell
 import Quickshell.Hyprland
@@ -23,7 +21,6 @@ Item {
 	property string displayCommand: ""
 
 	property string inputPromptText: ""
-
 
 	function updateCommandInfo() {
 		if (!currentMessage) {
@@ -202,7 +199,6 @@ Item {
 			right: true
 		}
 
-		// Darkened backdrop matching hyprlock dimming
 		Rectangle {
 			id: backdrop
 			anchors.fill: parent
@@ -258,11 +254,9 @@ Item {
 				anchors.margins: 24
 				spacing: 20
 
-				// 1. Command label: clean, prominent, large mono text (16px)
 				RowLayout {
 					Layout.fillWidth: true
 					spacing: 10
-
 
 					Text {
 						Layout.fillWidth: true
@@ -278,8 +272,6 @@ Item {
 					}
 				}
 
-
-				// 2. Password field
 				Rectangle {
 					Layout.fillWidth: true
 					implicitHeight: 54

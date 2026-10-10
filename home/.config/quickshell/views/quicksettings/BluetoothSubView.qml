@@ -1,7 +1,3 @@
-// Bluetooth sub-menu: replaces bluetui terminal app.
-// Allows scanning, connecting, pairing, disconnecting, and forgetting devices.
-// Displays battery readouts and device-specific icons.
-// Full Vim key navigation (h/j/k/l, g/G, Enter connect/disconnect, Space toggles radio, r, b, x, Esc, q).
 import "../.."
 import "../../widgets"
 import "."
@@ -39,7 +35,6 @@ Item {
 	readonly property string actionStatus: pending.status
 	readonly property string targetDeviceAddress: pending.target
 	property string errorMessage: ""
-	// Two-step forget confirm: first X arms, second X within 3s executes.
 	property string pendingForgetAddr: ""
 
 	function clearAction(): void {
@@ -165,9 +160,6 @@ Item {
 		if (currentIndex >= all.length)
 			currentIndex = Math.max(0, all.length - 1);
 
-		// Clear a pending action once its outcome is visible (native
-		// Quickshell.Bluetooth path has no Process.onExited to do it).
-		// Also clears a stale status when the device vanished (e.g. BT off).
 		if (targetDeviceAddress !== "" && actionStatus !== "") {
 			var target = null;
 			for (var t = 0; t < all.length; t++) {
@@ -210,8 +202,6 @@ Item {
 		scanTimer.restart();
 	}
 
-	// Delayed refresh after forget/remove: bluetoothctl is async and an
-	// immediate refresh re-shows the just-removed device (race).
 	Timer {
 		id: forgetRefreshTimer
 		interval: 600
@@ -273,8 +263,6 @@ Item {
 		if (pending.target === item.address && pending.status !== "")
 			return;
 		errorMessage = "";
-		// NOTE: devices needing a PIN/passkey have no agent UI here yet —
-		// confirm the pairing on the device itself if it stays on Pairing….
 		pending.start(item.address, "Pairing… confirm on device");
 		try {
 			item.device.pair();
@@ -287,7 +275,6 @@ Item {
 	function forgetDevice(item): void {
 		if (!item || !item.address)
 			return;
-		// Two-step: first call arms, second call within 3s executes.
 		if (root.pendingForgetAddr !== item.address) {
 			root.pendingForgetAddr = item.address;
 			root.errorMessage = "Press X again to unpair \"" + item.name + "\"";
@@ -303,9 +290,6 @@ Item {
 			try { item.device.unpair(); } catch (e) {}
 		}
 		Quickshell.execDetached(["bluetoothctl", "remove", item.address]);
-		// Don't refresh immediately — the daemon hasn't processed the
-		// remove yet and the device would flicker back. The timer +
-		// autoRefresh will converge shortly.
 		forgetRefreshTimer.restart();
 	}
 
@@ -316,9 +300,6 @@ Item {
 		if (!item || item.isHeader)
 			return;
 
-		// Same rule as Wi-Fi: clicking the connected row must NOT
-		// disconnect. Use the explicit Disconnect button or Enter key
-		// instead — full-row clicks disconnect far too easily.
 		if (item.connected)
 			return;
 		if (pending.target === item.address && pending.status !== "")
@@ -363,7 +344,6 @@ Item {
 		}
 	}
 
-	// ─── Vim Key Navigation ──────────────────────────────────────────
 	Keys.onPressed: event => {
 		if (event.key === Qt.Key_J || event.key === Qt.Key_Down) {
 			if (allItems.length > 0) {
@@ -413,7 +393,6 @@ Item {
 		anchors.fill: parent
 		spacing: 12
 
-		// ─── Header ───────────────────────────────────────────────────
 		SubViewHeader {
 			Layout.fillWidth: true
 			title: "Bluetooth"
@@ -427,17 +406,12 @@ Item {
 			onToggleClicked: root.toggleBluetooth()
 		}
 
-		// Divider
 		Rectangle {
 			Layout.fillWidth: true
 			Layout.preferredHeight: 1
 			color: Theme.border
 		}
 
-		// Inline error banner (timeouts, cli failures). Previously BT had
-		// no error surface at all — failed pair/connect just stuck on
-		// "Connecting…" until the 15s timeout silently cleared it.
-		// NOTE: Theme.critical is a string, so .r/.g/.b needs Qt.color().
 		Rectangle {
 			Layout.fillWidth: true
 			visible: root.errorMessage !== "" && root.btEnabled
@@ -469,7 +443,6 @@ Item {
 			}
 		}
 
-		// ─── Off-state Placeholder ─────────────────────────────────────
 		SubViewOffPlaceholder {
 			visible: !root.btEnabled
 			icon: "󰂲"
@@ -480,7 +453,6 @@ Item {
 			onEnableClicked: root.toggleBluetooth()
 		}
 
-		// ─── Device List ───────────────────────────────────────────────
 		Item {
 			Layout.fillWidth: true
 			Layout.fillHeight: true
@@ -563,11 +535,8 @@ Item {
 						anchors.leftMargin: 12
 						anchors.rightMargin: 12
 						spacing: 10
-						// Must sit above delegateArea, otherwise the full-row
-						// MouseArea swallows clicks meant for the buttons.
 						z: 2
 
-						// Device Type Icon
 						Text {
 							Layout.preferredWidth: 24
 							horizontalAlignment: Text.AlignHCenter
@@ -577,7 +546,6 @@ Item {
 							color: isConnected ? Theme.accentBlue : (modelData.paired ? Theme.textMain : Theme.textDim)
 						}
 
-						// Name & Status
 						ColumnLayout {
 							Layout.fillWidth: true
 							spacing: 1
@@ -617,11 +585,9 @@ Item {
 							}
 						}
 
-						// Right Action Buttons
 						RowLayout {
 							spacing: 6
 
-							// Disconnect button for connected device
 							Rectangle {
 								visible: isConnected
 								implicitWidth: disLabel.implicitWidth + 14
@@ -652,7 +618,6 @@ Item {
 								}
 							}
 
-							// Forget/Remove button for paired/connected
 							Rectangle {
 								visible: modelData.paired || isConnected
 								implicitWidth: 26
@@ -682,7 +647,6 @@ Item {
 								}
 							}
 
-							// Chevron for connectable / unparied
 							Text {
 								visible: !isConnected && !isTarget
 								text: "›"
@@ -695,7 +659,6 @@ Item {
 				}
 			}
 
-			// Empty devices placeholder
 			Item {
 				anchors.fill: parent
 				visible: root.allItems.length === 0 && !root.discovering

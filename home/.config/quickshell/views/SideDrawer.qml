@@ -1,10 +1,3 @@
-// Shared chrome for the slide-in drawers (right by default, left via fromLeft):
-// full-screen window, dim backdrop (click/Esc dismisses), card geometry,
-// slide animations and deferred unmap until slide-out ends.
-//
-// Callers bind `shown`, handle `opened` (close the competing drawer,
-// refresh polled state) and `dismissed` (close self), and put their body
-// in the default slot (already inset by Theme.paddingCard).
 import ".."
 import Quickshell
 import Quickshell.Hyprland
@@ -14,23 +7,16 @@ import QtQuick
 PanelWindow {
 	id: root
 
-	// Controlled by the caller (e.g. Notifications.centerOpen).
 	property bool shown: false
-	// Fixed card dimensions; callers with dynamic content override them.
 	property int cardWidth: Theme.notifWidth
 	property int cardHeight: Math.min(680, root.height - Theme.notifTopMargin - 20)
 	signal opened()
 	signal dismissed()
 	signal drawerClosed()
 
-	// 0 = on screen; width + margin = fully off screen (right edge,
-	// or left edge when fromLeft).
 	property int slide: root.cardWidth + Theme.notifRightMargin
-	// When true the card docks to the left edge and slides in from the left.
 	property bool fromLeft: false
 	property real backdropOpacity: 0.0
-	// When true, the next hide snaps shut with no animation (screen-freezing
-	// callers such as the capture tools arm it via QuickSettings.closeInstant).
 	property bool instantHide: false
 
 	default property alias body: bodySlot.data
@@ -138,14 +124,12 @@ PanelWindow {
 		}
 	}
 
-	// ESC dismisses the drawer.
 	Shortcut {
 		sequences: ["Esc"]
 		enabled: root.visible && root.dismissOnEsc
 		onActivated: root.dismissed()
 	}
 
-	// Full-screen dim backdrop matching Hyprland's special workspace dimming effect (dim_special = 0.20)
 	Rectangle {
 		id: backdrop
 		anchors.fill: parent
@@ -181,9 +165,6 @@ PanelWindow {
 			}
 		}
 
-		// Absorb clicks inside the panel so they don't reach the backdrop.
-		// Disabled with the drawer so clicks during the slide-out
-		// animation fall through instead of dying on a leaving card.
 		MouseArea {
 			anchors.fill: parent
 			enabled: root.shown

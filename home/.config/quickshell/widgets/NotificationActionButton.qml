@@ -1,8 +1,3 @@
-// Shared notification action button: full-width action row button used by
-// both toasts and the control center. Actions travel as plain data (id +
-// identifier) and the click resolves the live action through the singleton:
-// nested Repeater delegates receive the outer Repeater's `modelData`, so
-// everything the click needs must arrive via this component's properties.
 import ".."
 import Quickshell
 import QtQuick

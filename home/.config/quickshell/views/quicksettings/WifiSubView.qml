@@ -1,6 +1,3 @@
-// Wi-Fi sub-menu: replaces impala terminal app.
-// Allows scanning, connecting, entering WPA password, disconnecting, and forgetting networks.
-// Full Vim key navigation (h/j/k/l, g/G, Enter connect/disconnect, Space toggles radio, r, w, x, Esc, q).
 import "../.."
 import "../../widgets"
 import "."
@@ -43,13 +40,11 @@ Item {
 		return Math.min(620, Math.max(260, 81 + listHeight));
 	}
 
-	// Password prompt state
 	property string promptSsid: ""
 	property var promptNet: null
 	property string passwordInput: ""
 	property bool showPassword: false
 	property string errorMessage: ""
-	// Two-step forget confirm: first X arms, second X within 3s executes.
 	property string pendingForgetSsid: ""
 	readonly property string connectingSsid: pending.target
 
@@ -63,8 +58,6 @@ Item {
 		}
 	}
 
-	// Delayed refresh after forget: nmcli delete is async and an immediate
-	// refresh re-shows the just-removed network (same race as BT).
 	Timer {
 		id: forgetRefreshTimer
 		interval: 600
@@ -97,8 +90,6 @@ Item {
 		return "󰤯";
 	}
 
-	// Networks the backend could not classify report WifiSecurityType.Unknown.
-	// Treat it as open (no password prompt), like WifiSecurityType.Open.
 	function isSecured(sec) {
 		return sec !== WifiSecurityType.Open && sec !== WifiSecurityType.Unknown;
 	}
@@ -138,9 +129,6 @@ Item {
 
 		var curName = (currentIndex >= 0 && currentIndex < networkList.length && networkList[currentIndex]) ? networkList[currentIndex].name : "";
 		networkList = arr;
-		// Keep keyboard selection stable across the 3s rebuilds.
-		// Without this currentIndex points at a different network after
-		// every re-sort (by signal), so Enter can hit the wrong SSID.
 		if (curName !== "") {
 			for (var s = 0; s < arr.length; s++) {
 				if (arr[s].name === curName) {
@@ -152,8 +140,6 @@ Item {
 		if (currentIndex >= arr.length)
 			currentIndex = Math.max(0, arr.length - 1);
 
-		// Clear a pending connect once its outcome is visible (native
-		// net.connect()/connectWithPsk() path has no Process.onExited).
 		if (pending.target !== "") {
 			for (var c = 0; c < arr.length; c++) {
 				if (arr[c].name === pending.target && arr[c].connected) {
@@ -163,11 +149,6 @@ Item {
 			}
 		}
 
-		// Auto-close the password prompt once its network is connected.
-		// Covers: successful submit via native connectWithPsk (no callback),
-		// auto-join while the prompt was open, and stale-list cases like
-		// "prompt for X while X already shows Connected". Without this the
-		// password field sticks on screen even after a good password.
 		if (promptSsid !== "") {
 			for (var p = 0; p < arr.length; p++) {
 				if (arr[p].name === promptSsid && arr[p].connected) {
@@ -216,12 +197,8 @@ Item {
 		if (!item)
 			return;
 
-		// Clicking the connected row must NOT disconnect: accidental
-		// clicks are too easy with a full-row MouseArea. Disconnect only
-		// via the explicit "Disconnect" button or Enter key.
 		if (item.connected)
 			return;
-		// Avoid duplicate attempts while a connect is already in flight.
 		if (pending.target === item.name && pending.status !== "")
 			return;
 		if (item.known || !isSecured(item.security)) {
@@ -238,7 +215,6 @@ Item {
 		if (!item)
 			return;
 
-		// Avoid duplicate attempts while a connect is already in flight.
 		if (pending.target === item.name && pending.status !== "")
 			return;
 		if (item.connected) {
@@ -254,7 +230,6 @@ Item {
 
 	function connectNetwork(item): void {
 		errorMessage = "";
-		// Don't leave a stale password prompt for another network open.
 		if (promptSsid !== "" && promptSsid !== item.name)
 			closePasswordPrompt();
 		pending.start(item.name, "Connecting…");
@@ -278,8 +253,6 @@ Item {
 	function forgetNetwork(item): void {
 		if (!item || !item.name)
 			return;
-		// Two-step: first call arms, second call within 3s executes.
-		// Single X otherwise wipes a saved network (with password) by accident.
 		if (root.pendingForgetSsid !== item.name) {
 			root.pendingForgetSsid = item.name;
 			root.errorMessage = "Press X again to forget \"" + item.name + "\"";
@@ -296,8 +269,6 @@ Item {
 		}
 		Quickshell.execDetached(["nmcli", "connection", "delete", item.name]);
 		pending.clear();
-		// Don't refresh immediately — nmcli delete is async and the
-		// removed network would flicker back. Timer + autoRefresh converge.
 		forgetRefreshTimer.restart();
 	}
 
@@ -333,16 +304,10 @@ Item {
 	}
 
 	function submitPassword(): void {
-		// Idempotent: the same Enter keypress can arrive via both
-		// TextInput.onAccepted and bubbled Keys.onPressed. The second
-		// call must be a no-op instead of starting a connect with an
-		// empty SSID and corrupting `pending`.
 		if (promptSsid === "")
 			return;
 		if (pending.target === promptSsid && pending.status !== "")
 			return;
-		// TextInput is the source of truth; passwordInput only mirrors it
-		// (binding `text: root.passwordInput` breaks on first keystroke).
 		var pass = passInput ? passInput.text : passwordInput;
 		if (!pass || pass.trim() === "") {
 			if (passInput)
@@ -362,8 +327,6 @@ Item {
 			passInput.forceActiveFocus();
 			return;
 		}
-		// Keep the prompt open until success is visible (refreshList
-		// auto-closes on connected); closing optimistically hid errors.
 		passInput.forceActiveFocus();
 	}
 
@@ -375,7 +338,6 @@ Item {
 			currentIndex = 0;
 			root.forceActiveFocus();
 		} else {
-			// Never keep a WPA password in memory while hidden.
 			if (promptSsid !== "")
 				closePasswordPrompt();
 			else
@@ -383,21 +345,15 @@ Item {
 		}
 	}
 
-	// ─── Vim Key Navigation ──────────────────────────────────────────
 	Keys.onPressed: event => {
 		if (promptSsid !== "") {
 			if (event.key === Qt.Key_Escape) {
 				cancelPassword();
 				event.accepted = true;
 			} else if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter) && !(passInput && passInput.activeFocus)) {
-				// Enter inside the TextInput is already handled by
-				// onAccepted; handling it here too would submit twice
-				// (second submit with empty SSID corrupts `pending`).
 				submitPassword();
 				event.accepted = true;
 			} else if (event.key === Qt.Key_J || event.key === Qt.Key_K || event.key === Qt.Key_Down || event.key === Qt.Key_Up) {
-				// Swallow list navigation while the prompt is open so
-				// typing j/k into the password field can't move selection.
 				event.accepted = true;
 			}
 			return;
@@ -451,7 +407,6 @@ Item {
 		anchors.fill: parent
 		spacing: 12
 
-		// ─── Header ───────────────────────────────────────────────────
 		SubViewHeader {
 			Layout.fillWidth: true
 			title: "Wi-Fi"
@@ -463,17 +418,12 @@ Item {
 			onToggleClicked: root.toggleWifi()
 		}
 
-		// Divider
 		Rectangle {
 			Layout.fillWidth: true
 			Layout.preferredHeight: 1
 			color: Theme.border
 		}
 
-		// Inline error for actions without a password prompt
-		// (e.g. connecting to a saved network failed). Errors for the
-		// password flow are shown inside the password card instead.
-		// NOTE: Theme.critical is a string, so .r/.g/.b needs Qt.color().
 		Rectangle {
 			Layout.fillWidth: true
 			visible: root.errorMessage !== "" && root.promptSsid === "" && root.wifiEnabled
@@ -505,7 +455,6 @@ Item {
 			}
 		}
 
-		// ─── Off-state Placeholder ─────────────────────────────────────
 		SubViewOffPlaceholder {
 			visible: !root.wifiEnabled
 			icon: "󰖪"
@@ -516,7 +465,6 @@ Item {
 			onEnableClicked: root.toggleWifi()
 		}
 
-		// ─── Networks List ─────────────────────────────────────────────
 		Item {
 			Layout.fillWidth: true
 			Layout.fillHeight: true
@@ -599,11 +547,8 @@ Item {
 						anchors.leftMargin: 12
 						anchors.rightMargin: 12
 						spacing: 10
-						// Must sit above delegateArea, otherwise the full-row
-						// MouseArea swallows clicks meant for the buttons.
 						z: 2
 
-						// Signal Strength Icon
 						Text {
 							Layout.preferredWidth: 24
 							horizontalAlignment: Text.AlignHCenter
@@ -613,7 +558,6 @@ Item {
 							color: isConnected ? Theme.accentBlue : (modelData.signalStrength >= 50 ? Theme.textMain : Theme.textDim)
 						}
 
-						// SSID & Status
 						ColumnLayout {
 							Layout.fillWidth: true
 							spacing: 1
@@ -632,7 +576,6 @@ Item {
 									elide: Text.ElideRight
 								}
 
-								// Lock Icon
 								Text {
 									visible: root.isSecured(modelData.security)
 									text: "󰌾"
@@ -659,11 +602,9 @@ Item {
 							}
 						}
 
-						// Right Action Buttons
 						RowLayout {
 							spacing: 6
 
-							// Disconnect button for connected network
 							Rectangle {
 								visible: isConnected
 								implicitWidth: disLabel.implicitWidth + 14
@@ -694,7 +635,6 @@ Item {
 								}
 							}
 
-							// Forget button for saved/connected
 							Rectangle {
 								visible: modelData.known || isConnected
 								implicitWidth: 26
@@ -724,7 +664,6 @@ Item {
 								}
 							}
 
-							// Chevron for connectable
 							Text {
 								visible: !isConnected && !isConnecting
 								text: "›"
@@ -737,7 +676,6 @@ Item {
 				}
 			}
 
-			// Empty networks placeholder
 			Item {
 				anchors.fill: parent
 				visible: root.networkList.length === 0 && !root.scanning
@@ -765,7 +703,6 @@ Item {
 			}
 		}
 
-		// ─── Inline Password Card ──────────────────────────────────────
 		Rectangle {
 			id: passwordCard
 			Layout.fillWidth: true
@@ -802,7 +739,6 @@ Item {
 					}
 				}
 
-				// Password Input Box
 				Rectangle {
 					Layout.fillWidth: true
 					Layout.preferredHeight: 36
@@ -820,13 +756,6 @@ Item {
 						TextInput {
 							id: passInput
 							Layout.fillWidth: true
-							// NOTE: intentionally no `text: root.passwordInput`
-							// binding. It breaks on the first keystroke (direct
-							// assignment removes the binding), so later
-							// `passwordInput = ""` no longer clears the field
-							// and submit could read a stale/empty value.
-							// TextInput is the source of truth; passwordInput
-							// only mirrors it for the submit guard.
 							echoMode: root.showPassword ? TextInput.Normal : TextInput.Password
 							font.family: Theme.fontMono
 							font.pixelSize: Theme.fontSizeSmall
@@ -845,7 +774,6 @@ Item {
 							}
 						}
 
-						// Toggle show password
 						Rectangle {
 							Layout.preferredWidth: 26
 							Layout.preferredHeight: 26
@@ -871,7 +799,6 @@ Item {
 					}
 				}
 
-				// Error / status message
 				Text {
 					visible: root.errorMessage !== "" || (pending.target === root.promptSsid && pending.status !== "")
 					Layout.fillWidth: true
@@ -881,7 +808,6 @@ Item {
 					color: root.errorMessage !== "" ? Theme.critical : Theme.warning
 				}
 
-				// Actions
 				RowLayout {
 					Layout.fillWidth: true
 					spacing: 8
@@ -918,7 +844,6 @@ Item {
 						implicitWidth: connectLabel.implicitWidth + 20
 						implicitHeight: 30
 						radius: Theme.roundingSubtle
-						// Dim while a connect for this SSID is in flight.
 						opacity: (pending.target === root.promptSsid && pending.status !== "") ? 0.6 : 1.0
 						color: connectBtnArea.containsMouse ? Qt.lighter(Theme.accentBlue, 1.15) : Theme.accentBlue
 

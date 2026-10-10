@@ -1,9 +1,3 @@
-// Clipboard history picker: replaces the cliphist + fzf + Ghostty special
-// workspace. Toggled with SUPER + C (`qs ipc call shell toggle clipboard ''`).
-// Two-column dialog: entry list on the left, large preview pane on the
-// right (images decoded from cliphist, text shown in full). Enter or click
-// copies the entry and auto-pastes it via clipboard-insert
-// (clipboard + Shift+Insert, same as the emoji picker).
 import ".."
 import "../widgets"
 import Quickshell
@@ -26,22 +20,15 @@ CenterModal {
 	onSearchStepped: delta => win.move(delta)
 
 	property string query: ""
-	// All entries as {id, preview}; newest first (cliphist order).
 	property var entries: []
 	property var filtered: []
 	property int currentIndex: 0
-	// Full decoded text of the current entry (cliphist list truncates to ~100 chars).
 	property string decodedText: ""
-	// Id requested for the in-flight text decode; guards against stale results.
 	property string textReqId: ""
-	// Id requested for the in-flight image decode; same guard as text.
 	property string imgReqId: ""
-	// Set after the preview decode for the current entry succeeds.
 	property string decodedId: ""
-	// True when `cliphist list` failed (vs genuinely empty history).
 	property bool listFailed: false
 
-	// "[[ binary data 496 KiB png 2539x1765 ]]" is how cliphist previews images.
 	readonly property var currentEntry: filtered.length > 0 && currentIndex < filtered.length ? filtered[currentIndex] : null
 	readonly property bool currentIsImage: {
 		if (!currentEntry)
@@ -95,8 +82,6 @@ CenterModal {
 	}
 
 	function close() {
-		// Never keep decoded clipboard contents (possibly secrets)
-		// around while hidden, in memory or as the decoded preview file.
 		win.shown = false;
 		decodeProc.running = false;
 		Quickshell.execDetached(["rm", "-f", Quickshell.env("XDG_RUNTIME_DIR") + "/clipboard-preview"]);
@@ -128,9 +113,6 @@ CenterModal {
 		previewFlick.contentY = 0;
 	}
 
-	// Decode the selected entry for the preview pane.
-	// Images go to a file, text is captured to decodedText (full content,
-	// not the ~100-char truncated `cliphist list` preview).
 	Timer {
 		id: previewTimer
 		interval: 1
@@ -160,13 +142,9 @@ CenterModal {
 			var e = win.currentEntry;
 			if (!e || !win.currentIsImage)
 				return ["true"];
-			// $1 carries the id: never interpolate it into shell source —
-			// JSON.stringify emits "..." where $()/`` still expand.
 			return ["sh", "-c", 'cliphist decode "$1" > "$XDG_RUNTIME_DIR/clipboard-preview"', "sh", String(e.id)];
 		}
 		onExited: function (exitCode) {
-			// Same reqId guard as the text path — a slow decode for a
-			// previous selection must not set the preview for the new one.
 			var reqId = win.imgReqId;
 			if (exitCode === 0 && reqId !== "" && win.currentEntry && String(win.currentEntry.id) === reqId)
 				win.decodedId = reqId;
@@ -217,7 +195,6 @@ CenterModal {
 		}
 	}
 
-	// Main body slot for CenterModal
 	Item {
 		id: contentBox
 		anchors.fill: parent
@@ -261,8 +238,6 @@ CenterModal {
 				Process {
 					id: thumbLoader
 					running: row.isImage
-					// Pass paths/ids as $1/$2/$3: interpolating them via
-					// JSON.stringify would emit "..." where $()/`` expand.
 					command: [
 						"sh", "-c",
 						'f="$1"; [ -s "$f" ] || { mkdir -p "$2" && cliphist decode "$3" | magick - -thumbnail 120x80 "$f"; }',
@@ -336,7 +311,6 @@ CenterModal {
 				MouseArea {
 					anchors.fill: parent
 					hoverEnabled: true
-					// Don't let hover steal keyboard selection while scrolling.
 					onEntered: {
 						if (!list.moving && !list.flicking)
 							win.currentIndex = row.index;
@@ -358,7 +332,6 @@ CenterModal {
 			text: win.listFailed ? "cliphist failed — is it installed?" : (win.entries.length === 0 ? "No clipboard entries" : "No match")
 		}
 
-		// Large Preview pane on the right
 		Rectangle {
 			id: previewPane
 			anchors.top: parent.top
