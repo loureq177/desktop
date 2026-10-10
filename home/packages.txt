@@ -16,7 +16,7 @@ bun
 chafa
 cliphist
 cmake
-codex
+openai-codex
 discord
 distrobox
 docker

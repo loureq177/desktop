@@ -1,6 +1,8 @@
 aur-sync-vote
 bibata-cursor-git
+claude-code
 cmatrix-git
+localsend
 mkinitcpio-firmware
 pwvucontrol
 shellcheck-bin
