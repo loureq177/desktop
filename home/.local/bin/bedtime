@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Bedtime enforcer: sends curfew notifications and toggles WiFi off at 22:00, back on at 07:00.
 set -euo pipefail
 
 notify_bed() {
@@ -10,8 +9,6 @@ notify_bed() {
         "$1" 2>/dev/null || true
 }
 
-# Set only when this script switched the radio off, so the morning run
-# re-enables just its own curfew and never a WiFi the user turned off by hand.
 MARKER="${XDG_STATE_HOME:-$HOME/.local/state}/bedtime/wifi-off"
 
 set_wifi() {
@@ -41,22 +38,13 @@ now=$((hour * 60 + minute))
 curfew=$((22 * 60))
 
 if [ "$now" -ge "$curfew" ]; then
-    # Enforcement is anchored to the evening (22:00–24:00). A Persistent=true
-    # catch-up replay of a missed 22:00 trigger landing here is what ideally
-    # keeps the curfew; but as soon as the clock passes midnight, we are done.
     if [ "$now" -lt $((curfew + 15)) ]; then
         notify_bed "WiFi has been turned off."
     fi
     set_wifi "off"
 elif [ "$hour" -eq 21 ] && [ "$minute" -ge 45 ]; then
-    # Minute ranges instead of exact HH:MM so a catch-up run at e.g. 21:47
-    # still warns, with the real remaining time.
     notify_bed "WiFi will turn off in $((curfew - now)) minutes."
     set_wifi "on"
 else
-    # All other times (the whole day, plus the [00:00, 07:00) window): lift
-    # the curfew if this script imposed one (see MARKER). A stale evening
-    # replay landing after midnight or at an early-morning login must never
-    # cut the network; a WiFi the user switched off by hand stays off.
     set_wifi "on"
 fi

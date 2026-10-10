@@ -1,10 +1,4 @@
 #!/usr/bin/env bash
-# Deploy Firefox defaults (user.js) into the active default profile.
-# This script exists because a plain stow symlink cannot work: the profile
-# directory name (e.g. 41mtk0w1.default-release-...) is randomly generated
-# per machine/profile, so the target path can never be committed to dotfiles.
-# Writes go through the profile-sync-daemon tmpfs profile and are synced
-# back to disk automatically.
 set -euo pipefail
 
 SRC="${XDG_CONFIG_HOME:-$HOME/.config}/firefox-defaults"
@@ -27,14 +21,6 @@ fi
 
 [ -f "$INIFILE" ] || { echo "firefox-apply: $INIFILE not found" >&2; exit 1; }
 
-# Precedence: [Install] Default= (authoritative), then the legacy per-profile
-# Default=1 flag, then the first [Profile] section. The old fallback kept
-# overwriting on every Path= while default_path was still empty (the [Install]
-# section is not always last), so it ended up picking the last profile.
-#
-# Path and IsRelative are buffered per section because key order inside a
-# section is not guaranteed (IsRelative may follow Path or Default=). Values
-# are read past the first '=' so '=' inside a value is preserved.
 SEL="$(awk '
     function val() { return substr($0, index($0, "=") + 1) }
     function save() {
@@ -61,22 +47,17 @@ PROFILE="${SEL#*$'\t'}"
 [ -n "$PROFILE" ] || { echo "firefox-apply: no profile found in profiles.ini" >&2; exit 1; }
 
 if [ "$ISREL" = "0" ]; then
-    # Absolute on-disk path: must stay absolute, never joined.
     case "$PROFILE" in
         /*) PROFILE_CANDIDATE="$PROFILE" ;;
         *) echo "firefox-apply: IsRelative=0 but Path is not absolute: $PROFILE" >&2; exit 1 ;;
     esac
 else
-    # Relative to the Firefox dir: a single directory name, never a
-    # path escape (absolute path or '..').
     case "$PROFILE" in
         ""|*/*|*..*) echo "firefox-apply: unsafe relative profile path: $PROFILE" >&2; exit 1 ;;
     esac
     PROFILE_CANDIDATE="${XDG_CONFIG_HOME:-$HOME/.config}/mozilla/firefox/$PROFILE"
 fi
 
-# readlink -f exits non-zero when leading components are missing; under
-# 'set -e' that used to kill the script silently. Fail loudly instead.
 PROFILE_DIR="$(readlink -f "$PROFILE_CANDIDATE")" || { echo "firefox-apply: cannot resolve profile dir: $PROFILE_CANDIDATE" >&2; exit 1; }
 [ -d "$PROFILE_DIR" ] || { echo "firefox-apply: profile dir not found: $PROFILE_DIR" >&2; exit 1; }
 

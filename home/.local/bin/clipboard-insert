@@ -1,11 +1,8 @@
 #!/bin/sh
-# Paste a cliphist entry into the focused app via clipboard + Shift+Insert.
-# Shift+Insert works in both GUI and terminals, unlike Ctrl+V.
 set -eu
 id="${1:-}"
 mime="${2:-}"
 [ -n "$id" ] || exit 0
-# Clipboard contents may be secrets: private temp file, removed on any exit.
 tmp="$(mktemp "${TMPDIR:-/tmp}/clipboard-insert.XXXXXX.bin")"
 chmod 600 "$tmp"
 trap 'rm -f "$tmp"' EXIT INT TERM HUP

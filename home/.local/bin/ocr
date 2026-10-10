@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Interactive screen OCR: crops area via slurp/grim, runs tesseract (pol+eng), and copies to clipboard.
 set -euo pipefail
 
 UI_SH="${XDG_CONFIG_HOME:-$HOME/.config}/ui/ui.sh"
@@ -22,8 +21,6 @@ cleanup() {
 }
 trap cleanup EXIT
 
-# Freeze the screen while picking (like screenshot): a live screen shifts
-# under the selector and OCR would crop the wrong area.
 hyprpicker -r -z &
 HYPRPICKER_PID=$!
 sleep 0.2

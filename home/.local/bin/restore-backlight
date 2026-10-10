@@ -1,8 +1,4 @@
 #!/usr/bin/env bash
-# Forces kernel and Lenovo EC to re-sync panel backlight.
-# The EC can silently dim the panel on dGPU D3cold power cuts without the
-# kernel noticing. Re-writing the same level is a no-op for the driver, so
-# step one unit away and back to make it resend the level to the EC.
 set -euo pipefail
 
 command -v brightnessctl >/dev/null 2>&1 || exit 0
@@ -16,6 +12,4 @@ _nudge() {
 }
 
 _nudge
-# The EC can finish its power-cut handling after the first nudge; reassert
-# once it has settled.
 (sleep 0.5 && _nudge) >/dev/null 2>&1 &

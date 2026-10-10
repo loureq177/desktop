@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Backs up $HOME to Google Drive via rclone with exclusion filters (skips caches, dotfiles, venvs).
 set -euo pipefail
 
 LOCKFILE="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/rclone-sync.lock"
@@ -10,11 +9,8 @@ if ! flock -n 200; then
 fi
 
 CONFIG_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/rclone/backup.conf"
-# Only honour known keys — never `source` the file, so a stray/modified
-# backup.conf cannot execute arbitrary shell code with user privileges.
 if [[ -f "$CONFIG_FILE" ]]; then
     while IFS='=' read -r key value || [[ -n "$key" ]]; do
-        # Trim surrounding whitespace; skip blanks/comments.
         key="${key#"${key%%[![:space:]]*}"}"
         key="${key%"${key##*[![:space:]]}"}"
         [[ -z "$key" || "$key" == \#* ]] && continue
@@ -22,7 +18,6 @@ if [[ -f "$CONFIG_FILE" ]]; then
         RCLONE_BACKUP_SOURCE|RCLONE_BACKUP_REMOTE)
             value="${value#"${value%%[![:space:]]*}"}"
             value="${value%"${value##*[![:space:]]}"}"
-            # Strip one layer of matching single/double quotes, if present.
             if [[ ${#value} -ge 2 ]]; then
                 case "$value" in
                 \"*\"|\'*\') value="${value:1:-1}" ;;
@@ -53,14 +48,10 @@ excludes=(
     "--exclude=.vscode/**"
 )
 
-# --progress redraws a status block several times a second: fine on a
-# terminal, pure journal spam under the systemd timer.
 progress=()
 [[ -t 1 ]] && progress=(--progress)
 
 echo "Syncing: $source_root -> $remote_root"
-# Capture rclone's own status: `if ! cmd` reports the negation's status (0),
-# which made the failure branch exit 0 and hid failures from systemd.
 rc=0
 rclone sync \
     "$source_root" \

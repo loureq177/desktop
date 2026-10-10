@@ -1,9 +1,4 @@
 #!/usr/bin/env zsh
-# Arch Linux system cleanup: removes orphans, cleans pacman/AUR/flatpak/dev caches, journal, and containers.
-# Usage: sysclean [--auto]
-#   --auto runs unattended (systemd timer): user-space caches only, skips
-#   every step that needs sudo, never prompts, and never deletes user data
-#   (trash, container images/volumes) that nobody confirmed.
 set -euo pipefail
 
 AUTO=0
@@ -24,9 +19,6 @@ run_if() {
 }
 
 avail_bytes() {
-    # Sum available bytes across given mount points, counting each distinct
-    # filesystem once: / and /home share a filesystem on single-root installs,
-    # and summing both would double the reported figure. Prints 0 on failure.
     df -B1 --output=source,avail "$@" 2>/dev/null |
         awk 'NR>1 && !seen[$1]++ {sum+=$2} END {print sum+0}'
 }
@@ -40,7 +32,6 @@ human_bytes() {
 }
 
 print_total() {
-    # Prominent final summary. Color comes from ui.toml via ui.sh, never hardcoded.
     local freed_h="$1"
     local ui_sh="${XDG_CONFIG_HOME:-$HOME/.config}/ui/ui.sh"
     [ -f "$ui_sh" ] && source "$ui_sh" 2>/dev/null || true
@@ -92,10 +83,8 @@ echo "\nCleaning cached pacman packages..."
 if [ "$AUTO" = 1 ]; then
     skip_sudo
 elif command -v paccache >/dev/null 2>&1; then
-    # Run under sudo directly: avoids per-file sudo prompts and the
-    # upstream "type -p sudo" stdout noise in paccache 1.13.1.
-    sudo paccache -r -k 2     # Keeps last 2 versions of installed packages
-    sudo paccache -r -u -k 0  # Removes cached versions of uninstalled packages
+    sudo paccache -r -k 2
+    sudo paccache -r -u -k 0
 fi
 
 echo "\nCleaning Paru AUR cache..."
@@ -153,10 +142,6 @@ else
             echo "  Keeping $ver (running kernel)"
             continue
         fi
-        # Probe the tree, not just the directory: pacman -Qo is exact-path based,
-        # so a trailing slash or a partially-registered tree makes it report "not
-        # owned" for modules an installed kernel package really does own. Deleting
-        # on that alone removes the modules of a bootable kernel.
         if [ -e "$dir/modules.dep" ]; then
             pacman -Qo "$dir/modules.dep" &>/dev/null && continue
         fi

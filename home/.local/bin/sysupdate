@@ -1,5 +1,4 @@
 #!/usr/bin/env zsh
-# Arch Linux system updater: pacman/AUR (paru), flatpaks, zinit, dev tools, and .pacnew review.
 set -euo pipefail
 
 step() {
@@ -10,14 +9,12 @@ step() {
     "$@" || true
 }
 
-# Record position in pacman.log to detect critical updates during this run
 pacman_log_start=0
 if [ -f /var/log/pacman.log ]; then
     pacman_log_start=$(wc -l < /var/log/pacman.log 2>/dev/null || echo 0)
 fi
 
 echo "==> Updating system & AUR packages..."
-# Esc/cancel = pkexec returns 126/127. No `|| true` here so abort stops everything.
 if command -v paru >/dev/null 2>&1; then
     paru -Syu --devel --noconfirm --skipreview --sudo pkexec || { rc=$?; echo "operation aborted" >&2; exit $rc; }
 elif command -v pacman >/dev/null 2>&1; then
@@ -29,9 +26,6 @@ zsh -ic "zinit self-update && zinit update --all" || true
 
 if command -v aur-sync-vote >/dev/null 2>&1; then
     echo "\n==> Syncing AUR votes..."
-    # Non-interactive gate: only vote when credentials are already stored
-    # (`aur-sync-vote --remember` once); otherwise aur-sync-vote would block
-    # the whole update asking for the AUR login on stdin.
     if python3 -c "import keyring, sys; sys.exit(0 if keyring.get_credential('aur-sync-vote', None) else 1)" >/dev/null 2>&1; then
         aur-sync-vote || true
     else
@@ -57,16 +51,10 @@ fi
 
 step "Updating Neovim plugins (LazyVim)..." nvim nvim --headless "+Lazy! sync" +qa
 
-# Check for pacnew / pacsave files
 if command -v pacdiff >/dev/null 2>&1; then
     echo "\n==> Checking and cleaning .pacnew / .pacsave files..."
-    # pacdiff auto-removes identical files via `cmp -s` before prompting, so
-    # answering "skip" to everything else leaves only real diffs behind.
-    # No DIFFPROG override: it is only consulted for explicit View/Merge and
-    # masking it with `true` would hide that path's behaviour.
     yes s | pacdiff -s >/dev/null 2>&1 || true
 
-    # 2. Check if files with actual changes remain
     pacnew_files=$(pacdiff -o 2>/dev/null || true)
     if [ -n "$pacnew_files" ]; then
         echo "⚠️  Detected .pacnew/.pacsave files requiring attention:"
@@ -82,7 +70,6 @@ if command -v pacdiff >/dev/null 2>&1; then
     fi
 fi
 
-# Detect if restart or relogin is needed
 reboot_needed=false
 reboot_reasons=()
 

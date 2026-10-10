@@ -1,22 +1,16 @@
 #!/usr/bin/env bash
-# Screen recording toggle via wf-recorder with audio and notifications. Usage: [region|window|fullscreen]
 set -euo pipefail
 
 OUT_DIR="$HOME/Videos/Screencasts"
 mkdir -p "$OUT_DIR"
 RUN_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
 STATUS_FILE="$RUN_DIR/recording_status"
-# Set only when this script is the one that enabled DND, so stopping never
-# clears a DND the user turned on themselves.
 DND_MARKER="$RUN_DIR/recording_dnd"
 
-# Source centralized UI variables if available
 UI_SH="${XDG_CONFIG_HOME:-$HOME/.config}/ui/ui.sh"
 if [[ -f "$UI_SH" ]]; then
-    # shellcheck source=/dev/null
     source "$UI_SH"
 fi
-# slurp styling: ui.sh defines SLURP_ARGS (sourced in-process; arrays cannot be exported); the fallback matches it exactly.
 SLURP_OPTS=(-d -b "#0d1117b0" -c "#58a6ff" -s "#58a6ff20" -w 2 -B "#00000000")
 if [[ -v SLURP_ARGS[@] ]]; then
     SLURP_OPTS=("${SLURP_ARGS[@]}")
@@ -40,16 +34,11 @@ if pkill -INT -x wf-recorder; then
         rm -f "$STATUS_FILE"
     fi
 
-    # Wait for wf-recorder to actually exit before the bar re-polls pgrep.
-    # Otherwise the bar re-runs pgrep while the recorder is still finalizing
-    # and keeps showing the red dot forever.
     for _ in $(seq 1 50); do
         pgrep -x wf-recorder >/dev/null || break
         sleep 0.1
     done
 
-
-    # Release lock before waiting for notification action
     exec 200>&-
 
     if [[ -n "$FILE" && -f "$FILE" ]]; then
@@ -86,7 +75,6 @@ if [ "$MODE" = "fullscreen" ] || [ "$MODE" = "full" ]; then
         TARGET_ARGS=(-o "$FOCUSED_OUTPUT")
     fi
 elif [ "$MODE" = "window" ]; then
-    # Same as screenshot window mode: record the active window as-is.
     GEOM=$(hyprctl activewindow -j 2>/dev/null | jq -r 'select(.at != null and .size != null) | "\(.at[0]),\(.at[1]) \(.size[0])x\(.size[1])"' 2>/dev/null || true)
     if [[ -z "${GEOM:-}" || "$GEOM" == "null" ]]; then
         play_sound dialog-warning
@@ -95,10 +83,6 @@ elif [ "$MODE" = "window" ]; then
     fi
     TARGET_ARGS=(-g "$GEOM")
 else
-    # Region mode mirrors screenshot region mode: hover highlights only
-    # the window under the cursor, click records it, drag records a region.
-    # No screen freeze here (unlike screenshot): the recorder must see a
-    # live screen while the region is picked.
     WINDOW_RECTS=$(
         jq -r --argjson mons "$(hyprctl monitors -j 2>/dev/null || echo "[]")" '
           [ $mons[]? | (if .specialWorkspace.id != 0 then .specialWorkspace.id else .activeWorkspace.id end) ] as $ws |
@@ -129,7 +113,7 @@ echo "$FILE" >"$STATUS_FILE"
 
 exec 200>&-
 if qs ipc call notifications status 2>/dev/null | grep -q '"dnd":true'; then
-    : # already quiet; leave the user's DND alone
+    :
 else
     qs ipc call notifications dndOn || true
     : >"$DND_MARKER"
@@ -138,8 +122,6 @@ wf-recorder -c libx264 -x yuv420p -C aac "${TARGET_ARGS[@]}" -f "$FILE" --audio=
 REC_PID=$!
 disown
 
-# A recorder that died on startup (bad codec, no capture permission) must not
-# leave DND on and a status file pointing at a recording that never happened.
 sleep 0.5
 if ! kill -0 "$REC_PID" 2>/dev/null; then
     rm -f "$STATUS_FILE"

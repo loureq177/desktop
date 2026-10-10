@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
-# Touchpad on/off toggle with the quickshell OSD. Usage: [toggle|on|off|status]
 set -euo pipefail
 
 STATE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/touchpad"
-STATE_FILE="$STATE_DIR/enabled" # 1 = on, 0 = off; absent means on
+STATE_FILE="$STATE_DIR/enabled"
 LOCK_FILE="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/touchpad.lock"
 ACTION="${1:-toggle}"
 
@@ -35,13 +34,9 @@ case "$ACTION" in
     toggle) target=$((1 - current)) ;;
 esac
 
-# Serialize read-modify-write: shortcut + quicksettings click at once must
-# not both read the same value and lose one toggle. Fast section: wait
-# briefly instead of dropping the second click.
 if [[ "$ACTION" != "status" ]]; then
     exec 200>"$LOCK_FILE"
     flock -w 2 200 || exit 0
-    # Re-read under lock (value may have changed since line 1 check).
     current=1
     [[ -f "$STATE_FILE" ]] && current=$(<"$STATE_FILE")
     [[ "$current" =~ ^[01]$ ]] || current=1

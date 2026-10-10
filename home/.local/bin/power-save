@@ -1,8 +1,4 @@
 #!/usr/bin/env bash
-# Toggles Hyprland power-save mode (refresh rate 60/165Hz, blur, brightness, ghostty shader, opencode anims).
-# Usage: power-save [--toggle|--enable|--disable|--reapply|--status] [--no-brightness]
-#   --reapply  re-asserts the display side after a Hyprland reload reset it
-#   --status   prints on|off
 set -euo pipefail
 
 action="toggle"
@@ -33,9 +29,6 @@ for arg in "$@"; do
     esac
 done
 
-# Serialize toggles: wait briefly for a running instance instead of dropping
-# the second click. The critical section is fast (~150ms), so -w 2 only ever
-# sleeps through one in-flight toggle; a hung holder still times out.
 if [[ "$action" != "status" ]]; then
     LOCK_FILE="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/powersave.lock"
     exec 201>"$LOCK_FILE"
@@ -47,9 +40,6 @@ fi
 STATE_FILE="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/powersave_mode"
 PREV_BRIGHTNESS_FILE="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/powersave_prev_brightness"
 GHOSTTY_SHADERS="${XDG_CONFIG_HOME:-$HOME/.config}/ghostty/shaders"
-# Machine-local symlink that ~/.config/ghostty/config points at. Both targets
-# are stowed files; only this link is mutable, so toggling never dirties the
-# dotfiles repo (see _ghostty_shader).
 GHOSTTY_SHADER="${XDG_STATE_HOME:-$HOME/.local/state}/ghostty/active-shader.glsl"
 GHOSTTY_PERF="${XDG_STATE_HOME:-$HOME/.local/state}/ghostty/perf.conf"
 OPENCODE_KV="${XDG_STATE_HOME:-$HOME/.local/state}/opencode/kv.json"
@@ -65,9 +55,6 @@ bri() {
 _report_brightness() {
     local pct
     pct="$(timeout 5 brightnessctl -c backlight -m 2>/dev/null | head -n 1 | cut -d, -f4 | tr -dc '0-9' || true)"
-    # OSD + tile refresh are fire-and-forget: don't hold the lock for IPC.
-    # exec 201>&- first: background subshells inherit the lock fd, and an
-    # open copy would keep the flock held until they exit.
     (
         exec 201>&-
         if [[ -n "${pct:-}" ]]; then
@@ -81,9 +68,7 @@ prof() {
     powerprofilesctl set "$1" >/dev/null 2>&1 || true
 }
 
-_slow_tail() { # $1: power-saver|balanced — ghostty reload + profile, detached
-    # File writes (shader/perf) are already done synchronously above; only
-    # the slow consumers (systemd reload, powerprofilesctl, qs IPC) go here.
+_slow_tail() {
     (
         exec 201>&-
         _ghostty_reload
@@ -92,7 +77,7 @@ _slow_tail() { # $1: power-saver|balanced — ghostty reload + profile, detached
     ) >/dev/null 2>&1 &
 }
 
-_apply_display() { # $1: 60|max — single monitors fetch + single hyprctl eval
+_apply_display() {
     local target_hz="$1"
     local mon_json mon_info
     mon_json="$(timeout 5 hyprctl monitors -j 2>/dev/null || echo '[]')"
@@ -105,7 +90,6 @@ _apply_display() { # $1: 60|max — single monitors fetch + single hyprctl eval
 
     local desc width height pos scale
     IFS="|" read -r desc width height pos scale <<<"$mon_info"
-    # Guard the eval below: compositor JSON is untrusted input for Lua.
     [[ "$width" =~ ^[0-9]+$ && "$height" =~ ^[0-9]+$ ]] || return 0
     [[ "$scale" =~ ^[0-9]+(\.[0-9]+)?$ ]] || return 0
     desc="${desc//\'/\\\'}"
@@ -123,9 +107,6 @@ _apply_display() { # $1: 60|max — single monitors fetch + single hyprctl eval
         hz="${detected_max:-165}"
     fi
 
-    # Blur follows the mode: off on battery, on otherwise. Only the blur
-    # switch is touched; shadows, animations and ignore_opacity stay as
-    # hyprland.lua set them.
     local blur_enabled="true"
     if [[ "$target_hz" == "60" ]]; then
         blur_enabled="false"
@@ -135,9 +116,6 @@ _apply_display() { # $1: 60|max — single monitors fetch + single hyprctl eval
 }
 
 _ghostty_reload() {
-    # Ghostty does not watch the config file; the same reload as
-    # ctrl+shift+, (reload_config) must be triggered explicitly.
-    # SIGUSR2 is the supported reload signal; the systemd unit wraps it.
     if systemctl --user is-active -q app-com.mitchellh.ghostty.service 2>/dev/null; then
         systemctl reload --user app-com.mitchellh.ghostty.service >/dev/null 2>&1 || true
     else
@@ -145,7 +123,7 @@ _ghostty_reload() {
     fi
 }
 
-_shader_target() { # $1: on|off -> stowed shader file to point at
+_shader_target() {
     if [[ "$1" == "off" ]]; then
         printf '%s\n' "$GHOSTTY_SHADERS/noop.glsl"
     else
@@ -153,18 +131,17 @@ _shader_target() { # $1: on|off -> stowed shader file to point at
     fi
 }
 
-_shader_state() { # current on|off, read from the symlink; defaults to "on"
+_shader_state() {
     case "$(readlink "$GHOSTTY_SHADER" 2>/dev/null || true)" in
     *noop.glsl) printf 'off\n' ;;
     *) printf 'on\n' ;;
     esac
 }
 
-_ghostty_shader() { # $1: on|off
+_ghostty_shader() {
     local want tmp
     want="$(_shader_target "$1")"
     [[ -f "$want" ]] || return 0
-    # Already in the wanted state and the link exists: nothing to do.
     if [[ -e "$GHOSTTY_SHADER" ]] && [[ "$(_shader_state)" == "$1" ]]; then
         return 0
     fi
@@ -176,12 +153,7 @@ _ghostty_shader() { # $1: on|off
     fi
 }
 
-_ghostty_perf() { # $1: on|off (on = eye-candy, off = static opaque)
-    # The shader symlink alone is not enough: custom-shader-animation=true
-    # forces a full-rate redraw even with the noop shader, and
-    # background-opacity<1 + blur + minimum-contrast keep the
-    # compositor busy every frame. This file overrides those four keys;
-    # it is included last via `config-file` in ghostty/config.
+_ghostty_perf() {
     local mode="$1"
     [[ "$mode" == "on" || "$mode" == "off" ]] || return 0
     mkdir -p "$(dirname "$GHOSTTY_PERF")" || return 0
@@ -210,11 +182,7 @@ EOF
     mv -f "$tmp" "$GHOSTTY_PERF" || rm -f "$tmp"
 }
 
-_opencode_anims() { # $1: true|false (persists TUI animation state in kv.json for NEW sessions only)
-    # Upstream has no watcher or reload IPC: packages/tui/src/context/kv.tsx
-    # reads kv.json once at startup and kv.set() updates memory + disk together.
-    # External edits apply to the next launched TUI; running TUIs need a
-    # manual Commands > Disable/Enable animations or a restart.
+_opencode_anims() {
     local enabled="$1"
     [[ "$enabled" == "true" || "$enabled" == "false" ]] || return 0
     mkdir -p "$(dirname "$OPENCODE_KV")"
@@ -242,7 +210,6 @@ _enable() {
         with_brightness=false
     fi
 
-    # Idempotent: a second --enable must not dim the panel another 20%.
     _is_active && return 0
     touch "$STATE_FILE"
 
@@ -261,8 +228,6 @@ _enable() {
     _ghostty_shader off
     _opencode_anims false
     _slow_tail power-saver
-    # Fallback: re-assert backlight once dGPU settling timeout expires.
-    # 201>&-: the 12s sleep must not inherit the lock fd (see above).
     (exec 201>&-; sleep 12 && restore-backlight) >/dev/null 2>&1 &
 }
 
@@ -272,7 +237,6 @@ _disable() {
         with_brightness=false
     fi
 
-    # Idempotent: --disable while already off must not bump brightness.
     _is_active || return 0
     rm -f "$STATE_FILE"
 
@@ -299,8 +263,6 @@ _disable() {
     _ghostty_shader on
     _opencode_anims true
     _slow_tail balanced
-    # Fallback: re-assert backlight once dGPU settling timeout (modeset wake) expires.
-    # 201>&-: the 12s sleep must not inherit the lock fd (see above).
     (exec 201>&-; sleep 12 && restore-backlight) >/dev/null 2>&1 &
 }
 
@@ -312,12 +274,8 @@ _toggle() {
     fi
 }
 
-# Self-seed: on a fresh clone the tracked ghostty config points at this link
-# before it exists. Cheap and idempotent; only ever flips on a real change.
-# Skipped for status: status queries (e.g. bar polling) must be read-only.
 if [[ "$action" != "status" ]]; then
     [[ -e "$GHOSTTY_SHADER" ]] || _ghostty_shader on
-    # Seed the perf profile without reload; the action below reloads.
     if [[ ! -e "$GHOSTTY_PERF" ]]; then
         if _is_active; then _ghostty_perf off; else _ghostty_perf on; fi
     fi

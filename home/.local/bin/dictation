@@ -1,7 +1,4 @@
 #!/usr/bin/env bash
-# Dictation: records microphone via PipeWire, transcribes via whisper-cli,
-# and pastes the text directly into the focused window via clipboard.
-# Usage: dictation [toggle|start|stop] [lang]
 set -euo pipefail
 
 RUN_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
@@ -11,17 +8,12 @@ AUDIO_RAW="$RUN_DIR/dictation_raw.wav"
 AUDIO_CLEAN="$RUN_DIR/dictation_clean.wav"
 MODEL="$HOME/.local/share/whisper/ggml-base.bin"
 
-# Serialize start/stop: stop() removes the PID before kill, so a concurrent
-# start in that window would orphan a second pw-record on the mic.
 exec 200>"$LOCK_FILE"
 flock -n 200 || exit 0
 
-# Language from active Hyprland keyboard layout (pl/en) or optional argument.
-# Take the first layout before comma: "pl,us" -> "pl" (awk $2 took garbage).
 _hypr_layout="$(hyprctl getoption input:kb_layout 200>&- 2>/dev/null | awk -F'[ ,]' '/str:/ { for (i=1;i<=NF;i++) if ($i=="str:") { print $(i+1); exit } }' || true)"
 LANG_CODE="${2:-${DICTATION_LANG:-$_hypr_layout}}"
 [[ "$LANG_CODE" == "us" ]] && LANG_CODE="en"
-# Sanitize: whisper -l wants a short alpha code, not shell garbage.
 [[ "$LANG_CODE" =~ ^[A-Za-z]{2}(-[A-Za-z]+)?$ ]] || LANG_CODE="pl"
 LANG_CODE="${LANG_CODE:-pl}"
 
@@ -36,9 +28,6 @@ stop() {
         rm -f "$PID_FILE"
         if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
             kill -INT "$pid" 2>/dev/null || true
-            # No `wait` here: stop() runs in a separate invocation from
-            # start(), so $pid is not a child of this shell and wait would
-            # always fail. Poll until pw-record exits instead.
             for _ in $(seq 1 40); do
                 kill -0 "$pid" 2>/dev/null || break
                 sleep 0.05
@@ -46,7 +35,6 @@ stop() {
         fi
     fi
 
-    # Ignore clicks without recording (< 0.25s)
     if [[ ! -f "$AUDIO_RAW" ]] || [[ $(stat -c%s "$AUDIO_RAW" 2>/dev/null || echo 0) -lt 8000 ]]; then
         bar stop
         rm -f "$AUDIO_RAW" "$AUDIO_CLEAN"
@@ -55,15 +43,11 @@ stop() {
 
     bar transcribing
 
-    # NOTE: every child gets 200>&- so it doesn't inherit the flock FD.
-    # wl-copy daemonizes (PPID 1) and would otherwise hold the lock forever,
-    # making the *next* toggle exit silently via `flock -n` (works once, then dead).
     sox "$AUDIO_RAW" "$AUDIO_CLEAN" highpass 80 norm -3.0 200>&- 2>/dev/null || cp "$AUDIO_RAW" "$AUDIO_CLEAN" 200>&-
 
     TEXT=$(whisper-cli -m "$MODEL" -t 6 -f "$AUDIO_CLEAN" --no-timestamps --no-prints -l "$LANG_CODE" 200>&- 2>/dev/null || true)
     TEXT="$(printf '%s' "$TEXT" | tr '\n\r' ' ' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
 
-    # Ignore hallucinated bracketed sounds (e.g. [muzyka])
     if [[ "$TEXT" =~ ^\[.*\]$ || "$TEXT" =~ ^\(.*\)$ ]]; then
         TEXT=""
     fi
@@ -81,8 +65,6 @@ stop() {
 start() {
     rm -f "$PID_FILE" "$AUDIO_RAW" "$AUDIO_CLEAN"
     bar start
-    # 200>&- closes the flock FD in the child: otherwise pw-record inherits
-    # the lock and every future `dictation stop` exits silently via `flock -n`.
     pw-record --rate 16000 --channels 1 "$AUDIO_RAW" 200>&- >/dev/null 2>&1 &
     echo $! > "$PID_FILE"
 }

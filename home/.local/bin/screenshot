@@ -1,14 +1,10 @@
 #!/usr/bin/env bash
-# Screenshots via grim/slurp/hyprpicker with Satty editor integration. Usage: [region|window|fullscreen|output]
 set -euo pipefail
 
-# Source centralized UI variables if available
 UI_SH="${XDG_CONFIG_HOME:-$HOME/.config}/ui/ui.sh"
 if [[ -f "$UI_SH" ]]; then
-    # shellcheck source=/dev/null
     source "$UI_SH"
 fi
-# slurp styling: ui.sh defines SLURP_ARGS (sourced in-process; arrays cannot be exported); the fallback matches it exactly.
 SLURP_OPTS=(-d -b "#0d1117b0" -c "#58a6ff" -s "#58a6ff20" -w 2 -B "#00000000")
 if [[ -v SLURP_ARGS[@] ]]; then
     SLURP_OPTS=("${SLURP_ARGS[@]}")
@@ -39,9 +35,6 @@ cleanup() {
 trap cleanup EXIT
 
 if [ "${1:-region}" = "region" ]; then
-    # Only offer windows that are actually visible: when a special workspace
-    # is open on a monitor it covers the regular workspace, so the regular
-    # workspace windows would otherwise be selectable yet invisible.
     WINDOW_RECTS=$(
         jq -r --argjson mons "$(timeout 5 hyprctl monitors -j 2>/dev/null || echo "[]")" '
           [ $mons[]? | (if .specialWorkspace.id != 0 then .specialWorkspace.id else .activeWorkspace.id end) ] as $ws |
@@ -100,8 +93,6 @@ play_sound camera-shutter
 exec 200>&-
 wl-copy -t image/png <"$FILE" || true
 
-# One action, not two identical buttons: "default" is also what a click on the
-# notification body invokes, so it covers both paths without a duplicate.
 ACTION=$(notify-send --app-name "Screenshot" -t 3000 "Captured" -i "$FILE" -A "default=Edit" "Saved and copied to clipboard.")
 
 if [ "$ACTION" = "default" ]; then

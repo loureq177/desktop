@@ -1,24 +1,8 @@
 #!/usr/bin/env bash
-# Weather control and query tool.
-# Usage:
-#   weather                         Show current weather status
-#   weather status                  Show current weather status
-#   weather toggle                  Toggle the quickshell weather popup
-#   weather open                    Open the quickshell weather popup
-#   weather close                   Close the quickshell weather popup
-#   weather refresh                 Refresh weather data in quickshell
-#   weather icon                    Output Nerd Font weather icon
-#   weather notify                  Send desktop notification with current weather
-#   weather location [...]          Inspect or configure weather location
-#
-# Fallback (when quickshell is not running) queries Open-Meteo directly.
-# Location state lives in ~/.local/state/weather/weather.json.
 set -euo pipefail
 
 LOC_FILE="${XDG_STATE_HOME:-$HOME/.local/state}/weather/weather.json"
 
-# Resolve coords from weather.json, else IP geolocation (ipapi.co, then
-# ipinfo.io). Prints "lat lon city" (city may be empty); returns 1 if unknown.
 _resolve_coords() {
     local file="" lat="" lon="" city="" ip_data="" _loc=""
     if [[ -s "$LOC_FILE" ]]; then
@@ -39,7 +23,6 @@ _resolve_coords() {
         if [[ -z "$lat" || -z "$lon" || "$lat" == "null" || "$lon" == "null" ]]; then
             ip_data=$(curl -fsS --max-time 3 "https://ipinfo.io/json" 2>/dev/null || true)
             if [[ -n "$ip_data" ]]; then
-                # ipinfo returns "loc": "lat,lon"
                 _loc=$(echo "$ip_data" | jq -r '.loc // ""' 2>/dev/null || true)
                 if [[ -n "$_loc" && "$_loc" == *,* ]]; then
                     lat="${_loc%,*}"
@@ -58,7 +41,6 @@ _resolve_coords() {
     printf '%s %s %s\n' "$lat" "$lon" "$city"
 }
 
-# One Open-Meteo request for all fields both fallbacks need.
 _fetch_current() {
     curl -fsS --max-time 4 "https://api.open-meteo.com/v1/forecast?latitude=${1}&longitude=${2}&current=temperature_2m,wind_speed_10m,weather_code,is_day&timezone=auto" 2>/dev/null || true
 }
@@ -136,7 +118,6 @@ refresh)
 icon)
     ico=$(qs ipc call weather icon 2>/dev/null || true)
     if [[ -n "$ico" && "$ico" != "null" && "$ico" != '""' ]]; then
-        # strip quotes if returned by qs
         ico="${ico%\"}"
         ico="${ico#\"}"
         echo "$ico"

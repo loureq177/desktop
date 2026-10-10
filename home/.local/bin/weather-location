@@ -1,6 +1,4 @@
 #!/usr/bin/env bash
-# Show or set the location used for weather reports.
-# State lives in ~/.local/state/weather/weather.json.
 set -euo pipefail
 
 LOC_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/weather"

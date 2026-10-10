@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Helper to launch all web apps in a single shared, lightweight chromeless Firefox instance
 set -euo pipefail
 
 APP_NAME="${1:-}"
@@ -21,8 +20,6 @@ PROFILE_DIR="$DATA_DIR/firefox-webapps"
 
 mkdir -p "$PROFILE_DIR/chrome"
 
-# Provision userChrome.css / user.js only when content differs, so manual
-# tweaks to the shared profile survive restarts and mtime stays stable.
 provision_if_changed() {
     local dest="$1"
     local tmp
@@ -35,7 +32,6 @@ provision_if_changed() {
     fi
 }
 
-# Provision or update userChrome.css to hide browser chrome (tabs, urlbar, menubar)
 provision_if_changed "$PROFILE_DIR/chrome/userChrome.css" << 'EOF'
 /* Clean standalone PWA app window */
 #TabsToolbar,
@@ -48,7 +44,6 @@ provision_if_changed "$PROFILE_DIR/chrome/userChrome.css" << 'EOF'
 }
 EOF
 
-# Provision user.js with fast rendering and memory optimizations
 provision_if_changed "$PROFILE_DIR/user.js" << 'EOF'
 // Shared webapps profile settings
 user_pref("toolkit.legacyUserProfileCustomizations.stylesheets", true);
@@ -99,7 +94,6 @@ user_pref("app.shield.optoutstudies.enabled", false);
 user_pref("app.normandy.enabled", false);
 EOF
 
-# Ensure global default zoom is 110% (1.1) in Firefox content preferences database
 if command -v sqlite3 >/dev/null 2>&1; then
     sqlite3 "$PROFILE_DIR/content-prefs.sqlite" << 'SQL' >/dev/null 2>&1 || true
 CREATE TABLE IF NOT EXISTS groups (id INTEGER PRIMARY KEY, name TEXT NOT NULL);
@@ -121,8 +115,6 @@ SQL
 
     if [[ "$APP_URL" =~ ^https?://([^/:]+) ]]; then
         domain="${BASH_REMATCH[1]}"
-        # Escape single quotes: heredoc is unquoted so $domain interpolates;
-        # a ' in input would break quoting (DoS on zoom prefs).
         domain="${domain//\'/\'\'}"
         sqlite3 "$PROFILE_DIR/content-prefs.sqlite" << SQL >/dev/null 2>&1 || true
 INSERT INTO groups (name) SELECT '$domain'
@@ -136,9 +128,6 @@ SQL
     fi
 fi
 
-# Launch or open new window in the shared webapps instance.
-# APP_NAME gives each wrapper a distinct WM name (Hyprland rules still match
-# the shared --class="webapps"); the profile stays shared on purpose.
 exec env MOZ_APP_REMOTINGNAME="webapps" \
   firefox \
   --profile "$PROFILE_DIR" \
