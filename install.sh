@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Dotfiles bootstrapper: installs system packages (Arch/macOS) and symlinks configs via stow.
 
 BLUE='\033[0;34m'
 GREEN='\033[0;32m'
@@ -18,11 +17,8 @@ _log_warn() { _log "${YELLOW}[WARN]" "$@"; }
 _log_error() { _log "${RED}[ERROR]" "$@"; }
 
 set -euo pipefail
-# Resolve via BASH_SOURCE so invocation through a symlink/PATH still finds
-# the repo (plain $0 points at the link location, breaking pkglist paths).
 cd "$(dirname "${BASH_SOURCE[0]:-$0}")"
 
-# Flags: --no-upgrade skips the full `pacman -Syu` (re-runs for configs only).
 NO_UPGRADE=0
 for arg in "$@"; do
     case "$arg" in
@@ -46,27 +42,17 @@ fi
 mkdir -p ~/.config ~/.local/share ~/.local/state ~/.local/bin ~/.cache
 
 OS="$(uname -s)"
-# Ignore rules live in .stowrc (single source of truth); stow reads it automatically.
-# Trims CR/leading/trailing whitespace so "pkg  " or CRLF checkouts don't
-# become bogus package names; `|| true` keeps empty/comment-only lists from
-# failing the pipeline under `set -euo pipefail` (grep exits 1 on no match).
 pkglist() { sed 's/\r$//' "$1" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' | grep -vE '^(#|$)' || true; }
-# Single package-list install: same pipe everywhere so flags can't drift.
-# Skip pacman when the list is empty/comment-only: `pacman -S -` with empty
-# stdin would otherwise run with no packages.
 pac_install() {
     local pkgs
     pkgs="$(pkglist "$1")"
     [[ -n "$pkgs" ]] || return 0
     printf '%s\n' "$pkgs" | sudo pacman -S --noconfirm --needed -
 }
-# One stow entry point: same flags + log line on both OS branches.
-# Pre-flight with --no-action first: an existing regular file (not symlink)
-# would otherwise abort `restow` midway (common linked, archlinux not).
 restow_pkg() {
     _log_info "Applying $1 Stow configs..."
     local err
-    if ! err="$(stow --no-action --restow --target ~ "$2" 2>&1)"; then
+    if ! err="$(stow --simulate --restow --target ~ "$2" 2>&1)"; then
         _log_error "stow pre-flight failed for '$2' (existing files in the way):"
         printf '%s\n' "$err" >&2
         _log_error "Move them aside or back them up, then re-run."
@@ -74,15 +60,9 @@ restow_pkg() {
     fi
     stow --verbose --restow --target ~ "$2"
 }
-# Install a root-owned COPY under /etc. Never symlink /etc files into $HOME:
-# ly runs start_cmd as root and keyd (root) executes command() bindings, so a
-# link to a user-writable file hands root to any process running as the user.
-# Re-run install.sh after changing these files (apply-ui regenerates the ly
-# ones in the repo only).
-_install_etc_file() { # $1: source, $2: dest, $3: mode
+_install_etc_file() {
     local src="$1" dest="$2" mode="$3" bk
     if [ -L "$dest" ]; then
-        # Symlink left by older versions of this script.
         sudo rm -f "$dest"
     elif [ -e "$dest" ]; then
         sudo cmp -s "$src" "$dest" && return 0
@@ -160,6 +140,17 @@ if [ "$OS" = "Linux" ]; then
         sudo keyd reload 2>/dev/null || true
     fi
 
+    if [ -d system/etc ]; then
+        _log_info "Installing system memory tuning (THP, zram, swap sysctls)..."
+        while IFS= read -r -d '' src; do
+            dest="/${src#system/}"
+            sudo mkdir -p "$(dirname "$dest")"
+            _install_etc_file "$src" "$dest" 644
+        done < <(find system/etc -type f -print0 | sort -z)
+        sudo systemd-tmpfiles --create /etc/tmpfiles.d/memory.conf || _log_warn "Failed to apply tmpfiles memory settings."
+        sudo sysctl --quiet --load /etc/sysctl.d/99-zram.conf || _log_warn "Failed to apply zram sysctls."
+    fi
+
     if [ -x "$HOME/.local/bin/apply-ui" ]; then
         _log_info "Applying UI styles..."
         "$HOME/.local/bin/apply-ui" --no-reload || _log_warn "Failed to apply UI styles."
@@ -172,13 +163,11 @@ if [ "$OS" = "Linux" ]; then
 
     if command -v systemctl &>/dev/null; then
         systemctl --user daemon-reload 2>/dev/null || true
-        # Enable every stowed user timer (check-updates, bedtime, rclone-sync, sysclean).
         for timer in "$HOME"/.config/systemd/user/*.timer; do
             [ -e "$timer" ] || continue
             name="$(basename "$timer")"
             systemctl --user enable --now "$name" 2>/dev/null || _log_warn "Failed to enable $name."
         done
-        # Laptop-only: auto-disable power-save when the charger is plugged in.
         if compgen -G "/sys/class/power_supply/BAT*" >/dev/null 2>&1; then
             systemctl --user enable --now "power-save-watcher.service" 2>/dev/null || _log_warn "Failed to enable power-save-watcher.service."
         fi
