@@ -304,8 +304,7 @@ export UI_WARNING="{c.get("warning", "#d29922")}"
 export UI_CRITICAL="{c.get("critical", "#f85149")}"
 export UI_TEXT_MAIN="{text_main}"
 
-export SLURP_OPTS='{slurp_args}'
-# Array form for direct use in bash scripts (arrays cannot be exported).
+# Sourced, not exported: arrays cannot be exported.
 # shellcheck disable=SC2034
 SLURP_ARGS=({slurp_args})
 export UI_FZF_THEME="{fzf_theme}"
@@ -378,7 +377,7 @@ export UI_FZF_THEME="{fzf_theme}"
         txt = target.read_text()
         new_txt = txt
         new_txt = re.sub(
-            rf"^(animation_frame_delay\s*=\s*)\d+",
+            r"^(animation_frame_delay\s*=\s*)\d+",
             rf"\g<1>{ly_frame_delay}",
             new_txt,
             flags=re.MULTILINE,
@@ -690,6 +689,9 @@ Singleton {{
         res = subprocess.run(["pgrep", "-x", "Hyprland"], capture_output=True)
         if res.returncode == 0:
             subprocess.run(["hyprctl", "reload"], capture_output=True)
+            # The reload re-applied hyprland.lua (full refresh rate, blur on);
+            # put the display back if power-save is active.
+            subprocess.run([str(Path.home() / ".local/bin/power-save"), "--reapply"], capture_output=True)
             print("  \033[32m✓\033[0m Hyprland reloaded")
 
         # Quickshell live-reloads QML and Theme.qml changes.

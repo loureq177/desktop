@@ -1,0 +1,12 @@
+[Unit]
+Description=Auto-disable power-save mode when AC is connected
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+ExecStart=%h/.local/bin/power-save-watcher
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=default.target

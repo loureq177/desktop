@@ -31,6 +31,10 @@ for arg in "$@"; do
         echo "Usage: $0 [--no-upgrade]"
         exit 0
         ;;
+    *)
+        _log_error "Unknown argument: $arg (see --help)"
+        exit 2
+        ;;
     esac
 done
 
@@ -61,23 +65,33 @@ pac_install() {
 # would otherwise abort `restow` midway (common linked, archlinux not).
 restow_pkg() {
     _log_info "Applying $1 Stow configs..."
-    if ! stow --no-action --restow --target ~ "$2" 2>/tmp/stow-check.err; then
+    local err
+    if ! err="$(stow --no-action --restow --target ~ "$2" 2>&1)"; then
         _log_error "stow pre-flight failed for '$2' (existing files in the way):"
-        cat /tmp/stow-check.err >&2 || true
+        printf '%s\n' "$err" >&2
         _log_error "Move them aside or back them up, then re-run."
         return 1
     fi
     stow --verbose --restow --target ~ "$2"
 }
-_backup_etc_file() {
-    # Keep one timestamped backup before overwriting anything under /etc.
-    local dest="$1"
-    local bk
-    if [ -e "$dest" ] && [ ! -L "$dest" ]; then
+# Install a root-owned COPY under /etc. Never symlink /etc files into $HOME:
+# ly runs start_cmd as root and keyd (root) executes command() bindings, so a
+# link to a user-writable file hands root to any process running as the user.
+# Re-run install.sh after changing these files (apply-ui regenerates the ly
+# ones in the repo only).
+_install_etc_file() { # $1: source, $2: dest, $3: mode
+    local src="$1" dest="$2" mode="$3" bk
+    if [ -L "$dest" ]; then
+        # Symlink left by older versions of this script.
+        sudo rm -f "$dest"
+    elif [ -e "$dest" ]; then
+        sudo cmp -s "$src" "$dest" && return 0
         bk="${dest}.dotfiles-bak-$(date +%Y%m%d%H%M%S)"
-        _log_warn "$dest exists — backing up to $bk"
+        _log_warn "$dest differs — backing up to $bk"
         sudo cp -a "$dest" "$bk"
     fi
+    sudo install -o root -g root -m "$mode" "$src" "$dest"
+    _log_ok "Installed $dest"
 }
 
 if [ "$OS" = "Linux" ]; then
@@ -132,21 +146,18 @@ if [ "$OS" = "Linux" ]; then
     if [ -f "archlinux/.config/ly/config.ini" ]; then
         _log_info "Configuring Ly display manager..."
         sudo mkdir -p /etc/ly
-        # Link the stowed copies in $HOME (stable across repo moves), not $(pwd).
-        _backup_etc_file /etc/ly/config.ini
-        sudo ln -sfv "$HOME/.config/ly/config.ini" /etc/ly/config.ini
+        _install_etc_file archlinux/.config/ly/config.ini /etc/ly/config.ini 644
         if [ -f "archlinux/.config/ly/startup.sh" ]; then
-            _backup_etc_file /etc/ly/startup.sh
-            sudo ln -sfv "$HOME/.config/ly/startup.sh" /etc/ly/startup.sh
+            _install_etc_file archlinux/.config/ly/startup.sh /etc/ly/startup.sh 755
         fi
     fi
 
     if [ -f "archlinux/.config/keyd/default.conf" ]; then
         _log_info "Configuring keyd keyboard remapper..."
         sudo mkdir -p /etc/keyd
-        _backup_etc_file /etc/keyd/default.conf
-        sudo ln -sfv "$HOME/.config/keyd/default.conf" /etc/keyd/default.conf
+        _install_etc_file archlinux/.config/keyd/default.conf /etc/keyd/default.conf 644
         sudo systemctl enable --now keyd 2>/dev/null || _log_warn "Failed to enable keyd."
+        sudo keyd reload 2>/dev/null || true
     fi
 
     if [ -x "$HOME/.local/bin/apply-ui" ]; then
@@ -167,6 +178,10 @@ if [ "$OS" = "Linux" ]; then
             name="$(basename "$timer")"
             systemctl --user enable --now "$name" 2>/dev/null || _log_warn "Failed to enable $name."
         done
+        # Laptop-only: auto-disable power-save when the charger is plugged in.
+        if compgen -G "/sys/class/power_supply/BAT*" >/dev/null 2>&1; then
+            systemctl --user enable --now "power-save-watcher.service" 2>/dev/null || _log_warn "Failed to enable power-save-watcher.service."
+        fi
     fi
 elif [ "$OS" = "Darwin" ]; then
     _log_info "Detected macOS."

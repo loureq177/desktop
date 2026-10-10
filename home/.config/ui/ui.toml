@@ -120,5 +120,4 @@ tty_white = "#f0f6fc"
 # Delay between animation frames in milliseconds (lower = faster).
 # Ly upstream default is 5, which matches cmatrix default speed
 # (cmatrix -u 4 = 40ms; Ly updates movement every ~9 frames, so 5ms * 9 ~= 45ms).
-# Previous value 50 was ~10x too slow (~450ms per step).
 frame_delay = 5

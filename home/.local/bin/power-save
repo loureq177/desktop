@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
-# Toggles Hyprland power-save mode (refresh rate 60/165Hz, blur, brightness, ghostty shader, opencode anims). Usage: [--status|--enable|--disable]
+# Toggles Hyprland power-save mode (refresh rate 60/165Hz, blur, brightness, ghostty shader, opencode anims).
+# Usage: power-save [--toggle|--enable|--disable|--reapply|--status] [--no-brightness]
+#   --reapply  re-asserts the display side after a Hyprland reload reset it
+#   --status   prints on|off
 set -euo pipefail
 
 action="toggle"
@@ -19,6 +22,9 @@ for arg in "$@"; do
     --toggle|toggle)
         action="toggle"
         ;;
+    --reapply|reapply)
+        action="reapply"
+        ;;
     --no-brightness)
         with_brightness=false
         ;;
@@ -28,9 +34,8 @@ for arg in "$@"; do
 done
 
 # Serialize toggles: wait briefly for a running instance instead of dropping
-# the second click (flock -n silently ignored it, forcing a manual cooldown).
-# The critical section below is fast (~150ms), so -w 2 only ever sleeps
-# through one in-flight toggle; a hung holder still times out.
+# the second click. The critical section is fast (~150ms), so -w 2 only ever
+# sleeps through one in-flight toggle; a hung holder still times out.
 if [[ "$action" != "status" ]]; then
     LOCK_FILE="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/powersave.lock"
     exec 201>"$LOCK_FILE"
@@ -90,7 +95,6 @@ _slow_tail() { # $1: power-saver|balanced — ghostty reload + profile, detached
 _apply_display() { # $1: 60|max — single monitors fetch + single hyprctl eval
     local target_hz="$1"
     local mon_json mon_info
-    # One hyprctl round-trip per process (was: two monitors -j calls).
     mon_json="$(timeout 5 hyprctl monitors -j 2>/dev/null || echo '[]')"
     mon_info=$(jq -r '
         .[] | select(.name | startswith("eDP")) |
@@ -109,7 +113,6 @@ _apply_display() { # $1: 60|max — single monitors fetch + single hyprctl eval
 
     local hz="$target_hz"
     if [[ "$target_hz" == "max" || "$target_hz" == "high" ]]; then
-        # Reuse the same JSON (was: a second hyprctl monitors -j).
         local detected_max
         detected_max=$(jq -r '
             .[] | select(.name | startswith("eDP")) |
@@ -120,15 +123,15 @@ _apply_display() { # $1: 60|max — single monitors fetch + single hyprctl eval
         hz="${detected_max:-165}"
     fi
 
-    # One IPC round-trip: modeset + decoration together (was: two hyprctl
-    # eval calls). Blur follows the mode: off on battery (perf), on in
-    # eye-candy to match hyprland.lua (enabled + ignore_opacity).
+    # Blur follows the mode: off on battery, on otherwise. Only the blur
+    # switch is touched; shadows, animations and ignore_opacity stay as
+    # hyprland.lua set them.
     local blur_enabled="true"
     if [[ "$target_hz" == "60" ]]; then
         blur_enabled="false"
     fi
     [[ "$hz" =~ ^[0-9]+$ ]] || return 0
-    timeout 5 hyprctl eval "hl.monitor({ output = '${desc}', mode = '${width}x${height}@${hz}', position = '${pos}', scale = ${scale} }); hl.config({ animations = { enabled = true }, decoration = { blur = { enabled = ${blur_enabled}, ignore_opacity = true }, shadow = { enabled = false } } })" >/dev/null 2>&1 || true
+    timeout 5 hyprctl eval "hl.monitor({ output = '${desc}', mode = '${width}x${height}@${hz}', position = '${pos}', scale = ${scale} }); hl.config({ decoration = { blur = { enabled = ${blur_enabled} } } })" >/dev/null 2>&1 || true
 }
 
 _ghostty_reload() {
@@ -221,20 +224,7 @@ _opencode_anims() { # $1: true|false (persists TUI animation state in kv.json fo
     fi
     local tmp
     tmp=$(mktemp "$(dirname "$OPENCODE_KV")/.kv.json.XXXXXX") || return 0
-    local ok=false
-    if command -v jq >/dev/null 2>&1; then
-        if jq --argjson v "$enabled" '.animations_enabled = $v' "$OPENCODE_KV" >"$tmp" 2>/dev/null && [[ -s "$tmp" ]]; then
-            ok=true
-        fi
-    else
-        # Atomic too: stage into $tmp first so a kill mid-write cannot
-        # leave kv.json empty/truncated (previous code wrote in place).
-        if python3 -c 'import json,sys; p=sys.argv[1]; v=sys.argv[2]=="true"; t=sys.argv[3]; d=json.load(open(p)); d["animations_enabled"]=v; json.dump(d,open(t,"w"))' "$OPENCODE_KV" "$enabled" "$tmp" 2>/dev/null && [[ -s "$tmp" ]]; then
-            ok=true
-        fi
-    fi
-
-    if $ok; then
+    if jq --argjson v "$enabled" '.animations_enabled = $v' "$OPENCODE_KV" >"$tmp" 2>/dev/null && [[ -s "$tmp" ]]; then
         mv -f "$tmp" "$OPENCODE_KV"
     else
         rm -f "$tmp"
@@ -243,17 +233,7 @@ _opencode_anims() { # $1: true|false (persists TUI animation state in kv.json fo
 }
 
 _status() {
-    local max_hz="High"
-    local detected_max
-    detected_max=$(timeout 5 hyprctl monitors -j 2>/dev/null | jq -r '.[] | select(.name | startswith("eDP")) | .availableModes[0] // ""' 2>/dev/null | sed -E 's/.*@([0-9]+).*/\1/' || true)
-    [[ "$detected_max" =~ ^[0-9]+$ ]] || detected_max=""
-    [[ -n "$detected_max" ]] && max_hz="${detected_max} Hz"
-
-    if _is_active; then
-        printf '%s\n' '{"text": "󰌪", "alt": "on", "class": "on", "tooltip": "Power Saving Mode: ON\n• Refresh rate: 60 Hz\n• Blur: Disabled\n• Ghostty: Static opaque (shader/animation/blur off)\n• OpenCode anims: Disabled\n• Brightness: Reduced (-20%)\n• Profile: Power-saver\n\nClick to disable"}'
-    else
-        printf '%s\n' '{"text": "󰌪", "alt": "off", "class": "off", "tooltip": "Power Saving Mode: OFF\n• Refresh rate: '"$max_hz"'\n• Blur: Enabled\n• Ghostty: Translucent + blur (warp shader + anim on)\n• OpenCode anims: Enabled\n\nClick to enable"}'
-    fi
+    if _is_active; then echo "on"; else echo "off"; fi
 }
 
 _enable() {
@@ -262,6 +242,8 @@ _enable() {
         with_brightness=false
     fi
 
+    # Idempotent: a second --enable must not dim the panel another 20%.
+    _is_active && return 0
     touch "$STATE_FILE"
 
     if $with_brightness && command -v brightnessctl >/dev/null 2>&1; then
@@ -290,6 +272,8 @@ _disable() {
         with_brightness=false
     fi
 
+    # Idempotent: --disable while already off must not bump brightness.
+    _is_active || return 0
     rm -f "$STATE_FILE"
 
     if $with_brightness && command -v brightnessctl >/dev/null 2>&1; then
@@ -326,8 +310,6 @@ _toggle() {
     else
         _enable "${1:-}"
     fi
-    # No direct qs call here: _report_brightness and _slow_tail already queue
-    # exactly one quicksettings refresh each, detached (was: 3rd sync IPC).
 }
 
 # Self-seed: on a fresh clone the tracked ghostty config points at this link
@@ -353,5 +335,8 @@ disable)
     ;;
 toggle)
     _toggle "$with_brightness"
+    ;;
+reapply)
+    if _is_active; then _apply_display 60; fi
     ;;
 esac
