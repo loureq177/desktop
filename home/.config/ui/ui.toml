@@ -1,58 +1,40 @@
-# ==============================================================================
-# Central UI Configuration
-#
-# Single source of truth for desktop look & feel across all components:
-# - Hyprland (window manager)
-# - Quickshell (bar + launcher + clipboard + notifications)
-# - Hyprlock (lockscreen)
-#
-# After modifying values here, run 'apply-ui' to generate configs and reload.
-# ==============================================================================
-
 [rounding]
-window = 8          # Hyprland window corners (0 for sharp, 8-12 for rounded)
-element = 6         # Buttons, notifications, menu elements, tooltips
-subtle = 3          # Tooltips, scrollbars, switches
-power = 2.0         # Corner curve power (2.0 = smooth circle, 4.0 = squircle)
+window = 8
+element = 6
+subtle = 3
+power = 2.0
 
 [border]
-size = 2            # Border thickness in pixels (Hyprland, Quickshell, Hyprlock)
+size = 2
 
 [spacing]
-gaps_in = 10        # Gaps between windows in Hyprland
-gaps_out = 20       # Gaps between windows and screen edges
-bar_height = 30     # Quickshell bar height
-bar_spacing = 8     # Spacing between bar modules
-bar_margin_x = 20   # Bar horizontal margin (matches gaps_out for pixel-perfect window alignment)
-bar_margin_y = 4    # Bar vertical margin (top and bottom)
+gaps_in = 10
+gaps_out = 20
+bar_height = 30
+bar_spacing = 8
+bar_margin_x = 20
+bar_margin_y = 4
 
 [padding]
-bar_pad = 10                 # Bar module horizontal padding (px)
-notif_pad_v = 10             # Quickshell notification card vertical padding (px)
-notif_pad_h = 14             # Quickshell notification card horizontal padding (px)
-menu_card = 16               # Quickshell menu inner padding (px)
-menu_item = 8                # Quickshell menu item padding (px)
+bar_pad = 10
+notif_pad_v = 10
+notif_pad_h = 14
+menu_card = 16
+menu_item = 8
 
 [opacity]
-active = 1.0        # Active window opacity in Hyprland
-inactive = 0.96     # Inactive window opacity in Hyprland
-dim_special = 0.20  # Dimming for special workspace in Hyprland & backdrops in Quickshell
+active = 1.0
+inactive = 0.96
+dim_special = 0.20
 
 [animations]
-# Animation speeds & kinetic scrolling matching Hyprland curves:
-# - myBezier (popin windows): cubic-bezier(0.05, 0.9, 0.1, 1.05)
-# - easeOutQuint (layers & drawers): cubic-bezier(0.23, 1, 0.32, 1)
-duration_fast = 150        # Quick feedback / hover / fade (ms)
-duration_normal = 250      # Window popin / dialog transitions (ms)
-duration_smooth = 280      # Layer slide / drawer transitions (ms)
-flick_deceleration = 1500   # Kinetic scrolling deceleration (px/s^2)
-max_flick_velocity = 6000   # Max kinetic scrolling speed (px/s)
-
+duration_fast = 150
+duration_normal = 250
+duration_smooth = 280
+flick_deceleration = 1500
+max_flick_velocity = 6000
 
 [hyprlock]
-# Lockscreen backdrop built from a blurred screenshot. Values land in
-# hypr/ui.conf as $hyprlock_* and are consumed by hyprlock.conf.
-# brightness < 1.0 darkens bright wallpapers so light text stays readable.
 blur_size = 10
 blur_passes = 3
 noise = 0.02
@@ -62,34 +44,30 @@ vibrancy = 0.2
 vibrancy_darkness = 0.0
 
 [launcher]
-# Quickshell launcher / keybindings dialog size
 width = 960
 height = 600
 
 [notifications]
-# Quickshell notification surfaces (toasts + control center), top-right.
 width = 500
-# Top offset clearing the bar and matching window top: bar height 30 + bar top margin 4 + gaps_out 20 = 54.
 top_margin = 54
 
 [font]
-family = "JetBrainsMono Nerd Font Propo"   # UI proportional font (also bar icon glyphs)
-mono = "JetBrainsMono Nerd Font Mono"       # Monospace font (terminal, Quickshell)
-ui = "Adwaita Sans 12"                      # System / GTK UI font
-size_bar = 15                               # Bar font size (px)
-size_bar_icon = 18                          # Bar Nerd Font icon glyphs (px, Propo variant)
-size_menu = 14                              # Quickshell item detail font size (pt)
-size_grid = 13                              # Quickshell app grid label size (pt)
-size_search = 15                            # Quickshell search input font size (pt)
-size_notif = 17                             # Quickshell notification font size (px)
-size_cursor = 24                            # Mouse cursor size
+family = "JetBrainsMono Nerd Font Propo"
+mono = "JetBrainsMono Nerd Font Mono"
+ui = "Adwaita Sans 12"
+size_bar = 15
+size_bar_icon = 18
+size_menu = 14
+size_grid = 13
+size_search = 15
+size_notif = 17
+size_cursor = 24
 [theme]
 cursor = "Bibata-Modern-Classic"
 icon = "Papirus-Dark"
 gtk = "Adwaita-dark"
 
 [colors]
-# GitHub Dark Default Palette
 bg_main = "#0d1117"
 bg_card = "#161b22"
 bg_hover = "#21262d"
@@ -105,19 +83,9 @@ text_muted = "#484f58"
 shadow = "#010409"
 
 [ly]
-# TTY-tuned overrides for the Ly login manager (plain Linux console has no
-# truecolor, so bright Wayland accents render washed out there).
-# Deep GitHub Primer blue reads as true blue on TTY instead of teal.
 matrix_fg = "#1f6feb"
-# Plain kernel console supports 16 colors only: ly addresses the VT palette
-# remapped in ly/startup.sh by index, so the colormix animation stays in
-# theme instead of white-cyan-gray.
 full_color = false
-# Extra VT palette slots with no direct theme equivalent.
 tty_purple_dark = "#8957e5"
 tty_cyan_bright = "#79c0ff"
 tty_white = "#f0f6fc"
-# Delay between animation frames in milliseconds (lower = faster).
-# Ly upstream default is 5, which matches cmatrix default speed
-# (cmatrix -u 4 = 40ms; Ly updates movement every ~9 frames, so 5ms * 9 ~= 45ms).
 frame_delay = 5

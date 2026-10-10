@@ -13,14 +13,11 @@ cd ~/.files
 ## Usage
 
 ```bash
-# Restow configs
 stow --restow --target ~ common
-stow --restow --target ~ archlinux  # or macos
+stow --restow --target ~ archlinux
 
-# Apply & reload UI theme (Arch)
 apply-ui
 
-# Maintenance
-sysupdate   # update packages, AUR/Homebrew, tools
-sysclean    # clean caches and orphans
+sysupdate
+sysclean
 ```

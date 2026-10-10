@@ -1,6 +1,3 @@
-# Firefox extensions, one AMO URL per line. firefox-apply --extensions
-# prints them; install via about:addons (paste URL) or combine with
-# policies.json ExtensionSettings for fully automated install.
 https://addons.mozilla.org/firefox/downloads/latest/ublock-origin/addon-722-latest.xpi
 https://addons.mozilla.org/firefox/downloads/latest/sponsorblock/latest.xpi
 https://addons.mozilla.org/firefox/downloads/latest/vimium-c/latest.xpi

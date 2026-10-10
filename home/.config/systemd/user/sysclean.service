@@ -2,7 +2,6 @@
 Description=Weekly system cleanup (user caches, no sudo)
 After=network-online.target
 Wants=network-online.target
-# Cache cleanup is not worth the power draw on battery.
 ConditionACPower=true
 
 [Service]
