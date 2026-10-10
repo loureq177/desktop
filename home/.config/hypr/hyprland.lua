@@ -1,5 +1,3 @@
--- ─── Programs ────────────────────────────────────────────────────────────────
-
 local bin = os.getenv("HOME") .. "/.local/bin"
 local hypr = os.getenv("HOME") .. "/.config/hypr"
 
@@ -37,7 +35,6 @@ local programs = {
 	launcher = "qs ipc call shell toggle launcher apps",
 
 	special = {
-		-- Apps
 		spotify = { exe = "flatpak run com.spotify.Client", class = "spotify", ws = "spotify" },
 		tasks = {
 			exe = bin .. "/firefox-webapp tasks https://tasks.google.com",
@@ -69,9 +66,8 @@ local programs = {
 			title = ".*WhatsApp.*",
 			ws = "whatsapp",
 		},
-		yazi = { exe = "ghostty --class=yazi -e yazi", class = "yazi", ws = "yazi" },
+		yazi = { exe = "ghostty +new-window -e yazi", ws = "yazi" },
 
-		-- System tools
 		audio = {
 			exe = "pwvucontrol --tab 4",
 			class = "com.saivert.pwvucontrol",
@@ -82,12 +78,10 @@ local programs = {
 			class = "org.gnome.Calculator",
 			ws = "gnome-calculator",
 		},
-		jolt = { exe = "ghostty --class=jolt -e jolt", class = "jolt", ws = "jolt" },
-		btop = { exe = "ghostty --class=btop -e btop", class = "btop", ws = "btop" },
+		jolt = { exe = "ghostty +new-window -e jolt", ws = "jolt" },
+		btop = { exe = "ghostty +new-window -e btop", ws = "btop" },
 	},
 }
-
--- ─── Environment ─────────────────────────────────────────────────────────────
 
 if type(local_cfg.env) == "function" then
 	local_cfg.env()
@@ -100,13 +94,6 @@ for _, var in ipairs({ "XDG_CURRENT_DESKTOP", "XDG_SESSION_DESKTOP" }) do
 	hl.env(var, "Hyprland")
 end
 hl.env("GDK_BACKEND", "wayland,x11")
--- Ghostty ≥1.2 (GTK) binds ext_background_effect_manager_v1 and Hyprland
--- then defers backdrop-blur decisions to the client, which requests nothing
--- (background-blur=false) — net effect: no blur behind Ghostty, only flat
--- transparency. Disabling the protocol forces classic compositor-side
--- decoration blur. Cf. r/hyprland "ghostty blur not working" (Oct 2026).
--- Requires full Ghostty restart (single-instance: env is read once at
--- process start, new windows join the old process).
 hl.env("GDK_WAYLAND_DISABLE", "ext_background_effect_manager_v1")
 hl.env("QT_QPA_PLATFORM", "wayland;xcb")
 hl.env("QS_ICON_THEME", ui.theme.icon)
@@ -120,16 +107,11 @@ end
 hl.env("ELECTRON_OZONE_PLATFORM_HINT", "auto")
 hl.env("SAL_USE_VCLPLUGIN", "gtk3")
 
--- ─── Autostart ───────────────────────────────────────────────────────────────
-
 local function gset(key, val)
 	return string.format("gsettings set org.gnome.desktop.interface %s '%s'", key, val)
 end
 
 hl.on("hyprland.start", function()
-	-- Singleton guards: hyprland.start can re-fire on reload. Bare starts
-	-- would stack a second wl-paste watcher (double cliphist store), a
-	-- second quickshell and a second hyprsunset per reload.
 	local cmds = {
 		gset("cursor-theme", ui.theme.cursor),
 		gset("icon-theme", ui.theme.icon),
@@ -138,18 +120,15 @@ hl.on("hyprland.start", function()
 		gset("gtk-theme", ui.theme.gtk),
 		gset("monospace-font-name", ui.font.mono .. " 12"),
 
-		"dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP HYPRLAND_INSTANCE_SIGNATURE AQ_DRM_DEVICES VK_DRIVER_FILES VK_ICD_FILENAMES LIBVA_DRIVER_NAME GSK_RENDERER QT_QPA_PLATFORM SDL_VIDEODRIVER CLUTTER_BACKEND MOZ_ENABLE_WAYLAND ELECTRON_OZONE_PLATFORM_HINT",
+		"dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP HYPRLAND_INSTANCE_SIGNATURE AQ_DRM_DEVICES VK_DRIVER_FILES VK_ICD_FILENAMES LIBVA_DRIVER_NAME GSK_RENDERER GTK_A11Y GDK_BACKEND GDK_WAYLAND_DISABLE XCURSOR_THEME XCURSOR_SIZE HYPRCURSOR_THEME HYPRCURSOR_SIZE QT_QPA_PLATFORM SDL_VIDEODRIVER CLUTTER_BACKEND MOZ_ENABLE_WAYLAND ELECTRON_OZONE_PLATFORM_HINT",
 		"systemctl --user start hyprland-session.target",
 
 		"sh -c 'pgrep -f \"[w]l-paste --type text\" >/dev/null || wl-paste --type text --watch cliphist -max-items 100 store'",
 		"sh -c 'pgrep -f \"[w]l-paste --type image\" >/dev/null || wl-paste --type image/png --watch cliphist -max-items 100 store'",
 		"wpctl set-volume @DEFAULT_AUDIO_SOURCE@ 0.25",
 		"~/.local/bin/wallpaper init",
-		-- Reassert patched 74Hz on the iiyama if the EDID override landed
-		-- late (hotplug race / dGPU D3cold resume). No-op when undocked or
-		-- already at 74Hz; never forces an unadvertised mode (panic-safe).
 		"~/.local/bin/ensure-74hz",
-		"sh -c 'pidof quickshell >/dev/null || quickshell -d'",
+		"sh -c 'pidof quickshell >/dev/null || MALLOC_CONF=narenas:1,muzzy_decay_ms:0 ~/.local/bin/mesa-egl quickshell -d'",
 		"sh -c 'pidof hyprsunset >/dev/null || hyprsunset'",
 	}
 
@@ -157,15 +136,6 @@ hl.on("hyprland.start", function()
 		hl.exec_cmd(cmd)
 	end
 end)
-
--- ─── Monitors ────────────────────────────────────────────────────────────────
-
--- The desired monitor topology is a pure function of two facts: lid state and
--- whether an external monitor is present. With the lid closed and an external
--- monitor connected the laptop panel is disabled (Hyprland then evacuates its
--- windows and destroys its empty workspaces); otherwise it is enabled. The
--- same rules are applied on load/reload, lid events and hotplug, so eDP is
--- never briefly re-enabled behind a closed lid (which used to steal focus).
 
 local function lid_is_closed()
 	local f = io.popen("cat /proc/acpi/button/lid/*/state 2>/dev/null")
@@ -201,7 +171,6 @@ local function apply_monitors()
 	})
 end
 
--- Re-apply only when the desired laptop state actually changed.
 local function sync_monitors()
 	if (lid_is_closed() and has_external_monitor()) ~= laptop_disabled then
 		apply_monitors()
@@ -211,19 +180,6 @@ local function sync_monitors()
 end
 
 apply_monitors()
-
--- ─── Workspaces: keep numeric IDs compact (1..N) across topology changes ──
--- Root cause of the "2,3 instead of 1,2 after lid-close" bug: lid-close only
--- blanked eDP (dpms off) while keeping it enabled, so its (empty) workspace
--- kept its number alive as a ghost. Fix: disable eDP when an external
--- monitor exists (Hyprland then evacuates windows to the remaining monitors
--- and destroys eDP's empty workspaces), re-enable on lid-open by
--- re-applying the local.lua monitor specs. compact_workspaces() below is a
--- safety net for leftover gaps (dock/undock, pre-existing gaps, races): it
--- renumbers numeric workspaces to 1..N preserving order, focus and monitor
--- assignment. Special and named workspaces are untouched. It runs ONLY on
--- topology changes (lid, monitor added/removed), never on normal workspace
--- open/close, so SUPER+1..9 muscle memory stays stable.
 
 local compacting = false
 local compact_gen = 0
@@ -266,9 +222,6 @@ local function compact_workspaces()
 		local focused_new = focused_old
 		for idx, ws in ipairs(nums) do
 			if ws.id ~= idx then
-				-- Compacting down in ascending order guarantees the target
-				-- is free (idx <= ws.id, lower IDs already claimed). If a
-				-- race occupied it, skip: the next topology event retries.
 				local target = hl.get_workspace and hl.get_workspace(idx) or nil
 				if target == nil then
 					hl.dispatch(hl.dsp.workspace.change_id({ workspace = ws.id, id = idx }))
@@ -301,8 +254,6 @@ end
 if local_cfg.lid_switch ~= false and not local_cfg.custom_lid_switch then
 	hl.bind("switch:on:Lid Switch", function()
 		if not sync_monitors() and not has_external_monitor() then
-			-- Sole monitor (on the go): only blank, suspend is handled by
-			-- hypridle/systemd. Never disable the last screen.
 			hl.dispatch(hl.dsp.dpms({ action = "off" }))
 		end
 		schedule_compact(500)
@@ -310,16 +261,10 @@ if local_cfg.lid_switch ~= false and not local_cfg.custom_lid_switch then
 
 	hl.bind("switch:off:Lid Switch", function()
 		hl.dispatch(hl.dsp.dpms({ action = "on" }))
-		-- Re-enables eDP with the mode/position/scale from local.lua. Hyprland
-		-- gives it the next free workspace number, so there is no renumbering
-		-- fight. Evacuated windows stay where they are (predictable); move
-		-- them back manually with SUPER+SHIFT+<num> when needed.
 		sync_monitors()
 		schedule_compact(800)
 	end, { locked = true })
 
-	-- Dock/undock (dwie HP-ki, iiyama) goes through the same path:
-	-- Hyprland evacuates/creates, we only fix leftover number gaps.
 	hl.on("monitor.added", function()
 		sync_monitors()
 		schedule_compact(500)
@@ -329,8 +274,6 @@ if local_cfg.lid_switch ~= false and not local_cfg.custom_lid_switch then
 		schedule_compact(500)
 	end)
 end
-
--- ─── Input & Gestures ────────────────────────────────────────────────────────
 
 hl.config({
 	input = {
@@ -364,9 +307,7 @@ hl.config({
 
 hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })
 
--- ─── Special workspace swipe ────────────────────────────────────────────────
-
-local special_gesture_mode = nil -- "down", "up" or nil
+local special_gesture_mode = nil
 local special_gesture_name = nil
 local special_history = {}
 local special_cycle_active = false
@@ -489,7 +430,6 @@ local function cycle_special_prev()
 	cycle_special(-1)
 end
 
--- While a special workspace is visible, horizontal motion cycles specials
 local function set_cycle_gestures(enabled)
 	if enabled == special_cycle_active then
 		return
@@ -540,8 +480,6 @@ hl.on("window.close", function()
 end)
 
 refresh_special_gestures()
-
--- ─── Look & Feel ─────────────────────────────────────────────────────────────
 
 hl.config({
 	general = {
@@ -624,8 +562,6 @@ hl.animation({ leaf = "zoomFactor", speed = 7, bezier = "quick" })
 hl.animation({ leaf = "specialWorkspaceIn", speed = 4, bezier = "default", style = "slide bottom" })
 hl.animation({ leaf = "specialWorkspaceOut", speed = 4, bezier = "default", style = "slide top" })
 
--- ─── Misc ────────────────────────────────────────────────────────────────────
-
 hl.config({
 	misc = {
 		force_default_wallpaper = 0,
@@ -637,14 +573,16 @@ hl.config({
 	},
 })
 
--- ─── Windows & Workspaces ────────────────────────────────────────────────────
-
 hl.layer_rule({
 	name = "no-anim-capture",
 	match = { namespace = "^(hyprpicker|selection)$" },
 	no_anim = true,
 })
--- Keybindings cheatsheet: fullscreen blurred overlay (quickshell-keybindings).
+hl.layer_rule({
+	name = "no-anim-wallpaper",
+	match = { namespace = "^wallpaper$" },
+	no_anim = true,
+})
 hl.layer_rule({
 	name = "blur-keybindings-cheatsheet",
 	match = { namespace = "^quickshell-keybindings$" },
@@ -682,9 +620,9 @@ for _, app in pairs(programs.special) do
 		on_created_empty = autostart_for(app.exe),
 		gaps_out = 48,
 	})
-	if app.title then
+	if app.class and app.title then
 		hl.window_rule({ match = { class = app.class, title = app.title }, workspace = ws })
-	else
+	elseif app.class then
 		hl.window_rule({ match = { class = app.class }, workspace = ws })
 	end
 end
@@ -713,25 +651,18 @@ hl.window_rule({
 
 hl.window_rule({
 	name = "ghostty-focus-opacity",
-	match = { class = "^(com.mitchellh.ghostty|yazi|btop|jolt)$" },
+	match = { class = "^(com.mitchellh.ghostty)$" },
 	opacity = "1.0 0.97",
 })
-
--- ─── Keybindings ────────────────────────────────────────────────────────────────
 
 local function b(keys, desc, dispatcher, opts)
 	opts = opts or {}
 	opts.description = desc
-	-- Pin the default: toggles must not flicker on key hold (SUPER+A held
-	-- = panel open/close strobe). Repeating actions (resize, volume,
-	-- brightness) opt in explicitly with repeating = true.
 	if opts.repeating == nil then
 		opts.repeating = false
 	end
 	hl.bind(keys, dispatcher, opts)
 end
-
--- ─── Navigation ─────────────────────────────────────────────────────────
 
 b("SUPER + Q", "Close window", hl.dsp.window.close())
 b("SUPER + F", "Toggle fullscreen", hl.dsp.window.fullscreen())
@@ -741,11 +672,6 @@ local directions = { H = "left", L = "right", K = "up", J = "down" }
 local mon_short = { left = "l", right = "r", up = "u", down = "d" }
 local step = 25
 
--- Swap z oknem w danym kierunku, a gdy nie ma z czym (krawędź
--- layoutu), przerzuć okno na sąsiedni monitor w tym kierunku.
--- UWAGA: fallback dla góra/dół wyłączony — move({ monitor = 'u'/'d' })
--- crashuje Hyprlanda (Oops screen) przy przerzucie między HP (NVIDIA)
--- a eDP (AMD iGPU), v0.56.2. Działa tylko dla l/r.
 local function monitor_in_direction(dir)
 	local win = hl.get_active_window()
 	local cur = (win ~= nil and win.monitor) or hl.get_active_monitor()
@@ -757,13 +683,29 @@ local function monitor_in_direction(dir)
 	end
 	for _, m in ipairs(hl.get_monitors()) do
 		if m.name ~= cur.name then
-			if dir == "left" and m.x + m.width <= cur.x and overlap(m.y, m.y + m.height, cur.y, cur.y + cur.height) then
+			if
+				dir == "left"
+				and m.x + m.width <= cur.x
+				and overlap(m.y, m.y + m.height, cur.y, cur.y + cur.height)
+			then
 				return true
-			elseif dir == "right" and m.x >= cur.x + cur.width and overlap(m.y, m.y + m.height, cur.y, cur.y + cur.height) then
+			elseif
+				dir == "right"
+				and m.x >= cur.x + cur.width
+				and overlap(m.y, m.y + m.height, cur.y, cur.y + cur.height)
+			then
 				return true
-			elseif dir == "up" and m.y + m.height <= cur.y and overlap(m.x, m.x + m.width, cur.x, cur.x + cur.width) then
+			elseif
+				dir == "up"
+				and m.y + m.height <= cur.y
+				and overlap(m.x, m.x + m.width, cur.x, cur.x + cur.width)
+			then
 				return true
-			elseif dir == "down" and m.y >= cur.y + cur.height and overlap(m.x, m.x + m.width, cur.x, cur.x + cur.width) then
+			elseif
+				dir == "down"
+				and m.y >= cur.y + cur.height
+				and overlap(m.x, m.x + m.width, cur.x, cur.x + cur.width)
+			then
 				return true
 			end
 		end
@@ -795,11 +737,19 @@ local function same_workspace_neighbor(dir)
 			local cx, cy = w.at.x + w.size.x / 2, w.at.y + w.size.y / 2
 			if dir == "left" and cx < acx and overlap(w.at.y, w.at.y + w.size.y, ay, ay + ah) then
 				return true
-			elseif dir == "right" and cx > acx and overlap(w.at.y, w.at.y + w.size.y, ay, ay + ah) then
+			elseif
+				dir == "right"
+				and cx > acx
+				and overlap(w.at.y, w.at.y + w.size.y, ay, ay + ah)
+			then
 				return true
 			elseif dir == "up" and cy < acy and overlap(w.at.x, w.at.x + w.size.x, ax, ax + aw) then
 				return true
-			elseif dir == "down" and cy > acy and overlap(w.at.x, w.at.x + w.size.x, ax, ax + aw) then
+			elseif
+				dir == "down"
+				and cy > acy
+				and overlap(w.at.x, w.at.x + w.size.x, ax, ax + aw)
+			then
 				return true
 			end
 		end
@@ -808,10 +758,6 @@ local function same_workspace_neighbor(dir)
 end
 
 local function swap_or_throw(dir)
-	-- Hyprlandowy swap w kierunku potrafi sięgnąć po okno z SĄSIEDNIEGO
-	-- monitora zamiast zgłosić błąd, więc o tym, czy swapować, decydujemy
-	-- sami: sąsiad na tym samym workspace → swap, inaczej (krawędź
-	-- monitora) → przeniesienie okna na monitor obok.
 	if same_workspace_neighbor(dir) then
 		pcall(hl.dispatch, hl.dsp.window.swap({ direction = dir }))
 		return
@@ -820,8 +766,6 @@ local function swap_or_throw(dir)
 	if (mon == "l" or mon == "r") and monitor_in_direction(dir) then
 		pcall(hl.dispatch, hl.dsp.window.move({ monitor = mon }))
 	end
-	-- u/d na krawędzi: nic (move crashuje compositor, a swap
-	-- między monitorami jest niepożądany).
 end
 
 for key, dir in pairs(directions) do
@@ -852,12 +796,9 @@ for i = 1, 9 do
 end
 
 local cmds = {
-	-- ─── Essential ──────────────────────────────────────────────────────────────
 
 	["SUPER + RETURN"] = { programs.terminal, "Terminal" },
 	["SUPER + B"] = { programs.browser, "Browser" },
-
-	--  ─── Quick menus ────────────────────────────────────────────
 
 	["SUPER + space"] = { programs.launcher, "Launcher" },
 	["SUPER + A"] = { "qs ipc call quicksettings toggle", "Quick actions" },
@@ -872,8 +813,6 @@ local cmds = {
 	["SUPER + C"] = { "qs ipc call shell toggle clipboard ''", "Clipboard history" },
 	["SUPER + escape"] = { "hyprlock", "Lock system" },
 	["SUPER + slash"] = { "qs ipc call shell toggle keybindings ''", "Keybindings" },
-
-	-- ─── Capture ─────────────────────────────────────────────────────────
 
 	["SUPER + D"] = { "~/.local/bin/dictation", "Dictation" },
 	["SUPER + P"] = { "~/.local/bin/wallpaper next", "Next wallpaper" },
@@ -935,15 +874,9 @@ for _, m in ipairs(media) do
 	b(m[1], m[4], hl.dsp.exec_cmd(m[2]), { locked = true, repeating = m[3] })
 end
 
--- ─── Mouse Drag / Resize ─────────────────────────────────────────────────────
-
 hl.bind("SUPER + mouse:272", hl.dsp.window.drag(), { mouse = true, description = "Move window" })
 hl.bind(
 	"SUPER + mouse:273",
 	hl.dsp.window.resize(),
 	{ mouse = true, description = "Resize window" }
 )
-
--- NOTE (2026-10-10): lock-screen F1-F3 power shortcuts removed entirely.
--- Bare F1-F3 arrive as XF86 media keys on this laptop (fn_lock=0) and the
--- binds crashed the compositor. Power off/reboot/suspend via Ly or launcher.

@@ -1,0 +1,12 @@
+#!/bin/sh
+mesa=/usr/share/glvnd/egl_vendor.d/50_mesa.json
+if [ -z "${__EGL_VENDOR_LIBRARY_FILENAMES:-}" ] && [ -n "${AQ_DRM_DEVICES:-}" ] \
+    && [ -e "$mesa" ] && [ -e /usr/share/glvnd/egl_vendor.d/10_nvidia.json ]; then
+    card="$(readlink -f "${AQ_DRM_DEVICES%%:*}" 2>/dev/null || true)"
+    driver="$(readlink -f "/sys/class/drm/${card##*/}/device/driver" 2>/dev/null || true)"
+    case "${driver##*/}" in
+    "" | nvidia*) ;;
+    *) export __EGL_VENDOR_LIBRARY_FILENAMES="$mesa" ;;
+    esac
+fi
+exec "$@"
