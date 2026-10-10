@@ -1,26 +1,21 @@
 import ".."
+import "../widgets"
 import Quickshell
-import Quickshell.Hyprland
 import Quickshell.Io
-import Quickshell.Wayland
 import QtQuick
 import QtQuick.Layouts
 
-PanelWindow {
+FadeOverlay {
 	id: window
 
-	property bool shown: false
-	signal opened()
-	signal dismissed()
+	namespace: "quickshell-keybindings"
+	backdropColor: Qt.rgba(0, 0, 0, 0.55)
+	card: sheetCard
 
 	function open() {
 		if (!loader.running)
 			loader.running = true;
 		window.shown = true;
-	}
-
-	function close() {
-		window.shown = false;
 	}
 
 	function toggle() {
@@ -30,101 +25,7 @@ PanelWindow {
 			open();
 	}
 
-	onShownChanged: {
-		if (shown) {
-			exitAnim.stop();
-			enterAnim.restart();
-			window.opened();
-		} else {
-			enterAnim.stop();
-			exitAnim.restart();
-			window.dismissed();
-		}
-	}
-
-	ParallelAnimation {
-		id: enterAnim
-
-		NumberAnimation {
-			target: backdrop
-			property: "opacity"
-			from: 0.0
-			to: 1.0
-			duration: Theme.animFast
-			easing.type: Easing.OutCubic
-		}
-
-		NumberAnimation {
-			target: sheetCard
-			property: "opacity"
-			from: 0.0
-			to: 1.0
-			duration: Theme.animFast
-			easing.type: Easing.OutCubic
-		}
-
-		NumberAnimation {
-			target: sheetCard
-			property: "scale"
-			from: 0.96
-			to: 1.0
-			duration: Theme.animNormal
-			easing.type: Easing.BezierSpline
-			easing.bezierCurve: Theme.easeOutQuint
-		}
-	}
-
-	ParallelAnimation {
-		id: exitAnim
-
-		NumberAnimation {
-			target: backdrop
-			property: "opacity"
-			to: 0.0
-			duration: Theme.animFast
-			easing.type: Easing.OutCubic
-		}
-
-		NumberAnimation {
-			target: sheetCard
-			property: "opacity"
-			to: 0.0
-			duration: Theme.animFast
-			easing.type: Easing.OutCubic
-		}
-
-		NumberAnimation {
-			target: sheetCard
-			property: "scale"
-			to: 0.97
-			duration: Theme.animFast
-			easing.type: Easing.InCubic
-		}
-	}
-
-	visible: shown || exitAnim.running
-	color: "transparent"
-	exclusionMode: ExclusionMode.Ignore
-	exclusiveZone: 0
-
-	WlrLayershell.layer: WlrLayer.Overlay
-	WlrLayershell.keyboardFocus: shown ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
-	WlrLayershell.namespace: "quickshell-keybindings"
-
-	screen: Quickshell.screens.find(s => s.name === Hyprland.focusedMonitor?.name) ?? Quickshell.screens[0] ?? null
-
-	anchors {
-		top: true
-		bottom: true
-		left: true
-		right: true
-	}
-
-	Shortcut {
-		sequences: ["Esc"]
-		enabled: window.visible
-		onActivated: window.close()
-	}
+	onDismissRequested: window.close()
 
 	property var entries: []
 	property var columns: [[], [], []]
@@ -175,7 +76,7 @@ PanelWindow {
 		{ cat: "Notifications", match: ["notification", "do not disturb"] },
 		{ cat: "Clipboard & Selection", match: ["clipboard"] },
 		{ cat: "Special Workspaces", match: ["calendar", "tasks", "whatsapp", "mail", "discord", "spotify", "gemini", "yazi", "notes", "calculator", "activity monitor"] },
-		{ cat: "System & Tools", match: ["system update", "lock system", "idle inhibit", "run commands", "emoji", "audio controls", "bluetooth", "wifi", "power", "battery", "jolt", "touchpad", "quick settings", "quick actions", "weather"] },
+		{ cat: "System & Tools", match: ["system update", "lock system", "idle inhibit", "run commands", "emoji", "audio controls", "bluetooth", "wifi", "power", "battery", "jolt", "quick settings", "quick actions", "weather"] },
 		{ cat: "Window Management", match: ["close window", "fullscreen", "split", "floating", "swap window", "resize window", "drag window"] },
 		{ cat: "Navigation & Workspaces", match: ["focus", "workspace"] }
 	]
@@ -296,9 +197,7 @@ PanelWindow {
 						var rawKey = (b.key || "").trim();
 						var rawLower = rawKey.toLowerCase();
 
-						if (rawLower === "xf86touchpadtoggle") {
-							rawKey = "fn + f10";
-						} else if (rawLower.indexOf("xf86") !== -1 || rawLower.indexOf("switch:") !== -1) {
+						if (rawLower.indexOf("xf86") !== -1 || rawLower.indexOf("switch:") !== -1) {
 							continue;
 						}
 
@@ -351,18 +250,6 @@ PanelWindow {
 				window.loading = false;
 				window.rebuildColumns();
 			}
-		}
-	}
-
-	Rectangle {
-		id: backdrop
-		anchors.fill: parent
-		color: Qt.rgba(0, 0, 0, 0.55)
-
-		MouseArea {
-			anchors.fill: parent
-			enabled: window.shown
-			onPressed: window.close()
 		}
 	}
 

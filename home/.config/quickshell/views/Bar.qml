@@ -158,7 +158,7 @@ PanelWindow {
 			id: tipBox
 			implicitWidth: tipLabel.implicitWidth + 20
 			implicitHeight: tipLabel.implicitHeight + 10
-			color: Qt.rgba(Theme.bgCardColor.r, Theme.bgCardColor.g, Theme.bgCardColor.b, 0.96)
+			color: Theme.alpha(Theme.bgCardColor, 0.96)
 			border.color: Theme.border
 			border.width: 1
 			radius: Theme.roundingElement
@@ -198,7 +198,7 @@ PanelWindow {
 		implicitHeight: Theme.barHeight
 		implicitWidth: (text !== "" || value !== "") ? pillRow.implicitWidth + 14 : 0
 		visible: text !== "" || value !== ""
-		color: pillArea.containsMouse ? Theme.bgHover : (isActive ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.16) : "transparent")
+		color: pillArea.containsMouse ? Theme.bgHover : (isActive ? Theme.alpha(Theme.accent, 0.16) : "transparent")
 		border.width: 0
 		radius: Theme.roundingElement
 
@@ -314,7 +314,7 @@ PanelWindow {
 							Layout.alignment: Qt.AlignVCenter
 							implicitHeight: Theme.barHeight
 							implicitWidth: wsLabel.implicitWidth + 14
-							color: wsArea.containsMouse ? Theme.bgHover : (isActive ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.18) : "transparent")
+							color: wsArea.containsMouse ? Theme.bgHover : (isActive ? Theme.alpha(Theme.accent, 0.18) : "transparent")
 							border.width: 0
 							radius: Theme.roundingElement
 

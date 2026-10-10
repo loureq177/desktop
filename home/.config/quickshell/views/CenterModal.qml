@@ -1,15 +1,11 @@
 import ".."
 import "../widgets"
-import Quickshell
-import Quickshell.Hyprland
-import Quickshell.Wayland
 import QtQuick
 import QtQuick.Layouts
 
-PanelWindow {
+FadeOverlay {
 	id: root
 
-	property bool shown: false
 	property int cardWidth: Theme.windowWidth
 	property int cardHeight: Theme.windowHeight
 
@@ -25,8 +21,6 @@ PanelWindow {
 	property string errorText: ""
 	property bool showFooter: errorText !== "" || statusText !== ""
 
-	signal opened()
-	signal dismissed()
 	signal searchAccepted()
 	signal searchStepped(int delta)
 	signal searchSteppedColumn(int delta)
@@ -34,16 +28,14 @@ PanelWindow {
 
 	default property alias body: contentSlot.data
 
-	visible: shown || exitAnim.running
+	card: dialogCard
+	enterScale: 0.82
+	exitScale: 0.85
 
 	function open() {
 		search.clear();
 		root.shown = true;
 		search.focusInput();
-	}
-
-	function close() {
-		root.shown = false;
 	}
 
 	function toggle() {
@@ -53,112 +45,7 @@ PanelWindow {
 			open();
 	}
 
-	onShownChanged: {
-		if (shown) {
-			exitAnim.stop();
-			enterAnim.restart();
-			root.opened();
-		} else {
-			enterAnim.stop();
-			exitAnim.restart();
-			root.dismissed();
-		}
-	}
-
-	ParallelAnimation {
-		id: enterAnim
-
-		NumberAnimation {
-			target: backdrop
-			property: "opacity"
-			from: 0.0
-			to: 1.0
-			duration: Theme.animFast
-			easing.type: Easing.OutCubic
-		}
-
-		NumberAnimation {
-			target: dialogCard
-			property: "opacity"
-			from: 0.0
-			to: 1.0
-			duration: Theme.animFast
-			easing.type: Easing.OutCubic
-		}
-
-		NumberAnimation {
-			target: dialogCard
-			property: "scale"
-			from: 0.82
-			to: 1.0
-			duration: Theme.animNormal
-			easing.type: Easing.BezierSpline
-			easing.bezierCurve: Theme.easeOutQuint
-		}
-	}
-
-	ParallelAnimation {
-		id: exitAnim
-
-		NumberAnimation {
-			target: backdrop
-			property: "opacity"
-			to: 0.0
-			duration: Theme.animFast
-			easing.type: Easing.OutCubic
-		}
-
-		NumberAnimation {
-			target: dialogCard
-			property: "opacity"
-			to: 0.0
-			duration: Theme.animFast
-			easing.type: Easing.OutCubic
-		}
-
-		NumberAnimation {
-			target: dialogCard
-			property: "scale"
-			to: 0.85
-			duration: Theme.animFast
-			easing.type: Easing.InCubic
-		}
-	}
-
-	color: "transparent"
-	exclusionMode: ExclusionMode.Ignore
-	exclusiveZone: 0
-
-	WlrLayershell.layer: WlrLayer.Overlay
-	WlrLayershell.keyboardFocus: shown ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
-	WlrLayershell.namespace: "quickshell"
-
-	screen: Quickshell.screens.find(s => s.name === Hyprland.focusedMonitor?.name) ?? Quickshell.screens[0] ?? null
-
-	anchors {
-		top: true
-		bottom: true
-		left: true
-		right: true
-	}
-
-	Shortcut {
-		sequences: ["Esc"]
-		enabled: root.visible
-		onActivated: root.close()
-	}
-
-	Rectangle {
-		id: backdrop
-		anchors.fill: parent
-		color: Theme.backdropColor
-
-		MouseArea {
-			anchors.fill: parent
-			enabled: root.shown
-			onPressed: root.close()
-		}
-	}
+	onDismissRequested: root.close()
 
 	Rectangle {
 		id: dialogCard

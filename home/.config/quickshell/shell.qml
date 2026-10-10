@@ -7,6 +7,25 @@ import "views"
 ShellRoot {
 	id: root
 
+	function viewFor(name: string): var {
+		switch (name) {
+		case "launcher": return launcherView;
+		case "keybindings": return keysView;
+		case "clipboard": return clipboardView;
+		case "weather": return Weather;
+		}
+		return null;
+	}
+
+	function closeOthers(name: string): void {
+		Notifications.closeCenter();
+		QuickSettings.close();
+		for (const other of ["launcher", "keybindings", "clipboard", "weather"]) {
+			if (other !== name)
+				viewFor(other).close();
+		}
+	}
+
 	Variants {
 		model: Quickshell.screens
 		Bar {
@@ -17,11 +36,7 @@ ShellRoot {
 		id: launcherView
 		onOpened: {
 			Notifications.hideToasts();
-			keysView.close();
-			clipboardView.close();
-			Notifications.closeCenter();
-			QuickSettings.close();
-			Weather.close();
+			root.closeOthers("launcher");
 		}
 	}
 
@@ -29,11 +44,7 @@ ShellRoot {
 		id: keysView
 		onOpened: {
 			Notifications.hideToasts();
-			launcherView.close();
-			clipboardView.close();
-			Notifications.closeCenter();
-			QuickSettings.close();
-			Weather.close();
+			root.closeOthers("keybindings");
 		}
 	}
 
@@ -49,11 +60,7 @@ ShellRoot {
 		id: clipboardView
 		onOpened: {
 			Notifications.hideToasts();
-			launcherView.close();
-			keysView.close();
-			Notifications.closeCenter();
-			QuickSettings.close();
-			Weather.close();
+			root.closeOthers("clipboard");
 		}
 	}
 
@@ -65,11 +72,7 @@ ShellRoot {
 		id: weatherView
 		onOpened: {
 			Notifications.hideToasts();
-			launcherView.close();
-			keysView.close();
-			clipboardView.close();
-			Notifications.closeCenter();
-			QuickSettings.close();
+			root.closeOthers("weather");
 		}
 		onDismissed: Weather.close()
 	}
@@ -86,67 +89,18 @@ ShellRoot {
 		target: "shell"
 
 		function summon(name: string, mode: string): void {
-			Notifications.closeCenter();
-			QuickSettings.close();
-			Weather.close();
-			if (name === "launcher") {
-				keysView.close();
-				clipboardView.close();
-				launcherView.open(mode);
-			} else if (name === "keybindings") {
-				launcherView.close();
-				clipboardView.close();
-				keysView.open();
-			} else if (name === "clipboard") {
-				launcherView.close();
-				keysView.close();
-				clipboardView.open();
-			} else if (name === "weather") {
-				launcherView.close();
-				keysView.close();
-				clipboardView.close();
-				Weather.open();
-			}
+			root.closeOthers(name);
+			root.viewFor(name)?.open(mode);
 		}
 
 		function hide(name: string): void {
-			Notifications.closeCenter();
-			QuickSettings.close();
-			Weather.close();
-			if (name === "launcher")
-				launcherView.close();
-			else if (name === "keybindings")
-				keysView.close();
-			else if (name === "clipboard")
-				clipboardView.close();
-			else if (name === "weather")
-				Weather.close();
+			root.closeOthers(name);
+			root.viewFor(name)?.close();
 		}
 
 		function toggle(name: string, mode: string): void {
-			Notifications.closeCenter();
-			QuickSettings.close();
-			if (name === "launcher") {
-				Weather.close();
-				keysView.close();
-				clipboardView.close();
-				launcherView.toggle(mode);
-			} else if (name === "keybindings") {
-				Weather.close();
-				launcherView.close();
-				clipboardView.close();
-				keysView.toggle();
-			} else if (name === "clipboard") {
-				Weather.close();
-				launcherView.close();
-				keysView.close();
-				clipboardView.toggle();
-			} else if (name === "weather") {
-				launcherView.close();
-				keysView.close();
-				clipboardView.close();
-				Weather.toggle();
-			}
+			root.closeOthers(name);
+			root.viewFor(name)?.toggle(mode);
 		}
 	}
 }

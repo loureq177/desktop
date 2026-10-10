@@ -1,22 +1,14 @@
 import ".."
 import "../widgets"
-import Quickshell
-import Quickshell.Hyprland
-import Quickshell.Wayland
 import QtQuick
 import QtQuick.Layouts
 import "../WeatherModel.js" as WeatherModel
 
-PanelWindow {
+SlideOverlay {
 	id: root
 
-	readonly property bool shown: Weather.panelOpen
-	signal opened()
-	signal dismissed()
-
-	property int offscreenSlide: Math.max(700, card.height + Theme.notifTopMargin + 60)
-	property int slide: offscreenSlide
-	property real backdropOpacity: 0.0
+	shown: Weather.panelOpen
+	offscreenSlide: Math.max(700, card.height + Theme.notifTopMargin + 60)
 
 	function requestDismiss() {
 		if (Weather.editingLocation)
@@ -25,109 +17,12 @@ PanelWindow {
 			root.dismissed();
 	}
 
-	visible: shown || slideOut.running
-	color: "transparent"
-	exclusionMode: ExclusionMode.Ignore
-	exclusiveZone: 0
+	onDismissRequested: root.requestDismiss()
 
-	WlrLayershell.layer: WlrLayer.Top
-	WlrLayershell.keyboardFocus: shown ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
-	WlrLayershell.namespace: "quickshell"
-
-	HyprlandFocusGrab {
-		active: root.shown
-		windows: [ root ]
-		onCleared: root.dismissed()
-	}
-
-	screen: Quickshell.screens.find(s => s.name === Hyprland.focusedMonitor?.name) ?? Quickshell.screens[0] ?? null
-
-	anchors {
-		top: true
-		bottom: true
-		left: true
-		right: true
-	}
-
-	onShownChanged: {
-		if (shown) {
-			slideOut.stop();
-			slideIn.restart();
+	Connections {
+		target: root
+		function onOpened() {
 			chartCanvas.requestPaint();
-			root.opened();
-		} else {
-			slideIn.stop();
-			slideOut.restart();
-		}
-	}
-
-	onOffscreenSlideChanged: {
-		if (!shown && !slideIn.running && !slideOut.running)
-			slide = offscreenSlide;
-	}
-
-	ParallelAnimation {
-		id: slideIn
-
-		NumberAnimation {
-			target: root
-			property: "slide"
-			from: root.slide
-			to: 0
-			duration: Theme.animSmooth
-			easing.type: Easing.BezierSpline
-			easing.bezierCurve: Theme.easeOutQuint
-		}
-		NumberAnimation {
-			target: root
-			property: "backdropOpacity"
-			from: root.backdropOpacity
-			to: 1.0
-			duration: Theme.animSmooth
-			easing.type: Easing.BezierSpline
-			easing.bezierCurve: Theme.easeOutQuint
-		}
-	}
-
-	ParallelAnimation {
-		id: slideOut
-
-		NumberAnimation {
-			target: root
-			property: "slide"
-			from: root.slide
-			to: root.offscreenSlide
-			duration: Theme.animNormal
-			easing.type: Easing.InCubic
-		}
-		NumberAnimation {
-			target: root
-			property: "backdropOpacity"
-			from: root.backdropOpacity
-			to: 0.0
-			duration: Theme.animNormal
-			easing.type: Easing.InCubic
-		}
-	}
-
-	Shortcut {
-		sequences: ["Esc"]
-		enabled: root.visible
-		onActivated: root.requestDismiss()
-	}
-
-	Rectangle {
-		id: backdrop
-		anchors.fill: parent
-		color: Theme.backdropColor
-		opacity: root.backdropOpacity
-
-		MouseArea {
-			anchors.fill: parent
-			enabled: root.shown
-			onPressed: {
-				root.requestDismiss();
-			}
 		}
 	}
 

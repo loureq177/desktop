@@ -56,6 +56,10 @@ Singleton {
 	readonly property int notifPadH: 14
 
 	readonly property color accent: accentBlue
+	function alpha(c, a) {
+		var q = Qt.color(c);
+		return Qt.rgba(q.r, q.g, q.b, a);
+	}
 	readonly property color selectionBg: Qt.rgba(accent.r, accent.g, accent.b, 0.12)
 	readonly property color selectionBorder: Qt.rgba(accent.r, accent.g, accent.b, 0.45)
 

@@ -15,7 +15,6 @@ PanelWindow {
 
 	readonly property string icon: kind === "brightness" ? "󰃟"
 		: kind === "mic" ? (muted ? "󰍭" : "󰍬")
-		: kind === "touchpad" ? (muted ? "󰟴" : "󰟸")
 		: (muted ? "󰝟" : value <= 1 ? "󰕿" : value <= 50 ? "󰖀" : "󰕾")
 
 	function show(newKind, newValue, newMuted) {
@@ -124,7 +123,7 @@ PanelWindow {
 					anchors.fill: parent
 					horizontalAlignment: Text.AlignHCenter
 					verticalAlignment: Text.AlignVCenter
-					text: win.kind === "mic" ? (win.muted ? "Muted" : "On") : win.kind === "touchpad" ? (win.muted ? "Off" : "On") : win.value + "%"
+					text: win.kind === "mic" ? (win.muted ? "Muted" : "On") : win.value + "%"
 					font.family: Theme.fontMono
 					font.pixelSize: Theme.fontSizeSmall
 					font.bold: true
@@ -138,7 +137,7 @@ PanelWindow {
 					height: 6
 					radius: Theme.roundingSubtle
 					color: Theme.bgHover
-					visible: win.kind !== "mic" && win.kind !== "touchpad"
+					visible: win.kind !== "mic"
 
 					Rectangle {
 						anchors.left: parent.left
@@ -164,10 +163,6 @@ PanelWindow {
 		}
 		function mic(isMuted: bool): void {
 			win.show("mic", undefined, isMuted);
-		}
-		function touchpad(state: string): void {
-			var enabled = (state === "true" || state === "1" || state.toLowerCase() === "on");
-			win.show("touchpad", 0, !enabled);
 		}
 	}
 }

@@ -1,5 +1,6 @@
 import "../.."
 import "../../widgets"
+import "../../widgets/ListNav.js" as ListNav
 import "."
 import Quickshell
 import Quickshell.Io
@@ -345,25 +346,10 @@ Item {
 	}
 
 	Keys.onPressed: event => {
-		if (event.key === Qt.Key_J || event.key === Qt.Key_Down) {
-			if (allItems.length > 0) {
-				currentIndex = Math.min(allItems.length - 1, currentIndex + 1);
-				listView.positionViewAtIndex(currentIndex, ListView.Contain);
-			}
-			event.accepted = true;
-		} else if (event.key === Qt.Key_K || event.key === Qt.Key_Up) {
-			if (allItems.length > 0) {
-				currentIndex = Math.max(0, currentIndex - 1);
-				listView.positionViewAtIndex(currentIndex, ListView.Contain);
-			}
-			event.accepted = true;
-		} else if (event.key === Qt.Key_G && !(event.modifiers & Qt.ShiftModifier)) {
-			currentIndex = 0;
-			listView.positionViewAtIndex(0, ListView.Contain);
-			event.accepted = true;
-		} else if (event.key === Qt.Key_G && (event.modifiers & Qt.ShiftModifier)) {
-			currentIndex = Math.max(0, allItems.length - 1);
-			listView.positionViewAtIndex(currentIndex, ListView.Contain);
+		var next = ListNav.step(event, allItems.length, currentIndex);
+		if (next >= 0) {
+			currentIndex = next;
+			listView.positionViewAtIndex(next, ListView.Contain);
 			event.accepted = true;
 		} else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
 			if (!event.isAutoRepeat && root.btEnabled)
@@ -406,41 +392,11 @@ Item {
 			onToggleClicked: root.toggleBluetooth()
 		}
 
-		Rectangle {
-			Layout.fillWidth: true
-			Layout.preferredHeight: 1
-			color: Theme.border
-		}
+		SubViewHeaderRule {}
 
-		Rectangle {
-			Layout.fillWidth: true
+		ErrorBanner {
 			visible: root.errorMessage !== "" && root.btEnabled
-			radius: Theme.roundingElement
-			color: Qt.rgba(Qt.color(Theme.critical).r, Qt.color(Theme.critical).g, Qt.color(Theme.critical).b, 0.10)
-			border.color: Qt.rgba(Qt.color(Theme.critical).r, Qt.color(Theme.critical).g, Qt.color(Theme.critical).b, 0.40)
-			border.width: 1
-			implicitHeight: btErrRow.implicitHeight + 16
-
-			RowLayout {
-				id: btErrRow
-				anchors.fill: parent
-				anchors.margins: 8
-				spacing: 8
-
-				Text {
-					text: "⚠"
-					font.pixelSize: Theme.fontSizeSmall
-					color: Theme.critical
-				}
-				Text {
-					Layout.fillWidth: true
-					text: root.errorMessage
-					font.family: Theme.fontMono
-					font.pixelSize: Theme.fontSizeSmall - 1
-					color: Theme.critical
-					elide: Text.ElideRight
-				}
-			}
+			message: root.errorMessage
 		}
 
 		SubViewOffPlaceholder {
@@ -458,231 +414,86 @@ Item {
 			Layout.fillHeight: true
 			visible: root.btEnabled
 
-			ListView {
+			StyledListView {
 				id: listView
-				anchors.fill: parent
-				clip: true
-				spacing: 6
 				model: root.allItems
-				boundsBehavior: Flickable.DragAndOvershootBounds
-				flickDeceleration: Theme.flickDecel
-				maximumFlickVelocity: Theme.maxFlickVel
 
-				ScrollBar.vertical: ScrollBar {
-					id: vScrollBar
-					visible: size < 1.0
-					active: size < 1.0
-					policy: ScrollBar.AsNeeded
-					contentItem: Rectangle {
-						implicitWidth: 4
-						radius: Theme.roundingSubtle
-						color: parent.hovered || parent.pressed ? Theme.textDim : Theme.border
-					}
-				}
-
-				delegate: Rectangle {
+				delegate: ListRowCard {
 					id: delegateRoot
-					width: listView.width - ((listView.ScrollBar.vertical && listView.ScrollBar.vertical.visible) ? 10 : 0)
-					height: 50
-					radius: Theme.roundingElement
 
-					readonly property bool isSelected: index === root.currentIndex
-					readonly property bool isConnected: modelData.connected
 					readonly property bool isTarget: root.targetDeviceAddress === modelData.address && root.actionStatus !== ""
 
-					color: delegateArea.containsMouse
-						? Theme.bgHover
-						: (isConnected ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.08) : Theme.bgMain)
-
-					border.color: isConnected
-						? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.40)
-						: (delegateArea.containsMouse ? Theme.textDim : Theme.border)
-					border.width: 1
-
-					Behavior on color { ColorAnimation { duration: 100 } }
-					Behavior on border.color { ColorAnimation { duration: 100 } }
-
-					Rectangle {
-						anchors.fill: parent
-						radius: parent.radius
-						color: isConnected ? Qt.rgba(Theme.accent.r, Theme.accent.g, Theme.accent.b, 0.20) : Theme.selectionBg
-						border.color: Theme.selectionBorder
-						border.width: 1
-						opacity: isSelected ? 1.0 : 0.0
-						visible: opacity > 0.0
-						z: 0
-
-						Behavior on opacity {
-							NumberAnimation { duration: 140; easing.type: Easing.OutCubic }
-						}
+					isSelected: index === root.currentIndex
+					isConnected: modelData.connected
+					onClicked: {
+						root.currentIndex = index;
+						root.selectItem(index);
 					}
 
-					MouseArea {
-						id: delegateArea
-						anchors.fill: parent
-						hoverEnabled: true
-						cursorShape: Qt.PointingHandCursor
-						z: 1
-						onClicked: mouse => {
-							mouse.accepted = true;
-							root.currentIndex = index;
-							root.selectItem(index);
-						}
+					Text {
+						Layout.preferredWidth: 24
+						horizontalAlignment: Text.AlignHCenter
+						text: modelData.icon
+						font.family: Theme.fontFamily
+						font.pixelSize: 20
+						color: isConnected ? Theme.accentBlue : (modelData.paired ? Theme.textMain : Theme.textDim)
 					}
 
-					RowLayout {
-						anchors.fill: parent
-						anchors.leftMargin: 12
-						anchors.rightMargin: 12
-						spacing: 10
-						z: 2
+					ColumnLayout {
+						Layout.fillWidth: true
+						spacing: 1
 
 						Text {
-							Layout.preferredWidth: 24
-							horizontalAlignment: Text.AlignHCenter
-							text: modelData.icon
-							font.family: Theme.fontFamily
-							font.pixelSize: 20
-							color: isConnected ? Theme.accentBlue : (modelData.paired ? Theme.textMain : Theme.textDim)
-						}
-
-						ColumnLayout {
 							Layout.fillWidth: true
-							spacing: 1
-
-							Text {
-								Layout.fillWidth: true
-								text: modelData.name
-								font.family: Theme.fontFamily
-								font.pixelSize: Theme.fontSizeSmall + 1
-								font.bold: isConnected || isSelected
-								color: isConnected ? Theme.accentBlue : Theme.textMain
-								elide: Text.ElideRight
-							}
-
-							RowLayout {
-								Layout.fillWidth: true
-								spacing: 6
-
-								Text {
-									text: isTarget
-										? root.actionStatus
-										: (isConnected
-											? "Connected"
-											: (modelData.paired ? "Paired" : "Ready to pair"))
-									font.family: Theme.fontMono
-									font.pixelSize: Theme.fontSizeSmall - 2
-									color: isTarget ? Theme.warning : (isConnected ? Theme.accentBlue : Theme.textDim)
-								}
-
-								Text {
-									visible: modelData.batteryAvailable && modelData.battery >= 0
-									text: "·  󰥉 " + Math.round(modelData.battery * 100) + "%"
-									font.family: Theme.fontMono
-									font.pixelSize: Theme.fontSizeSmall - 2
-									color: modelData.battery <= 0.20 ? Theme.critical : (modelData.battery <= 0.40 ? Theme.warning : Theme.accentGreen)
-								}
-							}
+							text: modelData.name
+							font.family: Theme.fontFamily
+							font.pixelSize: Theme.fontSizeSmall + 1
+							font.bold: isConnected || isSelected
+							color: isConnected ? Theme.accentBlue : Theme.textMain
+							elide: Text.ElideRight
 						}
 
 						RowLayout {
+							Layout.fillWidth: true
 							spacing: 6
 
-							Rectangle {
-								visible: isConnected
-								implicitWidth: disLabel.implicitWidth + 14
-								implicitHeight: 26
-								radius: Theme.roundingSubtle
-								color: disArea.containsMouse ? Theme.bgCard : "transparent"
-								border.color: disArea.containsMouse ? Theme.textDim : Theme.border
-								border.width: 1
-
-								Text {
-									id: disLabel
-									anchors.centerIn: parent
-									text: "Disconnect"
-									font.family: Theme.fontFamily
-									font.pixelSize: Theme.fontSizeSmall - 2
-									color: Theme.textMain
-								}
-
-								MouseArea {
-									id: disArea
-									anchors.fill: parent
-									hoverEnabled: true
-									cursorShape: Qt.PointingHandCursor
-									onClicked: mouse => {
-										mouse.accepted = true;
-										root.disconnectDevice(modelData);
-									}
-								}
-							}
-
-							Rectangle {
-								visible: modelData.paired || isConnected
-								implicitWidth: 26
-								implicitHeight: 26
-								radius: Theme.roundingSubtle
-								color: fArea.containsMouse ? Theme.bgCard : "transparent"
-								border.color: fArea.containsMouse ? Theme.critical : "transparent"
-								border.width: 1
-
-								Text {
-									anchors.centerIn: parent
-									text: "󰆴"
-									font.family: Theme.fontFamily
-									font.pixelSize: 14
-									color: fArea.containsMouse ? Theme.critical : Theme.textDim
-								}
-
-								MouseArea {
-									id: fArea
-									anchors.fill: parent
-									hoverEnabled: true
-									cursorShape: Qt.PointingHandCursor
-									onClicked: mouse => {
-										mouse.accepted = true;
-										root.forgetDevice(modelData);
-									}
-								}
+							Text {
+								text: isTarget
+									? root.actionStatus
+									: (isConnected
+										? "Connected"
+										: (modelData.paired ? "Paired" : "Ready to pair"))
+								font.family: Theme.fontMono
+								font.pixelSize: Theme.fontSizeSmall - 2
+								color: isTarget ? Theme.warning : (isConnected ? Theme.accentBlue : Theme.textDim)
 							}
 
 							Text {
-								visible: !isConnected && !isTarget
-								text: "›"
-								font.family: Theme.fontFamily
-								font.pixelSize: 18
-								color: isSelected ? Theme.accentBlue : Theme.textMuted
+								visible: modelData.batteryAvailable && modelData.battery >= 0
+								text: "·  󰥉 " + Math.round(modelData.battery * 100) + "%"
+								font.family: Theme.fontMono
+								font.pixelSize: Theme.fontSizeSmall - 2
+								color: modelData.battery <= 0.20 ? Theme.critical : (modelData.battery <= 0.40 ? Theme.warning : Theme.accentGreen)
 							}
 						}
+					}
+
+					ListRowActions {
+						isConnected: delegateRoot.isConnected
+						isSelected: delegateRoot.isSelected
+						canForget: modelData.paired
+						busy: delegateRoot.isTarget
+						onDisconnectClicked: root.disconnectDevice(modelData)
+						onForgetClicked: root.forgetDevice(modelData)
 					}
 				}
 			}
 
-			Item {
+			EmptyListHint {
 				anchors.fill: parent
 				visible: root.allItems.length === 0 && !root.discovering
-
-				ColumnLayout {
-					anchors.centerIn: parent
-					spacing: 8
-
-					Text {
-						Layout.alignment: Qt.AlignHCenter
-						text: "No Bluetooth devices found"
-						font.family: Theme.fontFamily
-						font.pixelSize: Theme.fontSizeSmall
-						color: Theme.textDim
-					}
-
-					Text {
-						Layout.alignment: Qt.AlignHCenter
-						text: "Press [r] to scan for devices"
-						font.family: Theme.fontMono
-						font.pixelSize: Theme.fontSizeSmall - 2
-						color: Theme.textMuted
-					}
-				}
+				title: "No Bluetooth devices found"
+				hint: "Press [r] to scan for devices"
 			}
 		}
 	}

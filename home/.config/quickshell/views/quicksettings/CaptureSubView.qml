@@ -109,11 +109,7 @@ Item {
 			onBackClicked: root.backRequested()
 		}
 
-		Rectangle {
-			Layout.fillWidth: true
-			Layout.preferredHeight: 1
-			color: Theme.border
-		}
+		SubViewHeaderRule {}
 
 		ListView {
 			id: captureList
@@ -135,7 +131,7 @@ Item {
 				implicitHeight: actionCol.implicitHeight + 20
 				radius: Theme.roundingElement
 				color: modelData.isRecording
-					? Qt.rgba(Qt.color(Theme.critical).r, Qt.color(Theme.critical).g, Qt.color(Theme.critical).b, 0.18)
+					? Theme.alpha(Theme.critical, 0.18)
 					: (rowHover.containsMouse ? Theme.bgHover : Theme.bgMain)
 				border.color: modelData.isRecording
 					? Theme.critical
@@ -145,22 +141,8 @@ Item {
 				Behavior on color { ColorAnimation { duration: 120 } }
 				Behavior on border.color { ColorAnimation { duration: 120 } }
 
-				Rectangle {
-					anchors.fill: parent
-					radius: parent.radius
-					color: Theme.selectionBg
-					border.color: Theme.selectionBorder
-					border.width: 1
-					opacity: actionRow.isSelected ? 1.0 : 0.0
-					visible: opacity > 0.0
-					z: 0
-
-					Behavior on opacity {
-						NumberAnimation {
-							duration: 140
-							easing.type: Easing.OutCubic
-						}
-					}
+				SelectionHighlight {
+					selected: actionRow.isSelected
 				}
 
 				MouseArea {

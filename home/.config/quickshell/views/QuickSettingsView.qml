@@ -51,21 +51,67 @@ SideDrawer {
 		navCol = c !== undefined ? c : 0;
 	}
 
+	function focusSubView(): void {
+		switch (QuickSettings.subView) {
+		case "main": contentCol.forceActiveFocus(); break;
+		case "wifi": wifiSubView.forceActiveFocus(); break;
+		case "bluetooth": btSubView.forceActiveFocus(); break;
+		case "capture": captureSubView.forceActiveFocus(); break;
+		}
+	}
+
+	function backToMain(): void {
+		QuickSettings.subView = "main";
+		contentCol.forceActiveFocus();
+	}
+
+	function togglePowerSave(): void {
+		Quickshell.execDetached(["sh", "-c", "~/.local/bin/power-save"]);
+		markerRefresh.restart();
+	}
+
+	function toggleAwake(): void {
+		Quickshell.execDetached(["sh", "-c", "~/.local/bin/awake-toggle"]);
+		markerRefresh.restart();
+	}
+
+	function toggleWifiRadio(): void {
+		if (Networking.wifiHardwareEnabled)
+			Networking.wifiEnabled = !Networking.wifiEnabled;
+	}
+
+	function toggleBtRadio(): void {
+		if (win.btAdapter)
+			win.btAdapter.enabled = !win.btAdapter.enabled;
+	}
+
+	function activateTile(r, c, viaIcon): void {
+		if (r === rowWifiBt) {
+			if (c === 0)
+				viaIcon ? toggleWifiRadio() : QuickSettings.openWifi();
+			else
+				viaIcon ? toggleBtRadio() : QuickSettings.openBluetooth();
+		} else if (r === rowBatteryCapture) {
+			if (c === 0)
+				togglePowerSave();
+			else
+				QuickSettings.openCapture();
+		} else if (r === rowStayAwakeDnd) {
+			if (c === 0)
+				toggleAwake();
+			else
+				Notifications.toggleDnd();
+		}
+	}
+
 	onOpened: {
 		Notifications.closeCenter();
 		Weather.close();
 		refreshVolume();
 		refreshBrightness();
-		if (QuickSettings.subView === "main") {
+		if (QuickSettings.subView === "main")
 			select(0, 0);
-			contentCol.forceActiveFocus();
-		} else if (QuickSettings.subView === "wifi") {
-			wifiSubView.forceActiveFocus();
-		} else if (QuickSettings.subView === "bluetooth") {
-			btSubView.forceActiveFocus();
-		} else if (QuickSettings.subView === "capture") {
-			captureSubView.forceActiveFocus();
-		}
+		focusSubView();
 	}
 	onDismissed: QuickSettings.close()
 	onDrawerClosed: {
@@ -76,15 +122,7 @@ SideDrawer {
 	Connections {
 		target: QuickSettings
 		function onSubViewChanged() {
-			if (QuickSettings.subView === "main") {
-				contentCol.forceActiveFocus();
-			} else if (QuickSettings.subView === "wifi") {
-				wifiSubView.forceActiveFocus();
-			} else if (QuickSettings.subView === "bluetooth") {
-				btSubView.forceActiveFocus();
-			} else if (QuickSettings.subView === "capture") {
-				captureSubView.forceActiveFocus();
-			}
+			win.focusSubView();
 		}
 	}
 
@@ -128,7 +166,7 @@ SideDrawer {
 					win.volPct = Math.max(0, Math.min(win.volMax, pct));
 					win.volMuted = line.indexOf("MUTED") !== -1;
 					win.volReady = true;
-					if (!volPill.pressed)
+					if (!volRow.slider.pressed)
 						win.volShown = Math.max(0, Math.min(win.volMax, pct));
 				}
 			}
@@ -171,7 +209,7 @@ SideDrawer {
 		stdout: StdioCollector {
 			onStreamFinished: {
 				var v = parseInt(String(this.text || "").trim());
-				if (!isNaN(v) && !briPill.pressed) {
+				if (!isNaN(v) && !briRow.slider.pressed) {
 					win.brightness = Math.max(0, Math.min(100, v));
 					win.brightnessReady = true;
 				}
@@ -254,7 +292,7 @@ SideDrawer {
 		onTriggered: {
 			SystemStatus.refresh();
 			win.refreshVolume();
-			if (!briPill.pressed)
+			if (!briRow.slider.pressed)
 				win.refreshBrightness();
 		}
 	}
@@ -270,7 +308,7 @@ SideDrawer {
 		function onRefreshRequested(): void {
 			SystemStatus.refresh();
 			win.refreshVolume();
-			if (!briPill.pressed)
+			if (!briRow.slider.pressed)
 				win.refreshBrightness();
 		}
 	}
@@ -311,39 +349,21 @@ SideDrawer {
 		radius: Theme.roundingElement
 
 		color: (stile.active
-			? (stile.bodyHovered
-				? Qt.rgba(stile.activeColor.r, stile.activeColor.g, stile.activeColor.b, 0.18)
-				: Qt.rgba(stile.activeColor.r, stile.activeColor.g, stile.activeColor.b, 0.10))
+			? Theme.alpha(stile.activeColor, stile.bodyHovered ? 0.18 : 0.10)
 			: (stile.bodyHovered ? Theme.bgHover : Theme.bgMain))
 
 		border.color: (stile.active
-			? (stile.bodyHovered ? stile.activeColor : Qt.rgba(stile.activeColor.r, stile.activeColor.g, stile.activeColor.b, 0.40))
+			? (stile.bodyHovered ? stile.activeColor : Theme.alpha(stile.activeColor, 0.40))
 			: (stile.bodyHovered ? Theme.textDim : Theme.border))
 		border.width: 1
 
 		Behavior on color { ColorAnimation { duration: 120 } }
 		Behavior on border.color { ColorAnimation { duration: 120 } }
 
-		Rectangle {
-			anchors.fill: parent
-			radius: stile.radius
-			color: stile.active
-				? Qt.rgba(stile.activeColor.r, stile.activeColor.g, stile.activeColor.b, 0.15)
-				: Theme.selectionBg
-			border.color: stile.active
-				? stile.activeColor
-				: Theme.selectionBorder
-			border.width: 1
-			opacity: stile.isSelected ? 1.0 : 0.0
-			visible: opacity > 0.0
-			z: 0
-
-			Behavior on opacity {
-				NumberAnimation {
-					duration: 140
-					easing.type: Easing.OutCubic
-				}
-			}
+		SelectionHighlight {
+			selected: stile.isSelected
+			color: stile.active ? Theme.alpha(stile.activeColor, 0.15) : Theme.selectionBg
+			border.color: stile.active ? stile.activeColor : Theme.selectionBorder
 		}
 
 		MouseArea {
@@ -453,75 +473,6 @@ SideDrawer {
 		}
 	}
 
-	component PillSlider: Item {
-		id: pill
-
-		property real value: 0
-		property real maxValue: 100
-		property bool ready: false
-		property bool muted: false
-		property color fillColor: Theme.accentBlue
-		property alias pressed: slideArea.pressed
-		property alias hovered: slideArea.containsMouse
-		signal scrubbed(real v)
-
-		Layout.fillWidth: true
-		Layout.preferredHeight: 48
-		Layout.alignment: Qt.AlignVCenter
-		enabled: pill.ready
-		opacity: enabled ? 1.0 : 0.4
-
-		function ratioToValue(rx: real): real {
-			return Math.max(0, Math.min(pill.maxValue, Math.round(rx / track.width * pill.maxValue)));
-		}
-
-		Rectangle {
-			id: track
-			anchors.left: parent.left
-			anchors.right: parent.right
-			anchors.verticalCenter: parent.verticalCenter
-			height: pill.pressed ? 22 : 20
-			radius: Theme.roundingElement
-			color: Theme.bgHover
-			border.color: slideArea.containsMouse || pill.pressed ? Theme.textDim : Theme.border
-			border.width: 1
-			clip: true
-
-			Behavior on height {
-				NumberAnimation { duration: 100 }
-			}
-			Behavior on border.color {
-				ColorAnimation { duration: 120 }
-			}
-
-			Rectangle {
-				anchors.left: parent.left
-				anchors.top: parent.top
-				anchors.bottom: parent.bottom
-				width: parent.width * Math.max(0, Math.min(pill.maxValue, pill.value)) / pill.maxValue
-				radius: parent.radius
-				color: pill.muted ? Theme.textDim : pill.fillColor
-
-				Behavior on color {
-					ColorAnimation { duration: 120 }
-				}
-			}
-
-			MouseArea {
-				id: slideArea
-				anchors.fill: parent
-				hoverEnabled: true
-				cursorShape: Qt.PointingHandCursor
-				preventStealing: true
-				onPressed: mouse => pill.scrubbed(pill.ratioToValue(mouse.x))
-				onPositionChanged: mouse => {
-					if (pressed)
-						pill.scrubbed(pill.ratioToValue(mouse.x));
-				}
-			}
-		}
-	}
-
 	ColumnLayout {
 		id: contentCol
 		anchors.fill: parent
@@ -571,53 +522,20 @@ SideDrawer {
 				}
 				event.accepted = true;
 			} else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
-				if (win.navRow === win.rowVolume) {
+				if (win.navRow === win.rowVolume)
 					win.toggleMute();
-				} else if (win.navRow === win.rowWifiBt && win.navCol === 0) {
-					QuickSettings.openWifi();
-				} else if (win.navRow === win.rowWifiBt && win.navCol === 1) {
-					QuickSettings.openBluetooth();
-				} else if (win.navRow === win.rowBatteryCapture && win.navCol === 0) {
-					Quickshell.execDetached(["sh", "-c", "~/.local/bin/power-save"]);
-					markerRefresh.restart();
-				} else if (win.navRow === win.rowBatteryCapture && win.navCol === 1) {
-					QuickSettings.openCapture();
-				} else if (win.navRow === win.rowStayAwakeDnd && win.navCol === 0) {
-					Quickshell.execDetached(["sh", "-c", "~/.local/bin/awake-toggle"]);
-					markerRefresh.restart();
-				} else if (win.navRow === win.rowStayAwakeDnd && win.navCol === 1) {
-					Notifications.toggleDnd();
-				}
+				else
+					win.activateTile(win.navRow, win.navCol, false);
 				event.accepted = true;
 			} else if (event.key === Qt.Key_Space) {
-				if (win.navRow === win.rowWifiBt && win.navCol === 0) {
-					if (Networking.wifiHardwareEnabled)
-						Networking.wifiEnabled = !Networking.wifiEnabled;
-				} else if (win.navRow === win.rowWifiBt && win.navCol === 1) {
-					if (win.btAdapter)
-						win.btAdapter.enabled = !win.btAdapter.enabled;
-				} else if (win.navRow === win.rowBatteryCapture && win.navCol === 0) {
-					Quickshell.execDetached(["sh", "-c", "~/.local/bin/power-save"]);
-					markerRefresh.restart();
-				} else if (win.navRow === win.rowBatteryCapture && win.navCol === 1) {
-					QuickSettings.openCapture();
-				} else if (win.navRow === win.rowVolume) {
+				if (win.navRow === win.rowVolume)
 					win.toggleMute();
-				} else if (win.navRow === win.rowStayAwakeDnd && win.navCol === 0) {
-					Quickshell.execDetached(["sh", "-c", "~/.local/bin/awake-toggle"]);
-					markerRefresh.restart();
-				} else if (win.navRow === win.rowStayAwakeDnd && win.navCol === 1) {
-					Notifications.toggleDnd();
-				}
+				else
+					win.activateTile(win.navRow, win.navCol, true);
 				event.accepted = true;
 			} else if (event.key === Qt.Key_O) {
-				if (win.navRow === win.rowWifiBt && win.navCol === 0) {
-					QuickSettings.openWifi();
-				} else if (win.navRow === win.rowWifiBt && win.navCol === 1) {
-					QuickSettings.openBluetooth();
-				} else if (win.navRow === win.rowBatteryCapture && win.navCol === 1) {
-					QuickSettings.openCapture();
-				}
+				if (win.navRow === win.rowWifiBt || (win.navRow === win.rowBatteryCapture && win.navCol === 1))
+					win.activateTile(win.navRow, win.navCol, false);
 				event.accepted = true;
 			} else if (event.key === Qt.Key_C) {
 				QuickSettings.openCapture();
@@ -625,8 +543,7 @@ SideDrawer {
 				event.accepted = true;
 			} else if (event.key === Qt.Key_W) {
 				if (event.modifiers & Qt.ShiftModifier) {
-					if (Networking.wifiHardwareEnabled)
-						Networking.wifiEnabled = !Networking.wifiEnabled;
+					win.toggleWifiRadio();
 					win.select(win.rowWifiBt, 0);
 				} else {
 					QuickSettings.openWifi();
@@ -634,21 +551,18 @@ SideDrawer {
 				event.accepted = true;
 			} else if (event.key === Qt.Key_B) {
 				if (event.modifiers & Qt.ShiftModifier) {
-					if (win.btAdapter)
-						win.btAdapter.enabled = !win.btAdapter.enabled;
+					win.toggleBtRadio();
 					win.select(win.rowWifiBt, 1);
 				} else {
 					QuickSettings.openBluetooth();
 				}
 				event.accepted = true;
 			} else if (event.key === Qt.Key_S) {
-				Quickshell.execDetached(["sh", "-c", "~/.local/bin/power-save"]);
-				markerRefresh.restart();
+				win.togglePowerSave();
 				win.select(win.rowBatteryCapture, 0);
 				event.accepted = true;
 			} else if (event.key === Qt.Key_A) {
-				Quickshell.execDetached(["sh", "-c", "~/.local/bin/awake-toggle"]);
-				markerRefresh.restart();
+				win.toggleAwake();
 				win.select(win.rowStayAwakeDnd, 0);
 				event.accepted = true;
 			} else if (event.key === Qt.Key_D) {
@@ -684,177 +598,45 @@ SideDrawer {
 			}
 		}
 
-		Rectangle {
-			Layout.fillWidth: true
-			Layout.preferredHeight: 48
-			radius: Theme.roundingElement
-			color: "transparent"
-			border.width: 0
-
-			Rectangle {
-				anchors.fill: parent
-				radius: parent.radius
-				color: Theme.selectionBg
-				border.color: Theme.selectionBorder
-				border.width: 1
-				opacity: win.isCurrent(win.rowVolume) ? 1.0 : 0.0
-				visible: opacity > 0.0
-				z: 0
-
-				Behavior on opacity {
-					NumberAnimation { duration: 140; easing.type: Easing.OutCubic }
-				}
-			}
-
-			MouseArea {
-				anchors.fill: parent
-				z: 0
-				onClicked: win.select(win.rowVolume, 0)
-			}
-
-			RowLayout {
-				anchors.fill: parent
-				anchors.leftMargin: 4
-				anchors.rightMargin: 8
-				spacing: 10
-				z: 1
-
-				Rectangle {
-					Layout.preferredWidth: 40
-					Layout.preferredHeight: 40
-					radius: Theme.roundingSubtle
-					color: volMuteArea.containsMouse ? Theme.bgHover : "transparent"
-					border.color: volMuteArea.containsMouse ? Theme.textDim : Theme.border
-					border.width: 1
-					opacity: win.volReady ? 1.0 : 0.4
-
-					Text {
-						anchors.centerIn: parent
-						text: win.volIcon
-						font.family: Theme.fontFamily
-						font.pixelSize: 22
-						font.bold: true
-						color: win.volMuted ? Theme.textDim : Theme.accentBlue
-					}
-
-					MouseArea {
-						id: volMuteArea
-						anchors.fill: parent
-						hoverEnabled: true
-						cursorShape: Qt.PointingHandCursor
-						onClicked: win.toggleMute()
-					}
-				}
-
-				PillSlider {
-					id: volPill
-					value: win.volShown
-					maxValue: win.volMax
-					ready: win.volReady
-					muted: win.volMuted
-					fillColor: Theme.accentBlue
-					onScrubbed: v => {
-						win.volShown = Math.round(v);
-						if (volSettle.running)
-							volSettle.restart();
-						else {
-							win.commitVolume();
-							volSettle.restart();
-						}
-					}
-				}
-
-				Text {
-					Layout.preferredWidth: 56
-					horizontalAlignment: Text.AlignRight
-					text: win.volReady ? (win.volMuted ? "Muted" : Math.round(volPill.pressed ? win.volShown : win.volPct) + "%") : "…"
-					font.family: Theme.fontMono
-					font.pixelSize: Theme.fontSizeSmall + 1
-					font.bold: true
-					color: Theme.textMain
+		SliderRow {
+			id: volRow
+			current: win.isCurrent(win.rowVolume)
+			icon: win.volIcon
+			label: win.volReady ? (win.volMuted ? "Muted" : Math.round(volRow.slider.pressed ? win.volShown : win.volPct) + "%") : "…"
+			ready: win.volReady
+			muted: win.volMuted
+			value: win.volShown
+			maxValue: win.volMax
+			iconInteractive: true
+			onSelectRequested: win.select(win.rowVolume, 0)
+			onIconClicked: win.toggleMute()
+			onScrubbed: v => {
+				win.volShown = Math.round(v);
+				if (volSettle.running)
+					volSettle.restart();
+				else {
+					win.commitVolume();
+					volSettle.restart();
 				}
 			}
 		}
 
-		Rectangle {
-			Layout.fillWidth: true
-			Layout.preferredHeight: 48
-			radius: Theme.roundingElement
+		SliderRow {
+			id: briRow
 			visible: win.brightnessReady
-			color: "transparent"
-			border.width: 0
-
-			Rectangle {
-				anchors.fill: parent
-				radius: parent.radius
-				color: Theme.selectionBg
-				border.color: Theme.selectionBorder
-				border.width: 1
-				opacity: win.isCurrent(win.rowBrightness) ? 1.0 : 0.0
-				visible: opacity > 0.0
-				z: 0
-
-				Behavior on opacity {
-					NumberAnimation { duration: 140; easing.type: Easing.OutCubic }
-				}
-			}
-
-			MouseArea {
-				anchors.fill: parent
-				z: 0
-				onClicked: win.select(win.rowBrightness, 0)
-			}
-
-			RowLayout {
-				anchors.fill: parent
-				anchors.leftMargin: 4
-				anchors.rightMargin: 8
-				spacing: 10
-				z: 1
-
-				Rectangle {
-					Layout.preferredWidth: 40
-					Layout.preferredHeight: 40
-					radius: Theme.roundingSubtle
-					color: "transparent"
-					border.color: Theme.border
-					border.width: 1
-					opacity: win.brightnessReady ? 1.0 : 0.4
-
-					Text {
-						anchors.centerIn: parent
-						text: "󰃟"
-						font.family: Theme.fontFamily
-						font.pixelSize: 22
-						font.bold: true
-						color: Theme.accentBlue
-					}
-				}
-
-				PillSlider {
-					id: briPill
-					value: win.brightness
-					ready: win.brightnessReady
-					fillColor: Theme.accentBlue
-					onScrubbed: v => {
-						win.brightness = Math.round(v);
-						if (briSettle.running)
-							briSettle.restart();
-						else {
-							win.commitBrightness();
-							briSettle.restart();
-						}
-					}
-				}
-
-				Text {
-					Layout.preferredWidth: 56
-					horizontalAlignment: Text.AlignRight
-					text: win.brightnessReady ? win.brightness + "%" : "…"
-					font.family: Theme.fontMono
-					font.pixelSize: Theme.fontSizeSmall + 1
-					font.bold: true
-					color: Theme.textMain
+			current: win.isCurrent(win.rowBrightness)
+			icon: "󰃟"
+			label: win.brightnessReady ? win.brightness + "%" : "…"
+			ready: win.brightnessReady
+			value: win.brightness
+			onSelectRequested: win.select(win.rowBrightness, 0)
+			onScrubbed: v => {
+				win.brightness = Math.round(v);
+				if (briSettle.running)
+					briSettle.restart();
+				else {
+					win.commitBrightness();
+					briSettle.restart();
 				}
 			}
 		}
@@ -874,10 +656,7 @@ SideDrawer {
 				subtitle: win.wifiSubtitle
 				active: Networking.wifiEnabled
 				hasDetails: true
-				onIconClicked: {
-					if (Networking.wifiHardwareEnabled)
-						Networking.wifiEnabled = !Networking.wifiEnabled;
-				}
+				onIconClicked: win.toggleWifiRadio()
 				onBodyClicked: QuickSettings.openWifi()
 			}
 
@@ -890,10 +669,7 @@ SideDrawer {
 				subtitle: win.btSubtitle
 				active: win.btEnabled
 				hasDetails: true
-				onIconClicked: {
-					if (win.btAdapter)
-						win.btAdapter.enabled = !win.btAdapter.enabled;
-				}
+				onIconClicked: win.toggleBtRadio()
 				onBodyClicked: QuickSettings.openBluetooth()
 			}
 
@@ -907,14 +683,8 @@ SideDrawer {
 				active: SystemStatus.powerSaveActive
 				activeColor: Theme.accentGreen
 				hasDetails: false
-				onIconClicked: {
-					Quickshell.execDetached(["sh", "-c", "~/.local/bin/power-save"]);
-					markerRefresh.restart();
-				}
-				onBodyClicked: {
-					Quickshell.execDetached(["sh", "-c", "~/.local/bin/power-save"]);
-					markerRefresh.restart();
-				}
+				onIconClicked: win.togglePowerSave()
+				onBodyClicked: win.togglePowerSave()
 			}
 
 			SamsungTile {
@@ -941,14 +711,8 @@ SideDrawer {
 				subtitle: ""
 				active: SystemStatus.awakeActive
 				hasDetails: false
-				onIconClicked: {
-					Quickshell.execDetached(["sh", "-c", "~/.local/bin/awake-toggle"]);
-					markerRefresh.restart();
-				}
-				onBodyClicked: {
-					Quickshell.execDetached(["sh", "-c", "~/.local/bin/awake-toggle"]);
-					markerRefresh.restart();
-				}
+				onIconClicked: win.toggleAwake()
+				onBodyClicked: win.toggleAwake()
 			}
 
 			SamsungTile {
@@ -973,10 +737,7 @@ SideDrawer {
 		visible: QuickSettings.subView === "wifi"
 		enabled: visible
 		focus: visible
-		onBackRequested: {
-			QuickSettings.subView = "main";
-			contentCol.forceActiveFocus();
-		}
+		onBackRequested: win.backToMain()
 		onCloseRequested: QuickSettings.close()
 	}
 
@@ -986,10 +747,7 @@ SideDrawer {
 		visible: QuickSettings.subView === "bluetooth"
 		enabled: visible
 		focus: visible
-		onBackRequested: {
-			QuickSettings.subView = "main";
-			contentCol.forceActiveFocus();
-		}
+		onBackRequested: win.backToMain()
 		onCloseRequested: QuickSettings.close()
 	}
 
@@ -999,10 +757,7 @@ SideDrawer {
 		visible: QuickSettings.subView === "capture"
 		enabled: visible
 		focus: visible
-		onBackRequested: {
-			QuickSettings.subView = "main";
-			contentCol.forceActiveFocus();
-		}
+		onBackRequested: win.backToMain()
 		onCloseRequested: QuickSettings.close()
 	}
 }
