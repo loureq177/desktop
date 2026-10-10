@@ -1,101 +1,33 @@
-#!/usr/bin/env python3
-"""
-volume-listener: Bridges PipeWire volume/mute changes to QuickShell OSD and QuickSettings in real-time.
-Triggered immediately by Bluetooth buttons, keyboard, mousewheel, or external apps.
-"""
-import subprocess
-import sys
+#!/usr/bin/env bash
+set -uo pipefail
 
+get_volume() {
+    timeout 1 wpctl get-volume "@DEFAULT_AUDIO_${1}@" 2>/dev/null || true
+}
 
-def get_sink_volume():
-    try:
-        res = subprocess.run(
-            ["wpctl", "get-volume", "@DEFAULT_AUDIO_SINK@"],
-            capture_output=True,
-            text=True,
-            timeout=1,
-        )
-        return res.stdout.strip()
-    except Exception:
-        return ""
+last_sink="$(get_volume SINK)"
+last_source="$(get_volume SOURCE)"
 
-
-def get_source_volume():
-    try:
-        res = subprocess.run(
-            ["wpctl", "get-volume", "@DEFAULT_AUDIO_SOURCE@"],
-            capture_output=True,
-            text=True,
-            timeout=1,
-        )
-        return res.stdout.strip()
-    except Exception:
-        return ""
-
-
-def main():
-    try:
-        proc = subprocess.Popen(
-            ["pactl", "subscribe"],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,
-            text=True,
-            bufsize=1,
-        )
-    except Exception:
-        sys.exit(1)
-
-    last_sink_val = get_sink_volume()
-    last_source_val = get_source_volume()
-
-    # Unbuffered line-by-line reading
-    for line in iter(proc.stdout.readline, ""):
-        line = line.strip()
-        if not line:
-            continue
-
-        if "on sink" in line or "on card" in line or "on server" in line:
-            try:
-                out = get_sink_volume()
-                if out and out != last_sink_val:
-                    last_sink_val = out
-                    parts = out.split()
-                    if len(parts) >= 2:
-                        try:
-                            vol_pct = int(round(float(parts[1]) * 100))
-                            muted = "true" if "[MUTED]" in out else "false"
-                            subprocess.Popen(
-                                ["qs", "ipc", "call", "osd", "volume", str(vol_pct), muted],
-                                stdout=subprocess.DEVNULL,
-                                stderr=subprocess.DEVNULL,
-                            )
-                            subprocess.Popen(
-                                ["qs", "ipc", "call", "quicksettings", "refresh"],
-                                stdout=subprocess.DEVNULL,
-                                stderr=subprocess.DEVNULL,
-                            )
-                        except ValueError:
-                            pass
-            except Exception:
-                pass
-
-        elif "on source" in line:
-            try:
-                out = get_source_volume()
-                if out and out != last_source_val:
-                    last_source_val = out
-                    muted = "true" if "[MUTED]" in out else "false"
-                    subprocess.Popen(
-                        ["qs", "ipc", "call", "osd", "mic", muted],
-                        stdout=subprocess.DEVNULL,
-                        stderr=subprocess.DEVNULL,
-                    )
-            except Exception:
-                pass
-
-
-if __name__ == "__main__":
-    try:
-        main()
-    except KeyboardInterrupt:
-        sys.exit(0)
+while IFS= read -r line; do
+    case "$line" in
+    *"on sink"* | *"on card"* | *"on server"*)
+        out="$(get_volume SINK)"
+        [[ -n "$out" && "$out" != "$last_sink" ]] || continue
+        last_sink="$out"
+        [[ "$out" =~ Volume:[[:space:]]+([0-9]+)\.([0-9]{2}) ]] || continue
+        pct=$((10#${BASH_REMATCH[1]} * 100 + 10#${BASH_REMATCH[2]}))
+        muted=false
+        [[ "$out" == *"[MUTED]"* ]] && muted=true
+        qs ipc call osd volume "$pct" "$muted" >/dev/null 2>&1 &
+        qs ipc call quicksettings refresh >/dev/null 2>&1 &
+        ;;
+    *"on source"*)
+        out="$(get_volume SOURCE)"
+        [[ -n "$out" && "$out" != "$last_source" ]] || continue
+        last_source="$out"
+        muted=false
+        [[ "$out" == *"[MUTED]"* ]] && muted=true
+        qs ipc call osd mic "$muted" >/dev/null 2>&1 &
+        ;;
+    esac
+done < <(exec pactl subscribe 2>/dev/null)

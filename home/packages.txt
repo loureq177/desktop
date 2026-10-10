@@ -1,7 +1,6 @@
 7zip
 adwaita-fonts
 arch-audit
-awww
 arduino-cli
 atac
 audacity
@@ -58,7 +57,6 @@ hyprcursor
 hypridle
 hyprland
 hyprlock
-hyprpaper
 hyprpicker
 hyprshutdown
 hyprsunset
@@ -122,6 +120,7 @@ satty
 seahorse
 showtime
 slurp
+swaybg
 snapshot
 sound-theme-freedesktop
 sox

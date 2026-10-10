@@ -1,22 +1,10 @@
 #!/usr/bin/env bash
-# Wallpaper manager: animated transitions via awww (+ hyprpaper fallback).
-# Usage: wallpaper [list|current|effects|set <name|path> [effect]|next [effect]|prev [effect]|random|restore|init]
-# Effects (awww): simple fade left right top bottom wipe wave grow center outer any random none
-# Defaults can be tuned with $WALLPAPER_TRANSITION, $WALLPAPER_FPS, $WALLPAPER_BACKEND (awww|hyprpaper).
-# Wallpapers live outside the repo in $WALL_DIR (default: ~/Pictures/Wallpapers) —
-# override with WALL_DIR env if you keep them elsewhere.
 set -euo pipefail
 
 WALL_DIR="${WALL_DIR:-$HOME/Pictures/Wallpapers}"
-CONF="$HOME/.config/hypr/hyprpaper.conf"
-STATE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/wallpaper"
-STATE_FILE="$STATE_DIR/current"
+STATE_FILE="${XDG_CACHE_HOME:-$HOME/.cache}/wallpaper/current"
 DEFAULT_WALLPAPER="$WALL_DIR/hyprland.png"
-# Fresh machine: $WALL_DIR is still empty, only the wallpaper shipped with
-# the dotfiles exists.
 [[ -f "$DEFAULT_WALLPAPER" ]] || DEFAULT_WALLPAPER="$HOME/.config/hypr/wallpapers/hyprland.png"
-
-EFFECTS="simple fade left right top bottom wipe wave grow center outer any random none"
 
 die() {
     echo "wallpaper: $*" >&2
@@ -29,63 +17,15 @@ list_files() {
         -printf '%f\n' 2>/dev/null | sort
 }
 
-awww_alive() {
-    command -v awww >/dev/null 2>&1 && awww query >/dev/null 2>&1
-}
-
-# awww when its daemon answers, hyprpaper otherwise (override: $WALLPAPER_BACKEND).
-backend() {
-    if [[ -n "${WALLPAPER_BACKEND:-}" ]]; then
-        printf '%s\n' "$WALLPAPER_BACKEND"
-    elif awww_alive; then
-        printf 'awww\n'
-    else
-        printf 'hyprpaper\n'
-    fi
-}
-
-# Full path of the currently active wallpaper (state file first, then live queries).
 current_path() {
-    if [[ -f "$STATE_FILE" ]]; then
-        local saved=""
-        saved="$(cat "$STATE_FILE" 2>/dev/null || true)"
-        [[ -n "$saved" && -f "$saved" ]] && {
-            printf '%s\n' "$saved"
-            return 0
-        }
-    fi
-    local active=""
-    active="$(timeout 5 hyprctl hyprpaper listactive 2>/dev/null | head -n 1 | sed 's/^[^:]*:[[:space:]]*//' || true)"
-    if [[ -n "$active" && -f "$active" ]]; then
-        printf '%s\n' "$active"
-        return 0
-    fi
-    local from_conf=""
-    from_conf="$(grep -m1 -E '^\s*path\s*=' "$CONF" 2>/dev/null | sed -E 's/^[^=]*=[[:space:]]*//; s/[[:space:]]+$//' || true)"
-    from_conf="${from_conf/#\~/$HOME}"
-    if [[ -n "$from_conf" && -f "$from_conf" ]]; then
-        printf '%s\n' "$from_conf"
-        return 0
-    fi
-    return 1
+    local saved=""
+    saved="$(cat "$STATE_FILE" 2>/dev/null || true)"
+    [[ -n "$saved" && -f "$saved" ]] || return 1
+    printf '%s\n' "$saved"
 }
 
-# Prefer ~/... over absolute paths so configs stay readable.
-shorten() {
-    local p="$1"
-    if [[ "$p" == "$HOME"/* ]]; then
-        # shellcheck disable=SC2088 # literal tilde is intentional: hyprpaper expands it
-        printf '~/%s\n' "${p#"$HOME"/}"
-    else
-        printf '%s\n' "$p"
-    fi
-}
-
-resolve_name() { # $1: name|substring|path -> prints full path
+resolve_name() {
     local target="$1" matches=""
-    # NOTE: realpath -s (no symlink expansion): ~/.config/hypr is a symlink
-    # into the dotfiles repo, and stored paths should keep the canonical
-    # ~/.config/... form instead of leaking the repo location.
     if [[ -f "$target" ]]; then
         realpath -s "$target"
         return 0
@@ -94,7 +34,6 @@ resolve_name() { # $1: name|substring|path -> prints full path
         realpath -s "$WALL_DIR/$target"
         return 0
     fi
-    # Unique substring match on the basename (e.g. "wallpaper-01").
     matches="$(list_files | grep -F -- "$target" || true)"
     [[ -z "$matches" ]] && die "no wallpaper matching '$target' (see: wallpaper list)"
     if [[ "$(printf '%s\n' "$matches" | wc -l)" -gt 1 ]]; then
@@ -105,182 +44,67 @@ resolve_name() { # $1: name|substring|path -> prints full path
     realpath -s "$WALL_DIR/$matches"
 }
 
-check_effect() { # $1: effect -> prints it (default when empty)
-    local effect="${1:-${WALLPAPER_TRANSITION:-wipe}}"
-    [[ " $EFFECTS " == *" $effect "* ]] || die "unknown effect '$effect' (see: wallpaper effects)"
-    printf '%s\n' "$effect"
-}
-
-save_state() { # $1: full path — remembers choice across restarts
-    mkdir -p "$STATE_DIR"
+apply() {
+    local old=""
+    old="$(pgrep -x swaybg || true)"
+    setsid swaybg -i "$1" -m fill >/dev/null 2>&1 &
+    sleep 0.3
+    [[ -n "$old" ]] && printf '%s\n' "$old" | xargs kill 2>/dev/null || true
+    mkdir -p "$(dirname "$STATE_FILE")"
     printf '%s\n' "$1" >"$STATE_FILE"
 }
 
-set_awww() { # $1: full path, $2: effect
-    local resolved="$1" effect="$2"
-    # Honor $WALLPAPER_FPS through awww's own env passthrough when set.
-    [[ -n "${WALLPAPER_FPS:-}" ]] && export AWWW_TRANSITION_FPS="$WALLPAPER_FPS"
-    if ! awww img "$resolved" --transition-type "$effect" >/dev/null 2>&1; then
-        # Flag drift between awww releases must never break setting the wallpaper.
-        awww img "$resolved" >/dev/null 2>&1 || die "awww failed to set '$resolved'"
-    fi
-}
-
-set_hyprpaper() { # $1: full path — rewrite conf (persists) + apply live
-    local resolved="$1" display=""
-    display="$(shorten "$resolved")"
-    cat >"$CONF" <<EOF
-# Managed by \`wallpaper\` — use \`wallpaper set\` instead of editing manually.
-preload = $display
-
-wallpaper {
-    monitor =
-    path = $display
-}
-
-splash = false
-ipc = true
-EOF
-
-    if timeout 5 hyprctl monitors -j >/dev/null 2>&1; then
-        local mons=""
-        mons="$(timeout 5 hyprctl monitors -j 2>/dev/null | jq -r '.[].name' 2>/dev/null || true)"
-        if [[ -n "$mons" ]]; then
-            while IFS= read -r mon; do
-                [[ -n "$mon" ]] && timeout 5 hyprctl hyprpaper wallpaper "$mon,$resolved" >/dev/null 2>&1 || true
-            done <<<"$mons"
-        else
-            timeout 5 hyprctl hyprpaper wallpaper ",$resolved" >/dev/null 2>&1 || true
-        fi
-    fi
-}
-
-# Rewrite hyprpaper.conf so the choice survives restarts, then apply it live.
-set_wallpaper() { # $1: name|path, $2 (optional): effect
-    local resolved=""
-    resolved="$(resolve_name "$1")"
-    if [[ "$(backend)" == "awww" ]]; then
-        set_awww "$resolved" "$(check_effect "${2:-}")"
-    else
-        # Validate too, so the arg means the same thing on both backends.
-        [[ -n "${2:-}" ]] && check_effect "$2" >/dev/null
-        set_hyprpaper "$resolved"
-    fi
-    save_state "$resolved"
-}
-
-step() { # $1: +1 | -1, $2 (optional): effect — cycle through the sorted list
-    local files cur base idx total next
+step() {
+    local files cur idx=-1 i
     mapfile -t files < <(list_files)
-    total="${#files[@]}"
-    [[ "$total" -eq 0 ]] && die "no wallpapers in $WALL_DIR"
-    [[ "$total" -eq 1 ]] && {
-        set_wallpaper "${files[0]}" "${2:-}"
-        return
-    }
-    cur="$(current_path 2>/dev/null || true)"
-    base="$(basename "${cur:-}" 2>/dev/null || true)"
-    idx=-1
+    [[ "${#files[@]}" -eq 0 ]] && die "no wallpapers in $WALL_DIR"
+    cur="$(basename "$(current_path 2>/dev/null || true)")"
     for i in "${!files[@]}"; do
-        [[ "${files[$i]}" == "$base" ]] && {
-            idx="$i"
-            break
-        }
+        [[ "${files[$i]}" == "$cur" ]] && idx="$i" && break
     done
-    next=$(( (idx + $1 + total) % total ))
-    set_wallpaper "${files[$next]}" "${2:-}"
+    apply "$WALL_DIR/${files[$(((idx + $1 + ${#files[@]}) % ${#files[@]}))]}"
 }
 
 pick_random() {
-    local files cur pick
-    mapfile -t files < <(list_files)
-    [[ "${#files[@]}" -eq 0 ]] && die "no wallpapers in $WALL_DIR"
-    [[ "${#files[@]}" -eq 1 ]] && {
-        set_wallpaper "${files[0]}" "${1:-}"
-        return
-    }
-    # A random transition every time is the riced feel; explicit arg wins.
-    local effect="${1:-random}"
-    check_effect "$effect" >/dev/null
-    cur="$(basename "$(current_path 2>/dev/null || true)" 2>/dev/null || true)"
-    pick="$(printf '%s\n' "${files[@]}" | shuf -n 1)"
-    if [[ -n "$cur" && "$pick" == "$cur" ]]; then
-        pick="$(printf '%s\n' "${files[@]}" | grep -vxF -- "$cur" | shuf -n 1 || true)"
-        [[ -z "$pick" ]] && pick="$cur"
-    fi
-    set_wallpaper "$pick" "$effect"
+    local cur pick
+    cur="$(basename "$(current_path 2>/dev/null || true)")"
+    pick="$(list_files | grep -vxF -- "$cur" | shuf -n 1 || true)"
+    [[ -n "$pick" ]] || pick="$(list_files | shuf -n 1)"
+    [[ -n "$pick" ]] || die "no wallpapers in $WALL_DIR"
+    apply "$WALL_DIR/$pick"
 }
 
-restore_state() { # no animation at login; falls back to hyprland.png
+restore_state() {
     local saved=""
-    saved="$(cat "$STATE_FILE" 2>/dev/null || true)"
-    if [[ -z "$saved" || ! -f "$saved" ]]; then
-        [[ -f "$DEFAULT_WALLPAPER" ]] && saved="$DEFAULT_WALLPAPER" || saved="$(list_files | head -n 1 || true)"
-        [[ -n "$saved" ]] || die "no wallpapers in $WALL_DIR"
-        [[ "$saved" != /* ]] && saved="$WALL_DIR/$saved"
-        saved="$(realpath -s "$saved")"
-        save_state "$saved"
-    fi
-    if [[ "$(backend)" == "awww" ]]; then
-        set_awww "$saved" "none"
-    else
-        set_hyprpaper "$saved"
-    fi
-}
-
-init_daemon() { # autostart entry: start the right daemon, kill the other, restore
-    if command -v awww >/dev/null 2>&1; then
-        if ! awww query >/dev/null 2>&1; then
-            pkill -x hyprpaper >/dev/null 2>&1 || true
-            awww-daemon >/dev/null 2>&1 &
-            # Wait for readiness: restore_state talks IPC that may not
-            # listen yet after kill+start. Poll instead of sleeping blindly.
-            for _ in $(seq 1 50); do
-                awww query >/dev/null 2>&1 && break
-                sleep 0.1
-            done
-        fi
-    elif ! timeout 5 hyprctl hyprpaper listactive >/dev/null 2>&1; then
-        pkill -x hyprpaper >/dev/null 2>&1 || true
-        hyprpaper >/dev/null 2>&1 &
-        for _ in $(seq 1 50); do
-            timeout 5 hyprctl hyprpaper listactive >/dev/null 2>&1 && break
-            sleep 0.1
-        done
-    fi
-    restore_state
+    saved="$(current_path 2>/dev/null || true)"
+    [[ -n "$saved" ]] || { [[ -f "$DEFAULT_WALLPAPER" ]] && saved="$DEFAULT_WALLPAPER"; }
+    [[ -n "$saved" ]] || saved="$WALL_DIR/$(list_files | head -n 1)"
+    [[ -f "$saved" ]] || die "no wallpapers in $WALL_DIR"
+    apply "$saved"
 }
 
 usage() {
     cat <<EOF
-Usage: wallpaper [list|current|effects|set <name|path> [effect]|next [effect]|prev [effect]|random [effect]|restore|init]
+Usage: wallpaper [list|current|set <name|path>|next|prev|random|restore|init]
   list              list available wallpapers
   current           show the active wallpaper
-  effects           list transition effects (awww backend)
-  set <name> [fx]   set wallpaper (basename or unique substring) + transition
-  next|prev [fx]    cycle through wallpapers (alphabetical)
-  random [fx]       random wallpaper + random transition (default)
-  restore           re-apply saved wallpaper without animation (for autostart)
-  init              start wallpaper daemon and restore (autostart entry)
-Env: WALLPAPER_TRANSITION (default: wipe), WALLPAPER_FPS (default: awww default),
-     WALLPAPER_BACKEND=awww|hyprpaper (default: auto-detect),
-     WALL_DIR (default: ~/Pictures/Wallpapers).
+  set <name>        set wallpaper (basename or unique substring)
+  next|prev         cycle through wallpapers (alphabetical)
+  random            random wallpaper
+  restore | init    re-apply saved wallpaper (autostart entry)
+Env: WALL_DIR (default: ~/Pictures/Wallpapers).
 Binds: SUPER+P next wallpaper in order.
 EOF
 }
 
-cmd="${1:-}"
-case "$cmd" in
+case "${1:-}" in
 list) list_files ;;
 current) current_path || die "cannot determine current wallpaper" ;;
-effects) # shellcheck disable=SC2086 # intentional split: EFFECTS is a word list
-    printf '%s\n' ${EFFECTS} ;;
-set) [[ -n "${2:-}" ]] || die "usage: wallpaper set <name|path> [effect>"; set_wallpaper "$2" "${3:-}" ;;
-next) step 1 "${2:-}" ;;
-prev) step -1 "${2:-}" ;;
-random) pick_random "${2:-}" ;;
-restore) restore_state ;;
-init) init_daemon ;;
+set) [[ -n "${2:-}" ]] || die "usage: wallpaper set <name|path>"; apply "$(resolve_name "$2")" ;;
+next) step 1 ;;
+prev) step -1 ;;
+random) pick_random ;;
+restore | init) restore_state ;;
 "" | -h | --help | help) usage ;;
-*) die "unknown command '$cmd' (see: wallpaper --help)" ;;
+*) die "unknown command '${1}' (see: wallpaper --help)" ;;
 esac
