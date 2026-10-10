@@ -124,7 +124,7 @@ else
     TARGET_ARGS=(-g "$GEOM")
 fi
 
-FILE="$OUT_DIR/$(date +'%Y-%m-%d_%H-%M-%S').mkv"
+FILE="$OUT_DIR/$(date +'%Y-%m-%d_%H-%M-%S').mp4"
 echo "$FILE" >"$STATUS_FILE"
 
 exec 200>&-
@@ -134,5 +134,20 @@ else
     qs ipc call notifications dndOn || true
     : >"$DND_MARKER"
 fi
-wf-recorder "${TARGET_ARGS[@]}" -f "$FILE" --audio=default &
+wf-recorder -c libx264 -x yuv420p -C aac "${TARGET_ARGS[@]}" -f "$FILE" --audio=default &
+REC_PID=$!
 disown
+
+# A recorder that died on startup (bad codec, no capture permission) must not
+# leave DND on and a status file pointing at a recording that never happened.
+sleep 0.5
+if ! kill -0 "$REC_PID" 2>/dev/null; then
+    rm -f "$STATUS_FILE"
+    if [ -f "$DND_MARKER" ]; then
+        qs ipc call notifications dndOff || true
+        rm -f "$DND_MARKER"
+    fi
+    play_sound dialog-warning
+    notify-send --app-name "Screen Record" -t 5000 -i "dialog-warning" "Recording Failed" "wf-recorder exited right after starting."
+    exit 1
+fi

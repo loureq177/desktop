@@ -13,8 +13,6 @@ if [[ -z "$ACTION" ]]; then
 fi
 
 sound() {
-    # --replace is accepted for backward compat but ignored: libcanberra mixes natively.
-    [[ "${1:-}" == "--replace" ]] && shift
     canberra-gtk-play -i "$1" >/dev/null 2>&1 &
 }
 
@@ -57,7 +55,7 @@ output)
     if [[ "$ACTION" == mute* ]] && timeout 5 wpctl get-volume @DEFAULT_AUDIO_SINK@ 2>/dev/null | grep -qF '[MUTED]'; then
         exit 0
     fi
-    sound --replace audio-volume-change
+    sound audio-volume-change
     ;;
 input)
     case "$ACTION" in
@@ -71,7 +69,7 @@ input)
     else
         qs ipc call osd mic false || true
     fi
-    sound --replace audio-volume-change
+    sound audio-volume-change
     ;;
 *)
     echo "volume: unknown target '$TARGET' (want output|input)" >&2

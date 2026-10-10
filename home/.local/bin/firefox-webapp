@@ -105,9 +105,18 @@ if command -v sqlite3 >/dev/null 2>&1; then
 CREATE TABLE IF NOT EXISTS groups (id INTEGER PRIMARY KEY, name TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS settings (id INTEGER PRIMARY KEY, name TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS prefs (id INTEGER PRIMARY KEY, groupID INTEGER REFERENCES groups(id), settingID INTEGER NOT NULL REFERENCES settings(id), value BLOB, timestamp INTEGER NOT NULL DEFAULT 0);
-INSERT OR IGNORE INTO settings (id, name) VALUES (1, 'browser.content.full-zoom');
-DELETE FROM prefs WHERE settingID = 1 AND groupID IS NULL;
-INSERT INTO prefs (groupID, settingID, value, timestamp) VALUES (NULL, 1, 1.1, strftime('%s', 'now'));
+-- Neither name column is UNIQUE in Firefox's schema, so INSERT OR IGNORE
+-- never ignores anything: guard with NOT EXISTS, and look the setting up by
+-- name instead of assuming it got id 1.
+INSERT INTO settings (name) SELECT 'browser.content.full-zoom'
+WHERE NOT EXISTS (SELECT 1 FROM settings WHERE name = 'browser.content.full-zoom');
+-- Collapse duplicate group rows left behind by older versions of this script.
+DELETE FROM prefs WHERE groupID IN (SELECT id FROM groups WHERE id NOT IN (SELECT MIN(id) FROM groups GROUP BY name));
+DELETE FROM groups WHERE id NOT IN (SELECT MIN(id) FROM groups GROUP BY name);
+DELETE FROM prefs WHERE groupID IS NULL
+  AND settingID IN (SELECT id FROM settings WHERE name = 'browser.content.full-zoom');
+INSERT INTO prefs (groupID, settingID, value, timestamp)
+SELECT NULL, MIN(id), 1.1, strftime('%s', 'now') FROM settings WHERE name = 'browser.content.full-zoom';
 SQL
 
     if [[ "$APP_URL" =~ ^https?://([^/:]+) ]]; then
@@ -116,12 +125,13 @@ SQL
         # a ' in input would break quoting (DoS on zoom prefs).
         domain="${domain//\'/\'\'}"
         sqlite3 "$PROFILE_DIR/content-prefs.sqlite" << SQL >/dev/null 2>&1 || true
-INSERT OR IGNORE INTO groups (name) VALUES ('$domain');
+INSERT INTO groups (name) SELECT '$domain'
+WHERE NOT EXISTS (SELECT 1 FROM groups WHERE name = '$domain');
 INSERT INTO prefs (groupID, settingID, value, timestamp)
-SELECT g.id, 1, 1.1, strftime('%s', 'now')
-FROM groups g
-WHERE g.name = '$domain'
-  AND NOT EXISTS (SELECT 1 FROM prefs p WHERE p.groupID = g.id AND p.settingID = 1);
+SELECT g.id, s.id, 1.1, strftime('%s', 'now')
+FROM groups g, settings s
+WHERE g.name = '$domain' AND s.name = 'browser.content.full-zoom'
+  AND NOT EXISTS (SELECT 1 FROM prefs p WHERE p.groupID = g.id AND p.settingID = s.id);
 SQL
     fi
 fi

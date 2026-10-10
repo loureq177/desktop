@@ -10,16 +10,29 @@ notify_bed() {
         "$1" 2>/dev/null || true
 }
 
+# Set only when this script switched the radio off, so the morning run
+# re-enables just its own curfew and never a WiFi the user turned off by hand.
+MARKER="${XDG_STATE_HOME:-$HOME/.local/state}/bedtime/wifi-off"
+
 set_wifi() {
-    local want
+    local current
+    current="$(timeout 5 nmcli radio wifi 2>/dev/null || echo unknown)"
     case "$1" in
-    off) want=disabled ;;
-    on) want=enabled ;;
-    *) return 0 ;;
+    off)
+        if [ "$current" = "enabled" ]; then
+            timeout 5 nmcli radio wifi off 2>/dev/null || return 0
+            mkdir -p "$(dirname "$MARKER")"
+            : >"$MARKER"
+        fi
+        ;;
+    on)
+        [ -f "$MARKER" ] || return 0
+        if [ "$current" != "enabled" ]; then
+            timeout 5 nmcli radio wifi on 2>/dev/null || return 0
+        fi
+        rm -f "$MARKER"
+        ;;
     esac
-    if [ "$(timeout 5 nmcli radio wifi 2>/dev/null || echo unknown)" != "$want" ]; then
-        timeout 5 nmcli radio wifi "$1" 2>/dev/null || true
-    fi
 }
 
 hour=$((10#$(date +%H)))
@@ -41,10 +54,9 @@ elif [ "$hour" -eq 21 ] && [ "$minute" -ge 45 ]; then
     notify_bed "WiFi will turn off in $((curfew - now)) minutes."
     set_wifi "on"
 else
-    # All other times (the whole day, plus the [00:00, 07:00) window): make
-    # sure the WiFi is on. A stale evening replay landing after midnight or at
-    # an early-morning login must never cut the network — meanwhile, on a
-    # machine that ran through the 22:00 enforcement, the WiFi simply stays
-    # off because nothing runs again until the 07:00 timer slot.
+    # All other times (the whole day, plus the [00:00, 07:00) window): lift
+    # the curfew if this script imposed one (see MARKER). A stale evening
+    # replay landing after midnight or at an early-morning login must never
+    # cut the network; a WiFi the user switched off by hand stays off.
     set_wifi "on"
 fi

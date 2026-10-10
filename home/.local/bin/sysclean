@@ -2,7 +2,8 @@
 # Arch Linux system cleanup: removes orphans, cleans pacman/AUR/flatpak/dev caches, journal, and containers.
 # Usage: sysclean [--auto]
 #   --auto runs unattended (systemd timer): user-space caches only, skips
-#   every step that needs sudo and never prompts.
+#   every step that needs sudo, never prompts, and never deletes user data
+#   (trash, container images/volumes) that nobody confirmed.
 set -euo pipefail
 
 AUTO=0
@@ -119,7 +120,11 @@ echo "\nCleaning miscellaneous caches..."
 rm -rf "$HOME/.cache/thumbnails/"*(N) /tmp/paru/*(N) 2>/dev/null || true
 
 echo "\nEmptying trash..."
-run_if gio gio trash --empty
+if [ "$AUTO" = 1 ]; then
+    echo "  (skipped in --auto: deletes user data)"
+else
+    run_if gio gio trash --empty
+fi
 
 echo "\nCleaning Python & Node caches..."
 run_if uv uv cache prune
@@ -127,10 +132,14 @@ run_if pip pip cache purge
 run_if bun bun pm cache rm
 run_if npm npm cache clean --force
 
-echo "\nPruning container engines (per-engine details above)..."
-run_if podman podman system prune -a --force --volumes
-run_if docker docker system prune -a -f --volumes
-run_if docker docker builder prune -f
+echo "\nPruning container engines..."
+if [ "$AUTO" = 1 ]; then
+    echo "  (skipped in --auto: deletes images and volumes)"
+else
+    run_if podman podman system prune -a --force --volumes
+    run_if docker docker system prune -a -f --volumes
+    run_if docker docker builder prune -f
+fi
 
 echo "\nCleaning orphaned kernel modules..."
 if [ "$AUTO" = 1 ]; then

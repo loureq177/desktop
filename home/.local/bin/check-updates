@@ -28,8 +28,16 @@ if (( !FORCE )) && [[ -f "$STAMP" ]]; then
     fi
 fi
 
-# Count updates
-official_count=$(checkupdates 2>/dev/null | grep -c . || true)
+# Count updates. checkupdates exits 0 (updates), 2 (none) or 1 (failed, e.g.
+# offline right after resume). A failed check must not arm the cooldown, or
+# the next real check is suppressed for 3 hours.
+rc=0
+official_list=$(checkupdates 2>/dev/null) || rc=$?
+if (( rc != 0 && rc != 2 )); then
+    [[ -t 1 ]] && echo "check-updates: checkupdates failed (exit $rc); not recording this run." >&2
+    exit 0
+fi
+official_count=$(grep -c . <<<"$official_list" || true)
 aur_count=$(paru -Qum 2>/dev/null | grep -c . || true)
 pacnew_count=$(pacdiff -o 2>/dev/null | grep -c . || true)
 total=$((official_count + aur_count))

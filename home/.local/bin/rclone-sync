@@ -53,6 +53,11 @@ excludes=(
     "--exclude=.vscode/**"
 )
 
+# --progress redraws a status block several times a second: fine on a
+# terminal, pure journal spam under the systemd timer.
+progress=()
+[[ -t 1 ]] && progress=(--progress)
+
 echo "Syncing: $source_root -> $remote_root"
 # Capture rclone's own status: `if ! cmd` reports the negation's status (0),
 # which made the failure branch exit 0 and hid failures from systemd.
@@ -61,7 +66,7 @@ rclone sync \
     "$source_root" \
     "$remote_root" \
     "${excludes[@]}" \
-    --progress \
+    "${progress[@]}" \
     --drive-chunk-size 128M \
     --transfers 8 \
     --checkers 8 \

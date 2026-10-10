@@ -93,7 +93,7 @@ fi
 
 if [ -f /var/log/pacman.log ] && [ "$pacman_log_start" -gt 0 ]; then
     upgraded_critical=$(tail -n +$((pacman_log_start + 1)) /var/log/pacman.log 2>/dev/null \
-        | grep -E "\[ALPM\] upgraded (linux|linux-zen|linux-lts|nvidia|nvidia-open|mesa|systemd|glibc|amd-ucode|intel-ucode|linux-firmware)" \
+        | grep -E "\[ALPM\] upgraded (linux|linux-zen|linux-lts|linux-firmware|nvidia|nvidia-dkms|nvidia-open|nvidia-open-dkms|nvidia-utils|mesa|systemd|glibc|amd-ucode|intel-ucode) \(" \
         | sed -E 's/.*upgraded ([^ ]+) .*/\1/' \
         | sort -u \
         | tr '\n' ' ' || true)
