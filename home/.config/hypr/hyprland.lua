@@ -1,32 +1,21 @@
 local bin = os.getenv("HOME") .. "/.local/bin"
 local hypr = os.getenv("HOME") .. "/.config/hypr"
 
-local ui_ok, ui = pcall(dofile, hypr .. "/ui.lua")
-if not ui_ok then
-	ui = {
-		rounding = { window = 0, element = 0, subtle = 0 },
-		border = { size = 2 },
-		spacing = { gaps_in = 10, gaps_out = 20 },
-		opacity = { active = 1.0, inactive = 0.96 },
-		theme = { cursor = "Bibata-Modern-Classic", icon = "Papirus-Dark", gtk = "Adwaita-dark" },
-		font = {
-			family = "JetBrainsMono Nerd Font Propo",
-			mono = "JetBrainsMono Nerd Font Mono",
-			ui = "Adwaita Sans 12",
-			size_cursor = 24,
-		},
-		colors = {
-			border = "rgba(30363dee)",
-			accent_blue = "rgba(58a6ffee)",
-			accent_purple = "rgba(bc8cffee)",
-			shadow = "rgba(010409ee)",
-		},
-	}
-end
+local ui = dofile(hypr .. "/ui.lua")
 
 local local_ok, local_cfg = pcall(dofile, hypr .. "/local.lua")
 if not local_ok or type(local_cfg) ~= "table" then
 	local_cfg = {}
+end
+
+local function webapp(name, url, title, key, desc)
+	return {
+		exe = bin .. "/firefox-webapp " .. name .. " " .. url,
+		class = "webapps",
+		title = ".*" .. title .. ".*",
+		key = key,
+		desc = desc or title,
+	}
 end
 
 local programs = {
@@ -34,52 +23,19 @@ local programs = {
 	browser = "firefox",
 	launcher = "qs ipc call shell toggle launcher apps",
 
+	-- special workspace name -> app; `key` binds SUPER + SHIFT + key to toggle it
 	special = {
-		spotify = { exe = "flatpak run com.spotify.Client", class = "spotify", ws = "spotify" },
-		tasks = {
-			exe = bin .. "/firefox-webapp tasks https://tasks.google.com",
-			class = "webapps",
-			title = ".*Tasks.*",
-			ws = "tasks",
-		},
-		calendar = {
-			exe = bin .. "/firefox-webapp calendar https://calendar.google.com",
-			class = "webapps",
-			title = ".*Calendar.*",
-			ws = "calendar",
-		},
-		mail = {
-			exe = bin .. "/firefox-webapp gmail https://mail.google.com",
-			class = "webapps",
-			title = ".*Gmail.*",
-			ws = "mail",
-		},
-		gemini = {
-			exe = bin .. "/firefox-webapp gemini https://gemini.google.com",
-			class = "webapps",
-			title = ".*Gemini.*",
-			ws = "gemini",
-		},
-		whatsapp = {
-			exe = bin .. "/firefox-webapp whatsapp https://web.whatsapp.com",
-			class = "webapps",
-			title = ".*WhatsApp.*",
-			ws = "whatsapp",
-		},
-		yazi = { exe = "ghostty +new-window -e yazi", ws = "yazi" },
-
-		audio = {
-			exe = "pwvucontrol --tab 4",
-			class = "com.saivert.pwvucontrol",
-			ws = "pwvucontrol",
-		},
-		calculator = {
-			exe = "gnome-calculator",
-			class = "org.gnome.Calculator",
-			ws = "gnome-calculator",
-		},
-		jolt = { exe = "ghostty +new-window -e jolt", ws = "jolt" },
-		btop = { exe = "ghostty +new-window -e btop", ws = "btop" },
+		gemini = webapp("gemini", "https://gemini.google.com", "Gemini", "A", "AI (Gemini)"),
+		calendar = webapp("calendar", "https://calendar.google.com", "Calendar", "C"),
+		mail = webapp("gmail", "https://mail.google.com", "Gmail", "E", "Mail"),
+		tasks = webapp("tasks", "https://tasks.google.com", "Tasks", "T"),
+		whatsapp = webapp("whatsapp", "https://web.whatsapp.com", "WhatsApp", "W"),
+		spotify = { exe = "flatpak run com.spotify.Client", class = "spotify", key = "S", desc = "Spotify" },
+		btop = { exe = "ghostty +new-window -e btop", key = "B", desc = "Activity Monitor" },
+		yazi = { exe = "ghostty +new-window -e yazi", key = "F", desc = "File manager (yazi)" },
+		jolt = { exe = "ghostty +new-window -e jolt" },
+		pwvucontrol = { exe = "pwvucontrol --tab 4", class = "com.saivert.pwvucontrol" },
+		["gnome-calculator"] = { exe = "gnome-calculator", class = "org.gnome.Calculator" },
 	},
 }
 
@@ -89,17 +45,12 @@ end
 
 hl.env("GSK_RENDERER", "gl")
 hl.env("GTK_A11Y", "none")
-hl.env("XDG_SESSION_TYPE", "wayland")
-for _, var in ipairs({ "XDG_CURRENT_DESKTOP", "XDG_SESSION_DESKTOP" }) do
-	hl.env(var, "Hyprland")
-end
+hl.env("XDG_SESSION_DESKTOP", "Hyprland")
 hl.env("GDK_BACKEND", "wayland,x11")
 hl.env("GDK_WAYLAND_DISABLE", "ext_background_effect_manager_v1")
 hl.env("QT_QPA_PLATFORM", "wayland;xcb")
 hl.env("QS_ICON_THEME", ui.theme.icon)
 hl.env("SDL_VIDEODRIVER", "wayland")
-hl.env("CLUTTER_BACKEND", "wayland")
-hl.env("MOZ_ENABLE_WAYLAND", "1")
 for _, prefix in ipairs({ "XCURSOR", "HYPRCURSOR" }) do
 	hl.env(prefix .. "_THEME", ui.theme.cursor)
 	hl.env(prefix .. "_SIZE", tostring(ui.font.size_cursor))
@@ -120,7 +71,7 @@ hl.on("hyprland.start", function()
 		gset("gtk-theme", ui.theme.gtk),
 		gset("monospace-font-name", ui.font.mono .. " 12"),
 
-		"dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP HYPRLAND_INSTANCE_SIGNATURE AQ_DRM_DEVICES VK_DRIVER_FILES VK_ICD_FILENAMES LIBVA_DRIVER_NAME GSK_RENDERER GTK_A11Y GDK_BACKEND GDK_WAYLAND_DISABLE XCURSOR_THEME XCURSOR_SIZE HYPRCURSOR_THEME HYPRCURSOR_SIZE QT_QPA_PLATFORM SDL_VIDEODRIVER CLUTTER_BACKEND MOZ_ENABLE_WAYLAND ELECTRON_OZONE_PLATFORM_HINT",
+		"dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP HYPRLAND_INSTANCE_SIGNATURE AQ_DRM_DEVICES VK_DRIVER_FILES VK_ICD_FILENAMES LIBVA_DRIVER_NAME GSK_RENDERER GTK_A11Y GDK_BACKEND GDK_WAYLAND_DISABLE XCURSOR_THEME XCURSOR_SIZE HYPRCURSOR_THEME HYPRCURSOR_SIZE QT_QPA_PLATFORM SDL_VIDEODRIVER ELECTRON_OZONE_PLATFORM_HINT",
 		"systemctl --user start hyprland-session.target",
 
 		"sh -c 'pgrep -f \"[w]l-paste --type text\" >/dev/null || wl-paste --type text --watch cliphist -max-items 100 store'",
@@ -203,9 +154,8 @@ local function compact_workspaces()
 	end
 	compacting = true
 	pcall(function()
-		local all = hl.get_workspaces and hl.get_workspaces() or {}
 		local nums = {}
-		for _, ws in ipairs(all) do
+		for _, ws in ipairs(hl.get_workspaces()) do
 			if is_compactable_ws(ws) then
 				table.insert(nums, ws)
 			end
@@ -216,13 +166,12 @@ local function compact_workspaces()
 		table.sort(nums, function(a, b)
 			return a.id < b.id
 		end)
-		local active = hl.get_active_workspace and hl.get_active_workspace() or nil
+		local active = hl.get_active_workspace()
 		local focused_old = active ~= nil and active.id or nil
 		local focused_new = focused_old
 		for idx, ws in ipairs(nums) do
 			if ws.id ~= idx then
-				local target = hl.get_workspace and hl.get_workspace(idx) or nil
-				if target == nil then
+				if hl.get_workspace(idx) == nil then
 					hl.dispatch(hl.dsp.workspace.change_id({ workspace = ws.id, id = idx }))
 					if focused_old == ws.id then
 						focused_new = idx
@@ -277,13 +226,9 @@ end
 hl.config({
 	input = {
 		kb_layout = "pl",
-		kb_variant = "",
-		kb_model = "",
 		kb_options = "altwin:swap_lalt_lwin",
-		kb_rules = "",
 		repeat_delay = 200,
 		repeat_rate = 20,
-		follow_mouse = 1,
 		sensitivity = 0.2,
 		scroll_factor = 0.3,
 		touchpad = {
@@ -293,10 +238,7 @@ hl.config({
 		},
 	},
 	cursor = {
-		inactive_timeout = 0,
 		warp_on_change_workspace = true,
-		enable_hyprcursor = true,
-		sync_gsettings_theme = true,
 	},
 	gestures = {
 		workspace_swipe_touch = true,
@@ -383,11 +325,9 @@ local function list_open_specials()
 	for _, name in ipairs(special_history) do
 		push(name)
 	end
-	if hl.get_workspaces ~= nil then
-		for _, ws in ipairs(hl.get_workspaces()) do
-			if ws.special then
-				push(special_short_name(ws))
-			end
+	for _, ws in ipairs(hl.get_workspaces()) do
+		if ws.special then
+			push(special_short_name(ws))
 		end
 	end
 	return ordered
@@ -421,14 +361,6 @@ local function cycle_special(delta)
 	hl.dispatch(hl.dsp.workspace.toggle_special(target))
 end
 
-local function cycle_special_next()
-	cycle_special(1)
-end
-
-local function cycle_special_prev()
-	cycle_special(-1)
-end
-
 local function set_cycle_gestures(enabled)
 	if enabled == special_cycle_active then
 		return
@@ -441,8 +373,15 @@ local function set_cycle_gestures(enabled)
 	end
 	if enabled then
 		hl.gesture({ fingers = 3, direction = "horizontal", action = "unset" })
-		hl.gesture({ fingers = 3, direction = "left", action = cycle_special_next })
-		hl.gesture({ fingers = 3, direction = "right", action = cycle_special_prev })
+		for dir, delta in pairs({ left = 1, right = -1 }) do
+			hl.gesture({
+				fingers = 3,
+				direction = dir,
+				action = function()
+					cycle_special(delta)
+				end,
+			})
+		end
 		special_cycle_active = true
 	end
 end
@@ -465,18 +404,9 @@ local function refresh_special_gestures()
 	set_cycle_gestures(visible ~= nil)
 end
 
-hl.on("workspace.special_active", function()
-	refresh_special_gestures()
-end)
-hl.on("workspace.active", function()
-	refresh_special_gestures()
-end)
-hl.on("window.active", function()
-	refresh_special_gestures()
-end)
-hl.on("window.close", function()
-	refresh_special_gestures()
-end)
+for _, ev in ipairs({ "workspace.special_active", "workspace.active", "window.active", "window.close" }) do
+	hl.on(ev, refresh_special_gestures)
+end
 
 refresh_special_gestures()
 
@@ -493,38 +423,36 @@ hl.config({
 			inactive_border = ui.colors.border,
 		},
 		resize_on_border = true,
-		allow_tearing = false,
-		layout = "dwindle",
+		snap = {
+			enabled = true,
+		},
 	},
 	decoration = {
 		rounding = ui.rounding.window,
-		rounding_power = (ui.rounding and ui.rounding.power) or 2.0,
+		rounding_power = ui.rounding.power,
 		active_opacity = ui.opacity.active,
 		inactive_opacity = ui.opacity.inactive,
 		dim_inactive = true,
 		dim_strength = 0.15,
-		dim_special = ui.opacity.dim_special or 0.20,
+		dim_special = ui.opacity.dim_special,
 		shadow = {
 			range = 16,
 			render_power = 4,
-			color = ui.colors.shadow or "rgba(010409ee)",
+			color = ui.colors.shadow,
 		},
 		blur = {
 			enabled = true,
 			size = 8,
 			passes = 3,
 			ignore_opacity = true,
-			vibrancy = 0.2,
+			-- live (non-xray) blur halves the frame rate on outputs driven through the multi-GPU blit
+			xray = true,
+			vibrancy = 0.4,
+			noise = 0.02,
 		},
 	},
 	dwindle = {
 		preserve_split = true,
-	},
-	master = {
-		new_status = "master",
-	},
-	scrolling = {
-		fullscreen_on_one_column = true,
 	},
 })
 
@@ -568,7 +496,6 @@ hl.config({
 		focus_on_activate = true,
 		key_press_enables_dpms = true,
 		mouse_move_enables_dpms = true,
-		vrr = 0,
 	},
 })
 
@@ -583,6 +510,13 @@ hl.layer_rule({
 	no_anim = true,
 })
 hl.layer_rule({
+	name = "blur-shell-panels",
+	match = { namespace = "^quickshell(-bar|-polkit)?$" },
+	blur = true,
+	-- above the backdrop dim, so only the panels themselves get frosted
+	ignore_alpha = 0.5,
+})
+hl.layer_rule({
 	name = "blur-keybindings-cheatsheet",
 	match = { namespace = "^quickshell-keybindings$" },
 	blur = true,
@@ -592,12 +526,6 @@ hl.window_rule({
 	name = "suppress-maximize-events",
 	match = { class = ".*" },
 	suppress_event = "maximize",
-})
-hl.window_rule({
-	name = "move-hyprland-run",
-	match = { class = "hyprland-run" },
-	move = "20 monitor_h-120",
-	float = true,
 })
 
 local function autostart_for(exe)
@@ -612,17 +540,15 @@ local function autostart_for(exe)
 	return exe
 end
 
-for _, app in pairs(programs.special) do
-	local ws = "special:" .. app.ws
+for name, app in pairs(programs.special) do
+	local ws = "special:" .. name
 	hl.workspace_rule({
 		workspace = ws,
 		on_created_empty = autostart_for(app.exe),
 		gaps_out = 48,
 	})
-	if app.class and app.title then
+	if app.class then
 		hl.window_rule({ match = { class = app.class, title = app.title }, workspace = ws })
-	elseif app.class then
-		hl.window_rule({ match = { class = app.class }, workspace = ws })
 	end
 end
 
@@ -671,42 +597,23 @@ local directions = { H = "left", L = "right", K = "up", J = "down" }
 local mon_short = { left = "l", right = "r", up = "u", down = "d" }
 local step = 25
 
+local function overlap(a1, a2, b1, b2)
+	return a1 < b2 and a2 > b1
+end
+
 local function monitor_in_direction(dir)
 	local win = hl.get_active_window()
 	local cur = (win ~= nil and win.monitor) or hl.get_active_monitor()
 	if cur == nil then
 		return false
 	end
-	local function overlap(a1, a2, b1, b2)
-		return a1 < b2 and a2 > b1
-	end
 	for _, m in ipairs(hl.get_monitors()) do
-		if m.name ~= cur.name then
-			if
-				dir == "left"
-				and m.x + m.width <= cur.x
-				and overlap(m.y, m.y + m.height, cur.y, cur.y + cur.height)
-			then
-				return true
-			elseif
-				dir == "right"
-				and m.x >= cur.x + cur.width
-				and overlap(m.y, m.y + m.height, cur.y, cur.y + cur.height)
-			then
-				return true
-			elseif
-				dir == "up"
-				and m.y + m.height <= cur.y
-				and overlap(m.x, m.x + m.width, cur.x, cur.x + cur.width)
-			then
-				return true
-			elseif
-				dir == "down"
-				and m.y >= cur.y + cur.height
-				and overlap(m.x, m.x + m.width, cur.x, cur.x + cur.width)
-			then
-				return true
-			end
+		if
+			m.name ~= cur.name
+			and overlap(m.y, m.y + m.height, cur.y, cur.y + cur.height)
+			and ((dir == "left" and m.x + m.width <= cur.x) or (dir == "right" and m.x >= cur.x + cur.width))
+		then
+			return true
 		end
 	end
 	return false
@@ -717,37 +624,26 @@ local function same_workspace_neighbor(dir)
 	if active == nil or active.workspace == nil then
 		return false
 	end
-	local wsid = active.workspace.id
 	local ax, ay = active.at.x, active.at.y
 	local aw, ah = active.size.x, active.size.y
 	local acx, acy = ax + aw / 2, ay + ah / 2
-	local function overlap(a1, a2, b1, b2)
-		return a1 < b2 and a2 > b1
-	end
 	for _, w in ipairs(hl.get_windows()) do
 		if
 			w.address ~= active.address
 			and w.workspace ~= nil
-			and w.workspace.id == wsid
+			and w.workspace.id == active.workspace.id
 			and not w.floating
 			and w.mapped
 			and not w.hidden
 		then
 			local cx, cy = w.at.x + w.size.x / 2, w.at.y + w.size.y / 2
-			if dir == "left" and cx < acx and overlap(w.at.y, w.at.y + w.size.y, ay, ay + ah) then
-				return true
-			elseif
-				dir == "right"
-				and cx > acx
-				and overlap(w.at.y, w.at.y + w.size.y, ay, ay + ah)
-			then
-				return true
-			elseif dir == "up" and cy < acy and overlap(w.at.x, w.at.x + w.size.x, ax, ax + aw) then
-				return true
-			elseif
-				dir == "down"
-				and cy > acy
-				and overlap(w.at.x, w.at.x + w.size.x, ax, ax + aw)
+			local same_row = overlap(w.at.y, w.at.y + w.size.y, ay, ay + ah)
+			local same_col = overlap(w.at.x, w.at.x + w.size.x, ax, ax + aw)
+			if
+				(dir == "left" and cx < acx and same_row)
+				or (dir == "right" and cx > acx and same_row)
+				or (dir == "up" and cy < acy and same_col)
+				or (dir == "down" and cy > acy and same_col)
 			then
 				return true
 			end
@@ -820,27 +716,13 @@ local cmds = {
 }
 
 for bind, entry in pairs(cmds) do
-	b(bind, entry[2], hl.dsp.exec_cmd(entry[1]), { repeating = false })
+	b(bind, entry[2], hl.dsp.exec_cmd(entry[1]))
 end
 
-local special_apps = {
-	["SUPER + SHIFT + A"] = { "gemini", "AI (Gemini)" },
-	["SUPER + SHIFT + B"] = { "btop", "Activity Monitor" },
-	["SUPER + SHIFT + C"] = { "calendar", "Calendar" },
-	["SUPER + SHIFT + E"] = { "mail", "Mail" },
-	["SUPER + SHIFT + F"] = { "yazi", "File manager (yazi)" },
-	["SUPER + SHIFT + S"] = { "spotify", "Spotify" },
-	["SUPER + SHIFT + T"] = { "tasks", "Tasks" },
-	["SUPER + SHIFT + W"] = { "whatsapp", "WhatsApp" },
-}
-
-for bind, entry in pairs(special_apps) do
-	b(
-		bind,
-		entry[2],
-		hl.dsp.workspace.toggle_special(programs.special[entry[1]].ws),
-		{ repeating = false }
-	)
+for name, app in pairs(programs.special) do
+	if app.key then
+		b("SUPER + SHIFT + " .. app.key, app.desc, hl.dsp.workspace.toggle_special(name))
+	end
 end
 
 local media = {
@@ -870,9 +752,14 @@ for _, m in ipairs(media) do
 	b(m[1], m[4], hl.dsp.exec_cmd(m[2]), { locked = true, repeating = m[3] })
 end
 
-hl.bind("SUPER + mouse:272", hl.dsp.window.drag(), { mouse = true, description = "Move window" })
-hl.bind(
-	"SUPER + mouse:273",
-	hl.dsp.window.resize(),
-	{ mouse = true, description = "Resize window" }
-)
+local function mouse_binds(mod)
+	b(mod .. "mouse_down", "Next workspace", hl.dsp.focus({ workspace = "e+1" }))
+	b(mod .. "mouse_up", "Previous workspace", hl.dsp.focus({ workspace = "e-1" }))
+	b(mod .. "SHIFT + mouse_down", "Move window to next workspace", hl.dsp.window.move({ workspace = "r+1" }))
+	b(mod .. "SHIFT + mouse_up", "Move window to previous workspace", hl.dsp.window.move({ workspace = "r-1" }))
+	b(mod .. "mouse:274", "Toggle floating", hl.dsp.window.float({ action = "toggle" }))
+	hl.bind(mod .. "mouse:272", hl.dsp.window.drag(), { mouse = true, description = "Move window" })
+	hl.bind(mod .. "mouse:273", hl.dsp.window.resize(), { mouse = true, description = "Resize window" })
+end
+
+mouse_binds("SUPER + ")
