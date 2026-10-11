@@ -252,9 +252,12 @@ Singleton {
 			}
 		}
 
-		var appTarget = (found && (found.desktopEntry || found.appName)) || (snap && (snap.desktopEntry || snap.appName)) || "";
-		if (appTarget !== "")
-			root.focusApp(appTarget);
+		var appTarget = "";
+		if (!invoked) {
+			appTarget = (found && (found.desktopEntry || found.appName)) || (snap && (snap.desktopEntry || snap.appName)) || "";
+			if (appTarget !== "")
+				root.focusApp(appTarget);
+		}
 
 		root.removeToast(targetId);
 		root.closeCenter();
