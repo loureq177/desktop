@@ -84,9 +84,14 @@ Item {
 	}
 
 	function submitResponse() {
-		var flow = agent.flow;
-		if (!flow || !flow.isResponseRequired || passwordInput.text.length === 0)
+		if (root.submitted)
 			return;
+		var flow = agent.flow;
+		if (!flow || !flow.isResponseRequired || passwordInput.text.length === 0) {
+			console.warn("Polkit: submit blocked — flow:", !!flow, "responseRequired:", flow ? !!flow.isResponseRequired : false, "inputLen:", passwordInput.text.length);
+			Qt.callLater(root.refocus);
+			return;
+		}
 		failed = false;
 		submitted = true;
 		flow.submit(passwordInput.text);
@@ -130,6 +135,15 @@ Item {
 				root.closing = true;
 				closeTimer.restart();
 			}
+		}
+	}
+
+	Connections {
+		target: agent
+
+		function onFlowChanged() {
+			root.syncFromFlow();
+			Qt.callLater(root.refocus);
 		}
 	}
 
@@ -301,6 +315,7 @@ Item {
 						echoMode: root.responseVisible ? TextInput.Normal : TextInput.Password
 						passwordCharacter: "•"
 						activeFocusOnPress: true
+						focus: true
 						enabled: root.dialogVisible && !root.submitted
 						onAccepted: root.submitResponse()
 						onTextChanged: {
@@ -308,7 +323,10 @@ Item {
 								root.failed = false;
 						}
 						Keys.onPressed: function (event) {
-							if (event.key === Qt.Key_Escape && !event.isAutoRepeat) {
+							if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter) && !event.isAutoRepeat) {
+								root.submitResponse();
+								event.accepted = true;
+							} else if (event.key === Qt.Key_Escape && !event.isAutoRepeat) {
 								root.cancelRequest();
 								event.accepted = true;
 							}

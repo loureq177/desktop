@@ -20,8 +20,8 @@ Singleton {
 	readonly property string shadow: "#010409"
 
 	readonly property color bgCardColor: bgCard
-	readonly property color barStripColor: Qt.rgba(bgCardColor.r, bgCardColor.g, bgCardColor.b, 0.85)
-	readonly property color overlayColor: Qt.rgba(bgCardColor.r, bgCardColor.g, bgCardColor.b, 0.94)
+	readonly property color barStripColor: Qt.rgba(bgCardColor.r, bgCardColor.g, bgCardColor.b, 0.65)
+	readonly property color overlayColor: Qt.rgba(bgCardColor.r, bgCardColor.g, bgCardColor.b, 0.80)
 	readonly property real backdropDim: 0.2
 	readonly property color backdropColor: Qt.rgba(0, 0, 0, backdropDim)
 
