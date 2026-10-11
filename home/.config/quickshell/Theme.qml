@@ -25,6 +25,13 @@ Singleton {
 	readonly property real backdropDim: 0.2
 	readonly property color backdropColor: Qt.rgba(0, 0, 0, backdropDim)
 
+	readonly property int lockBlurMax: 64
+	readonly property real lockBrightness: 0.55
+	readonly property real lockVibrancy: 0.2
+	readonly property int lockFadeIn: 450
+	readonly property int lockFadeOut: 300
+	readonly property int lockDotsFade: 400
+
 	readonly property int borderSize: 2
 	readonly property int roundingWindow: 8
 	readonly property int roundingElement: 6

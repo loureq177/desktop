@@ -85,6 +85,10 @@ ShellRoot {
 		id: polkitDialog
 	}
 
+	LockScreen {
+		id: lockScreen
+	}
+
 	IpcHandler {
 		target: "shell"
 

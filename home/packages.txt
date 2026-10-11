@@ -56,7 +56,6 @@ hyperfine
 hyprcursor
 hypridle
 hyprland
-hyprlock
 hyprpicker
 hyprshutdown
 hyprsunset

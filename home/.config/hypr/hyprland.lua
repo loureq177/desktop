@@ -496,6 +496,7 @@ hl.config({
 		focus_on_activate = true,
 		key_press_enables_dpms = true,
 		mouse_move_enables_dpms = true,
+		allow_session_lock_restore = true,
 	},
 })
 
@@ -706,7 +707,7 @@ local cmds = {
 	["SUPER + W"] = { "qs ipc call weather toggle", "Weather" },
 	["SUPER + E"] = { "qs ipc call shell toggle launcher emoji", "Emoji picker" },
 	["SUPER + C"] = { "qs ipc call shell toggle clipboard ''", "Clipboard history" },
-	["SUPER + escape"] = { "hyprlock", "Lock system" },
+	["SUPER + escape"] = { "qs ipc call session lock", "Lock system" },
 	["SUPER + slash"] = { "qs ipc call shell toggle keybindings ''", "Keybindings" },
 
 	["SUPER + D"] = { "~/.local/bin/dictation", "Dictation" },

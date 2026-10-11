@@ -126,7 +126,11 @@ if [ "$OS" = "Linux" ]; then
     if [ -f "archlinux/.config/ly/config.ini" ]; then
         _log_info "Configuring Ly display manager..."
         sudo mkdir -p /etc/ly
-        _install_etc_file archlinux/.config/ly/config.ini /etc/ly/config.ini 644
+        # Autologin straight into the session; quickshell locks it on first start.
+        ly_config=$(mktemp)
+        sed "s/^auto_login_user = .*/auto_login_user = $USER/" archlinux/.config/ly/config.ini >"$ly_config"
+        _install_etc_file "$ly_config" /etc/ly/config.ini 644
+        rm -f "$ly_config"
         if [ -f "archlinux/.config/ly/startup.sh" ]; then
             _install_etc_file archlinux/.config/ly/startup.sh /etc/ly/startup.sh 755
         fi

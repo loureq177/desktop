@@ -34,14 +34,13 @@ duration_smooth = 280
 flick_deceleration = 1500
 max_flick_velocity = 6000
 
-[hyprlock]
-blur_size = 10
-blur_passes = 3
-noise = 0.02
-contrast = 1.0
+[lock]
+blur_max = 64
 brightness = 0.55
 vibrancy = 0.2
-vibrancy_darkness = 0.0
+fade_in = 450
+fade_out = 300
+dots_fade = 400
 
 [launcher]
 width = 960
