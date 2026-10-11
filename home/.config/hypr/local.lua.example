@@ -18,19 +18,6 @@ return {
 	end,
 
 	-- Monitor layout & refresh rates.
-	-- NOTE (Oct 2026 post-mortem): do NOT hardcode the iiyama to
-	-- `2560x1440@74`. The patched EDID's PREFERRED timing already IS 74Hz,
-	-- so `preferred` resolves to 74Hz once the edid_override lands - and
-	-- safely falls back to stock 60Hz during the hotplug race window.
-	-- A hardcoded @74 before the override lands makes nvidia-modeset spin
-	-- ("Error while waiting for GPU progress"), leak kmalloc-128 until OOM,
-	-- and end in a DRM panic ("System is deadlocked on memory").
-	-- If the override lands late (dGPU D3cold resume), `ensure-74hz`
-	-- (autostarted from hyprland.lua) switches to the advertised 74Hz mode.
-	-- iGPU-first (AQ_DRM_DEVICES below) is kept for battery life: note the
-	-- external DP-1 is wired to NVIDIA, so each of its frames is copied
-	-- AMD->NVIDIA. If frame drops persist after 74Hz locks in, the remaining
-	-- lever is rendering on NVIDIA first (at the cost of idle power).
 	monitors = function(state)
 		-- state.laptop_disabled: true when the lid is closed and an external
 		-- monitor is connected (set by hyprland.lua). Pass it as `disabled`
@@ -49,7 +36,7 @@ return {
 		-- })
 		-- hl.monitor({
 		-- 	output = external_output,
-		-- 	mode = "preferred", -- == 2560x1440@74 once the EDID override is active
+		-- 	mode = "preferred",
 		-- 	position = "0x0",
 		-- 	scale = 1,
 		-- })

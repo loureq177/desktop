@@ -127,7 +127,6 @@ hl.on("hyprland.start", function()
 		"sh -c 'pgrep -f \"[w]l-paste --type image\" >/dev/null || wl-paste --type image/png --watch cliphist -max-items 100 store'",
 		"wpctl set-volume @DEFAULT_AUDIO_SOURCE@ 0.25",
 		"~/.local/bin/wallpaper init",
-		"~/.local/bin/ensure-74hz",
 		"sh -c 'pidof quickshell >/dev/null || MALLOC_CONF=narenas:1,muzzy_decay_ms:0 ~/.local/bin/mesa-egl quickshell -d'",
 		"sh -c 'pidof hyprsunset >/dev/null || hyprsunset'",
 	}
