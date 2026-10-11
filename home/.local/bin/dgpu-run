@@ -1,0 +1,6 @@
+#!/bin/sh
+# Run a program on the NVIDIA dGPU. The session pins Vulkan to the iGPU
+# (VK_DRIVER_FILES in hypr/local.lua) so apps do not wake the dGPU; plain
+# prime-run cannot undo that, so drop the pin here.
+unset VK_DRIVER_FILES VK_ICD_FILENAMES
+exec prime-run "$@"
