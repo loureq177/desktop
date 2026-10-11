@@ -5,7 +5,7 @@ action=toggle
 with_brightness=true
 for arg in "$@"; do
     case "${arg#--}" in
-    status | enable | disable | toggle | reapply) action="${arg#--}" ;;
+    status | enable | disable | toggle | reapply | sync) action="${arg#--}" ;;
     no-brightness) with_brightness=false ;;
     esac
 done
@@ -24,6 +24,17 @@ GHOSTTY_PERF="$STATE_DIR/ghostty/perf.conf"
 OPENCODE_KV="$STATE_DIR/opencode/kv.json"
 
 is_active() { [[ -f "$STATE_FILE" ]]; }
+
+# True on AC power, and on machines without an AC adapter (desktops).
+on_ac() {
+    local f found=false
+    for f in /sys/class/power_supply/ADP*/online /sys/class/power_supply/AC*/online; do
+        [[ -r "$f" ]] || continue
+        found=true
+        [[ "$(<"$f")" == 1 ]] && return 0
+    done
+    ! $found
+}
 
 detach() { ( exec 201>&-; "$@" ) >/dev/null 2>&1 & }
 
@@ -82,7 +93,7 @@ ghostty_shader() {
 }
 
 ghostty_perf() {
-    local anim=true opacity=0.97
+    local anim=true opacity=0.80
     [[ "$1" == off ]] && { anim=false; opacity=1.0; }
     mkdir -p "${GHOSTTY_PERF%/*}"
     cat >"$GHOSTTY_PERF" <<EOF
@@ -95,6 +106,20 @@ background-opacity = $opacity
 background-blur = false
 minimum-contrast = 1
 EOF
+}
+
+# Ghostty shader animation + translucency cost GPU time, so they are on only
+# on AC power and outside power-save mode. Returns 1 when nothing changed.
+ghostty_candy() {
+    local want=off
+    if on_ac && ! is_active; then want=on; fi
+    local anim=true
+    [[ "$want" == off ]] && anim=false
+    if [[ -e "$GHOSTTY_SHADER" ]] && grep -qx "custom-shader-animation = $anim" "$GHOSTTY_PERF" 2>/dev/null; then
+        return 1
+    fi
+    ghostty_perf "$want"
+    ghostty_shader "$want"
 }
 
 opencode_anims() {
@@ -117,8 +142,7 @@ enable_mode() {
     fi
 
     apply_display 60
-    ghostty_perf off
-    ghostty_shader off
+    ghostty_candy || true
     opencode_anims false
     detach slow_tail power-saver
     detach restore_later
@@ -142,19 +166,11 @@ disable_mode() {
     fi
 
     apply_display max
-    ghostty_perf on
-    ghostty_shader on
+    ghostty_candy || true
     opencode_anims true
     detach slow_tail balanced
     detach restore_later
 }
-
-if [[ "$action" != status ]]; then
-    [[ -e "$GHOSTTY_SHADER" ]] || ghostty_shader on
-    if [[ ! -e "$GHOSTTY_PERF" ]]; then
-        if is_active; then ghostty_perf off; else ghostty_perf on; fi
-    fi
-fi
 
 case "$action" in
 status) if is_active; then echo on; else echo off; fi ;;
@@ -162,4 +178,12 @@ enable) enable_mode ;;
 disable) disable_mode ;;
 toggle) if is_active; then disable_mode; else enable_mode; fi ;;
 reapply) if is_active; then apply_display 60; fi ;;
+sync)
+    # Called by power-save-watcher on every power supply change.
+    if is_active && on_ac; then
+        disable_mode
+    elif ghostty_candy; then
+        ghostty_reload
+    fi
+    ;;
 esac

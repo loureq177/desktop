@@ -1,5 +1,5 @@
 [Unit]
-Description=Auto-disable power-save mode when AC is connected
+Description=Sync power-save mode and Ghostty effects with the power source
 After=graphical-session.target
 PartOf=graphical-session.target
 

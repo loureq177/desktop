@@ -1,23 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-STATE_FILE="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/powersave_mode"
-
-on_ac() {
-    local f v
-    for f in /sys/class/power_supply/ADP*/online /sys/class/power_supply/AC*/online; do
-        [[ -r "$f" ]] || continue
-        v="$(cat "$f" 2>/dev/null || echo "")"
-        [[ "$v" == "1" ]] && return 0
-    done
-    return 1
-}
-
-maybe_disable() {
+# Re-evaluates power-save state on every power supply change: leaves power-save
+# mode when AC is connected and switches the Ghostty eye-candy with the power source.
+sync() {
     sleep 1
-    if on_ac && [[ -f "$STATE_FILE" ]]; then
-        "$HOME/.local/bin/power-save" --disable >/dev/null 2>&1 || true
-    fi
+    "$HOME/.local/bin/power-save" --sync >/dev/null 2>&1 || true
 }
 
 if ! compgen -G "/sys/class/power_supply/ADP*/online" >/dev/null 2>&1 \
@@ -25,8 +13,8 @@ if ! compgen -G "/sys/class/power_supply/ADP*/online" >/dev/null 2>&1 \
     exit 0
 fi
 
-maybe_disable &
+sync &
 
 udevadm monitor --udev --property --subsystem-match=power_supply 2>/dev/null | while IFS= read -r line; do
-    [[ "$line" == UDEV\ * ]] && maybe_disable &
+    [[ "$line" == UDEV\ * ]] && sync &
 done
