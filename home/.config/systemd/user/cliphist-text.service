@@ -1,0 +1,10 @@
+[Unit]
+Description=Cliphist text clipboard watcher
+PartOf=hyprland-session.target
+After=hyprland-session.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/wl-paste --type text --watch cliphist -max-items 100 store
+Restart=on-failure
+RestartSec=1

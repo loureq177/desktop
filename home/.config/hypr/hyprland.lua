@@ -34,8 +34,6 @@ local programs = {
 		btop = { exe = "ghostty +new-window -e btop", key = "B", desc = "Activity Monitor" },
 		yazi = { exe = "ghostty +new-window -e yazi", key = "F", desc = "File manager (yazi)" },
 		jolt = { exe = "ghostty +new-window -e jolt" },
-		pwvucontrol = { exe = "pwvucontrol --tab 4", class = "com.saivert.pwvucontrol" },
-		["gnome-calculator"] = { exe = "gnome-calculator", class = "org.gnome.Calculator" },
 	},
 }
 
@@ -80,8 +78,6 @@ hl.on("hyprland.start", function()
 		"dbus-update-activation-environment --systemd WAYLAND_DISPLAY DISPLAY XDG_CURRENT_DESKTOP HYPRLAND_INSTANCE_SIGNATURE AQ_DRM_DEVICES VK_DRIVER_FILES VK_ICD_FILENAMES LIBVA_DRIVER_NAME GSK_RENDERER GTK_A11Y GDK_BACKEND GDK_WAYLAND_DISABLE XCURSOR_THEME XCURSOR_SIZE HYPRCURSOR_THEME HYPRCURSOR_SIZE QT_QPA_PLATFORM SDL_VIDEODRIVER ELECTRON_OZONE_PLATFORM_HINT",
 		"systemctl --user start hyprland-session.target",
 
-		"sh -c 'pgrep -f \"[w]l-paste --type text\" >/dev/null || wl-paste --type text --watch cliphist -max-items 100 store'",
-		"sh -c 'pgrep -f \"[w]l-paste --type image\" >/dev/null || wl-paste --type image/png --watch cliphist -max-items 100 store'",
 		"wpctl set-volume @DEFAULT_AUDIO_SOURCE@ 0.25",
 		"~/.local/bin/wallpaper init",
 		"sh -c 'pidof hyprsunset >/dev/null || hyprsunset'",
@@ -490,12 +486,10 @@ hl.animation({ leaf = "windowsOut", speed = 5, bezier = "myBezier", style = "pop
 hl.animation({ leaf = "fadeIn", speed = 1.73, bezier = "almostLinear" })
 hl.animation({ leaf = "fadeOut", speed = 1.46, bezier = "almostLinear" })
 hl.animation({ leaf = "fade", speed = 4, bezier = "default" })
-hl.animation({ leaf = "layers", speed = 3.81, bezier = "easeOutQuint" })
 hl.animation({ leaf = "layersIn", speed = 1.79, bezier = "almostLinear", style = "fade" })
 hl.animation({ leaf = "layersOut", speed = 1.39, bezier = "almostLinear", style = "fade" })
 hl.animation({ leaf = "fadeLayersIn", speed = 1.79, bezier = "almostLinear" })
 hl.animation({ leaf = "fadeLayersOut", speed = 1.39, bezier = "almostLinear" })
-hl.animation({ leaf = "workspaces", speed = 5, bezier = "quick", style = "slidevert" })
 hl.animation({ leaf = "workspacesIn", speed = 3, bezier = "quick" })
 hl.animation({ leaf = "workspacesOut", speed = 3, bezier = "quick" })
 hl.animation({ leaf = "zoomFactor", speed = 7, bezier = "quick" })
@@ -578,6 +572,15 @@ hl.window_rule({
 })
 
 hl.window_rule({
+	name = "webcam-overlay",
+	match = { title = "^(WebcamOverlay)$" },
+	float = true,
+	pin = true,
+	no_initial_focus = true,
+	no_dim = true,
+})
+
+hl.window_rule({
 	name = "idle-inhibit-fullscreen",
 	match = { class = ".*" },
 	idle_inhibit = "fullscreen",
@@ -585,7 +588,7 @@ hl.window_rule({
 
 hl.window_rule({
 	match = {
-		class = "^(org.gnome.*|com.saivert.pwvucontrol|pavucontrol|nm-connection-editor|blueman-manager|xdg-desktop-portal-gtk|file-roller)$",
+		class = "^(org.gnome.*|com.saivert.pwvucontrol|xdg-desktop-portal-gtk)$",
 	},
 	float = true,
 	center = true,
@@ -674,9 +677,16 @@ local function swap_or_throw(dir)
 		pcall(hl.dispatch, hl.dsp.window.swap({ direction = dir }))
 		return
 	end
+	-- At the screen edge: sideways goes to the neighbouring monitor, or to the
+	-- previous/next workspace when there is none (workspaces slide horizontally).
 	local mon = mon_short[dir]
-	if (mon == "l" or mon == "r") and monitor_in_direction(dir) then
+	if mon ~= "l" and mon ~= "r" then
+		return
+	end
+	if monitor_in_direction(dir) then
 		pcall(hl.dispatch, hl.dsp.window.move({ monitor = mon }))
+	else
+		pcall(hl.dispatch, hl.dsp.window.move({ workspace = dir == "left" and "r-1" or "r+1" }))
 	end
 end
 

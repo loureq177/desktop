@@ -2,6 +2,6 @@
 Description=Hyprland compositor session
 Documentation=https://wiki.hypr.land
 BindsTo=graphical-session.target
-Wants=graphical-session-pre.target xwayland-satellite.socket
+Wants=graphical-session-pre.target xwayland-satellite.socket cliphist-text.service cliphist-image.service
 After=graphical-session-pre.target
 Before=graphical-session.target

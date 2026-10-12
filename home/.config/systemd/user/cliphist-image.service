@@ -1,0 +1,10 @@
+[Unit]
+Description=Cliphist image clipboard watcher
+PartOf=hyprland-session.target
+After=hyprland-session.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/sh -c 'exec /usr/bin/wl-paste --type image --watch cliphist -max-items 100 store'
+Restart=on-failure
+RestartSec=1
