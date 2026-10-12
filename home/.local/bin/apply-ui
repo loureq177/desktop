@@ -240,7 +240,8 @@ Singleton {{
 	readonly property int lockFadeIn: {lock["fade_in"]}
 	readonly property int lockFadeOut: {lock["fade_out"]}
 	readonly property int lockDotsFade: {lock["dots_fade"]}
-	readonly property int wallpaperFade: {cfg["wallpaper"]["fade"]}
+	readonly property int wallpaperGrow: {cfg["wallpaper"]["grow"]}
+	readonly property int wallpaperFeather: {cfg["wallpaper"]["feather"]}
 
 	readonly property int borderSize: {b_size}
 	readonly property int roundingWindow: {r_win}

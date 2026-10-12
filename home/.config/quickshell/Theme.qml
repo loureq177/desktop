@@ -33,7 +33,8 @@ Singleton {
 	readonly property int lockFadeIn: 450
 	readonly property int lockFadeOut: 300
 	readonly property int lockDotsFade: 400
-	readonly property int wallpaperFade: 600
+	readonly property int wallpaperGrow: 900
+	readonly property int wallpaperFeather: 120
 
 	readonly property int borderSize: 2
 	readonly property int roundingWindow: 8

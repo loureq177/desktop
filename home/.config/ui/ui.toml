@@ -41,7 +41,8 @@ fade_out = 300
 dots_fade = 400
 
 [wallpaper]
-fade = 600
+grow = 900
+feather = 120
 
 [launcher]
 width = 960

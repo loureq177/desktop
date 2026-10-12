@@ -4,7 +4,8 @@ import Quickshell.Wayland
 import QtQuick
 
 // Two stacked images per screen: a new wallpaper decodes in the hidden one,
-// fades in over the old one, and the old one is dropped.
+// grows over the old one as a circle from a random point, and the old one is
+// dropped.
 Variants {
 	model: Quickshell.screens
 
@@ -16,6 +17,9 @@ Variants {
 		readonly property Image back: front === first ? second : first
 		// What the screen shows or is about to show.
 		property string target: ""
+		// The circle the new wallpaper shows through while it grows.
+		property point origin
+		property real radius: 0
 
 		screen: modelData
 		color: Theme.bgMain
@@ -33,8 +37,8 @@ Variants {
 		function show(): void {
 			if (Wallpaper.url === "" || Wallpaper.url === target)
 				return;
-			if (fade.running) {
-				fade.stop();
+			if (grow.running) {
+				grow.stop();
 				settle();
 			}
 			target = Wallpaper.url;
@@ -42,13 +46,16 @@ Variants {
 		}
 
 		function reveal(): void {
-			// Nothing to fade from on the first load.
+			// Nothing to grow over on the first load.
 			if (front.status !== Image.Ready) {
 				settle();
 				return;
 			}
-			fade.target = back;
-			fade.restart();
+			origin = Qt.point(Math.random() * width, Math.random() * height);
+			// Far enough to pass the farthest corner, soft edge included.
+			grow.to = Math.hypot(Math.max(origin.x, width - origin.x), Math.max(origin.y, height - origin.y)) + Theme.wallpaperFeather;
+			grow.restart();
+			back.opacity = 1;
 		}
 
 		function settle(): void {
@@ -76,6 +83,17 @@ Variants {
 			sourceSize: Wallpaper.decodeSize(win.modelData)
 			asynchronous: true
 			retainWhileLoading: true
+			// Only the incoming image goes through the shader, and only while
+			// it grows: a settled wallpaper is a plain image.
+			layer.enabled: win.back === this && grow.running
+			layer.effect: ShaderEffect {
+				readonly property real radius: win.radius
+				readonly property real feather: Theme.wallpaperFeather
+				readonly property point center: win.origin
+				readonly property size size: Qt.size(width, height)
+
+				fragmentShader: Qt.resolvedUrl("../shaders/grow.frag.qsb")
+			}
 			onStatusChanged: {
 				if (status === Image.Ready && win.back === this)
 					win.reveal();
@@ -91,11 +109,11 @@ Variants {
 		}
 
 		NumberAnimation {
-			id: fade
-			property: "opacity"
+			id: grow
+			target: win
+			property: "radius"
 			from: 0
-			to: 1
-			duration: Theme.wallpaperFade
+			duration: Theme.wallpaperGrow
 			easing.type: Easing.InOutSine
 			onFinished: win.settle()
 		}
