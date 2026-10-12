@@ -65,6 +65,7 @@ CenterModal {
 	readonly property var powerCommands: ({
 		"lock": ["sh", "-c", "loginctl lock-session"],
 		"suspend": ["sh", "-c", "loginctl lock-session && systemctl suspend"],
+		"logout": ["hyprshutdown"],
 		"reboot": ["hyprshutdown", "--post-cmd", "systemctl reboot"],
 		"poweroff": ["hyprshutdown", "--post-cmd", "systemctl poweroff"]
 	})
@@ -72,8 +73,9 @@ CenterModal {
 	readonly property var systemActions: [
 		{ label: "Lock session", icon: "system-lock-screen", kind: "power", action: "lock", keywords: "lock zablokuj ekran lockscreen" },
 		{ label: "Suspend", icon: "system-suspend", kind: "power", action: "suspend", keywords: "suspend sleep uspij uśpij drzemka" },
+		{ label: "Log out", icon: "system-log-out", kind: "power", action: "logout", keywords: "logout log out relogin relog exit wyloguj przeloguj sesja" },
 		{ label: "Reboot", icon: "system-reboot", kind: "power", action: "reboot", keywords: "reboot restart uruchom ponownie zrestartuj" },
-		{ label: "Power off", icon: "system-shutdown", kind: "power", action: "poweroff", keywords: "poweroff shutdown wylacz wyłącz power exit wyloguj" },
+		{ label: "Power off", icon: "system-shutdown", kind: "power", action: "poweroff", keywords: "poweroff shutdown wylacz wyłącz power" },
 		{ label: "System update", icon: "system-software-update", kind: "action", cmd: ["ghostty", "+new-window", "-e", Quickshell.env("HOME") + "/.local/bin/sysupdate"], keywords: "update sysupdate aktualizacja pacman paru system" }
 	]
 
@@ -344,7 +346,7 @@ CenterModal {
 		}
 		if (item.kind === "power") {
 			var pKey = item.action;
-			if ((pKey === "reboot" || pKey === "poweroff") && window.pendingPower !== pKey) {
+			if ((pKey === "logout" || pKey === "reboot" || pKey === "poweroff") && window.pendingPower !== pKey) {
 				window.pendingPower = pKey;
 				window.lastError = "Press Enter again to confirm " + pKey;
 				powerConfirmTimer.restart();
