@@ -23,6 +23,15 @@ SlideOverlay {
 		target: root
 		function onOpened() {
 			chartCanvas.requestPaint();
+			card.forceActiveFocus();
+		}
+	}
+
+	Connections {
+		target: Weather
+		function onEditingLocationChanged() {
+			if (!Weather.editingLocation)
+				card.forceActiveFocus();
 		}
 	}
 
@@ -54,6 +63,13 @@ SlideOverlay {
 
 		Keys.onReturnPressed: event => {
 			if (!Weather.editingLocation) {
+				Weather.startEditingLocation();
+				event.accepted = true;
+			}
+		}
+
+		Keys.onPressed: event => {
+			if (event.key === Qt.Key_E && !Weather.editingLocation) {
 				Weather.startEditingLocation();
 				event.accepted = true;
 			}
@@ -180,6 +196,16 @@ SlideOverlay {
 								color: locationArea.containsMouse ? Theme.accentBlue : Theme.textMuted
 								font.family: Theme.fontFamily
 								font.pixelSize: 12
+								anchors.verticalCenter: parent.verticalCenter
+							}
+
+							Text {
+								text: "E"
+								color: locationArea.containsMouse ? Theme.accentBlue : Theme.textDim
+								font.family: Theme.fontMono
+								font.pixelSize: 10
+								font.bold: true
+								opacity: locationArea.containsMouse ? 0.9 : 0.4
 								anchors.verticalCenter: parent.verticalCenter
 							}
 						}
