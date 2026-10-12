@@ -121,6 +121,8 @@ if [ "$OS" = "Linux" ]; then
     fi
 
     restow_pkg common common
+    # Real dir so stow links the file inside; systemd ignores a symlinked drop-in dir
+    mkdir -p "$HOME/.config/systemd/user/app-com.mitchellh.ghostty.service.d"
     restow_pkg "Arch Linux" archlinux
 
     _log_info "Configuring autologin on tty1..."
