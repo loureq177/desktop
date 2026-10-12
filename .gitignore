@@ -17,6 +17,7 @@ credentials.json
 *.key
 id_*
 known_hosts*
+**/.ssh/config
 local.lua
 config.local
 *.local

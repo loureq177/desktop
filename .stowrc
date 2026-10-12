@@ -19,8 +19,8 @@
 --ignore=backup\.conf
 --ignore=antigravity-cli/settings\.json
 --ignore=\.ruff_cache
---ignore=\.env($|[\.\-].*)
+--ignore=(^|/)[.]env($|[.-].*)
 --ignore=\.pub$
---ignore=id_
---ignore=known_hosts
+--ignore=(^|/)id_[^/]*
+--ignore=known_hosts[^/]*
 

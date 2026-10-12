@@ -40,6 +40,8 @@ if ! command -v git &>/dev/null; then
 fi
 
 mkdir -p ~/.config ~/.local/share ~/.local/state ~/.local/bin ~/.cache
+# Real dir, or stow links all of ~/.ssh into the repo and keys end up there
+[ -e ~/.ssh ] || mkdir -m 700 ~/.ssh
 
 OS="$(uname -s)"
 pkglist() { sed 's/\r$//' "$1" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' | grep -vE '^(#|$)' || true; }

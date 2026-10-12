@@ -151,6 +151,7 @@ xdg-desktop-portal
 xdg-desktop-portal-gtk
 xdg-desktop-portal-hyprland
 xorg-xhost
+xwayland-satellite
 yazi
 zip
 zoxide

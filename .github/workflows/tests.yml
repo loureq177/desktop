@@ -1,0 +1,27 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    steps:
+      - name: Install tools
+        run: |
+          # packages.txt lists multilib packages; the suite checks that they exist
+          printf '[multilib]\nInclude = /etc/pacman.d/mirrorlist\n' >>/etc/pacman.conf
+          pacman -Syu --noconfirm --needed \
+            git diffutils bats parallel shellcheck nodejs lua stow zsh jq sqlite python ruff \
+            pacman-contrib qt6-declarative qt6-shadertools keyd
+          useradd -m tester
+
+      - uses: actions/checkout@v4
+
+      - name: Run tests
+        run: |
+          # install.sh refuses to run as root, so its tests need a normal user
+          chown -R tester: .
+          runuser -u tester -- env HOME=/home/tester tests/run

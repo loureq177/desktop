@@ -47,7 +47,7 @@ init() {
     local saved=""
     saved="$(current_path 2>/dev/null || true)"
     [[ -n "$saved" ]] || { [[ -f "$DEFAULT_WALLPAPER" ]] && saved="$DEFAULT_WALLPAPER"; }
-    [[ -n "$saved" ]] || saved="$WALL_DIR/$(list_files | head -n 1)"
+    [[ -n "$saved" ]] || saved="$WALL_DIR/$(list_files | head -n 1 || true)"
     [[ -f "$saved" ]] || die "no wallpapers in $WALL_DIR"
     apply "$saved"
 }

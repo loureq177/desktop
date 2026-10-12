@@ -1,0 +1,83 @@
+#!/usr/bin/env bash
+# Runs the test suite.
+#
+#   tests/run                 everything
+#   tests/run install power   only tests/install.bats and tests/power.bats
+#   tests/run js              only the JavaScript unit tests
+#   tests/run -f 'wallpaper'  only bats tests whose name matches the regex
+#
+# Nothing here touches the live session: scripts run with a temporary $HOME and
+# a PATH of stubs (see tests/helpers.bash). Tests that need a tool which is not
+# installed are skipped, not failed.
+set -uo pipefail
+
+cd "$(dirname "${BASH_SOURCE[0]}")" || exit 2
+
+filter=()
+suites=()
+while (($#)); do
+    case "$1" in
+    -f | --filter)
+        filter=(--filter "${2:?--filter needs a regex}")
+        shift
+        ;;
+    -h | --help)
+        sed -n '2,11s/^# \{0,1\}//p' "$(basename "${BASH_SOURCE[0]}")"
+        exit 0
+        ;;
+    *) suites+=("${1%.bats}") ;;
+    esac
+    shift
+done
+
+bats_files=()
+run_js=false
+if ((${#suites[@]} == 0)); then
+    bats_files=(*.bats)
+    ((${#filter[@]})) || run_js=true
+else
+    for suite in "${suites[@]}"; do
+        suite="${suite#tests/}"
+        if [[ "$suite" == js ]]; then
+            run_js=true
+        elif [[ -f "$suite.bats" ]]; then
+            bats_files+=("$suite.bats")
+        else
+            echo "tests/run: no such suite: $suite (have: js $(printf '%s ' *.bats | sed 's/\.bats//g'))" >&2
+            exit 2
+        fi
+    done
+fi
+
+failed=0
+
+if ((${#bats_files[@]})); then
+    if ! command -v bats >/dev/null; then
+        echo "tests/run: bats is not installed (pacman -S bats / brew install bats-core)" >&2
+        exit 2
+    fi
+    jobs=()
+    # Test files are independent; run them side by side when GNU parallel is there.
+    if command -v parallel >/dev/null && ((${#bats_files[@]} > 1)); then
+        jobs=(--jobs "$(nproc 2>/dev/null || echo 4)" --no-parallelize-within-files)
+    fi
+    bats "${jobs[@]}" "${filter[@]}" "${bats_files[@]}" || failed=1
+fi
+
+if $run_js; then
+    if command -v node >/dev/null; then
+        echo
+        echo "# JavaScript unit tests"
+        node --test --test-reporter=dot js/ || failed=1
+        echo
+    else
+        echo "# skipping JavaScript unit tests: node is not installed"
+    fi
+fi
+
+if ((failed)); then
+    echo "FAILED: see the 'not ok' lines above." >&2
+else
+    echo "All tests passed."
+fi
+exit "$failed"

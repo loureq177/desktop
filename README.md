@@ -21,3 +21,13 @@ apply-ui
 sysupdate
 sysclean
 ```
+
+## Testing
+
+```bash
+tests/run                # everything
+tests/run install power  # selected suites (tests/*.bats, or "js")
+tests/run -f wallpaper   # tests whose name matches
+```
+
+Needs `bats`; `shellcheck`, `node`, `lua`, `stow`, Qt6 `qmllint` and `Hyprland` widen the coverage, and tests that need a missing tool are skipped. Scripts run against a temporary `$HOME` with every system command stubbed, so the suite never touches the running session.

@@ -1,0 +1,268 @@
+#!/usr/bin/env bats
+# install.sh, run end to end against a copy of the repo and an empty $HOME.
+# sudo, pacman, flatpak, paru, brew and systemctl are stubs; stow is real.
+
+load helpers
+
+setup() {
+    sandbox_setup
+    [[ "$(id -u)" -ne 0 ]] || skip "install.sh refuses to run as root"
+    need stow
+
+    export HOME="$SANDBOX/fresh-home"
+    mkdir -p "$HOME"
+    COPY="$SANDBOX/repo"
+    copy_repo "$COPY"
+    ROOT="$SANDBOX/root" # where the sudo stub "installs" files
+
+    # sudo: never runs anything. `cmp` reports a difference so /etc installs
+    # are always attempted, `install` copies into $ROOT, and a trailing "-"
+    # (pacman reading package names) saves stdin.
+    stub sudo "
+case \"\$1\" in
+cmp) exit 1 ;;
+install) mkdir -p '$ROOT'\"\$(dirname \"\${@: -1}\")\" && cp \"\${@: -2:1}\" '$ROOT'\"\${@: -1}\" ;;
+esac
+[[ \"\${@: -1}\" != - ]] || cat >>'$SANDBOX/pacman.stdin'
+true"
+    stub pacman 'exit 1' # only called directly as `pacman -Qq ly`
+    stub flatpak
+    stub paru
+    stub systemctl
+    stub bat
+    stub brew
+    os Linux
+}
+
+os() { stub_quiet uname "echo $1"; }
+
+install() { sut env USER=tester "$COPY/install.sh" "$@"; }
+
+arch_only() { [[ -f /etc/arch-release ]] || skip "install.sh only installs on Arch Linux"; }
+
+has_battery() { compgen -G "/sys/class/power_supply/BAT*" >/dev/null; }
+
+# Package names of a list file, read the way a human would.
+pkgs() {
+    python3 - "$@" <<'EOF'
+import sys
+for path in sys.argv[1:]:
+    for line in open(path, encoding="utf-8"):
+        line = line.strip()
+        if line and not line.startswith("#"):
+            print(line)
+EOF
+}
+
+@test "install --help: prints usage and does nothing" {
+    install --help
+    assert_status 0
+    assert_output_like "[--no-upgrade]"
+    [[ ! -s "$CALLS" && -z "$(ls -A "$HOME")" ]]
+}
+
+@test "install: rejects unknown arguments" {
+    install --frobnicate
+    assert_status 2
+    assert_output_like "Unknown argument: --frobnicate"
+    [[ ! -s "$CALLS" ]]
+}
+
+@test "install: refuses unsupported systems" {
+    os FreeBSD
+    install
+    assert_status 1
+    assert_output_like "Unsupported OS: FreeBSD"
+    refute_call_like "sudo"
+}
+
+@test "install (Arch): completes on an empty home" {
+    arch_only
+    install --no-upgrade
+    assert_status 0
+    assert_output_like "Installation completed successfully."
+    # The sudo stub makes every /etc file look changed; any other warning is real.
+    run grep -F '[WARN]' <<<"$(grep -vF 'differs — backing up' <<<"$output")"
+    [[ -z "$output" ]] || fail "$output"
+    assert_call "bat cache --build"
+}
+
+@test "install (Arch): upgrades the system unless told not to" {
+    arch_only
+    install --no-upgrade
+    refute_call_like "pacman -Syu"
+    : >"$CALLS"
+    install
+    assert_status 0
+    assert_call "sudo pacman -Syu --noconfirm"
+}
+
+@test "install (Arch): installs exactly the listed packages" {
+    arch_only
+    install --no-upgrade
+    assert_status 0
+    assert_call "sudo pacman -S --noconfirm --needed -"
+    local lists=("$COPY/archlinux/packages.txt")
+    if has_battery; then lists+=("$COPY/archlinux/packages-laptop.txt"); fi
+    diff <(pkgs "${lists[@]}") "$SANDBOX/pacman.stdin" >&2
+    # shellcheck disable=SC2046
+    assert_call "flatpak install --user -y --or-update flathub $(pkgs "$COPY/archlinux/flatpak.txt" | tr '\n' ' ' | sed 's/ $//')"
+    assert_call "paru -S --noconfirm --needed $(pkgs "$COPY/archlinux/aur.txt" | tr '\n' ' ' | sed 's/ $//')"
+}
+
+@test "install (Arch): package lists may have comments, blank lines and CRLF endings" {
+    arch_only
+    printf '# a comment\r\n\r\n   indented-pkg   \r\n\t# another\r\nlast-pkg' >"$COPY/archlinux/packages.txt"
+    rm -f "$COPY/archlinux/packages-laptop.txt"
+    install --no-upgrade
+    assert_status 0
+    [[ "$(<"$SANDBOX/pacman.stdin")" == $'indented-pkg\nlast-pkg' ]] || fail "$(cat -A "$SANDBOX/pacman.stdin")"
+}
+
+@test "install (Arch): skips AUR packages with a warning when paru is missing" {
+    arch_only
+    rm "$STUBS/paru"
+    install --no-upgrade
+    assert_status 0
+    assert_output_like "paru not found - skipping AUR packages"
+}
+
+@test "install (Arch): links the common and Arch configs into the home dir" {
+    arch_only
+    install --no-upgrade
+    assert_status 0
+    local f
+    for f in .config/zsh/.zshrc .config/nvim/init.lua .config/hypr/hyprland.lua .config/quickshell/shell.qml \
+        .config/systemd/user/bedtime.timer .local/lib/dotfiles/capture.sh; do
+        [[ -f "$HOME/$f" ]] || fail "missing after install: ~/$f"
+        [[ "$(realpath "$HOME/$f")" == "$COPY/"* ]] || fail "~/$f is not a link into the repo"
+    done
+    for f in "$COPY"/archlinux/.local/bin/*; do
+        [[ -x "$HOME/.local/bin/${f##*/}" ]] || fail "not runnable after install: ~/.local/bin/${f##*/}"
+    done
+    # Not for the home dir: package lists, the macOS scripts.
+    [[ ! -e "$HOME/packages.txt" && ! -e "$HOME/aur.txt" && ! -e "$HOME/README.md" ]]
+    [[ "$(realpath "$HOME/.local/bin/sysupdate")" == "$COPY/archlinux/.local/bin/sysupdate" ]]
+}
+
+@test "install (Arch): zsh can find its config afterwards" {
+    arch_only
+    # ~/.zshenv sets ZDOTDIR and PATH; without it zsh never reads
+    # ~/.config/zsh/.zshrc or .zprofile (which starts Hyprland on tty1).
+    install --no-upgrade
+    assert_status 0
+    [[ -f "$HOME/.zshenv" ]] || fail "~/.zshenv was not linked"
+    [[ "$(realpath "$HOME/.zshenv")" == "$COPY/common/.zshenv" ]]
+    need zsh
+    run env -i HOME="$HOME" PATH=/usr/bin:/bin zsh -c 'print -r -- "$ZDOTDIR"'
+    [[ "$output" == "$HOME/.config/zsh" ]] || fail "ZDOTDIR is '$output'"
+}
+
+@test "install (Arch): the ghostty drop-in dir is a real directory" {
+    arch_only
+    # systemd ignores a drop-in directory that is itself a symlink.
+    install --no-upgrade
+    local dir="$HOME/.config/systemd/user/app-com.mitchellh.ghostty.service.d"
+    [[ -d "$dir" && ! -L "$dir" ]]
+    [[ -f "$dir/override.conf" ]]
+}
+
+@test "install (Arch): does not hand ~/.ssh over to the repo" {
+    arch_only
+    # If ~/.ssh became a link to common/.ssh, new keys, known_hosts and the
+    # real ssh config would be created inside the dotfiles repo.
+    install --no-upgrade
+    assert_status 0
+    [[ ! -L "$HOME/.ssh" ]] || fail "~/.ssh -> $(readlink "$HOME/.ssh")"
+}
+
+@test "install (Arch): generates the themed configs" {
+    arch_only
+    install --no-upgrade
+    assert_status 0
+    assert_output_like "Applying UI styles"
+    assert_output_like "Generated: $HOME/.config/quickshell/Theme.qml"
+    [[ -s "$HOME/.config/ui/ui.sh" && -s "$HOME/.config/hypr/ui.lua" ]]
+}
+
+@test "install (Arch): sets up tty1 autologin for the installing user" {
+    arch_only
+    install --no-upgrade
+    local conf="$ROOT/etc/systemd/system/getty@tty1.service.d/autologin.conf"
+    [[ -f "$conf" ]] || fail "$(calls)"
+    grep -qx 'ExecStart=' "$conf"
+    grep -qxF 'ExecStart=-/usr/bin/agetty --noreset --noclear --noissue --autologin tester - ${TERM}' "$conf"
+    assert_call "sudo systemctl enable getty@tty1.service"
+}
+
+@test "install (Arch): installs keyd and memory tuning into /etc" {
+    arch_only
+    install --no-upgrade
+    cmp "$ROOT/etc/keyd/default.conf" "$COPY/archlinux/.config/keyd/default.conf"
+    local f
+    while IFS= read -r f; do
+        cmp "$ROOT/${f#system/}" "$COPY/$f" || fail "not installed: /${f#system/}"
+    done < <(cd "$COPY" && find system/etc -type f)
+    assert_call "sudo systemctl enable --now keyd"
+    assert_call "sudo sysctl --quiet --load /etc/sysctl.d/99-zram.conf"
+}
+
+@test "install (Arch): enables every timer and the session services" {
+    arch_only
+    install --no-upgrade
+    local timer
+    for timer in "$COPY"/archlinux/.config/systemd/user/*.timer; do
+        assert_call "systemctl --user enable --now ${timer##*/}"
+    done
+    assert_call "systemctl --user enable --now volume-listener.service"
+    assert_call "systemctl --user enable --now wl-clip-persist.service"
+    if has_battery; then
+        assert_call "systemctl --user enable --now power-save-watcher.service"
+    else
+        refute_call_like "power-save-watcher"
+    fi
+}
+
+@test "install (Arch): can be run again" {
+    arch_only
+    install --no-upgrade
+    assert_status 0
+    install --no-upgrade
+    assert_status 0
+    assert_output_like "Installation completed successfully."
+    [[ -f "$HOME/.config/zsh/.zshrc" ]]
+}
+
+@test "install (Arch): stops before linking when a real file is in the way" {
+    arch_only
+    echo "my own file" >"$HOME/.prettierrc.json"
+    install --no-upgrade
+    [[ "$status" -ne 0 ]] || fail "install succeeded over an existing file"
+    assert_output_like "stow pre-flight failed for 'common'"
+    [[ "$(<"$HOME/.prettierrc.json")" == "my own file" ]]
+    [[ ! -e "$HOME/.config/zsh" && ! -e "$HOME/.config/hypr" ]]
+    [[ "$output" != *"Installation completed successfully."* ]]
+}
+
+@test "install (macOS): installs the Brewfile and links the common and macOS configs" {
+    os Darwin
+    install
+    assert_status 0
+    assert_call "brew bundle --file=macos/Brewfile"
+    refute_call_like "pacman"
+    refute_call_like "sudo"
+    [[ -f "$HOME/.config/zsh/.zshrc" ]]
+    [[ "$(realpath "$HOME/.local/bin/sysupdate")" == "$COPY/macos/.local/bin/sysupdate" ]]
+    [[ ! -e "$HOME/.config/hypr" && ! -e "$HOME/Brewfile" ]]
+    assert_output_like "Installation completed successfully."
+}
+
+@test "install (macOS): fails when Homebrew cannot be installed" {
+    os Darwin
+    rm "$STUBS/brew"
+    stub curl
+    install
+    assert_status 1
+    assert_output_like "Homebrew installation failed"
+    [[ ! -e "$HOME/.config/zsh" ]]
+}
