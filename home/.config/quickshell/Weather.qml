@@ -20,8 +20,6 @@ Singleton {
 	property var forecastDays: []
 
 	property string ipCity: ""
-	property var ipLat: null
-	property var ipLon: null
 
 	property var configuredLocationState: ({ name: "", latitude: null, longitude: null })
 	readonly property string configuredLocation: configuredLocationState.name
@@ -233,7 +231,8 @@ Singleton {
 
 	Process {
 		id: ipProc
-		command: ["curl", "-fsS", "--max-time", "4", "https://geolocation-db.com/json/"]
+		// ipwho.is answers 200 with success=false when it cannot place the address.
+		command: ["curl", "-fsS", "--max-time", "4", "https://ipwho.is/?fields=success,city,latitude,longitude"]
 		onExited: code => {
 			if (code !== 0 && !root.current)
 				root.lastError = "Offline — couldn't detect location";
@@ -245,13 +244,11 @@ Singleton {
 				if (!raw) return;
 				try {
 					var parsed = JSON.parse(raw);
-					var lat = (parsed.latitude !== undefined ? parsed.latitude : parsed.lat);
-					var lon = (parsed.longitude !== undefined ? parsed.longitude : parsed.lon);
-					if (lat !== undefined && lon !== undefined && lat !== "" && lon !== "") {
+					if (parsed.success && typeof parsed.latitude === "number" && typeof parsed.longitude === "number") {
 						root.ipCity = parsed.city || "";
-						root.ipLat = lat;
-						root.ipLon = lon;
-						root.fetchForecast(lat, lon);
+						root.fetchForecast(parsed.latitude, parsed.longitude);
+					} else if (!root.current) {
+						root.lastError = "Couldn't detect location";
 					}
 				} catch (e) {
 					console.warn("IP location parse error:", e);
@@ -349,11 +346,8 @@ Singleton {
 	IpcHandler {
 		target: "weather"
 
-		function open(): void { root.open() }
-		function close(): void { root.close() }
 		function toggle(): void { root.toggle() }
 		function refresh(): void { root.refresh() }
 		function status(): string { return root.status() }
-		function icon(): string { return root.label }
 	}
 }

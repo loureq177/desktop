@@ -4,11 +4,6 @@ set -euo pipefail
 LOC_FILE="${XDG_STATE_HOME:-$HOME/.local/state}/weather/weather.json"
 
 case "${1:-}" in
-"")
-    name=$(jq -r '.name // empty' "$LOC_FILE" 2>/dev/null || true)
-    [[ -n "$name" ]] || name=$(curl -fsS --max-time 3 "https://geolocation-db.com/json/" | jq -r '.city // empty' || true)
-    [[ -z "$name" ]] || echo "$name"
-    ;;
 --set)
     city="${2:?Usage: weather-location --set <name> [lat,lon]}"
     coords="${3:-}"
@@ -32,7 +27,7 @@ case "${1:-}" in
     qs ipc call weather refresh >/dev/null 2>&1 || true
     ;;
 *)
-    echo "Usage: weather-location [--set <name> [lat,lon]|--clear]" >&2
+    echo "Usage: weather-location --set <name> [lat,lon]|--clear" >&2
     exit 1
     ;;
 esac

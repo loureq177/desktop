@@ -583,7 +583,6 @@ SlideOverlay {
 								required property int index
 
 								readonly property real colW: 54
-								readonly property real xCenter: index * colW + colW / 2
 								readonly property var stats: {
 									var list = Weather.hourlyForecast || [];
 									var minT = 999, maxT = -999;

@@ -1,24 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-case "${1:-status}" in
-status) qs ipc call weather status ;;
-toggle | open | close | refresh) qs ipc call weather "$1" ;;
-icon) qs ipc call weather icon | tr -d '"' ;;
-notify)
-    stat=$(qs ipc call weather status || true)
-    if [[ -n "$stat" && "$stat" != "null" && "$stat" != "Weather unavailable" ]]; then
-        notify-send -u low --app-name "Weather" -i "weather-clear" "Weather" "$stat"
-    else
-        notify-send -u low --app-name "Weather" -i "dialog-warning" "Weather" "Weather information unavailable."
-    fi
-    ;;
-location)
-    shift
-    weather-location "$@"
-    ;;
-*)
-    echo "Usage: weather [status|toggle|open|close|refresh|icon|notify|location]" >&2
-    exit 1
-    ;;
-esac
+stat=$(qs ipc call weather status || true)
+if [[ -n "$stat" && "$stat" != "null" && "$stat" != "Weather unavailable" ]]; then
+    notify-send -u low --app-name "Weather" -i "weather-clear" "Weather" "$stat"
+else
+    notify-send -u low --app-name "Weather" -i "dialog-warning" "Weather" "Weather information unavailable."
+fi

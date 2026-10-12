@@ -187,7 +187,6 @@ PanelWindow {
 		signal activated()
 		signal middleClicked()
 		signal rightClicked()
-		signal wheeled(bool up)
 
 		onTooltipTextChanged: {
 			if (pillArea.containsMouse && pill.tooltipText !== "")
@@ -255,7 +254,6 @@ PanelWindow {
 					pill.activated();
 				}
 			}
-			onWheel: w => pill.wheeled(w.angleDelta.y > 0)
 		}
 	}
 
@@ -422,7 +420,7 @@ PanelWindow {
 				tooltipText: Weather.tooltipText
 				onActivated: Weather.toggle()
 				onMiddleClicked: Weather.refresh()
-				onRightClicked: Quickshell.execDetached(["sh", "-c", "~/.local/bin/weather notify"])
+				onRightClicked: Quickshell.execDetached(["sh", "-c", "~/.local/bin/weather"])
 			}
 		}
 
