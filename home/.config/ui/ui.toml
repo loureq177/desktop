@@ -42,6 +42,9 @@ fade_in = 450
 fade_out = 300
 dots_fade = 400
 
+[wallpaper]
+fade = 600
+
 [launcher]
 width = 960
 height = 600
@@ -81,10 +84,3 @@ text_dim = "#8b949e"
 text_muted = "#484f58"
 shadow = "#010409"
 
-[ly]
-matrix_fg = "#1f6feb"
-full_color = false
-tty_purple_dark = "#8957e5"
-tty_cyan_bright = "#79c0ff"
-tty_white = "#f0f6fc"
-frame_delay = 5

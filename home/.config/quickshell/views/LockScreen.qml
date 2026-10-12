@@ -21,19 +21,24 @@ Scope {
 	readonly property bool locked: sessionLock.locked
 	readonly property string backdropDir: Quickshell.env("XDG_RUNTIME_DIR") + "/quickshell-lock"
 
-	// A restored lock has no desktop left to screenshot, only the lock itself.
 	function backdropPath(screen): string {
 		return backdropDir + "/" + screen.name + ".ppm";
 	}
 
+	// The desktop as it was when the lock engaged. Without a screenshot (boot,
+	// restored lock, grim failure) the wallpaper stands in for it.
+	function backdropSource(screen): string {
+		return showBackdrop ? "file://" + backdropPath(screen) : Wallpaper.url;
+	}
+
 	// The desktop is screenshotted before the lock engages; once it has, the
 	// compositor may already hand out black frames.
-	function lock(restored = false): void {
+	function lock(): void {
 		if (screenshots.running || (sessionLock.locked && !unlockTimer.running))
 			return;
 		stateFile.setText("locked");
-		if (sessionLock.locked || restored) {
-			engage(showBackdrop && !restored);
+		if (sessionLock.locked) {
+			engage(showBackdrop);
 			return;
 		}
 		screenshots.command = ["sh", "-c",
@@ -73,25 +78,27 @@ Scope {
 	}
 
 	function startFingerprint(): void {
-		if (!shown || fingerprintPam.active)
-			return;
-		fingerprintStarted = Date.now();
-		fingerprintPam.start();
+		if (shown && !fingerprintPam.active)
+			lidState.running = true;
 	}
 
-	// Lives in XDG_RUNTIME_DIR, so it is missing on the first start after login
-	// (autologin boots straight into the lock) and survives a shell restart.
+	// Kept per compositor instance: a new session has no state yet, a restarted
+	// shell finds the one it left behind.
 	FileView {
 		id: stateFile
-		path: Quickshell.env("XDG_RUNTIME_DIR") + "/quickshell-lock-state"
+		path: Quickshell.env("XDG_RUNTIME_DIR") + "/hypr/" + Quickshell.env("HYPRLAND_INSTANCE_SIGNATURE") + "/quickshell-lock-state"
 		blockLoading: true
 		printErrors: false
 	}
 
+	// Only a recorded unlock leaves the session open. Autologin lands here with
+	// no state at all, so the lock engages straight away, without the screenshot
+	// round trip: there is no desktop to show yet and no frame to spare for one.
 	Component.onCompleted: {
-		var state = stateFile.text().trim();
-		if (state !== "unlocked")
-			lock(state === "locked");
+		if (stateFile.text().trim() === "unlocked")
+			return;
+		stateFile.setText("locked");
+		engage(false);
 	}
 
 	PamContext {
@@ -135,6 +142,25 @@ Scope {
 			if (Date.now() - root.fingerprintStarted < 1000 && ++root.fingerprintFastFails >= 3)
 				return;
 			fingerprintRetry.restart();
+		}
+	}
+
+	// Behind a closed lid the reader is out of reach: asking for a finger there
+	// only burns fprintd's attempts, so wait for the lid instead.
+	Process {
+		id: lidState
+		command: ["sh", "-c", "cat /proc/acpi/button/lid/*/state 2>/dev/null"]
+		stdout: StdioCollector {
+			onStreamFinished: {
+				if (!root.shown || fingerprintPam.active)
+					return;
+				if (text.includes("closed")) {
+					fingerprintRetry.restart();
+					return;
+				}
+				root.fingerprintStarted = Date.now();
+				fingerprintPam.start();
+			}
 		}
 	}
 

@@ -13,7 +13,7 @@ Item {
 
 	// The fade waits for the screenshot and a first presented frame, so none of
 	// it is lost to surface setup.
-	readonly property bool backdropReady: !context.showBackdrop || backdrop.hasContent
+	readonly property bool backdropReady: backdrop.source == "" || backdrop.hasContent
 	property bool ready: false
 	property real reveal: context.shown && ready ? 1 : 0
 	Behavior on reveal {
@@ -60,16 +60,21 @@ Item {
 		id: backdrop
 		readonly property bool hasContent: status === Image.Ready
 		anchors.fill: parent
-		source: root.context.showBackdrop ? "file://" + root.context.backdropPath(root.screen) : ""
-		cache: false
-		visible: hasContent
+		source: root.context.backdropSource(root.screen)
+		fillMode: Image.PreserveAspectCrop
+		// The wallpaper is already decoded for the desktop at this very size; a
+		// screenshot is taken fresh every time and must not be cached.
+		sourceSize: root.context.showBackdrop ? undefined : Wallpaper.decodeSize(root.screen)
+		cache: !root.context.showBackdrop
+		// Only a screenshot is shown sharp, as the desktop the blur grows out of.
+		visible: hasContent && root.context.showBackdrop
 	}
 
 	// Blurred once into a cached layer and crossfaded over the sharp screenshot;
 	// animating the blur radius itself re-renders every frame and stutters.
 	Item {
 		anchors.fill: parent
-		visible: backdrop.visible && backdrop.hasContent
+		visible: backdrop.hasContent
 		opacity: root.reveal
 		layer.enabled: true
 

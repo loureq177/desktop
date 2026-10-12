@@ -26,6 +26,9 @@ ShellRoot {
 		}
 	}
 
+	WallpaperView {
+	}
+
 	Variants {
 		model: Quickshell.screens
 		Bar {

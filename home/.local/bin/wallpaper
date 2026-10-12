@@ -44,12 +44,8 @@ resolve_name() {
     realpath -s "$WALL_DIR/$matches"
 }
 
+# quickshell watches the state file and draws whatever it names.
 apply() {
-    local old=""
-    old="$(pgrep -x swaybg || true)"
-    setsid swaybg -i "$1" -m fill >/dev/null 2>&1 &
-    sleep 0.3
-    [[ -n "$old" ]] && printf '%s\n' "$old" | xargs kill 2>/dev/null || true
     mkdir -p "$(dirname "$STATE_FILE")"
     printf '%s\n' "$1" >"$STATE_FILE"
 }
@@ -91,7 +87,7 @@ Usage: wallpaper [list|current|set <name|path>|next|prev|random|restore|init]
   set <name>        set wallpaper (basename or unique substring)
   next|prev         cycle through wallpapers (alphabetical)
   random            random wallpaper
-  restore | init    re-apply saved wallpaper (autostart entry)
+  restore | init    make sure a wallpaper is set (autostart entry)
 Env: WALL_DIR (default: ~/Pictures/Wallpapers).
 Binds: SUPER+P next wallpaper in order.
 EOF
