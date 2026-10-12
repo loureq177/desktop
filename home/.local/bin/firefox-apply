@@ -4,19 +4,6 @@ set -euo pipefail
 SRC="${XDG_CONFIG_HOME:-$HOME/.config}/firefox-defaults"
 INIFILE="${XDG_CONFIG_HOME:-$HOME/.config}/mozilla/firefox/profiles.ini"
 
-usage() {
-    echo "usage: firefox-apply [--extensions]"
-    echo "  --extensions   print AMO URLs from extensions.txt"
-    exit 1
-}
-
-if [ $# -gt 0 ] && [ "$1" = "--extensions" ]; then
-    [ -f "$SRC/extensions.txt" ] || { echo "firefox-apply: $SRC/extensions.txt not found" >&2; exit 1; }
-    cat "$SRC/extensions.txt"
-    exit 0
-fi
-[ $# -eq 0 ] || usage
-
 [ -f "$INIFILE" ] || { echo "firefox-apply: $INIFILE not found" >&2; exit 1; }
 
 SEL="$(awk '
