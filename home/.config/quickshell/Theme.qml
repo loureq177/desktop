@@ -19,11 +19,9 @@ Singleton {
 	readonly property string textMain: "#c9d1d9"
 	readonly property string textDim: "#8b949e"
 	readonly property string textMuted: "#484f58"
-	readonly property string shadow: "#010409"
 
 	// Color-coerced aliases + derived overlays (strings have no .r/.g/.b).
 	readonly property color bgCardColor: bgCard
-	readonly property color barStripColor: Qt.rgba(bgCardColor.r, bgCardColor.g, bgCardColor.b, 0.85)
 	readonly property color overlayColor: Qt.rgba(bgCardColor.r, bgCardColor.g, bgCardColor.b, 0.94)
 	readonly property real backdropDim: 0.2
 	readonly property color backdropColor: Qt.rgba(0, 0, 0, backdropDim)
@@ -59,8 +57,6 @@ Singleton {
 	readonly property int barHeight: 30
 	readonly property int barMarginX: 20
 	readonly property int barMarginY: 4
-	readonly property int barSpacing: 8
-	readonly property int barPad: 10
 
 	// Notification surfaces: top-right panel below the bar.
 	readonly property int notifWidth: 500
@@ -85,8 +81,6 @@ Singleton {
 	readonly property int maxFlickVel: 6000
 
 	// Cubic bezier control points matching Hyprland:
-	// myBezier = { { 0.05, 0.9 }, { 0.1, 1.05 } } (popin with subtle 1.05 bounce)
-	readonly property var myBezier: [ 0.05, 0.9, 0.1, 1.05, 1.0, 1.0 ]
 	// easeOutQuint = { { 0.23, 1 }, { 0.32, 1 } }
 	readonly property var easeOutQuint: [ 0.23, 1.0, 0.32, 1.0, 1.0, 1.0 ]
 }

@@ -11,12 +11,10 @@ size = 2
 gaps_in = 10
 gaps_out = 20
 bar_height = 30
-bar_spacing = 8
 bar_margin_x = 20
 bar_margin_y = 4
 
 [padding]
-bar_pad = 10
 notif_pad_v = 10
 notif_pad_h = 14
 menu_card = 16

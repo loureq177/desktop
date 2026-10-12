@@ -43,8 +43,6 @@ def main():
 return {{
     rounding = {{
         window = {r_win},
-        element = {r_elem},
-        subtle = {r_subtle},
         power = {r_power},
     }},
     border = {{
@@ -60,12 +58,8 @@ return {{
         dim_special = {o["dim_special"]},
     }},
     font = {{
-        family = "{fnt["family"]}",
         mono = "{fnt["mono"]}",
         ui = "{fnt["ui"]}",
-        size_bar = {fnt["size_bar"]},
-        size_menu = {fnt["size_menu"]},
-        size_notif = {fnt["size_notif"]},
         size_cursor = {fnt["size_cursor"]},
     }},
     theme = {{
@@ -74,18 +68,9 @@ return {{
         gtk = "{thm["gtk"]}",
     }},
     colors = {{
-        bg_main = "{bg_main}",
-        bg_card = "{bg_card}",
-        bg_hover = "{bg_hover}",
         border = "{hypr_rgba(border_color)}",
         accent_blue = "{hypr_rgba(accent_blue)}",
         accent_purple = "{hypr_rgba(accent_purple)}",
-        accent_green = "{hypr_rgba(accent_green)}",
-        warning = "{hypr_rgba(warning)}",
-        critical = "{hypr_rgba(critical)}",
-        text_main = "{text_main}",
-        text_dim = "{text_dim}",
-        text_muted = "{c["text_muted"]}",
         shadow = "{hypr_rgba(c["shadow"])}",
     }},
 }}
@@ -102,11 +87,6 @@ return {{
 # Modify ~/.config/ui/ui.toml and run 'apply-ui'.
 # Only vars with real consumers are exported here (grep ui.sh consumers
 # before adding more).
-
-export UI_ACCENT_GREEN="{accent_green}"
-export UI_WARNING="{warning}"
-export UI_CRITICAL="{critical}"
-export UI_TEXT_MAIN="{text_main}"
 
 # Sourced, not exported: arrays cannot be exported.
 # shellcheck disable=SC2034
@@ -246,11 +226,9 @@ Singleton {{
 	readonly property string textMain: "{text_main}"
 	readonly property string textDim: "{text_dim}"
 	readonly property string textMuted: "{c["text_muted"]}"
-	readonly property string shadow: "{c["shadow"]}"
 
 	// Color-coerced aliases + derived overlays (strings have no .r/.g/.b).
 	readonly property color bgCardColor: bgCard
-	readonly property color barStripColor: Qt.rgba(bgCardColor.r, bgCardColor.g, bgCardColor.b, 0.85)
 	readonly property color overlayColor: Qt.rgba(bgCardColor.r, bgCardColor.g, bgCardColor.b, 0.94)
 	readonly property real backdropDim: {o["dim_special"]}
 	readonly property color backdropColor: Qt.rgba(0, 0, 0, backdropDim)
@@ -286,8 +264,6 @@ Singleton {{
 	readonly property int barHeight: {s["bar_height"]}
 	readonly property int barMarginX: {s["bar_margin_x"]}
 	readonly property int barMarginY: {s["bar_margin_y"]}
-	readonly property int barSpacing: {s["bar_spacing"]}
-	readonly property int barPad: {p["bar_pad"]}
 
 	// Notification surfaces: top-right panel below the bar.
 	readonly property int notifWidth: {notif["width"]}
@@ -312,8 +288,6 @@ Singleton {{
 	readonly property int maxFlickVel: {anim["max_flick_velocity"]}
 
 	// Cubic bezier control points matching Hyprland:
-	// myBezier = {{ {{ 0.05, 0.9 }}, {{ 0.1, 1.05 }} }} (popin with subtle 1.05 bounce)
-	readonly property var myBezier: [ 0.05, 0.9, 0.1, 1.05, 1.0, 1.0 ]
 	// easeOutQuint = {{ {{ 0.23, 1 }}, {{ 0.32, 1 }} }}
 	readonly property var easeOutQuint: [ 0.23, 1.0, 0.32, 1.0, 1.0, 1.0 ]
 }}

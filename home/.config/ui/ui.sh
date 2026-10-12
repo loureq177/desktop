@@ -3,11 +3,6 @@
 # Only vars with real consumers are exported here (grep ui.sh consumers
 # before adding more).
 
-export UI_ACCENT_GREEN="#3fb950"
-export UI_WARNING="#d29922"
-export UI_CRITICAL="#f85149"
-export UI_TEXT_MAIN="#c9d1d9"
-
 # Sourced, not exported: arrays cannot be exported.
 # shellcheck disable=SC2034
 SLURP_ARGS=(-d -b "#0d1117b0" -c "#58a6ff" -s "#58a6ff20" -w 2 -B "#00000000")
