@@ -123,18 +123,31 @@ if [ "$OS" = "Linux" ]; then
     restow_pkg common common
     restow_pkg "Arch Linux" archlinux
 
-    if [ -f "archlinux/.config/ly/config.ini" ]; then
-        _log_info "Configuring Ly display manager..."
-        sudo mkdir -p /etc/ly
-        # Autologin straight into the session; quickshell locks it on first start.
-        ly_config=$(mktemp)
-        sed "s/^auto_login_user = .*/auto_login_user = $USER/" archlinux/.config/ly/config.ini >"$ly_config"
-        _install_etc_file "$ly_config" /etc/ly/config.ini 644
-        rm -f "$ly_config"
-        if [ -f "archlinux/.config/ly/startup.sh" ]; then
-            _install_etc_file archlinux/.config/ly/startup.sh /etc/ly/startup.sh 755
-        fi
+    _log_info "Configuring autologin on tty1..."
+    # No display manager: getty logs $USER in, the login shell execs Hyprland (.zprofile)
+    # and quickshell locks the session as soon as it starts.
+    if pacman -Qq ly &>/dev/null; then
+        sudo systemctl disable ly@tty1.service 2>/dev/null || true
+        sudo pacman -Rns --noconfirm ly
+        sudo rm -rf /etc/ly /etc/systemd/system/ly@tty1.service.d
     fi
+    gpu_wait=""
+    if [ -x /usr/local/bin/wait-for-gpus ]; then
+        gpu_wait="ExecStartPre=-/usr/local/bin/wait-for-gpus"
+    fi
+    autologin_conf=$(mktemp)
+    cat >"$autologin_conf" <<EOF
+[Service]
+Type=simple
+$gpu_wait
+ExecStart=
+ExecStart=-/usr/bin/agetty --noreset --noclear --noissue --autologin $USER - \${TERM}
+EOF
+    sudo mkdir -p /etc/systemd/system/getty@tty1.service.d
+    _install_etc_file "$autologin_conf" /etc/systemd/system/getty@tty1.service.d/autologin.conf 644
+    rm -f "$autologin_conf"
+    sudo systemctl unmask getty@tty1.service
+    sudo systemctl enable getty@tty1.service || _log_warn "Failed to enable getty@tty1."
 
     if [ -f "archlinux/.config/keyd/default.conf" ]; then
         _log_info "Configuring keyd keyboard remapper..."
