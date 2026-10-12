@@ -47,6 +47,20 @@ FadeOverlay {
 
 	onDismissRequested: root.close()
 
+	// Scene position of the last pointer event. Rows scrolling or animating
+	// under a resting cursor also emit hover events, which must not steal the
+	// keyboard selection, so only a real movement counts.
+	property point lastPointer: Qt.point(-1, -1)
+
+	function pointerMoved(item, mouse) {
+		var p = item.mapToItem(null, mouse.x, mouse.y);
+		var moved = lastPointer.x >= 0 && (Math.abs(p.x - lastPointer.x) > 0.5 || Math.abs(p.y - lastPointer.y) > 0.5);
+		lastPointer = p;
+		return moved;
+	}
+
+	onShownChanged: lastPointer = Qt.point(-1, -1)
+
 	Rectangle {
 		id: dialogCard
 		anchors.centerIn: parent

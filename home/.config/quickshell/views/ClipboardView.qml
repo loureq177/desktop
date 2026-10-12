@@ -310,9 +310,10 @@ CenterModal {
 
 				MouseArea {
 					anchors.fill: parent
+					id: listMouse
 					hoverEnabled: true
-					onEntered: {
-						if (!list.moving && !list.flicking)
+					onPositionChanged: mouse => {
+						if (win.pointerMoved(listMouse, mouse) && !list.moving && !list.flicking)
 							win.currentIndex = row.index;
 					}
 					onClicked: {
@@ -397,20 +398,6 @@ CenterModal {
 					color: Theme.textMain
 				}
 			}
-		}
-	}
-
-	IpcHandler {
-		target: "clipboard"
-
-		function toggle(): void {
-			win.toggle();
-		}
-		function open(): void {
-			win.open();
-		}
-		function close(): void {
-			win.close();
 		}
 	}
 }

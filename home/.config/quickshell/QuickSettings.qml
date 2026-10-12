@@ -41,27 +41,11 @@ Singleton {
 		root.toggle("bluetooth");
 	}
 
-	function toggleCapture(): void {
-		root.toggle("capture");
-	}
-
 	function open(view): void {
 		Notifications.closeCenter();
 		root.instantHide = false;
 		root.subView = (view && view !== "") ? view : "main";
 		root.panelOpen = true;
-	}
-
-	function openWifi(): void {
-		root.open("wifi");
-	}
-
-	function openBluetooth(): void {
-		root.open("bluetooth");
-	}
-
-	function openCapture(): void {
-		root.open("capture");
 	}
 
 	function close(): void {
@@ -80,39 +64,6 @@ Singleton {
 
 		function toggle(): void {
 			root.toggle();
-		}
-		function toggleView(view: string): void {
-			root.toggle(view);
-		}
-		function toggleWifi(): void {
-			root.toggleWifi();
-		}
-		function toggleBluetooth(): void {
-			root.toggleBluetooth();
-		}
-		function toggleCapture(): void {
-			root.toggleCapture();
-		}
-		function open(): void {
-			root.open();
-		}
-		function openView(view: string): void {
-			root.open(view);
-		}
-		function openWifi(): void {
-			root.openWifi();
-		}
-		function openBluetooth(): void {
-			root.openBluetooth();
-		}
-		function openCapture(): void {
-			root.openCapture();
-		}
-		function close(): void {
-			root.close();
-		}
-		function closeInstant(): void {
-			root.closeInstant();
 		}
 		function refresh(): void {
 			root.refresh();

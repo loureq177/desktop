@@ -100,11 +100,6 @@ ShellRoot {
 			root.viewFor(name)?.open(mode);
 		}
 
-		function hide(name: string): void {
-			root.closeOthers(name);
-			root.viewFor(name)?.close();
-		}
-
 		function toggle(name: string, mode: string): void {
 			root.closeOthers(name);
 			root.viewFor(name)?.toggle(mode);

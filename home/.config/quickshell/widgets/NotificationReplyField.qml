@@ -10,7 +10,6 @@ Rectangle {
 	signal replied()
 	signal focusGained()
 	signal focusLost()
-	property string submittedText: ""
 
 	implicitHeight: visible ? 30 : 0
 	color: Theme.bgMain
@@ -38,7 +37,6 @@ Rectangle {
 			if (text.trim() === "")
 				return;
 			if (root.notif.sendInlineReply(text)) {
-				root.submittedText = text;
 				text = "";
 				root.replied();
 			}

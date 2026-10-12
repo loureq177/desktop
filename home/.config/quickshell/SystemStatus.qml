@@ -184,16 +184,5 @@ Singleton {
 			root.dictating = false;
 			root.dictationState = "idle";
 		}
-		function toggle(): void {
-			if (root.dictationState === "recording") {
-				root.dictationState = "transcribing";
-			} else if (root.dictationState === "transcribing") {
-				root.dictating = false;
-				root.dictationState = "idle";
-			} else {
-				root.dictating = true;
-				root.dictationState = "recording";
-			}
-		}
 	}
 }

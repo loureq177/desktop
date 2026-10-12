@@ -89,11 +89,6 @@ Singleton {
 		}
 	}
 
-	function dismissById(id: var): void {
-		root.safeDismiss(root.liveById(id));
-		root.removeToast(id);
-	}
-
 	function removeHistory(id: var): void {
 		var idStr = String(id);
 		var kept = [];
@@ -109,21 +104,6 @@ Singleton {
 		root.safeDismiss(root.liveById(id));
 		root.removeToast(id);
 		root.removeHistory(id);
-	}
-
-	function visibleActions(n): var {
-		var entries = root.entriesFromActions(n ? n.id : -1, n ? n.actions : []);
-		var want = {};
-		for (var i = 0; i < entries.length; i++)
-			want[entries[i].identifier] = true;
-		var out = [];
-		if (!n || !n.actions)
-			return out;
-		for (var j = 0; j < n.actions.length; j++) {
-			if (n.actions[j] && want[(n.actions[j].identifier || "")] === true)
-				out.push(n.actions[j]);
-		}
-		return out;
 	}
 
 	function entriesFromActions(id, acts): var {
@@ -144,10 +124,6 @@ Singleton {
 
 	function historyActionEntries(snap): var {
 		return root.entriesFromActions(snap.id, snap.actions);
-	}
-
-	function isLive(id: int): bool {
-		return root.liveById(id) !== null;
 	}
 
 	function historyTimeById(id: var): var {
@@ -193,23 +169,6 @@ Singleton {
 		root.launchSysupdate();
 		root.dismissEntry(id);
 		return true;
-	}
-
-	function invokeAction(index: int, id: var): void {
-		if (id === -1)
-			return;
-		var targetId = id !== undefined && id !== null && id >= 0 ? id : root.latestToastId();
-		var found = root.liveById(targetId);
-		var acts = root.visibleActions(found);
-		if (index < 0 || index >= acts.length)
-			return;
-		if (root.handleLocalAction(targetId, acts[index].identifier))
-			return;
-		acts[index].invoke();
-		if (!found || !found.resident)
-			root.dismissEntry(targetId);
-		else
-			root.removeToast(targetId);
 	}
 
 	function invokeByIdentifier(id: var, identifier: string): void {
@@ -274,13 +233,6 @@ Singleton {
 
 	function closeCenter(): void {
 		root.centerOpen = false;
-	}
-
-	function dismissToasts(): void {
-		var vals = root.toasts.slice();
-		for (var i = 0; i < vals.length; i++)
-			root.safeDismiss(vals[i]);
-		root.toasts = [];
 	}
 
 	function hideToasts(): void {
@@ -436,44 +388,17 @@ Singleton {
 		function toggle(): void {
 			root.toggle();
 		}
-		function openCenter(): void {
-			root.centerOpen = true;
-		}
-		function closeCenter(): void {
-			root.closeCenter();
-		}
-		function toggleDnd(): void {
-			root.toggleDnd();
-		}
 		function dndOn(): void {
 			root.dndOn();
 		}
 		function dndOff(): void {
 			root.dndOff();
 		}
-		function clear(): void {
-			root.clear();
-		}
-		function dismissToasts(): void {
-			root.dismissToasts();
-		}
-		function hideToasts(): void {
-			root.hideToasts();
-		}
 		function dismissLatest(): void {
 			root.dismissLatest();
 		}
-		function invokeAction(index: int): void {
-			root.invokeAction(index);
-		}
 		function invokeDefault(): void {
 			root.activate();
-		}
-		function activate(id: int): void {
-			root.activate(id);
-		}
-		function dismiss(id: int): void {
-			root.dismissEntry(id);
 		}
 		function status(): string {
 			return root.status();
