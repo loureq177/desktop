@@ -52,13 +52,14 @@ CenterModal {
 		}
 	}
 
-	readonly property var validModes: ["apps", "emoji", "power"]
+	readonly property var validModes: ["apps", "emoji", "record"]
 
-	readonly property var powerList: [
-		{ label: "lock", icon: "system-lock-screen", kind: "power" },
-		{ label: "suspend", icon: "system-suspend", kind: "power" },
-		{ label: "reboot", icon: "system-reboot", kind: "power" },
-		{ label: "poweroff", icon: "system-shutdown", kind: "power" }
+	readonly property string recordCmd: "sleep 0.15 && ~/.local/bin/record-screen start"
+
+	readonly property var recordList: [
+		{ label: "Screen only", icon: "camera-video", kind: "action", cmd: ["sh", "-c", recordCmd] },
+		{ label: "Screen + microphone", icon: "audio-input-microphone", kind: "action", cmd: ["sh", "-c", recordCmd + " --mic"] },
+		{ label: "Screen + microphone + camera", icon: "camera-web", kind: "action", cmd: ["sh", "-c", recordCmd + " --mic --cam"] }
 	]
 
 	readonly property var powerCommands: ({
@@ -79,13 +80,13 @@ CenterModal {
 	readonly property var modeTitles: ({
 		"apps": "",
 		"emoji": "Emoji",
-		"power": "Power"
+		"record": "Record"
 	})
 
 	readonly property var modePlaceholders: ({
 		"apps": "Search...",
 		"emoji": "Search emoji...",
-		"power": "lock / suspend / reboot / poweroff"
+		"record": "What to record..."
 	})
 
 	function spawn(command, workingDirectory) {
@@ -292,9 +293,9 @@ CenterModal {
 					out.push({ kind: "emoji", char: item.e, name: item.k });
 			}
 			filtered = out;
-		} else if (mode === "power") {
+		} else if (mode === "record") {
 			var pql = q.toLowerCase();
-			filtered = powerList.filter(function(p) {
+			filtered = recordList.filter(function(p) {
 				return q === "" || p.label.toLowerCase().indexOf(pql) !== -1;
 			});
 		}
@@ -342,7 +343,7 @@ CenterModal {
 			return true;
 		}
 		if (item.kind === "power") {
-			var pKey = item.action || item.label;
+			var pKey = item.action;
 			if ((pKey === "reboot" || pKey === "poweroff") && window.pendingPower !== pKey) {
 				window.pendingPower = pKey;
 				window.lastError = "Press Enter again to confirm " + pKey;
@@ -417,7 +418,7 @@ CenterModal {
 	function emptyText() {
 		if (isCommandQuery())
 			return query.trim() === "" ? "Type a command — Enter runs" : "No matching command — Enter runs it anyway";
-		if (mode === "power") return "No matching power action";
+		if (mode === "record") return "No matching recording option";
 		if (mode === "emoji") return emojis.length === 0 ? "Loading emojis..." : "No matching emojis";
 		return "No matching applications or actions";
 	}
@@ -617,9 +618,10 @@ CenterModal {
 
 				MouseArea {
 					anchors.fill: parent
+					id: gridMouse
 					hoverEnabled: true
-					onEntered: {
-						if (!grid.moving && !grid.flicking)
+					onPositionChanged: mouse => {
+						if (window.pointerMoved(gridMouse, mouse) && !grid.moving && !grid.flicking)
 							window.currentIndex = index;
 					}
 					onClicked: {
@@ -632,7 +634,7 @@ CenterModal {
 
 		ListView {
 			id: list
-			visible: window.mode === "power" || (window.mode === "apps" && window.isCommandQuery())
+			visible: window.mode === "record" || (window.mode === "apps" && window.isCommandQuery())
 			anchors.fill: parent
 			clip: true
 			boundsBehavior: Flickable.DragAndOvershootBounds
@@ -666,7 +668,7 @@ CenterModal {
 					}
 
 					IconImage {
-						visible: modelData.kind === "power"
+						visible: modelData.kind === "action"
 						Layout.alignment: Qt.AlignVCenter
 						implicitSize: 24
 						source: modelData.icon ? Quickshell.iconPath(modelData.icon, true) : ""
@@ -706,9 +708,10 @@ CenterModal {
 
 				MouseArea {
 					anchors.fill: parent
+					id: listMouse
 					hoverEnabled: true
-					onEntered: {
-						if (!list.moving && !list.flicking)
+					onPositionChanged: mouse => {
+						if (window.pointerMoved(listMouse, mouse) && !list.moving && !list.flicking)
 							window.currentIndex = index;
 					}
 					onClicked: {

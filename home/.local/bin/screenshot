@@ -23,15 +23,7 @@ if [ "${1:-region}" = "region" ]; then
     is_click "$GEOM" && exit 0
 
     timeout 5 grim -g "$GEOM" "$FILE"
-elif [ "${1:-}" = "window" ]; then
-    GEOM=$(active_window_geom)
-    if [[ -z "${GEOM:-}" || "$GEOM" == "null" ]]; then
-        play_sound dialog-warning
-        notify-send --app-name "Screenshot" -t 3000 --icon "dialog-warning" "No Window Found" "Unable to detect active window geometry."
-        exit 0
-    fi
-    timeout 5 grim -g "$GEOM" "$FILE"
-elif [ "${1:-}" = "fullscreen" ] || [ "${1:-}" = "output" ] || [ "${1:-}" = "full" ]; then
+elif [ "${1:-}" = "fullscreen" ]; then
     FOCUSED_OUTPUT=$(focused_output)
     if [[ -n "${FOCUSED_OUTPUT:-}" ]]; then
         timeout 5 grim -o "$FOCUSED_OUTPUT" "$FILE" || timeout 5 grim "$FILE"
@@ -39,7 +31,7 @@ elif [ "${1:-}" = "fullscreen" ] || [ "${1:-}" = "output" ] || [ "${1:-}" = "ful
         timeout 5 grim "$FILE"
     fi
 else
-    echo "screenshot.sh: unknown mode '${1:-}' (want region|window|fullscreen|output)" >&2
+    echo "screenshot.sh: unknown mode '${1:-}' (want region|fullscreen)" >&2
     exit 2
 fi
 

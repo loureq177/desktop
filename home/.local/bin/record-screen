@@ -7,14 +7,103 @@ RUN_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
 STATUS_FILE="$RUN_DIR/recording_status"
 DND_MARKER="$RUN_DIR/recording_dnd"
 
+CAM_PID_FILE="$RUN_DIR/recording_webcam.pid"
+AUDIO_MODULES_FILE="$RUN_DIR/recording_audio_modules"
+CAM_TITLE="WebcamOverlay"
+CAM_MARGIN=24
+
 source "$HOME/.local/lib/dotfiles/capture.sh"
 single_instance record_slurp
 
-if pkill -INT -x wf-recorder; then
-    if [ -f "$DND_MARKER" ]; then
+# Undo everything a recording sets up besides wf-recorder itself.
+cleanup_extras() {
+    if [[ -f "$CAM_PID_FILE" ]]; then
+        kill "$(<"$CAM_PID_FILE")" 2>/dev/null || true
+        rm -f "$CAM_PID_FILE"
+    fi
+    if [[ -f "$AUDIO_MODULES_FILE" ]]; then
+        # Reverse order: the loopbacks go before the null sink they feed.
+        tac "$AUDIO_MODULES_FILE" | while read -r module; do
+            pactl unload-module "$module" 2>/dev/null || true
+        done
+        rm -f "$AUDIO_MODULES_FILE"
+    fi
+    if [[ -f "$DND_MARKER" ]]; then
         qs ipc call notifications dndOff || true
         rm -f "$DND_MARKER"
     fi
+}
+
+# Desktop audio always; with the microphone both are mixed in a throwaway null
+# sink, because wf-recorder records a single device.
+audio_device() {
+    local sink source module
+    sink=$(pactl get-default-sink 2>/dev/null) || sink=""
+    if ! $MIC; then
+        [[ -z "$sink" ]] || echo "$sink.monitor"
+        return
+    fi
+    source=$(pactl get-default-source 2>/dev/null) || source=""
+    if [[ -n "$sink" && -n "$source" ]] &&
+        module=$(pactl load-module module-null-sink sink_name=record_mix sink_properties=device.description=record_mix 2>/dev/null); then
+        echo "$module" >"$AUDIO_MODULES_FILE"
+        for input in "$sink.monitor" "$source"; do
+            module=$(pactl load-module module-loopback source="$input" sink=record_mix latency_msec=20 2>/dev/null) || continue
+            echo "$module" >>"$AUDIO_MODULES_FILE"
+        done
+        echo "record_mix.monitor"
+        return
+    fi
+    echo "$source"
+}
+
+webcam_device() {
+    local dev
+    for dev in /dev/video*; do
+        [[ -c "$dev" ]] || continue
+        if v4l2-ctl -d "$dev" --list-formats 2>/dev/null | grep -q "^\s*\["; then
+            echo "$dev"
+            return
+        fi
+    done
+}
+
+# start_webcam "x,y WxH": float the camera in the bottom-right corner of the
+# recorded area. Float/pin come from the WebcamOverlay window rule.
+start_webcam() {
+    local dev x y w h cam_w cam_h addr
+    dev=$(webcam_device)
+    if [[ -z "$dev" ]]; then
+        notify-send --app-name "Screen Record" -i "dialog-warning" "No Camera Found" "Recording without the camera overlay."
+        return
+    fi
+    IFS=', x' read -r x y w h <<<"$1"
+    cam_w=$((w / 5))
+    ((cam_w < 200)) && cam_w=200
+    ((cam_w > 480)) && cam_w=480
+    cam_h=$((cam_w * 9 / 16))
+
+    ffplay -f v4l2 -input_format mjpeg -video_size 640x360 -framerate 30 -i "$dev" \
+        -fflags nobuffer -flags low_delay -an -noborder -loglevel quiet \
+        -window_title "$CAM_TITLE" -x "$cam_w" -y "$cam_h" 200>&- >/dev/null 2>&1 &
+    echo $! >"$CAM_PID_FILE"
+    disown
+
+    addr=""
+    for _ in $(seq 1 60); do
+        addr=$(hyprctl clients -j 2>/dev/null | jq -r --arg t "$CAM_TITLE" 'first(.[] | select(.title == $t) | .address) // empty')
+        [[ -z "$addr" ]] || break
+        sleep 0.05
+    done
+    [[ -n "$addr" ]] || return 0
+    hyprctl dispatch "hl.dsp.window.resize({ window = \"address:$addr\", x = $cam_w, y = $cam_h })" >/dev/null || true
+    hyprctl dispatch "hl.dsp.window.move({ window = \"address:$addr\", x = $((x + w - cam_w - CAM_MARGIN)), y = $((y + h - cam_h - CAM_MARGIN)) })" >/dev/null || true
+    # Let the move settle so the camera is not recorded sliding into its corner.
+    sleep 0.4
+}
+
+if pkill -INT -x wf-recorder; then
+    cleanup_extras
 
     FILE=""
     if [[ -f "$STATUS_FILE" ]]; then
@@ -54,27 +143,28 @@ if pkill -INT -x wf-recorder; then
     exit 0
 fi
 
-MODE="${1:-region}"
-TARGET_ARGS=()
+# A previous recording that died on its own leaves these behind.
+cleanup_extras
 
-if [ "$MODE" = "fullscreen" ] || [ "$MODE" = "full" ]; then
-    FOCUSED_OUTPUT=$(focused_output)
-    if [[ -n "$FOCUSED_OUTPUT" ]]; then
-        TARGET_ARGS=(-o "$FOCUSED_OUTPUT")
-    fi
-elif [ "$MODE" = "window" ]; then
-    GEOM=$(active_window_geom)
-    if [[ -z "${GEOM:-}" || "$GEOM" == "null" ]]; then
-        play_sound dialog-warning
-        notify-send --app-name "Screen Record" -i "dialog-warning" "No Window Found" "Unable to detect active window geometry."
-        exit 0
-    fi
-    TARGET_ARGS=(-g "$GEOM")
-else
-    pick_region --windows || exit 0
-    is_click "$GEOM" && exit 0
-    TARGET_ARGS=(-g "$GEOM")
+# Without `start` this is the toggle: nothing is recording, so ask what to record.
+if [[ "${1:-}" != "start" ]]; then
+    exec 200>&-
+    qs ipc call shell summon launcher record
+    exit 0
 fi
+shift
+
+MIC=false
+CAM=false
+for arg in "$@"; do
+    case "$arg" in
+    --mic) MIC=true ;;
+    --cam) CAM=true ;;
+    esac
+done
+
+pick_region --windows || exit 0
+is_click "$GEOM" && exit 0
 
 FILE="$OUT_DIR/$(date +'%Y-%m-%d_%H-%M-%S').mp4"
 echo "$FILE" >"$STATUS_FILE"
@@ -86,17 +176,23 @@ else
     qs ipc call notifications dndOn || true
     : >"$DND_MARKER"
 fi
-wf-recorder -c libx264 -x yuv420p -C aac "${TARGET_ARGS[@]}" -f "$FILE" --audio=default &
+
+AUDIO_ARGS=()
+AUDIO_DEVICE=$(audio_device)
+[[ -z "$AUDIO_DEVICE" ]] || AUDIO_ARGS=(-C aac "--audio=$AUDIO_DEVICE")
+
+if $CAM; then
+    start_webcam "$GEOM"
+fi
+
+wf-recorder -c libx264 -x yuv420p "${AUDIO_ARGS[@]}" -g "$GEOM" -f "$FILE" &
 REC_PID=$!
 disown
 
 sleep 0.5
 if ! kill -0 "$REC_PID" 2>/dev/null; then
     rm -f "$STATUS_FILE"
-    if [ -f "$DND_MARKER" ]; then
-        qs ipc call notifications dndOff || true
-        rm -f "$DND_MARKER"
-    fi
+    cleanup_extras
     play_sound dialog-warning
     notify-send --app-name "Screen Record" -t 5000 -i "dialog-warning" "Recording Failed" "wf-recorder exited right after starting."
     exit 1

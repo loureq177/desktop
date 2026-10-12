@@ -58,11 +58,6 @@ pick_region() {
 
 is_click() { [[ -z "$1" || "$1" =~ [[:space:]]1x1$ ]]; }
 
-active_window_geom() {
-    timeout 5 hyprctl activewindow -j 2>/dev/null |
-        jq -r 'select(.at != null and .size != null) | "\(.at[0]),\(.at[1]) \(.size[0])x\(.size[1])"' 2>/dev/null || true
-}
-
 focused_output() {
     timeout 5 hyprctl monitors -j 2>/dev/null | jq -r '.[] | select(.focused) | .name' 2>/dev/null || true
 }

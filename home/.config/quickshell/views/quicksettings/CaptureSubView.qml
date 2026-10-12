@@ -27,7 +27,7 @@ Item {
 		{
 			id: "record",
 			title: "Screen Record",
-			desc: SystemStatus.recording ? "Recording active • Click to stop" : "Record video of area or screen",
+			desc: SystemStatus.recording ? "Recording active • Click to stop" : "Record an area, optionally with microphone and camera",
 			icon: SystemStatus.recording ? "󰻃" : "󰕧",
 			isRecording: SystemStatus.recording,
 			cmd: "~/.local/bin/record-screen toggle"
