@@ -15,7 +15,6 @@ bun
 chafa
 cliphist
 cmake
-openai-codex
 discord
 distrobox
 docker
@@ -76,7 +75,6 @@ libva-utils
 llama-cpp
 lolcat
 loupe
-ly
 lynis
 man-db
 moreutils
@@ -107,6 +105,7 @@ python-pip
 python-pynvim
 python-virtualenv
 qt5-wayland
+qt6-imageformats
 qt6-wayland
 quickshell
 rclone
@@ -119,7 +118,6 @@ satty
 seahorse
 showtime
 slurp
-swaybg
 snapshot
 sound-theme-freedesktop
 sox
@@ -148,7 +146,6 @@ whisper-cpp
 wireplumber
 wl-clipboard
 wtype
-valkey
 xdg-desktop-portal
 xdg-desktop-portal-gtk
 xdg-desktop-portal-hyprland
