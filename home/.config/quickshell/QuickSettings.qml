@@ -48,6 +48,18 @@ Singleton {
 		root.panelOpen = true;
 	}
 
+	function openWifi(): void {
+		root.open("wifi");
+	}
+
+	function openBluetooth(): void {
+		root.open("bluetooth");
+	}
+
+	function openCapture(): void {
+		root.open("capture");
+	}
+
 	function close(): void {
 		root.instantHide = false;
 		root.panelOpen = false;
