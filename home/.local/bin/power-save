@@ -1,20 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-action=toggle
+# No argument toggles the mode; --reapply and --sync are for apply-ui and
+# power-save-watcher.
+action="${1:-toggle}"
 with_brightness=true
-for arg in "$@"; do
-    case "${arg#--}" in
-    status | enable | disable | toggle | reapply | sync) action="${arg#--}" ;;
-    no-brightness) with_brightness=false ;;
-    esac
-done
 command -v brightnessctl >/dev/null || with_brightness=false
 
-if [[ "$action" != status ]]; then
-    exec 201>"$XDG_RUNTIME_DIR/powersave.lock"
-    flock -w 2 201 || exit 0
-fi
+exec 201>"$XDG_RUNTIME_DIR/powersave.lock"
+flock -w 2 201 || exit 0
 
 STATE_FILE="$XDG_RUNTIME_DIR/powersave_mode"
 PREV_BRIGHTNESS_FILE="$XDG_RUNTIME_DIR/powersave_prev_brightness"
@@ -173,12 +167,9 @@ disable_mode() {
 }
 
 case "$action" in
-status) if is_active; then echo on; else echo off; fi ;;
-enable) enable_mode ;;
-disable) disable_mode ;;
 toggle) if is_active; then disable_mode; else enable_mode; fi ;;
-reapply) if is_active; then apply_display 60; fi ;;
-sync)
+--reapply) if is_active; then apply_display 60; fi ;;
+--sync)
     # Called by power-save-watcher on every power supply change.
     if is_active && on_ac; then
         disable_mode

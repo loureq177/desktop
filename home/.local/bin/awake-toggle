@@ -6,11 +6,6 @@ PID_FILE="$XDG_RUNTIME_DIR/awake_inhibit.pid"
 
 is_active() { systemctl --user is-active --quiet "$UNIT"; }
 
-if [[ "${1:-}" == "--status" ]]; then
-    if is_active; then echo on; else echo off; fi
-    exit 0
-fi
-
 exec 200>"$XDG_RUNTIME_DIR/awake_toggle.lock"
 flock -w 2 200 || exit 0
 

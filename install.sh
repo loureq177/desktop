@@ -187,6 +187,7 @@ EOF
             name="$(basename "$timer")"
             systemctl --user enable --now "$name" 2>/dev/null || _log_warn "Failed to enable $name."
         done
+        systemctl --user enable --now "volume-listener.service" 2>/dev/null || _log_warn "Failed to enable volume-listener.service."
         if compgen -G "/sys/class/power_supply/BAT*" >/dev/null 2>&1; then
             systemctl --user enable --now "power-save-watcher.service" 2>/dev/null || _log_warn "Failed to enable power-save-watcher.service."
         fi

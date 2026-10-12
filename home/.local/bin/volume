@@ -4,8 +4,8 @@ set -euo pipefail
 TARGET="${1:-output}"
 ACTION="${2:-}"
 if [[ -z "$ACTION" ]]; then
-    echo "Usage: volume output raise|lower|mute-toggle|mute|unmute" >&2
-    echo "       volume input mute-toggle|mute|unmute" >&2
+    echo "Usage: volume output raise|lower|mute-toggle" >&2
+    echo "       volume input mute-toggle" >&2
     exit 2
 fi
 
@@ -17,8 +17,6 @@ sound() { canberra-gtk-play -i "$1" >/dev/null 2>&1 & }
 set_mute() {
     case "$2" in
     mute-toggle) wpctl set-mute "$1" toggle ;;
-    mute) wpctl set-mute "$1" 1 ;;
-    unmute) wpctl set-mute "$1" 0 ;;
     *) echo "volume: unknown action '$2'" >&2; exit 2 ;;
     esac
 }

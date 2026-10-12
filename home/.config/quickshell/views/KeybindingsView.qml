@@ -71,13 +71,13 @@ FadeOverlay {
 	]
 
 	readonly property var categoryRules: [
-		{ cat: "Capture & OCR", match: ["screenshot", "screen recording", "ocr", "color picker", "dictation"] },
-		{ cat: "Essential", match: ["terminal", "browser", "launch apps", "keybindings"] },
-		{ cat: "Notifications", match: ["notification", "do not disturb"] },
+		{ cat: "Capture & OCR", match: ["screenshot", "dictation"] },
+		{ cat: "Essential", match: ["terminal", "browser", "keybindings"] },
+		{ cat: "Notifications", match: ["notification"] },
 		{ cat: "Clipboard & Selection", match: ["clipboard"] },
-		{ cat: "Special Workspaces", match: ["calendar", "tasks", "whatsapp", "mail", "discord", "spotify", "gemini", "yazi", "notes", "calculator", "activity monitor"] },
-		{ cat: "System & Tools", match: ["system update", "lock system", "idle inhibit", "run commands", "emoji", "audio controls", "bluetooth", "wifi", "power", "battery", "jolt", "quick settings", "quick actions", "weather"] },
-		{ cat: "Window Management", match: ["close window", "fullscreen", "split", "floating", "swap window", "resize window", "drag window"] },
+		{ cat: "Special Workspaces", match: ["calendar", "tasks", "whatsapp", "mail", "spotify", "gemini", "yazi", "activity monitor"] },
+		{ cat: "System & Tools", match: ["lock system", "emoji", "quick actions", "weather"] },
+		{ cat: "Window Management", match: ["close window", "fullscreen", "split", "floating", "swap window", "resize window"] },
 		{ cat: "Navigation & Workspaces", match: ["focus", "workspace"] }
 	]
 
