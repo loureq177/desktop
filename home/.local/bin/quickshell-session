@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# Runs quickshell for the Hyprland session and brings it back when it dies.
+# Its log goes to the journal (journalctl --user -t quickshell): quickshell's own
+# log lives on tmpfs and is gone with the crash it would have explained.
+set -uo pipefail
+
+pidof quickshell >/dev/null && exit 0
+
+export MALLOC_CONF=narenas:1,muzzy_decay_ms:0
+
+fails=0
+window=$SECONDS
+while true; do
+    # A clean exit is a deliberate stop (qs kill).
+    systemd-cat -t quickshell -- ~/.local/bin/mesa-egl quickshell --no-duplicate && exit 0
+
+    # The session is going down, not the shell.
+    hyprctl -j monitors >/dev/null 2>&1 || exit 0
+
+    if ((SECONDS - window > 60)); then
+        fails=0
+        window=$SECONDS
+    fi
+    if ((++fails > 5)); then
+        logger -t quickshell "giving up after $fails relaunches within a minute"
+        exit 1
+    fi
+    logger -t quickshell "quickshell died, relaunching"
+    sleep 1
+done

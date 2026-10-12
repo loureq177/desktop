@@ -51,6 +51,9 @@ hl.env("GDK_WAYLAND_DISABLE", "ext_background_effect_manager_v1")
 hl.env("QT_QPA_PLATFORM", "wayland;xcb")
 hl.env("QS_ICON_THEME", ui.theme.icon)
 hl.env("SDL_VIDEODRIVER", "wayland")
+-- Xwayland is off in Hyprland: xwayland-satellite.socket owns :0 and starts it
+-- for the first X11 client.
+hl.env("DISPLAY", ":0")
 for _, prefix in ipairs({ "XCURSOR", "HYPRCURSOR" }) do
 	hl.env(prefix .. "_THEME", ui.theme.cursor)
 	hl.env(prefix .. "_SIZE", tostring(ui.font.size_cursor))
@@ -64,6 +67,9 @@ end
 
 hl.on("hyprland.start", function()
 	local cmds = {
+		-- First, so the session it locks on startup has nothing on screen yet.
+		"~/.local/bin/quickshell-session",
+
 		gset("cursor-theme", ui.theme.cursor),
 		gset("icon-theme", ui.theme.icon),
 		gset("font-name", ui.font.ui),
@@ -71,14 +77,13 @@ hl.on("hyprland.start", function()
 		gset("gtk-theme", ui.theme.gtk),
 		gset("monospace-font-name", ui.font.mono .. " 12"),
 
-		"dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP HYPRLAND_INSTANCE_SIGNATURE AQ_DRM_DEVICES VK_DRIVER_FILES VK_ICD_FILENAMES LIBVA_DRIVER_NAME GSK_RENDERER GTK_A11Y GDK_BACKEND GDK_WAYLAND_DISABLE XCURSOR_THEME XCURSOR_SIZE HYPRCURSOR_THEME HYPRCURSOR_SIZE QT_QPA_PLATFORM SDL_VIDEODRIVER ELECTRON_OZONE_PLATFORM_HINT",
+		"dbus-update-activation-environment --systemd WAYLAND_DISPLAY DISPLAY XDG_CURRENT_DESKTOP HYPRLAND_INSTANCE_SIGNATURE AQ_DRM_DEVICES VK_DRIVER_FILES VK_ICD_FILENAMES LIBVA_DRIVER_NAME GSK_RENDERER GTK_A11Y GDK_BACKEND GDK_WAYLAND_DISABLE XCURSOR_THEME XCURSOR_SIZE HYPRCURSOR_THEME HYPRCURSOR_SIZE QT_QPA_PLATFORM SDL_VIDEODRIVER ELECTRON_OZONE_PLATFORM_HINT",
 		"systemctl --user start hyprland-session.target",
 
 		"sh -c 'pgrep -f \"[w]l-paste --type text\" >/dev/null || wl-paste --type text --watch cliphist -max-items 100 store'",
 		"sh -c 'pgrep -f \"[w]l-paste --type image\" >/dev/null || wl-paste --type image/png --watch cliphist -max-items 100 store'",
 		"wpctl set-volume @DEFAULT_AUDIO_SOURCE@ 0.25",
 		"~/.local/bin/wallpaper init",
-		"sh -c 'pidof quickshell >/dev/null || MALLOC_CONF=narenas:1,muzzy_decay_ms:0 ~/.local/bin/mesa-egl quickshell -d'",
 		"sh -c 'pidof hyprsunset >/dev/null || hyprsunset'",
 	}
 
@@ -212,6 +217,14 @@ if local_cfg.lid_switch ~= false and not local_cfg.custom_lid_switch then
 		sync_monitors()
 		schedule_compact(800)
 	end, { locked = true })
+
+	hl.on("hyprland.start", function()
+		hl.timer(function()
+			if sync_monitors() then
+				schedule_compact(500)
+			end
+		end, { timeout = 1500, type = "oneshot" })
+	end)
 
 	hl.on("monitor.added", function()
 		sync_monitors()
@@ -490,6 +503,9 @@ hl.animation({ leaf = "specialWorkspaceIn", speed = 4, bezier = "default", style
 hl.animation({ leaf = "specialWorkspaceOut", speed = 4, bezier = "default", style = "slide top" })
 
 hl.config({
+	xwayland = {
+		enabled = false,
+	},
 	misc = {
 		force_default_wallpaper = 0,
 		disable_hyprland_logo = true,

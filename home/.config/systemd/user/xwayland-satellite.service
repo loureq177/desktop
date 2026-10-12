@@ -1,0 +1,10 @@
+[Unit]
+Description=Xwayland on demand (xwayland-satellite)
+Requires=xwayland-satellite.socket
+After=xwayland-satellite.socket graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+Type=notify
+NotifyAccess=all
+ExecStart=/usr/bin/xwayland-satellite :0 -listenfd 3 -listenfd 4
