@@ -7,7 +7,6 @@ SlideOverlay {
 
 	property int cardWidth: Theme.notifWidth
 	property int cardHeight: Math.min(680, root.height - Theme.notifTopMargin - 20)
-	property bool fromLeft: false
 
 	signal drawerClosed()
 
@@ -29,7 +28,7 @@ SlideOverlay {
 	Rectangle {
 		id: card
 
-		x: root.fromLeft ? Theme.notifRightMargin - root.slide : parent.width - width - Theme.notifRightMargin + root.slide
+		x: parent.width - width - Theme.notifRightMargin + root.slide
 		y: Theme.notifTopMargin
 		width: root.cardWidth
 		height: root.cardHeight

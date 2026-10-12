@@ -76,7 +76,7 @@ PanelWindow {
 
 	HyprlandFocusGrab {
 		active: root.shown && root.grabFocus
-		windows: [ root ]
+		windows: [ root ].concat(Bars.windows)
 		onCleared: root.dismissed()
 	}
 

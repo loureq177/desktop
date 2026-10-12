@@ -17,7 +17,6 @@ SideDrawer {
 	instantHide: QuickSettings.instantHide
 	dismissOnEsc: QuickSettings.subView === "main"
 	cardWidth: 520
-	fromLeft: true
 	readonly property int mainContentHeight: Math.min((contentCol.implicitHeight > 0 ? contentCol.implicitHeight : 430) + Theme.paddingCard * 2, win.height - Theme.notifTopMargin - 20)
 	readonly property int currentSubViewHeight: {
 		if (QuickSettings.subView === "wifi")

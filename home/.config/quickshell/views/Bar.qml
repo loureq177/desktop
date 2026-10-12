@@ -38,6 +38,9 @@ PanelWindow {
 
 	implicitHeight: Theme.barHeight
 
+	Component.onCompleted: Bars.add(bar)
+	Component.onDestruction: Bars.remove(bar)
+
 	readonly property var batteryDevice: {
 		var vals = UPower.devices.values;
 		for (var i = 0; i < vals.length; i++)
@@ -183,6 +186,8 @@ PanelWindow {
 		property color textColor: Theme.textMain
 		property bool isActive: false
 		property string tooltipText: ""
+		property bool custom: false
+		default property alias content: pillRow.data
 		property alias containsMouse: pillArea.containsMouse
 		signal activated()
 		signal middleClicked()
@@ -195,9 +200,9 @@ PanelWindow {
 
 		Layout.alignment: Qt.AlignVCenter
 		implicitHeight: Theme.barHeight
-		implicitWidth: (text !== "" || value !== "") ? pillRow.implicitWidth + 14 : 0
-		visible: text !== "" || value !== ""
-		color: pillArea.containsMouse ? Theme.bgHover : (isActive ? Theme.alpha(Theme.accent, 0.16) : "transparent")
+		implicitWidth: (text !== "" || value !== "" || custom) ? pillRow.implicitWidth + 14 : 0
+		visible: text !== "" || value !== "" || custom
+		color: isActive ? Theme.alpha(Theme.accent, 0.16) : (pillArea.containsMouse ? Theme.bgHover : "transparent")
 		border.width: 0
 		radius: Theme.roundingElement
 
@@ -208,7 +213,7 @@ PanelWindow {
 		Row {
 			id: pillRow
 			anchors.centerIn: parent
-			spacing: (pill.text !== "" && pill.value !== "") ? 6 : 0
+			spacing: pill.custom ? 10 : ((pill.text !== "" && pill.value !== "") ? 6 : 0)
 
 			Text {
 				anchors.verticalCenter: parent.verticalCenter
@@ -238,7 +243,7 @@ PanelWindow {
 			cursorShape: Qt.PointingHandCursor
 			acceptedButtons: Qt.LeftButton | Qt.MiddleButton | Qt.RightButton
 			onEntered: {
-				if (pill.tooltipText !== "")
+				if (pill.tooltipText !== "" && !pill.isActive)
 					bar.showTooltip(pill, pill.tooltipText);
 			}
 			onExited: {
@@ -276,14 +281,6 @@ PanelWindow {
 			anchors.left: parent.left
 			anchors.verticalCenter: parent.verticalCenter
 			spacing: 6
-
-			Pill {
-				text: "󰣇"
-				textColor: QuickSettings.panelOpen ? Theme.accentBlue : Theme.textMain
-				isActive: QuickSettings.panelOpen
-				tooltipText: "Quick actions"
-				onActivated: QuickSettings.toggle()
-			}
 
 			Rectangle {
 				id: wsContainer
@@ -466,122 +463,94 @@ PanelWindow {
 			}
 
 			Pill {
-				id: bluetooth
+				id: statusPill
 				readonly property var adapter: Bluetooth.defaultAdapter
-				readonly property int connectedCount: {
-					var a = adapter;
-					if (!a || !a.devices || !a.devices.values)
-						return 0;
-					var n = 0;
-					var vals = a.devices.values || [];
-					for (var i = 0; i < vals.length; i++)
-						if (vals[i].connected)
-							n++;
-					return n;
-				}
+				readonly property var btConnected: (adapter?.devices?.values ?? []).filter(d => d.connected)
+				readonly property bool wifiUp: bar.wifiDevice?.connected ?? false
+				readonly property bool wiredUp: bar.wiredDevice?.connected ?? false
+				readonly property var wifiNetwork: (bar.wifiDevice?.networks?.values ?? []).find(n => n && n.connected) ?? null
+				readonly property var battery: bar.batteryDevice
+				readonly property int pct: battery ? Math.round(battery.percentage * 100) : 0
+				readonly property bool full: battery && battery.state === UPowerDeviceState.FullyCharged
+				readonly property bool charging: battery && (battery.state === UPowerDeviceState.Charging
+					|| battery.state === UPowerDeviceState.PendingCharge)
 
-				readonly property string tooltipInfo: {
+				readonly property string btInfo: {
 					if (!adapter)
 						return "Bluetooth: Unavailable";
 					if (!adapter.enabled)
 						return "Bluetooth: Off";
-					if (connectedCount === 0)
+					if (btConnected.length === 0)
 						return "Bluetooth: Disconnected";
-					var connectedNames = [];
-					var vals = (adapter.devices && adapter.devices.values) || [];
-					for (var i = 0; i < vals.length; i++) {
-						if (vals[i].connected) {
-							var name = vals[i].name || vals[i].deviceName || vals[i].address;
-							if (vals[i].batteryAvailable && vals[i].battery >= 0)
-								name += " (" + Math.round(vals[i].battery * 100) + "%)";
-							connectedNames.push(name);
-						}
+					return "Bluetooth: " + btConnected.map(d => {
+						var name = d.name || d.deviceName || d.address;
+						if (d.batteryAvailable && d.battery >= 0)
+							name += " (" + Math.round(d.battery * 100) + "%)";
+						return name;
+					}).join(", ");
+				}
+
+				readonly property string netInfo: {
+					if (wifiUp) {
+						var signal = wifiNetwork?.signalStrength ?? 0;
+						return "Wi-Fi: " + (wifiNetwork?.name || "Connected") + (signal > 0 ? " (" + signal + "%)" : "");
 					}
-					if (connectedNames.length > 0)
-						return "Bluetooth: " + connectedNames.join(", ");
-					return "Bluetooth: Connected";
-				}
-
-				readonly property bool isOpen: QuickSettings.panelOpen && QuickSettings.subView === "bluetooth"
-
-				text: !adapter?.enabled ? "󰂲" : (connectedCount > 0 ? "󰂱" : "󰂯")
-				value: connectedCount > 1 ? String(connectedCount) : ""
-				textColor: connectedCount > 0 || isOpen ? Theme.accentBlue : (adapter?.enabled ? Theme.textMain : Theme.textDim)
-				isActive: isOpen
-				tooltipText: tooltipInfo
-				onActivated: QuickSettings.toggleBluetooth()
-			}
-
-			Pill {
-				readonly property bool isOpen: QuickSettings.panelOpen && QuickSettings.subView === "wifi"
-				readonly property bool wifiUp: bar.wifiDevice?.connected ?? false
-				readonly property bool wiredUp: bar.wiredDevice?.connected ?? false
-				readonly property string wifiName: {
-					var d = bar.wifiDevice;
-					if (!d || !d.networks || !d.networks.values)
-						return "";
-					var vals = d.networks.values;
-					for (var i = 0; i < vals.length; i++)
-						if (vals[i] && vals[i].connected)
-							return vals[i].name || "";
-					return "";
-				}
-				readonly property int wifiSignal: {
-					var d = bar.wifiDevice;
-					if (!d || !d.networks || !d.networks.values)
-						return 0;
-					var vals = d.networks.values;
-					for (var i = 0; i < vals.length; i++)
-						if (vals[i] && vals[i].connected)
-							return vals[i].signalStrength ?? 0;
-					return 0;
-				}
-
-				text: wifiUp ? "󰖩" : (wiredUp ? "󰈀" : "󰖪")
-				textColor: (wifiUp || wiredUp || isOpen) ? Theme.accentBlue : Theme.textDim
-				isActive: isOpen
-				tooltipText: {
-					if (wifiUp)
-						return "Wi-Fi: " + (wifiName !== "" ? wifiName : "Connected") + (wifiSignal > 0 ? " (" + wifiSignal + "%)" : "");
 					if (wiredUp)
 						return "Ethernet: Connected";
 					return "Network: Disconnected";
 				}
-				onActivated: QuickSettings.toggleWifi()
-			}
 
-			Pill {
-				id: batteryPill
-				readonly property var device: bar.batteryDevice
-				readonly property int pct: device ? Math.round(device.percentage * 100) : 0
-				readonly property bool full: device && device.state === UPowerDeviceState.FullyCharged
-				readonly property bool charging: device && (device.state === UPowerDeviceState.Charging
-					|| device.state === UPowerDeviceState.PendingCharge)
-
-				readonly property string tooltipInfo: {
-					if (!device)
-						return "Battery";
+				readonly property string batteryInfo: {
+					if (!battery)
+						return "";
 					if (charging) {
-						var fullTime = device.timeToFull > 0 ? (Math.floor(device.timeToFull / 3600) + "h " + Math.floor((device.timeToFull % 3600) / 60) + "m to full") : "";
+						var fullTime = battery.timeToFull > 0 ? (Math.floor(battery.timeToFull / 3600) + "h " + Math.floor((battery.timeToFull % 3600) / 60) + "m to full") : "";
 						return "Battery: " + pct + "% (Charging" + (fullTime !== "" ? ", " + fullTime : "") + ")";
 					}
 					if (full)
 						return "Battery: " + pct + "% (Fully charged)";
-					var remTime = device.timeToEmpty > 0 ? (Math.floor(device.timeToEmpty / 3600) + "h " + Math.floor((device.timeToEmpty % 3600) / 60) + "m remaining") : "";
+					var remTime = battery.timeToEmpty > 0 ? (Math.floor(battery.timeToEmpty / 3600) + "h " + Math.floor((battery.timeToEmpty % 3600) / 60) + "m remaining") : "";
 					return "Battery: " + pct + "%" + (remTime !== "" ? " (" + remTime + ")" : "");
 				}
 
-				visible: device !== null
-				text: ""
-				value: visible ? String(pct) + "%" : ""
-				textColor: charging || full ? Theme.accentGreen
-					: pct <= 10 ? Theme.critical
-					: pct <= 20 ? Theme.warning
-					: Theme.textMain
-				tooltipText: tooltipInfo
-				onActivated: Quickshell.execDetached([
+				custom: true
+				isActive: QuickSettings.panelOpen
+				tooltipText: [btInfo, netInfo, batteryInfo].filter(s => s !== "").join("\n")
+				onActivated: QuickSettings.toggle()
+				onRightClicked: Quickshell.execDetached([
 					"hyprctl", "dispatch", "hl.dsp.workspace.toggle_special('jolt')"
 				])
+
+				Text {
+					anchors.verticalCenter: parent.verticalCenter
+					font.family: Theme.fontFamily
+					font.pixelSize: Theme.fontSizeBarIcon
+					font.bold: true
+					text: !statusPill.adapter?.enabled ? "󰂲" : (statusPill.btConnected.length > 0 ? "󰂱" : "󰂯")
+					color: statusPill.btConnected.length > 0 ? Theme.accentBlue : (statusPill.adapter?.enabled ? Theme.textMain : Theme.textDim)
+				}
+
+				Text {
+					anchors.verticalCenter: parent.verticalCenter
+					font.family: Theme.fontFamily
+					font.pixelSize: Theme.fontSizeBarIcon
+					font.bold: true
+					text: statusPill.wifiUp ? "󰖩" : (statusPill.wiredUp ? "󰈀" : "󰖪")
+					color: (statusPill.wifiUp || statusPill.wiredUp) ? Theme.accentBlue : Theme.textDim
+				}
+
+				Text {
+					anchors.verticalCenter: parent.verticalCenter
+					visible: statusPill.battery !== null
+					text: statusPill.pct + "%"
+					font.family: Theme.fontMono
+					font.pixelSize: Theme.fontSizeBar
+					font.bold: true
+					color: statusPill.charging || statusPill.full ? Theme.accentGreen
+						: statusPill.pct <= 10 ? Theme.critical
+						: statusPill.pct <= 20 ? Theme.warning
+						: Theme.textMain
+				}
 			}
 
 			Pill {

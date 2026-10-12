@@ -21,24 +21,11 @@ Singleton {
 		refreshRequested();
 	}
 
-	function toggle(view): void {
-		if (root.panelOpen) {
-			if (view && view !== "" && root.subView !== view) {
-				Notifications.closeCenter();
-				root.subView = view;
-			} else
-				root.close();
-		} else {
-			root.open(view);
-		}
-	}
-
-	function toggleWifi(): void {
-		root.toggle("wifi");
-	}
-
-	function toggleBluetooth(): void {
-		root.toggle("bluetooth");
+	function toggle(): void {
+		if (root.panelOpen)
+			root.close();
+		else
+			root.open();
 	}
 
 	function open(view): void {
