@@ -6,6 +6,11 @@ power = 2.0
 
 [border]
 size = 2
+# Opacity of the hairline around tiles, rows and buttons (a tint of text_main),
+# at rest and under the pointer, and of the accent outline of a selection.
+tile = 0.08
+tile_hover = 0.18
+selection = 0.32
 
 [spacing]
 gaps_in = 10
@@ -24,6 +29,9 @@ menu_item = 8
 active = 1.0
 inactive = 0.96
 dim_special = 0.20
+# Shell panels and the tiles on them while they are frosted glass (AC power).
+glass = 0.68
+glass_inset = 0.7
 
 [animations]
 duration_fast = 150

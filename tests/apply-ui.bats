@@ -1,5 +1,6 @@
 #!/usr/bin/env bats
 # apply-ui: ui.toml -> hypr/ui.lua, ui/ui.sh, yazi/theme.toml, quickshell/Theme.qml
+# and the palette templates (btop, lazygit, hyprlock)
 
 load helpers
 
@@ -35,6 +36,9 @@ lua_value() {
     apply_ui --no-reload
     assert_status 0
     [[ -s "$CFG/hypr/ui.lua" && -s "$CFG/ui/ui.sh" && -s "$CFG/yazi/theme.toml" && -s "$CFG/quickshell/Theme.qml" ]]
+    [[ -s "$CFG/btop/themes/github-dark.theme" && -s "$CFG/lazygit/config.yml" && -s "$CFG/hypr/hyprlock.conf" ]]
+    # No placeholder survives rendering.
+    ! grep -nE '@[a-z_]+(:bare)?@' "$CFG/btop/themes/github-dark.theme" "$CFG/lazygit/config.yml" "$CFG/hypr/hyprlock.conf"
     refute_call_like "gsettings"
     refute_call_like "hyprctl"
 }
@@ -90,6 +94,10 @@ lua_value() {
     grep -q 'cwd = { fg = "#123456", bold = true }' "$CFG/yazi/theme.toml"
     grep -q 'readonly property string accentBlue: "#123456"' "$CFG/quickshell/Theme.qml"
     grep -q 'readonly property int borderSize: 7$' "$CFG/quickshell/Theme.qml"
+    grep -q 'theme\[hi_fg\]="#123456"' "$CFG/btop/themes/github-dark.theme"
+    grep -q -- '- "#123456"' "$CFG/lazygit/config.yml"
+    grep -q 'outer_color = rgba(123456ee) ' "$CFG/hypr/hyprlock.conf"
+    grep -q 'outline_thickness = 7$' "$CFG/hypr/hyprlock.conf"
 }
 
 @test "apply-ui: the generated files committed to the repo are up to date" {
@@ -100,7 +108,10 @@ lua_value() {
         "ui/ui.sh:archlinux/.config/ui/ui.sh" \
         "hypr/ui.lua:archlinux/.config/hypr/ui.lua" \
         "yazi/theme.toml:common/.config/yazi/theme.toml" \
-        "quickshell/Theme.qml:archlinux/.config/quickshell/Theme.qml"; do
+        "quickshell/Theme.qml:archlinux/.config/quickshell/Theme.qml" \
+        "btop/themes/github-dark.theme:common/.config/btop/themes/github-dark.theme" \
+        "lazygit/config.yml:common/.config/lazygit/config.yml" \
+        "hypr/hyprlock.conf:archlinux/.config/hypr/hyprlock.conf"; do
         if ! diff -u "$REPO/${pair#*:}" "$CFG/${pair%%:*}" >&2; then
             echo "STALE: ${pair#*:} (run apply-ui and commit the result)" >&2
             bad=1

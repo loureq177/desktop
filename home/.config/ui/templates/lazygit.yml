@@ -1,0 +1,35 @@
+gui:
+  nerdFontsVersion: "3"
+  border: single
+  theme:
+    activeBorderColor:
+      - "@accent_blue@"
+      - bold
+    inactiveBorderColor:
+      - "@border@"
+    searchingActiveBorderColor:
+      - "@accent_blue@"
+      - bold
+    optionsTextColor:
+      - "@accent_blue@"
+    selectedLineBgColor:
+      - "@bg_hover@"
+    inactiveViewSelectedLineBgColor:
+      - "@bg_card@"
+      - bold
+    cherryPickedCommitFgColor:
+      - "@accent_blue@"
+    cherryPickedCommitBgColor:
+      - "@accent_purple@"
+    markedBaseCommitFgColor:
+      - "@accent_blue@"
+    markedBaseCommitBgColor:
+      - "@warning@"
+    unstagedChangesColor:
+      - "@critical@"
+    defaultFgColor:
+      - "@text_main@"
+
+git:
+  diffRenderers:
+    - command: delta --dark --paging=never --syntax-theme=github-dark --tabs=4 --true-color=always --line-numbers --hyperlinks --hyperlinks-file-link-format="lazygit-edit://{path}:{line}"
