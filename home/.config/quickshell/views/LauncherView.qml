@@ -524,6 +524,8 @@ CenterModal {
 					anchors.fill: parent
 					anchors.margins: window.mode === "emoji" ? 3 : 6
 					color: index === window.currentIndex ? Theme.selectionBg : "transparent"
+					border.color: index === window.currentIndex ? Theme.selectionBorder : "transparent"
+					border.width: 1
 					radius: Theme.roundingElement
 
 					Behavior on color { ColorAnimation { duration: 100 } }
@@ -563,11 +565,10 @@ CenterModal {
 						anchors.margins: Theme.paddingItem
 						spacing: 4
 
-						Text {
+						LineIcon {
 							Layout.alignment: Qt.AlignHCenter
-							text: "󰪚"
-							font.family: Theme.fontFamily
-							font.pixelSize: 40
+							name: "calculator"
+							size: 40
 							color: index === window.currentIndex ? Theme.accentGreen : Theme.accentBlue
 						}
 
@@ -625,6 +626,8 @@ CenterModal {
 				width: list.width
 				height: 52
 				color: index === window.currentIndex ? Theme.selectionBg : "transparent"
+				border.color: index === window.currentIndex ? Theme.selectionBorder : "transparent"
+				border.width: 1
 				radius: Theme.roundingElement
 
 				Behavior on color { ColorAnimation { duration: 100 } }
@@ -635,12 +638,11 @@ CenterModal {
 					anchors.rightMargin: 14
 					spacing: 14
 
-					Text {
+					LineIcon {
 						visible: modelData.kind === "run"
 						Layout.alignment: Qt.AlignVCenter
-						text: "󰞷"
-						font.family: Theme.fontFamily
-						font.pixelSize: 20
+						name: "terminal"
+						size: 20
 						color: Theme.accentPurple
 					}
 

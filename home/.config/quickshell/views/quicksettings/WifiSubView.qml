@@ -77,11 +77,11 @@ Item {
 
 	function getSignalIcon(strength) {
 		var s = strength > 1.0 ? strength : strength * 100;
-		if (s >= 75) return "󰤨";
-		if (s >= 50) return "󰤥";
-		if (s >= 25) return "󰤢";
-		if (s > 0) return "󰤟";
-		return "󰤯";
+		if (s >= 75) return "wifi";
+		if (s >= 50) return "wifi-high";
+		if (s >= 25) return "wifi-low";
+		if (s > 0) return "wifi-zero";
+		return "wifi-off";
 	}
 
 	function isSecured(sec) {
@@ -406,7 +406,7 @@ Item {
 
 		SubViewOffPlaceholder {
 			visible: !root.wifiEnabled
-			icon: "󰖪"
+			icon: "wifi-off"
 			title: "Wi-Fi is turned off"
 			subtitle: "Turn on Wi-Fi to scan and connect to networks"
 			buttonText: "Turn On Wi-Fi"
@@ -435,12 +435,10 @@ Item {
 						root.selectItem(index);
 					}
 
-					Text {
+					LineIcon {
 						Layout.preferredWidth: 24
-						horizontalAlignment: Text.AlignHCenter
-						text: root.getSignalIcon(modelData.signalStrength)
-						font.family: Theme.fontFamily
-						font.pixelSize: 20
+						name: root.getSignalIcon(modelData.signalStrength)
+						size: 20
 						color: isConnected ? Theme.accentBlue : (modelData.signalStrength >= 50 ? Theme.textMain : Theme.textDim)
 					}
 
@@ -462,11 +460,10 @@ Item {
 								elide: Text.ElideRight
 							}
 
-							Text {
+							LineIcon {
 								visible: root.isSecured(modelData.security)
-								text: "󰌾"
-								font.family: Theme.fontFamily
-								font.pixelSize: 13
+								name: "lock"
+								size: 13
 								color: Theme.textDim
 							}
 						}
@@ -579,11 +576,10 @@ Item {
 							radius: Theme.roundingSubtle
 							color: eyeArea.containsMouse ? Theme.bgHover : "transparent"
 
-							Text {
+							LineIcon {
 								anchors.centerIn: parent
-								text: root.showPassword ? "󰈉" : "󰈈"
-								font.family: Theme.fontFamily
-								font.pixelSize: 16
+								name: root.showPassword ? "eye-off" : "eye"
+								size: 16
 								color: eyeArea.containsMouse ? Theme.textMain : Theme.textDim
 							}
 

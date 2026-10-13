@@ -26,16 +26,11 @@ Rectangle {
 	Behavior on color { ColorAnimation { duration: 120 } }
 	Behavior on border.color { ColorAnimation { duration: 120 } }
 
-	Text {
+	LineIcon {
 		anchors.centerIn: parent
-		anchors.horizontalCenterOffset: 1
-		anchors.verticalCenterOffset: 1
-		text: "󰅖"
-		font.family: Theme.fontFamily
-		font.pixelSize: root.iconSize
+		name: "x"
+		size: root.iconSize
 		color: mouseArea.containsMouse ? root.hoverTextColor : root.idleTextColor
-
-		Behavior on color { ColorAnimation { duration: 120 } }
 	}
 
 	MouseArea {

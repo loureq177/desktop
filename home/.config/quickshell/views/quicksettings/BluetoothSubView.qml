@@ -73,18 +73,18 @@ Item {
 		var iconName = (d.icon || "").toLowerCase();
 		var name = (d.name || d.deviceName || "").toLowerCase();
 		if (iconName.indexOf("head") !== -1 || name.indexOf("airpods") !== -1 || name.indexOf("px8") !== -1 || name.indexOf("headphone") !== -1 || name.indexOf("buds") !== -1)
-			return "󰋋";
+			return "headphones";
 		if (iconName.indexOf("audio") !== -1 || name.indexOf("charge") !== -1 || name.indexOf("speaker") !== -1 || name.indexOf("sound") !== -1 || name.indexOf("jbl") !== -1)
-			return "󰓃";
+			return "speaker";
 		if (iconName.indexOf("mouse") !== -1 || name.indexOf("mouse") !== -1)
-			return "󰍽";
+			return "mouse";
 		if (iconName.indexOf("keyboard") !== -1 || name.indexOf("keyboard") !== -1)
-			return "󰌌";
+			return "keyboard";
 		if (iconName.indexOf("phone") !== -1 || name.indexOf("phone") !== -1)
-			return "󰏲";
+			return "smartphone";
 		if (iconName.indexOf("gamepad") !== -1 || name.indexOf("controller") !== -1)
-			return "󰊴";
-		return "󰂯";
+			return "gamepad-2";
+		return "bluetooth";
 	}
 
 	function refreshDevices(): void {
@@ -405,7 +405,7 @@ Item {
 
 		SubViewOffPlaceholder {
 			visible: !root.btEnabled
-			icon: "󰂲"
+			icon: "bluetooth-off"
 			title: "Bluetooth is turned off"
 			subtitle: "Turn on Bluetooth to scan and connect to devices"
 			buttonText: "Turn On Bluetooth"
@@ -434,12 +434,10 @@ Item {
 						root.selectItem(index);
 					}
 
-					Text {
+					LineIcon {
 						Layout.preferredWidth: 24
-						horizontalAlignment: Text.AlignHCenter
-						text: modelData.icon
-						font.family: Theme.fontFamily
-						font.pixelSize: 20
+						name: modelData.icon
+						size: 20
 						color: isConnected ? Theme.accentBlue : (modelData.paired ? Theme.textMain : Theme.textDim)
 					}
 
@@ -472,12 +470,35 @@ Item {
 								color: isTarget ? Theme.warning : (isConnected ? Theme.accentBlue : Theme.textDim)
 							}
 
-							Text {
+							Row {
+								id: deviceBattery
+								readonly property color tint: modelData.battery <= 0.20 ? Theme.critical : (modelData.battery <= 0.40 ? Theme.warning : Theme.accentGreen)
+
 								visible: modelData.batteryAvailable && modelData.battery >= 0
-								text: "·  󰥉 " + Math.round(modelData.battery * 100) + "%"
-								font.family: Theme.fontMono
-								font.pixelSize: Theme.fontSizeSmall - 2
-								color: modelData.battery <= 0.20 ? Theme.critical : (modelData.battery <= 0.40 ? Theme.warning : Theme.accentGreen)
+								spacing: 4
+
+								Text {
+									anchors.verticalCenter: parent.verticalCenter
+									text: "·"
+									font.family: Theme.fontMono
+									font.pixelSize: Theme.fontSizeSmall - 2
+									color: deviceBattery.tint
+								}
+
+								LineIcon {
+									anchors.verticalCenter: parent.verticalCenter
+									name: "battery-medium"
+									size: Theme.fontSizeSmall
+									color: deviceBattery.tint
+								}
+
+								Text {
+									anchors.verticalCenter: parent.verticalCenter
+									text: Math.round(modelData.battery * 100) + "%"
+									font.family: Theme.fontMono
+									font.pixelSize: Theme.fontSizeSmall - 2
+									color: deviceBattery.tint
+								}
 							}
 						}
 					}

@@ -144,6 +144,8 @@ SideDrawer {
 					implicitHeight: 28
 					radius: Theme.roundingElement
 					color: clearArea.containsMouse ? Theme.bgHover : "transparent"
+					border.color: clearArea.containsMouse ? Theme.tileBorderHover : Theme.tileBorder
+					border.width: 1
 
 					Behavior on color { ColorAnimation { duration: 120 } }
 
@@ -152,10 +154,9 @@ SideDrawer {
 						anchors.centerIn: parent
 						spacing: 5
 
-						Text {
-							text: "󰎟"
-							font.family: Theme.fontFamily
-							font.pixelSize: 14
+						LineIcon {
+							name: "list-x"
+							size: 14
 							color: clearArea.containsMouse ? Theme.textMain : Theme.textDim
 						}
 
@@ -311,11 +312,10 @@ SideDrawer {
 					anchors.centerIn: parent
 					spacing: 10
 
-					Text {
+					LineIcon {
 						Layout.alignment: Qt.AlignHCenter
-						text: "󰂜"
-						font.family: Theme.fontFamily
-						font.pixelSize: 44
+						name: "bell"
+						size: 44
 						color: Theme.textMuted
 					}
 

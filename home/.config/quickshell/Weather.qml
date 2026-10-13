@@ -26,7 +26,7 @@ Singleton {
 
 	FileView {
 		id: locationFile
-		path: Quickshell.env("HOME") + "/.local/state/weather/weather.json"
+		path: (Quickshell.env("XDG_STATE_HOME") || Quickshell.env("HOME") + "/.local/state") + "/weather/weather.json"
 		watchChanges: true
 		printErrors: false
 		onFileChanged: reload()

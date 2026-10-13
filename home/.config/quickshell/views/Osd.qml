@@ -1,4 +1,5 @@
 import ".."
+import "../widgets"
 import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Io
@@ -13,9 +14,9 @@ PanelWindow {
 	property bool muted: false
 	property bool shown: false
 
-	readonly property string icon: kind === "brightness" ? "󰃟"
-		: kind === "mic" ? (muted ? "󰍭" : "󰍬")
-		: (muted ? "󰝟" : value <= 1 ? "󰕿" : value <= 50 ? "󰖀" : "󰕾")
+	readonly property string icon: kind === "brightness" ? "sun"
+		: kind === "mic" ? (muted ? "mic-off" : "mic")
+		: (muted ? "volume-x" : value <= 1 ? "volume" : value <= 50 ? "volume-1" : "volume-2")
 
 	function show(newKind, newValue, newMuted) {
 		if ((newKind === "volume" || newKind === "brightness") && QuickSettings.panelOpen)
@@ -107,13 +108,11 @@ PanelWindow {
 			anchors.margins: 14
 			spacing: Theme.paddingItem
 
-			Text {
+			LineIcon {
 				width: 36
 				anchors.verticalCenter: parent.verticalCenter
-				horizontalAlignment: Text.AlignHCenter
-				text: win.icon
-				font.family: Theme.fontFamily
-				font.pixelSize: 26
+				name: win.icon
+				size: 26
 				color: win.muted ? Theme.textDim : Theme.accentBlue
 			}
 

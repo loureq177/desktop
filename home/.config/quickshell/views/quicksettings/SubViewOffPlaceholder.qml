@@ -1,4 +1,5 @@
 import "../.."
+import "../../widgets"
 import QtQuick
 import QtQuick.Layouts
 
@@ -20,11 +21,10 @@ Item {
 		anchors.centerIn: parent
 		spacing: 12
 
-		Text {
+		LineIcon {
 			Layout.alignment: Qt.AlignHCenter
-			text: root.icon
-			font.family: Theme.fontFamily
-			font.pixelSize: 48
+			name: root.icon
+			size: 48
 			color: Theme.textMuted
 		}
 

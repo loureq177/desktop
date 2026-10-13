@@ -20,7 +20,7 @@ Item {
 			id: "screenshot",
 			title: "Screenshot",
 			desc: "Interactive window or region capture",
-			icon: "󰄀",
+			icon: "camera",
 			isRecording: false,
 			cmd: "sleep 0.15 && ~/.local/bin/screenshot region"
 		},
@@ -28,7 +28,7 @@ Item {
 			id: "record",
 			title: "Screen Record",
 			desc: SystemStatus.recording ? "Recording active • Click to stop" : "Record an area, optionally with microphone and camera",
-			icon: SystemStatus.recording ? "󰻃" : "󰕧",
+			icon: SystemStatus.recording ? "circle-stop" : "video",
 			isRecording: SystemStatus.recording,
 			cmd: "~/.local/bin/record-screen toggle"
 		},
@@ -36,7 +36,7 @@ Item {
 			id: "colorpicker",
 			title: "Color Picker",
 			desc: "Pick screen color & copy HEX to clipboard",
-			icon: "󰈊",
+			icon: "pipette",
 			isRecording: false,
 			cmd: "sleep 0.15 && hyprpicker -a --notify"
 		},
@@ -44,7 +44,7 @@ Item {
 			id: "ocr",
 			title: "Text OCR",
 			desc: "Select area & copy extracted text to clipboard",
-			icon: "󰚢",
+			icon: "scan-text",
 			isRecording: false,
 			cmd: "sleep 0.15 && ~/.local/bin/ocr"
 		},
@@ -52,7 +52,7 @@ Item {
 			id: "dictation",
 			title: "Voice Dictation",
 			desc: "Transcribe voice into focused application",
-			icon: "󰍬",
+			icon: "mic",
 			isRecording: false,
 			cmd: "~/.local/bin/dictation"
 		}
@@ -133,10 +133,13 @@ Item {
 				color: modelData.isRecording
 					? Theme.alpha(Theme.critical, 0.18)
 					: (rowHover.containsMouse ? Theme.bgHover : Theme.inset(Theme.bgMain))
-				border.color: Theme.critical
-				border.width: modelData.isRecording ? 1 : 0
+				border.color: modelData.isRecording
+					? Theme.critical
+					: (rowHover.containsMouse ? Theme.tileBorderHover : Theme.tileBorder)
+				border.width: 1
 
 				Behavior on color { ColorAnimation { duration: 120 } }
+				Behavior on border.color { ColorAnimation { duration: 120 } }
 
 				SelectionHighlight {
 					selected: actionRow.isSelected
@@ -164,13 +167,11 @@ Item {
 					spacing: 12
 					z: 2
 
-					Text {
-						text: modelData.icon
-						font.family: Theme.fontFamily
-						font.pixelSize: 22
+					LineIcon {
+						name: modelData.icon
+						size: 22
 						color: modelData.isRecording ? Theme.critical : (modelData.id === "dictation" ? Theme.accentGreen : Theme.accentBlue)
 						Layout.preferredWidth: 32
-						horizontalAlignment: Text.AlignHCenter
 					}
 
 					ColumnLayout {

@@ -66,51 +66,51 @@ function dayName(dateString, formatter) {
   return ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][d.getDay()];
 }
 
+// Name of the line icon (widgets/LineIcons.js) for a WMO weather code.
 function iconForWmoCode(code, isDay) {
   var c = parseInt(String(code || "0"), 10);
   var day = (isDay === true || isDay === 1 || isDay === "1");
 
   switch (c) {
     case 0:
-      return day ? "" : "";
+      return day ? "sun" : "moon";
     case 1:
     case 2:
-      return day ? "" : "";
+      return day ? "cloud-sun" : "cloud-moon";
     case 3:
-      return "";
+      return "cloud";
     case 45:
     case 48:
-      return day ? "" : "";
+      return "cloud-fog";
     case 51:
     case 53:
     case 55:
-    case 61:
-    case 63:
-    case 65:
-      return "";
+      return "cloud-drizzle";
     case 56:
     case 57:
     case 66:
     case 67:
-      return "";
+      return "cloud-hail";
+    case 61:
+    case 63:
+    case 65:
+    case 80:
+    case 81:
+    case 82:
+      return "cloud-rain";
     case 71:
     case 73:
     case 75:
     case 77:
-      return "";
-    case 80:
-    case 81:
-    case 82:
-      return day ? "" : "";
     case 85:
     case 86:
-      return day ? "" : "";
+      return "cloud-snow";
     case 95:
     case 96:
     case 99:
-      return "";
+      return "cloud-lightning";
     default:
-      return day ? "" : "";
+      return day ? "sun" : "moon";
   }
 }
 

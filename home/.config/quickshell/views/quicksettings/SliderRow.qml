@@ -47,14 +47,14 @@ Rectangle {
 			Layout.preferredHeight: 40
 			radius: Theme.roundingSubtle
 			color: iconArea.containsMouse ? Theme.bgHover : "transparent"
+			border.color: iconArea.containsMouse ? Theme.tileBorderHover : Theme.tileBorder
+			border.width: 1
 			opacity: row.ready ? 1.0 : 0.4
 
-			Text {
+			LineIcon {
 				anchors.centerIn: parent
-				text: row.icon
-				font.family: Theme.fontFamily
-				font.pixelSize: 22
-				font.bold: true
+				name: row.icon
+				size: 22
 				color: row.muted ? Theme.textDim : Theme.accentBlue
 			}
 

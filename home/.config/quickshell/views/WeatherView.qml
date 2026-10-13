@@ -99,13 +99,12 @@ SlideOverlay {
 					anchors.verticalCenter: parent.verticalCenter
 					spacing: 14
 
-					Text {
+					LineIcon {
 						id: heroIcon
 						anchors.verticalCenter: parent.verticalCenter
-						text: Weather.label || "—"
+						name: Weather.label
 						color: Theme.textMain
-						font.family: Theme.fontFamily
-						font.pixelSize: 58
+						size: 58
 					}
 
 					Column {
@@ -173,11 +172,10 @@ SlideOverlay {
 							id: locRow
 							spacing: 6
 
-							Text {
-								text: ""
+							LineIcon {
+								name: "map-pin"
 								color: Theme.accentBlue
-								font.family: Theme.fontFamily
-								font.pixelSize: Theme.fontSizeSmall
+								size: Theme.fontSizeSmall
 								anchors.verticalCenter: parent.verticalCenter
 							}
 
@@ -191,11 +189,10 @@ SlideOverlay {
 								anchors.verticalCenter: parent.verticalCenter
 							}
 
-							Text {
-								text: "󰏫"
+							LineIcon {
+								name: "pencil"
 								color: locationArea.containsMouse ? Theme.accentBlue : Theme.textMuted
-								font.family: Theme.fontFamily
-								font.pixelSize: 12
+								size: 12
 								anchors.verticalCenter: parent.verticalCenter
 							}
 
@@ -290,12 +287,11 @@ SlideOverlay {
 							border.width: 1
 							radius: Theme.roundingElement
 
-							Text {
+							LineIcon {
 								anchors.centerIn: parent
-								text: Weather.savingLocation ? "󰦖" : "✕"
-								font.family: Theme.fontFamily
+								name: Weather.savingLocation ? "loader-circle" : "x"
 								color: Theme.textDim
-								font.pixelSize: Theme.fontSizeSmall
+								size: Theme.fontSizeSmall
 
 								RotationAnimator on rotation {
 									running: Weather.savingLocation
@@ -635,12 +631,11 @@ SlideOverlay {
 									color: index === 0 ? Theme.accentBlue : Theme.textDim
 								}
 
-								Text {
+								LineIcon {
 									anchors.horizontalCenter: parent.horizontalCenter
 									y: 21
-									text: modelData.icon
-									font.family: Theme.fontFamily
-									font.pixelSize: 19
+									name: modelData.icon
+									size: 19
 									color: Theme.textMain
 								}
 
@@ -678,10 +673,9 @@ SlideOverlay {
 									y: 138
 									spacing: 2
 
-									Text {
-										text: "󰖗"
-										font.family: Theme.fontFamily
-										font.pixelSize: 11
+									LineIcon {
+										name: "droplet"
+										size: 11
 										color: Theme.accentBlue
 										anchors.verticalCenter: parent.verticalCenter
 									}
@@ -723,12 +717,11 @@ SlideOverlay {
 							required property int index
 							spacing: 10
 
-							Text {
+							LineIcon {
 								anchors.verticalCenter: parent.verticalCenter
-								text: Weather.dayIcon(modelData)
+								name: Weather.dayIcon(modelData)
 								color: Theme.accentBlue
-								font.family: Theme.fontFamily
-								font.pixelSize: 30
+								size: 30
 							}
 
 							Column {

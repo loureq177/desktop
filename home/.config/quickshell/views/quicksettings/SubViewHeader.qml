@@ -26,12 +26,13 @@ RowLayout {
 		Layout.preferredHeight: 32
 		radius: Theme.roundingSubtle
 		color: backArea.containsMouse ? Theme.bgHover : "transparent"
+		border.color: backArea.containsMouse ? Theme.tileBorderHover : Theme.tileBorder
+		border.width: 1
 
-		Text {
+		LineIcon {
 			anchors.centerIn: parent
-			text: "󰁍"
-			font.family: Theme.fontFamily
-			font.pixelSize: 18
+			name: "arrow-left"
+			size: 18
 			color: backArea.containsMouse ? Theme.textMain : Theme.textDim
 		}
 
@@ -73,14 +74,15 @@ RowLayout {
 		Layout.preferredHeight: 32
 		radius: Theme.roundingSubtle
 		color: scanArea.containsMouse ? Theme.bgHover : "transparent"
+		border.color: scanArea.containsMouse ? Theme.tileBorderHover : Theme.tileBorder
+		border.width: 1
 		visible: root.showScan && root.enabledState
 
-		Text {
+		LineIcon {
 			id: scanIcon
 			anchors.centerIn: parent
-			text: "󰑐"
-			font.family: Theme.fontFamily
-			font.pixelSize: 16
+			name: "refresh-cw"
+			size: 16
 			color: root.isScanning ? Theme.accentBlue : (scanArea.containsMouse ? Theme.textMain : Theme.textDim)
 
 			RotationAnimation on rotation {

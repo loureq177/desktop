@@ -132,13 +132,11 @@ Item {
 				anchors.verticalCenter: parent.verticalCenter
 				spacing: 6
 
-				Text {
+				LineIcon {
 					anchors.verticalCenter: parent.verticalCenter
-					text: "󰌾"
+					name: "lock"
 					color: Theme.textMain
-					font.family: Theme.fontFamily
-					font.pixelSize: Theme.fontSizeBarIcon
-					font.bold: true
+					size: Theme.fontSizeBarIcon
 				}
 
 				Text {
@@ -156,16 +154,14 @@ Item {
 				anchors.verticalCenter: parent.verticalCenter
 				spacing: 20
 
-				Text {
+				LineIcon {
 					readonly property bool wifiUp: SystemStatus.wifiDevice?.connected ?? false
 					readonly property bool wiredUp: SystemStatus.wiredDevice?.connected ?? false
 
 					anchors.verticalCenter: parent.verticalCenter
-					text: wifiUp ? "󰖩" : (wiredUp ? "󰈀" : "󰖪")
+					name: wifiUp ? "wifi" : (wiredUp ? "ethernet-port" : "wifi-off")
 					color: wifiUp || wiredUp ? Theme.accentBlue : Theme.textDim
-					font.family: Theme.fontFamily
-					font.pixelSize: Theme.fontSizeBarIcon
-					font.bold: true
+					size: Theme.fontSizeBarIcon
 				}
 
 				Text {
@@ -195,13 +191,11 @@ Item {
 					spacing: 6
 					visible: Notifications.dnd || count > 0
 
-					Text {
+					LineIcon {
 						anchors.verticalCenter: parent.verticalCenter
-						text: Notifications.dnd ? "󰂛" : "󰂚"
+						name: Notifications.dnd ? "bell-off" : "bell"
 						color: Notifications.dnd ? Theme.warning : Theme.accentBlue
-						font.family: Theme.fontFamily
-						font.pixelSize: Theme.fontSizeBarIcon
-						font.bold: true
+						size: Theme.fontSizeBarIcon
 					}
 
 					Text {

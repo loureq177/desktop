@@ -1,6 +1,5 @@
 import ".."
 import "../widgets"
-import "../widgets/LineIcons.js" as LineIcons
 import Quickshell
 import Quickshell.Bluetooth
 import Quickshell.Hyprland
@@ -63,9 +62,6 @@ PanelWindow {
 		.sort()
 		.join("\n")
 	readonly property var specials: specialsKey !== "" ? specialsKey.split("\n") : []
-	// Folded away behind the memory readout until one is on screen or the pointer asks.
-	property bool specialsHovered: false
-	readonly property bool specialsExpanded: visibleSpecial !== "" || specialsHovered
 
 	// Line icon per special workspace name (see programs.special in hyprland.lua).
 	readonly property var specialIcons: ({
@@ -118,18 +114,6 @@ PanelWindow {
 			if (parts.pop() === bar.screenName)
 				bar.specialEvent = parts.join(",");
 		}
-	}
-
-	Timer {
-		id: expandTimer
-		interval: 120
-		onTriggered: bar.specialsHovered = true
-	}
-
-	Timer {
-		id: collapseTimer
-		interval: 300
-		onTriggered: bar.specialsHovered = false
 	}
 
 	Timer {
@@ -450,23 +434,11 @@ PanelWindow {
 				implicitHeight: Theme.barHeight
 				implicitWidth: specialsRow.width
 
-				HoverHandler {
-					onHoveredChanged: {
-						if (hovered) {
-							collapseTimer.stop();
-							expandTimer.restart();
-						} else {
-							expandTimer.stop();
-							collapseTimer.restart();
-						}
-					}
-				}
-
 				Row {
 					id: specialsRow
 					height: parent.height
 
-					// Memory doubles as the btop special, so the group needs no marker of its own.
+					// Memory doubles as the btop special; the other open specials follow it.
 					Pill {
 						visible: SystemStatus.memPercent !== ""
 						icon: "memory-stick"
@@ -499,16 +471,7 @@ PanelWindow {
 							onTipChanged: bar.updateTooltip(sp, tip)
 
 							height: Theme.barHeight
-							width: bar.specialsExpanded ? 30 : 0
-							opacity: bar.specialsExpanded ? 1 : 0
-							clip: true
-
-							Behavior on width {
-								NumberAnimation { duration: Theme.animNormal; easing.type: Easing.OutCubic }
-							}
-							Behavior on opacity {
-								NumberAnimation { duration: Theme.animFast }
-							}
+							width: 30
 
 							Rectangle {
 								anchors.fill: parent
@@ -599,7 +562,7 @@ PanelWindow {
 			Pill {
 				id: weatherPill
 				visible: Weather.label !== ""
-				icon: LineIcons.weather(Weather.current?.weatherCode, Weather.current?.isDay ?? true)
+				icon: Weather.label
 				value: Weather.tempNum !== "" ? (Weather.tempNum + "°") : ""
 				textColor: Theme.textMain
 				isActive: Weather.panelOpen

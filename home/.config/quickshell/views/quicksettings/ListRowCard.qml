@@ -21,8 +21,13 @@ Rectangle {
 		? Theme.bgHover
 		: (isConnected ? Theme.alpha(Theme.accent, 0.08) : Theme.inset(Theme.bgMain))
 
+	border.color: isConnected
+		? Theme.selectionBorder
+		: (area.containsMouse ? Theme.tileBorderHover : Theme.tileBorder)
+	border.width: 1
 
 	Behavior on color { ColorAnimation { duration: 100 } }
+	Behavior on border.color { ColorAnimation { duration: 100 } }
 
 	SelectionHighlight {
 		selected: card.isSelected

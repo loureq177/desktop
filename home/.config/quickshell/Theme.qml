@@ -72,7 +72,12 @@ Singleton {
 		return Qt.rgba(q.r, q.g, q.b, a);
 	}
 	readonly property color selectionBg: Qt.rgba(accent.r, accent.g, accent.b, 0.2)
-	readonly property color selectionBorder: Qt.rgba(accent.r, accent.g, accent.b, 0.45)
+	readonly property color selectionBorder: Qt.rgba(accent.r, accent.g, accent.b, 0.32)
+
+	// Hairlines around tiles, rows and buttons: a tint of the text colour, so
+	// they sit on frosted glass and on solid panels alike.
+	readonly property color tileBorder: alpha(textMain, 0.08)
+	readonly property color tileBorderHover: alpha(textMain, 0.18)
 
 	// Panels turn to frosted glass exactly when ghostty does (power-save's
 	// ghostty_perf); Hyprland blurs whatever lies underneath them. Tiles are

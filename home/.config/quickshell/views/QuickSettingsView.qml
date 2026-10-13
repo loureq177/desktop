@@ -132,7 +132,7 @@ SideDrawer {
 	property bool volReady: false
 	property int volMax: 100
 	property real volShown: 20
-	readonly property string volIcon: win.volMuted ? "󰝟" : (win.volPct <= 1 ? "󰕿" : (win.volPct <= 50 ? "󰖀" : "󰕾"))
+	readonly property string volIcon: win.volMuted ? "volume-x" : (win.volPct <= 1 ? "volume" : (win.volPct <= 50 ? "volume-1" : "volume-2"))
 
 	function refreshVolume(): void {
 		if (!volQuery.running)
@@ -347,7 +347,13 @@ SideDrawer {
 			? Theme.alpha(stile.activeColor, stile.bodyHovered ? 0.26 : 0.18)
 			: (stile.bodyHovered ? Theme.bgHover : Theme.inset(Theme.bgMain)))
 
+		border.color: stile.active
+			? Theme.alpha(stile.activeColor, stile.bodyHovered ? 0.5 : 0.3)
+			: (stile.bodyHovered ? Theme.tileBorderHover : Theme.tileBorder)
+		border.width: 1
+
 		Behavior on color { ColorAnimation { duration: 120 } }
+		Behavior on border.color { ColorAnimation { duration: 120 } }
 
 		SelectionHighlight {
 			selected: stile.isSelected
@@ -396,12 +402,10 @@ SideDrawer {
 				Behavior on color { ColorAnimation { duration: 140 } }
 				Behavior on border.color { ColorAnimation { duration: 120 } }
 
-				Text {
+				LineIcon {
 					anchors.centerIn: parent
-					text: stile.icon
-					font.family: Theme.fontFamily
-					font.pixelSize: 22
-					font.bold: true
+					name: stile.icon
+					size: 22
 					color: (stile.hasDetails && stile.hasToggleBadge)
 						? (stile.active ? Theme.bgMain : (stile.badgeHovered ? Theme.textMain : Theme.textDim))
 						: (stile.active ? stile.activeColor : (stile.bodyHovered ? Theme.textMain : Theme.textDim))
@@ -613,7 +617,7 @@ SideDrawer {
 			id: briRow
 			visible: win.brightnessReady
 			current: win.isCurrent(win.rowBrightness)
-			icon: "󰃟"
+			icon: "sun"
 			label: win.brightnessReady ? win.brightness + "%" : "…"
 			ready: win.brightnessReady
 			value: win.brightness
@@ -639,7 +643,7 @@ SideDrawer {
 				itemRow: win.rowWifiBt
 				itemCol: 0
 				hotkey: "W"
-				icon: win.wifiUp ? "󰖩" : "󰖪"
+				icon: win.wifiUp ? "wifi" : "wifi-off"
 				title: "Wi-Fi"
 				subtitle: win.wifiSubtitle
 				active: Networking.wifiEnabled
@@ -652,7 +656,7 @@ SideDrawer {
 				itemRow: win.rowWifiBt
 				itemCol: 1
 				hotkey: "B"
-				icon: !win.btEnabled ? "󰂲" : (win.btConnected > 0 ? "󰂱" : "󰂯")
+				icon: !win.btEnabled ? "bluetooth-off" : (win.btConnected > 0 ? "bluetooth-connected" : "bluetooth")
 				title: "Bluetooth"
 				subtitle: win.btSubtitle
 				active: win.btEnabled
@@ -665,7 +669,7 @@ SideDrawer {
 				itemRow: win.rowBatteryCapture
 				itemCol: 0
 				hotkey: "S"
-				icon: "󰌪"
+				icon: "leaf"
 				title: "Battery saver"
 				subtitle: SystemStatus.powerSaveActive ? "60 Hz" : ""
 				active: SystemStatus.powerSaveActive
@@ -679,7 +683,7 @@ SideDrawer {
 				itemRow: win.rowBatteryCapture
 				itemCol: 1
 				hotkey: "C"
-				icon: SystemStatus.recording ? "󰻃" : "󰹑"
+				icon: SystemStatus.recording ? "circle-stop" : "camera"
 				title: "Capture"
 				subtitle: SystemStatus.recording ? "Recording" : ""
 				active: SystemStatus.recording
@@ -694,7 +698,7 @@ SideDrawer {
 				itemRow: win.rowStayAwakeDnd
 				itemCol: 0
 				hotkey: "A"
-				icon: "󰖦"
+				icon: "coffee"
 				title: "Awake"
 				subtitle: ""
 				active: SystemStatus.awakeActive
@@ -707,7 +711,7 @@ SideDrawer {
 				itemRow: win.rowStayAwakeDnd
 				itemCol: 1
 				hotkey: "D"
-				icon: Notifications.dnd ? "󰂛" : "󰂜"
+				icon: Notifications.dnd ? "bell-off" : "bell"
 				title: "Do not disturb"
 				subtitle: ""
 				active: Notifications.dnd

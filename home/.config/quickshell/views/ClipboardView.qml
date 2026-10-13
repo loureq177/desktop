@@ -235,6 +235,8 @@ CenterModal {
 				height: 52
 				clip: true
 				color: row.index === win.currentIndex ? Theme.selectionBg : "transparent"
+				border.color: row.index === win.currentIndex ? Theme.selectionBorder : "transparent"
+				border.width: 1
 				radius: Theme.roundingElement
 
 				property bool thumbReady: false
@@ -284,12 +286,11 @@ CenterModal {
 						}
 					}
 
-					Text {
+					LineIcon {
 						visible: !row.isImage
 						Layout.alignment: Qt.AlignVCenter
-						text: "󰅌"
-						font.family: Theme.fontFamily
-						font.pixelSize: 14
+						name: "clipboard"
+						size: 14
 						color: row.index === win.currentIndex ? Theme.accentBlue : Theme.textDim
 					}
 

@@ -1,4 +1,5 @@
 import "../.."
+import "../../widgets"
 import QtQuick
 import QtQuick.Layouts
 
@@ -20,6 +21,8 @@ RowLayout {
 		implicitHeight: 26
 		radius: Theme.roundingSubtle
 		color: disArea.containsMouse ? Theme.bgCard : "transparent"
+		border.color: disArea.containsMouse ? Theme.tileBorderHover : Theme.tileBorder
+		border.width: 1
 
 		Text {
 			id: disLabel
@@ -51,11 +54,10 @@ RowLayout {
 		border.color: fArea.containsMouse ? Theme.critical : "transparent"
 		border.width: 1
 
-		Text {
+		LineIcon {
 			anchors.centerIn: parent
-			text: "󰆴"
-			font.family: Theme.fontFamily
-			font.pixelSize: 14
+			name: "trash"
+			size: 14
 			color: fArea.containsMouse ? Theme.critical : Theme.textDim
 		}
 

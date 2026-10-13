@@ -142,17 +142,15 @@ Rectangle {
 			spacing: 12
 			Layout.alignment: Qt.AlignVCenter
 
-			Text {
-				text: "󰐥"
-				font.family: Theme.fontFamily
-				font.pixelSize: 15
+			LineIcon {
+				name: "power"
+				size: 15
 				color: Theme.textMuted
 			}
 
-			Text {
-				text: "󰪚"
-				font.family: Theme.fontFamily
-				font.pixelSize: 15
+			LineIcon {
+				name: "calculator"
+				size: 15
 				color: Theme.textMuted
 			}
 

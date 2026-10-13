@@ -64,24 +64,24 @@ Item {
 	readonly property string fallbackGlyph: {
 		var combo = ((root.appName || "") + " " + root.iconCandidate).toLowerCase();
 		if (combo.includes("arch") || combo.includes("pacman") || combo.includes("paru") || combo.includes("update"))
-			return "󰣇";
+			return "package";
 		if (combo.includes("reboot") || combo.includes("restart"))
-			return "󰜉";
+			return "rotate-cw";
 		if (combo.includes("warn") || combo.includes("alert"))
-			return "󰀪";
+			return "triangle-alert";
 		if (combo.includes("error") || combo.includes("fail"))
-			return "󰅚";
+			return "circle-x";
 		if (combo.includes("audio") || combo.includes("music") || combo.includes("spotify") || combo.includes("player"))
-			return "󰝚";
+			return "music";
 		if (combo.includes("chat") || combo.includes("message") || combo.includes("discord") || combo.includes("telegram"))
-			return "󰭹";
+			return "message-square";
 		if (combo.includes("mail"))
-			return "󰇮";
+			return "mail";
 		if (combo.includes("cal"))
-			return "󰃭";
+			return "calendar";
 		if (combo.includes("code") || combo.includes("nvim") || combo.includes("vim"))
-			return "󰨞";
-		return "󰂚";
+			return "code";
+		return "bell";
 	}
 
 	Rectangle {
@@ -120,11 +120,10 @@ Item {
 		border.color: Theme.border
 		border.width: 1
 
-		Text {
+		LineIcon {
 			anchors.centerIn: parent
-			text: root.fallbackGlyph
-			font.family: Theme.fontFamily
-			font.pixelSize: Math.round(Math.min(parent.width, parent.height) * 0.48)
+			name: root.fallbackGlyph
+			size: Math.round(Math.min(parent.width, parent.height) * 0.48)
 			color: Theme.accentBlue
 		}
 	}
