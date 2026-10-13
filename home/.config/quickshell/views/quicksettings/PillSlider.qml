@@ -32,8 +32,6 @@ Item {
 		height: pill.pressed ? 22 : 20
 		radius: Theme.roundingElement
 		color: Theme.bgHover
-		border.color: slideArea.containsMouse || pill.pressed ? Theme.textDim : Theme.border
-		border.width: 1
 		clip: true
 
 		Behavior on height {

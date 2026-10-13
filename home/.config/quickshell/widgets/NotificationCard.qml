@@ -24,9 +24,9 @@ Rectangle {
 
 	width: parent ? parent.width : Theme.notifWidth
 	implicitHeight: Math.max(bodyCol.implicitHeight + Theme.notifPadV * 2, notifPic.size + Theme.notifPadV * 2)
-	color: hoverArea.containsMouse ? Theme.bgHover : (isToast ? Theme.bgCard : Theme.bgMain)
-	border.color: critical ? Theme.critical : (isSelected ? Theme.selectionBorder : (hoverArea.containsMouse ? Theme.textDim : Theme.border))
-	border.width: isToast ? Theme.borderSize : 1
+	color: hoverArea.containsMouse ? Theme.bgHover : (isToast ? Theme.panel(Theme.bgCard) : Theme.inset(Theme.bgMain))
+	border.color: critical ? Theme.critical : Theme.border
+	border.width: isToast ? Theme.borderSize : (critical ? 1 : 0)
 	radius: Theme.roundingElement
 	clip: true
 

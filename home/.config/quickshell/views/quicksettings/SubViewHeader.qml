@@ -26,8 +26,6 @@ RowLayout {
 		Layout.preferredHeight: 32
 		radius: Theme.roundingSubtle
 		color: backArea.containsMouse ? Theme.bgHover : "transparent"
-		border.color: backArea.containsMouse ? Theme.textDim : Theme.border
-		border.width: 1
 
 		Text {
 			anchors.centerIn: parent
@@ -75,8 +73,6 @@ RowLayout {
 		Layout.preferredHeight: 32
 		radius: Theme.roundingSubtle
 		color: scanArea.containsMouse ? Theme.bgHover : "transparent"
-		border.color: scanArea.containsMouse ? Theme.textDim : Theme.border
-		border.width: 1
 		visible: root.showScan && root.enabledState
 
 		Text {

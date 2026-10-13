@@ -21,6 +21,9 @@ Singleton {
 
 	readonly property bool awakeActive: awakeMarker.loaded
 	readonly property bool powerSaveActive: powerSaveMarker.loaded
+	// Translucency costs GPU time: AC power only, and never in power-save,
+	// which also turns Hyprland's blur off (see ghostty_candy in power-save).
+	readonly property bool glass: !UPower.onBattery && !powerSaveActive
 	readonly property bool dictatingActive: dictating || dictationState !== "idle" || dictationMarker.loaded
 
 	readonly property var batteryDevice: UPower.devices.values.find(d => d.isLaptopBattery && d.isPresent) ?? null

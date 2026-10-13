@@ -9,6 +9,7 @@ Singleton {
 	property bool panelOpen: false
 	property string subView: "main"
 	property bool instantHide: false
+	property bool handoff: false
 
 	onPanelOpenChanged: {
 		if (root.panelOpen)
@@ -29,8 +30,9 @@ Singleton {
 	}
 
 	function open(view): void {
-		Notifications.closeCenter();
+		Notifications.handOffCenter();
 		root.instantHide = false;
+		root.handoff = false;
 		root.subView = (view && view !== "") ? view : "main";
 		root.panelOpen = true;
 	}
@@ -49,6 +51,14 @@ Singleton {
 
 	function close(): void {
 		root.instantHide = false;
+		root.handoff = false;
+		root.panelOpen = false;
+	}
+
+	// The notification center opens in this panel's place.
+	function handOff(): void {
+		root.instantHide = false;
+		root.handoff = root.panelOpen;
 		root.panelOpen = false;
 	}
 

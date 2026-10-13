@@ -533,6 +533,9 @@ hl.layer_rule({
 	name = "blur-shell-panels",
 	match = { namespace = "^quickshell(-bar|-polkit)?$" },
 	blur = true,
+	-- the shell animates its own panels; Hyprland's fade on top shows the
+	-- card unblurred for a moment and freezes its last frame on the way out
+	no_anim = true,
 	-- above the backdrop dim, so only the panels themselves get frosted
 	ignore_alpha = 0.5,
 })
@@ -540,6 +543,7 @@ hl.layer_rule({
 	name = "blur-keybindings-cheatsheet",
 	match = { namespace = "^quickshell-keybindings$" },
 	blur = true,
+	no_anim = true,
 	ignore_alpha = 0.2,
 })
 hl.window_rule({

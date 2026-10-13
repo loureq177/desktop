@@ -12,7 +12,7 @@ Rectangle {
 	signal focusLost()
 
 	implicitHeight: visible ? 30 : 0
-	color: Theme.bgMain
+	color: Theme.inset(Theme.bgMain)
 	border.color: replyField.activeFocus ? Theme.selectionBorder : Theme.border
 	border.width: 1
 	radius: Theme.roundingElement

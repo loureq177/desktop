@@ -11,8 +11,6 @@ Rectangle {
 
 	implicitHeight: 28
 	color: buttonArea.containsMouse ? Theme.border : Theme.bgHover
-	border.color: Theme.border
-	border.width: 1
 	radius: Theme.roundingElement
 
 	Behavior on color {

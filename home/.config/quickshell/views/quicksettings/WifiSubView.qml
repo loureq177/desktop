@@ -507,7 +507,7 @@ Item {
 			Layout.fillWidth: true
 			visible: root.promptSsid !== ""
 			radius: Theme.roundingElement
-			color: Theme.bgMain
+			color: Theme.inset(Theme.bgMain)
 			border.color: Theme.accentBlue
 			border.width: 1
 			implicitHeight: passCol.implicitHeight + 20
@@ -542,7 +542,7 @@ Item {
 					Layout.fillWidth: true
 					Layout.preferredHeight: 36
 					radius: Theme.roundingSubtle
-					color: Theme.bgCard
+					color: Theme.inset(Theme.bgCard)
 					border.color: passInput.activeFocus ? Theme.accentBlue : Theme.border
 					border.width: 1
 

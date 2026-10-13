@@ -258,7 +258,7 @@ FadeOverlay {
 		anchors.centerIn: parent
 		width: Math.min(1440, window.width - 96)
 		height: Math.min(900, window.height - 96)
-		color: Theme.bgMain
+		color: Theme.panel(Theme.bgMain)
 		border.color: Theme.border
 		border.width: Theme.borderSize
 		radius: Theme.roundingWindow

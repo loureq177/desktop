@@ -66,7 +66,7 @@ FadeOverlay {
 		anchors.centerIn: parent
 		width: root.cardWidth
 		height: root.cardHeight
-		color: Theme.bgMain
+		color: Theme.panel(Theme.bgMain)
 		border.color: Theme.border
 		border.width: Theme.borderSize
 		radius: Theme.roundingWindow

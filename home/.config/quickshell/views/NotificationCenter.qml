@@ -10,6 +10,7 @@ SideDrawer {
 	id: win
 
 	shown: Notifications.centerOpen
+	handoff: Notifications.centerHandoff
 	cardHeight: Math.min(680, win.height - Theme.notifTopMargin - 20)
 	property int currentIndex: 0
 
@@ -69,6 +70,7 @@ SideDrawer {
 		centerList.forceActiveFocus();
 	}
 	onDismissed: Notifications.closeCenter()
+	onDrawerClosed: Notifications.centerHandoff = false
 
 	Connections {
 		target: Notifications
@@ -142,8 +144,6 @@ SideDrawer {
 					implicitHeight: 28
 					radius: Theme.roundingElement
 					color: clearArea.containsMouse ? Theme.bgHover : "transparent"
-					border.color: clearArea.containsMouse ? Theme.textDim : Theme.border
-					border.width: 1
 
 					Behavior on color { ColorAnimation { duration: 120 } }
 

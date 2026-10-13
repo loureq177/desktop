@@ -71,8 +71,21 @@ Singleton {
 		var q = Qt.color(c);
 		return Qt.rgba(q.r, q.g, q.b, a);
 	}
-	readonly property color selectionBg: Qt.rgba(accent.r, accent.g, accent.b, 0.12)
+	readonly property color selectionBg: Qt.rgba(accent.r, accent.g, accent.b, 0.2)
 	readonly property color selectionBorder: Qt.rgba(accent.r, accent.g, accent.b, 0.45)
+
+	// Panels turn to frosted glass exactly when ghostty does (power-save's
+	// ghostty_perf); Hyprland blurs whatever lies underneath them. Tiles are
+	// denser than the panel so they still read as separate without frames.
+	readonly property real glassOpacity: 0.68
+	readonly property real glassInsetOpacity: 0.7
+	function panel(c) {
+		return alpha(c, SystemStatus.glass ? glassOpacity : 1);
+	}
+	// Tiles and fields lying on a panel.
+	function inset(c) {
+		return alpha(c, SystemStatus.glass ? glassInsetOpacity : 1);
+	}
 
 	// Animation durations & physics matching Hyprland curves.
 	readonly property int animFast: 150

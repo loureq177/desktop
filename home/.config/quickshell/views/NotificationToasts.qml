@@ -135,6 +135,12 @@ PanelWindow {
 		if (shown) {
 			slideOut.stop();
 			slideIn.restart();
+		} else if (Notifications.centerOpen || QuickSettings.panelOpen) {
+			// A drawer is sliding into the same spot: leave at once.
+			slideIn.stop();
+			slideOut.stop();
+			win.slide = Theme.notifWidth + Theme.notifRightMargin;
+			toastModel.clear();
 		} else {
 			slideIn.stop();
 			slideOut.restart();

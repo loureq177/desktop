@@ -32,7 +32,7 @@ Rectangle {
 		input.cursorPosition = t.length;
 	}
 
-	color: Theme.bgCard
+	color: Theme.inset(Theme.bgCard)
 	border.color: Theme.border
 	border.width: 1
 	radius: Theme.roundingElement

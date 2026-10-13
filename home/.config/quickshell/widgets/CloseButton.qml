@@ -7,7 +7,7 @@ Rectangle {
 	signal clicked()
 
 	property int size: 28
-	property bool bordered: true
+	property bool bordered: false
 	property int iconSize: size >= 26 ? 14 : 11
 	property color idleColor: "transparent"
 	property color hoverColor: Theme.bgHover

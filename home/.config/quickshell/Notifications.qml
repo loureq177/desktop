@@ -9,6 +9,9 @@ Singleton {
 
 	property bool dnd: false
 	property bool centerOpen: false
+	// The center and quick settings share a spot: on a swap the outgoing
+	// drawer fades out in place instead of sliding across the incoming one.
+	property bool centerHandoff: false
 	property var toasts: []
 	property var history: []
 	property int historyLimit: 100
@@ -289,12 +292,20 @@ Singleton {
 		if (root.centerOpen)
 			root.closeCenter();
 		else {
-			QuickSettings.close();
+			root.centerHandoff = false;
+			QuickSettings.handOff();
 			root.centerOpen = true;
 		}
 	}
 
 	function closeCenter(): void {
+		root.centerHandoff = false;
+		root.centerOpen = false;
+	}
+
+	// Quick settings opens in the center's place.
+	function handOffCenter(): void {
+		root.centerHandoff = root.centerOpen;
 		root.centerOpen = false;
 	}
 

@@ -97,7 +97,7 @@ PanelWindow {
 		anchors.centerIn: parent
 		width: 380
 		implicitHeight: 68
-		color: Theme.overlayColor
+		color: Theme.panel(Theme.bgCard)
 		border.color: Theme.border
 		border.width: Theme.borderSize
 		radius: Theme.roundingElement

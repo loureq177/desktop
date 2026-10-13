@@ -20,8 +20,6 @@ RowLayout {
 		implicitHeight: 26
 		radius: Theme.roundingSubtle
 		color: disArea.containsMouse ? Theme.bgCard : "transparent"
-		border.color: disArea.containsMouse ? Theme.textDim : Theme.border
-		border.width: 1
 
 		Text {
 			id: disLabel

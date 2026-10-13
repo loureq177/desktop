@@ -212,7 +212,7 @@ FadeOverlay {
 		anchors.centerIn: parent
 		width: Math.min(460, root.width - 40)
 		implicitHeight: cardLayout.implicitHeight + 48
-		color: Theme.alpha(Theme.bgCard, 0.92)
+		color: Theme.panel(Theme.bgCard)
 		border.color: Theme.border
 		border.width: Theme.borderSize
 		radius: Theme.roundingWindow
@@ -249,7 +249,7 @@ FadeOverlay {
 				Layout.fillWidth: true
 				Layout.preferredHeight: 46
 				focus: true
-				fillColor: Theme.bgMain
+				fillColor: Theme.inset(Theme.bgMain)
 				masked: !root.responseVisible
 				readOnly: root.submitted
 				busy: root.submitted

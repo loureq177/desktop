@@ -15,6 +15,7 @@ SideDrawer {
 
 	shown: QuickSettings.panelOpen
 	instantHide: QuickSettings.instantHide
+	handoff: QuickSettings.handoff
 	dismissOnEsc: QuickSettings.subView === "main"
 	cardWidth: 520
 	readonly property int mainContentHeight: Math.min((contentCol.implicitHeight > 0 ? contentCol.implicitHeight : 430) + Theme.paddingCard * 2, win.height - Theme.notifTopMargin - 20)
@@ -115,6 +116,7 @@ SideDrawer {
 	onDismissed: QuickSettings.close()
 	onDrawerClosed: {
 		QuickSettings.instantHide = false;
+		QuickSettings.handoff = false;
 		QuickSettings.subView = "main";
 	}
 
@@ -342,21 +344,14 @@ SideDrawer {
 		radius: Theme.roundingElement
 
 		color: (stile.active
-			? Theme.alpha(stile.activeColor, stile.bodyHovered ? 0.18 : 0.10)
-			: (stile.bodyHovered ? Theme.bgHover : Theme.bgMain))
-
-		border.color: (stile.active
-			? (stile.bodyHovered ? stile.activeColor : Theme.alpha(stile.activeColor, 0.40))
-			: (stile.bodyHovered ? Theme.textDim : Theme.border))
-		border.width: 1
+			? Theme.alpha(stile.activeColor, stile.bodyHovered ? 0.26 : 0.18)
+			: (stile.bodyHovered ? Theme.bgHover : Theme.inset(Theme.bgMain)))
 
 		Behavior on color { ColorAnimation { duration: 120 } }
-		Behavior on border.color { ColorAnimation { duration: 120 } }
 
 		SelectionHighlight {
 			selected: stile.isSelected
-			color: stile.active ? Theme.alpha(stile.activeColor, 0.15) : Theme.selectionBg
-			border.color: stile.active ? stile.activeColor : Theme.selectionBorder
+			color: stile.active ? Theme.alpha(stile.activeColor, 0.3) : Theme.selectionBg
 		}
 
 		MouseArea {
@@ -389,14 +384,14 @@ SideDrawer {
 				color: (stile.hasDetails && stile.hasToggleBadge)
 					? (stile.active
 						? (stile.badgeHovered ? Qt.lighter(stile.activeColor, 1.15) : stile.activeColor)
-						: (stile.badgeHovered ? Theme.bgHover : Theme.bgCard))
+						: (stile.badgeHovered ? Theme.bgHover : Theme.inset(Theme.bgCard)))
 					: "transparent"
 				border.color: (stile.hasDetails && stile.hasToggleBadge)
 					? (stile.active
 						? (stile.badgeHovered ? Qt.lighter(stile.activeColor, 1.30) : "transparent")
 						: (stile.badgeHovered ? Theme.textDim : Theme.border))
 					: "transparent"
-				border.width: (stile.hasDetails && stile.hasToggleBadge) ? 1 : 0
+				border.width: 0
 
 				Behavior on color { ColorAnimation { duration: 140 } }
 				Behavior on border.color { ColorAnimation { duration: 120 } }

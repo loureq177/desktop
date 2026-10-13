@@ -41,7 +41,7 @@ SlideOverlay {
 		y: Theme.notifTopMargin - root.slide
 		width: Math.min(576, root.width - 32)
 		height: weatherCol.implicitHeight + Theme.paddingCard * 2
-		color: Theme.bgCard
+		color: Theme.panel(Theme.bgCard)
 		border.color: Theme.border
 		border.width: Theme.borderSize
 		radius: Theme.roundingWindow

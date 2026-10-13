@@ -9,6 +9,8 @@ PanelWindow {
 
 	property bool shown: false
 	property bool instantHide: false
+	// Closing because another overlay takes this one's place.
+	property bool handoff: false
 	property bool grabFocus: false
 	property bool dismissOnEsc: true
 	property bool dismissOnClick: true
@@ -20,7 +22,10 @@ PanelWindow {
 
 	property Animation enterAnimation
 	property Animation exitAnimation
-	readonly property bool animating: (enterAnimation?.running ?? false) || (exitAnimation?.running ?? false)
+	// Played instead of exitAnimation on a handoff; without one the regular exit runs.
+	property Animation handoffAnimation
+	readonly property bool leaving: (exitAnimation?.running ?? false) || (handoffAnimation?.running ?? false)
+	readonly property bool animating: (enterAnimation?.running ?? false) || leaving
 
 	signal opened()
 	signal dismissed()
@@ -32,7 +37,7 @@ PanelWindow {
 		root.shown = false;
 	}
 
-	visible: shown || (exitAnimation?.running ?? false)
+	visible: shown || leaving
 	color: "transparent"
 	exclusionMode: ExclusionMode.Ignore
 	exclusiveZone: 0
@@ -53,6 +58,7 @@ PanelWindow {
 	onShownChanged: {
 		if (shown) {
 			exitAnimation?.stop();
+			handoffAnimation?.stop();
 			enterAnimation?.restart();
 			root.opened();
 		} else if (root.instantHide) {
@@ -61,6 +67,9 @@ PanelWindow {
 			root.backdropOpacity = 0.0;
 			root.snapped();
 			root.fullyClosed();
+		} else if (root.handoff && root.handoffAnimation) {
+			enterAnimation?.stop();
+			handoffAnimation.restart();
 		} else {
 			enterAnimation?.stop();
 			exitAnimation?.restart();
@@ -71,6 +80,14 @@ PanelWindow {
 		target: root.exitAnimation
 		function onRunningChanged() {
 			if (!root.exitAnimation.running && !root.shown)
+				root.fullyClosed();
+		}
+	}
+
+	Connections {
+		target: root.handoffAnimation
+		function onRunningChanged() {
+			if (!root.handoffAnimation.running && !root.shown)
 				root.fullyClosed();
 		}
 	}

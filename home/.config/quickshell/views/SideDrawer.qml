@@ -12,9 +12,39 @@ SlideOverlay {
 
 	default property alias body: bodySlot.data
 
-	offscreenSlide: root.cardWidth + Theme.notifRightMargin
+	// Well past the edge: the exit curve covers its last third in a frame or
+	// two, so the card has to be gone before that or it visibly stops short.
+	offscreenSlide: Math.round((root.cardWidth + Theme.notifRightMargin) * 1.6)
 
 	onDismissRequested: root.dismissed()
+
+	// Another drawer slides into the same spot: fade out in place underneath
+	// it. The backdrop mirrors the newcomer's fade-in, so the dim stays level.
+	handoffAnimation: ParallelAnimation {
+		onRunningChanged: {
+			if (!running) {
+				card.opacity = 1.0;
+				root.slide = root.offscreenSlide;
+			}
+		}
+
+		NumberAnimation {
+			target: card
+			property: "opacity"
+			to: 0.0
+			duration: Theme.animFast
+			easing.type: Easing.OutCubic
+		}
+		NumberAnimation {
+			target: root
+			property: "backdropOpacity"
+			from: root.backdropOpacity
+			to: 0.0
+			duration: Theme.animSmooth
+			easing.type: Easing.BezierSpline
+			easing.bezierCurve: Theme.easeOutQuint
+		}
+	}
 	onFullyClosed: root.drawerClosed()
 
 	Behavior on cardHeight {
@@ -32,7 +62,7 @@ SlideOverlay {
 		y: Theme.notifTopMargin
 		width: root.cardWidth
 		height: root.cardHeight
-		color: Theme.bgCard
+		color: Theme.panel(Theme.bgCard)
 		border.color: Theme.border
 		border.width: Theme.borderSize
 		radius: Theme.roundingWindow

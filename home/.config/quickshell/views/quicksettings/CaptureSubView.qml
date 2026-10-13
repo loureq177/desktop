@@ -132,14 +132,11 @@ Item {
 				radius: Theme.roundingElement
 				color: modelData.isRecording
 					? Theme.alpha(Theme.critical, 0.18)
-					: (rowHover.containsMouse ? Theme.bgHover : Theme.bgMain)
-				border.color: modelData.isRecording
-					? Theme.critical
-					: (rowHover.containsMouse ? Theme.textDim : Theme.border)
-				border.width: 1
+					: (rowHover.containsMouse ? Theme.bgHover : Theme.inset(Theme.bgMain))
+				border.color: Theme.critical
+				border.width: modelData.isRecording ? 1 : 0
 
 				Behavior on color { ColorAnimation { duration: 120 } }
-				Behavior on border.color { ColorAnimation { duration: 120 } }
 
 				SelectionHighlight {
 					selected: actionRow.isSelected

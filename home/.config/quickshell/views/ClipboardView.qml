@@ -235,8 +235,6 @@ CenterModal {
 				height: 52
 				clip: true
 				color: row.index === win.currentIndex ? Theme.selectionBg : "transparent"
-				border.color: row.index === win.currentIndex ? Theme.selectionBorder : "transparent"
-				border.width: 1
 				radius: Theme.roundingElement
 
 				property bool thumbReady: false
@@ -347,7 +345,7 @@ CenterModal {
 			anchors.bottom: parent.bottom
 			anchors.right: parent.right
 			width: parent.width * 0.58 - Theme.paddingItem
-			color: Theme.bgCard
+			color: Theme.inset(Theme.bgCard)
 			border.color: Theme.border
 			border.width: 1
 			radius: Theme.roundingElement
