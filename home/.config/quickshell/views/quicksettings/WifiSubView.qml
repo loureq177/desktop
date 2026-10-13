@@ -15,14 +15,7 @@ Item {
 	signal backRequested()
 	signal closeRequested()
 
-	readonly property var wifiDevice: {
-		var vals = Networking.devices.values;
-		for (var i = 0; i < vals.length; i++) {
-			if (vals[i].type === DeviceType.Wifi)
-				return vals[i];
-		}
-		return null;
-	}
+	readonly property var wifiDevice: SystemStatus.wifiDevice
 
 	readonly property bool wifiEnabled: Networking.wifiEnabled
 	property bool scanning: false

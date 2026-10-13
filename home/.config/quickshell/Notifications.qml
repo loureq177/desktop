@@ -17,7 +17,16 @@ Singleton {
 	property int toastTimeoutMs: 5000
 	property var toastArrivedAt: ({})
 
-	property int lastSoundAt: 0
+	// Milliseconds since the epoch: far past what an int holds.
+	property double lastSoundAt: 0
+
+	// Bumped each time a notification is replaced in place, so the views can
+	// tell their copy of it is stale.
+	property var revisions: ({})
+	property var pendingUpdates: ({})
+
+	// Set while a toast's reply field has focus: nothing expires mid-typing.
+	property bool toastsHeld: false
 
 	onCenterOpenChanged: {
 		if (root.centerOpen)
@@ -43,8 +52,62 @@ Singleton {
 			image: n.image || "",
 			appIcon: n.appIcon || "",
 			actions: (n.actions || []).map(a => ({ identifier: a.identifier || "", text: a.text || "" })),
-			time: when
+			time: when,
+			rev: root.revisionOf(n.id)
 		};
+	}
+
+	function revisionOf(id: var): int {
+		return root.revisions[id] || 0;
+	}
+
+	function showToast(n, now): void {
+		root.toastArrivedAt[n.id] = now;
+		if (root.dnd && n.urgency !== NotificationUrgency.Critical)
+			return;
+		var updated = [n].concat(root.toasts.filter(t => t !== n));
+		if (updated.length > root.maxToasts) {
+			var dropped = updated.slice(root.maxToasts);
+			for (var d = 0; d < dropped.length; d++)
+				delete root.toastArrivedAt[dropped[d].id];
+			updated = updated.slice(0, root.maxToasts);
+		}
+		root.toasts = updated;
+		root.playSound();
+	}
+
+	// A replaced notification (replaces_id) keeps its object and only changes
+	// its properties, several at once: collect them into one refresh.
+	function queueUpdate(id: var): void {
+		root.pendingUpdates[id] = true;
+		Qt.callLater(root.flushUpdates);
+	}
+
+	function flushUpdates(): void {
+		var pending = root.pendingUpdates;
+		root.pendingUpdates = {};
+		var now = Date.now();
+		for (var key in pending) {
+			var n = root.liveById(key);
+			if (!n)
+				continue;
+			root.revisions[n.id] = root.revisionOf(n.id) + 1;
+			var snap = root.snapshot(n, now);
+			var found = false;
+			var next = [];
+			for (var i = 0; i < root.history.length; i++) {
+				var h = root.history[i];
+				if (h && String(h.id) === String(n.id)) {
+					found = true;
+					next.push(snap);
+				} else {
+					next.push(h);
+				}
+			}
+			root.history = found ? next : [snap].concat(next);
+			root.pruneHistory();
+			root.showToast(n, now);
+		}
 	}
 
 	function removeToast(id: var): void {
@@ -303,14 +366,14 @@ Singleton {
 				if (timeout === 0)
 					continue;
 				var at = root.toastArrivedAt[t.id];
-				if (at === undefined) {
+				if (at === undefined || root.toastsHeld) {
 					root.toastArrivedAt[t.id] = now;
 					continue;
 				}
-				if (now - at >= timeout) {
-					root.safeDismiss(t);
+				// Only the toast goes: the notification stays open in the
+				// center, where its actions and reply still have to work.
+				if (now - at >= timeout)
 					root.removeToast(t.id);
-				}
 			}
 			for (var key in root.toastArrivedAt) {
 				if (!liveIds[key])
@@ -359,25 +422,20 @@ Singleton {
 			}
 			root.history = [root.snapshot(n, now)].concat(filtered).slice(0, root.historyLimit);
 			root.pruneHistory();
-			if (!isReload) {
-				root.toastArrivedAt[n.id] = now;
-				var critical = (n.urgency === NotificationUrgency.Critical);
-				if (!root.dnd || critical) {
-					var updated = [n].concat(root.toasts);
-					if (updated.length > root.maxToasts) {
-						var dropped = updated.slice(root.maxToasts);
-						for (var d = 0; d < dropped.length; d++) {
-							delete root.toastArrivedAt[dropped[d].id];
-						}
-						updated = updated.slice(0, root.maxToasts);
-					}
-					root.toasts = updated;
-				}
-				if (!root.dnd || critical)
-					root.playSound();
-			}
+			if (!isReload)
+				root.showToast(n, now);
+			var id = n.id;
+			var changed = () => root.queueUpdate(id);
+			n.summaryChanged.connect(changed);
+			n.bodyChanged.connect(changed);
+			n.appNameChanged.connect(changed);
+			n.appIconChanged.connect(changed);
+			n.imageChanged.connect(changed);
+			n.urgencyChanged.connect(changed);
+			n.actionsChanged.connect(changed);
 			n.closed.connect(() => {
-				root.removeToast(n.id);
+				root.removeToast(id);
+				delete root.revisions[id];
 			});
 		}
 	}

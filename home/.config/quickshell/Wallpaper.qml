@@ -15,6 +15,9 @@ Singleton {
 	// however large the file is, and lets everything showing the wallpaper on
 	// that screen share a single decode.
 	function decodeSize(screen): size {
+		// A surface has no screen for a moment while it is set up or torn down.
+		if (!screen)
+			return Qt.size(0, 0);
 		return Qt.size(screen.width * screen.devicePixelRatio, screen.height * screen.devicePixelRatio);
 	}
 

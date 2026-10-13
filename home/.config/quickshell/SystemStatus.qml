@@ -2,6 +2,8 @@ pragma Singleton
 import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Io
+import Quickshell.Networking
+import Quickshell.Services.UPower
 import QtQuick
 
 Singleton {
@@ -12,6 +14,7 @@ Singleton {
 	property string memTooltip: ""
 	property string gpuDevicePath: ""
 	property bool gpuActive: false
+	property string gpuRuntimeStatus: ""
 	property bool recording: false
 	property bool dictating: false
 	property string dictationState: "idle"
@@ -19,6 +22,14 @@ Singleton {
 	readonly property bool awakeActive: awakeMarker.loaded
 	readonly property bool powerSaveActive: powerSaveMarker.loaded
 	readonly property bool dictatingActive: dictating || dictationState !== "idle" || dictationMarker.loaded
+
+	readonly property var batteryDevice: UPower.devices.values.find(d => d.isLaptopBattery && d.isPresent) ?? null
+	readonly property var wifiDevice: networkDevice(DeviceType.Wifi)
+	readonly property var wiredDevice: networkDevice(DeviceType.Wired)
+
+	function networkDevice(type): var {
+		return Networking.devices.values.find(d => d.type === type) ?? null;
+	}
 
 	function refresh(): void {
 		gpuStatus.reload();
@@ -110,12 +121,14 @@ Singleton {
 		path: root.gpuDevicePath
 		printErrors: false
 		onLoaded: {
-			var wasActive = root.gpuActive;
-			var nowActive = this.text().trim() === "active";
-			root.gpuActive = nowActive;
-			if (wasActive && !nowActive) {
+			var before = root.gpuRuntimeStatus;
+			var now = this.text().trim();
+			root.gpuRuntimeStatus = now;
+			root.gpuActive = now === "active";
+			// The panel dims when the power is cut, which is the end of
+			// "suspending", not its start.
+			if (before !== "" && before !== "suspended" && now === "suspended")
 				restoreBacklightTimer.restart();
-			}
 		}
 	}
 

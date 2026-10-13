@@ -20,6 +20,9 @@ Item {
 			return "";
 		if (img.startsWith("data:") || img.startsWith("http:") || img.startsWith("https:"))
 			return img;
+		// Pixels sent with the notification itself (image-data), e.g. avatars.
+		if (img.startsWith("image://qsimage/"))
+			return img;
 		if (img.startsWith("image://icon//"))
 			return "file:///" + img.slice(14);
 		if (img.startsWith("image://icon/file://"))
@@ -40,7 +43,7 @@ Item {
 				ic = img.slice(13);
 			else if (img.includes("/icons/") || img.includes("/pixmaps/") || img.endsWith(".svg"))
 				ic = img;
-			else if (!img.startsWith("/") && !img.startsWith("file:") && !img.startsWith("data:") && !img.startsWith("http:"))
+			else if (!img.startsWith("/") && !img.startsWith("file:") && !img.startsWith("data:") && !img.startsWith("http:") && !img.startsWith("https:") && !img.startsWith("image:"))
 				ic = img;
 		}
 		if (ic === "" && root.appName) {

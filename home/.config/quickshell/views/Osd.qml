@@ -20,12 +20,14 @@ PanelWindow {
 	function show(newKind, newValue, newMuted) {
 		if ((newKind === "volume" || newKind === "brightness") && QuickSettings.panelOpen)
 			return;
+		// Read before the stop: a fade-out caught halfway leaves the card dim.
+		var fading = fadeOut.running;
 		fadeOut.stop();
-		if (!win.visible) {
+		if (!shown) {
 			card.opacity = 0;
 			shown = true;
 			fadeIn.start();
-		} else if (fadeOut.running) {
+		} else if (fading) {
 			fadeIn.start();
 		}
 		if (kind !== newKind)

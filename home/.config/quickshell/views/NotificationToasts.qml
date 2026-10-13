@@ -31,7 +31,8 @@ PanelWindow {
 			hasInlineReply: Boolean(t.hasInlineReply),
 			inlineReplyPlaceholder: t.inlineReplyPlaceholder || "",
 			actions: (t.actions || []).map(a => ({ identifier: a.identifier || "", text: a.text || "" })),
-			time: Notifications.historyTimeById(t.id) || Date.now()
+			time: Notifications.historyTimeById(t.id) || Date.now(),
+			rev: Notifications.revisionOf(t.id)
 		};
 	}
 
@@ -46,6 +47,16 @@ PanelWindow {
 		var have = {};
 		for (i = 0; i < toastModel.count; i++)
 			have[toastModel.get(i).nid] = true;
+		// A notification replaced in place keeps its row and gets a fresh copy.
+		for (i = 0; i < live.length; i++) {
+			if (!live[i] || !have[String(live[i].id)])
+				continue;
+			for (var r = 0; r < toastModel.count; r++) {
+				var row = toastModel.get(r);
+				if (row.nid === String(live[i].id) && row.snap.rev !== Notifications.revisionOf(live[i].id))
+					toastModel.setProperty(r, "snap", win.toSnapshot(live[i]));
+			}
+		}
 		var windowOpen = win.lastLiveCount > 0;
 		for (i = live.length - 1; i >= 0; i--) {
 			if (live[i] && !have[String(live[i].id)]) {
@@ -108,6 +119,12 @@ PanelWindow {
 			if (count === 0 && win.visible)
 				stack.forceActiveFocus();
 		}
+	}
+
+	Binding {
+		target: Notifications
+		property: "toastsHeld"
+		value: replyFocus.active
 	}
 
 	mask: Region {

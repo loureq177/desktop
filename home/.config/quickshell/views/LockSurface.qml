@@ -1,6 +1,6 @@
 import ".."
+import "../widgets"
 import Quickshell
-import Quickshell.Networking
 import Quickshell.Services.UPower
 import QtQuick
 import QtQuick.Effects
@@ -33,22 +33,6 @@ Item {
 		interval: 400
 		running: true
 		onTriggered: root.ready = true
-	}
-
-	readonly property var batteryDevice: {
-		var vals = UPower.devices.values;
-		for (var i = 0; i < vals.length; i++)
-			if (vals[i].isLaptopBattery && vals[i].isPresent)
-				return vals[i];
-		return null;
-	}
-
-	function networkUp(type): bool {
-		var vals = Networking.devices.values;
-		for (var i = 0; i < vals.length; i++)
-			if (vals[i].type === type && vals[i].connected)
-				return true;
-		return false;
 	}
 
 	SystemClock {
@@ -95,39 +79,18 @@ Item {
 		}
 	}
 
+	// One changing pixel is enough to make the surface commit, see the context.
+	Rectangle {
+		width: 1
+		height: 1
+		color: root.context.nudge ? "#01000000" : "#02000000"
+	}
+
 	MouseArea {
 		anchors.fill: parent
 		hoverEnabled: true
 		cursorShape: Qt.BlankCursor
-		onPressed: input.forceActiveFocus()
-	}
-
-	TextInput {
-		id: input
-		width: 0
-		height: 0
-		opacity: 0
-		focus: true
-		echoMode: TextInput.Password
-		readOnly: root.context.checking
-
-		onTextChanged: {
-			if (root.context.password !== text)
-				root.context.password = text;
-			if (text !== "")
-				root.context.failText = "";
-		}
-		Keys.onReturnPressed: root.context.submit()
-		Keys.onEnterPressed: root.context.submit()
-		Keys.onEscapePressed: root.context.password = ""
-
-		Connections {
-			target: root.context
-			function onPasswordChanged() {
-				if (input.text !== root.context.password)
-					input.text = root.context.password;
-			}
-		}
+		onPressed: field.focusInput()
 	}
 
 	Item {
@@ -194,8 +157,8 @@ Item {
 				spacing: 20
 
 				Text {
-					readonly property bool wifiUp: root.networkUp(DeviceType.Wifi)
-					readonly property bool wiredUp: root.networkUp(DeviceType.Wired)
+					readonly property bool wifiUp: SystemStatus.wifiDevice?.connected ?? false
+					readonly property bool wiredUp: SystemStatus.wiredDevice?.connected ?? false
 
 					anchors.verticalCenter: parent.verticalCenter
 					text: wifiUp ? "󰖩" : (wiredUp ? "󰈀" : "󰖪")
@@ -206,7 +169,7 @@ Item {
 				}
 
 				Text {
-					readonly property var device: root.batteryDevice
+					readonly property var device: SystemStatus.batteryDevice
 					readonly property int pct: device ? Math.round(device.percentage * 100) : 0
 					readonly property bool full: device && device.state === UPowerDeviceState.FullyCharged
 					readonly property bool charging: device && (device.state === UPowerDeviceState.Charging
@@ -254,124 +217,52 @@ Item {
 			}
 		}
 
-		Item {
+		PasswordField {
 			id: field
-
-			readonly property bool failed: root.context.failText !== "" && root.context.password === ""
-			readonly property real dotSize: height * 0.25
 
 			anchors.centerIn: parent
 			anchors.verticalCenterOffset: 50
 			width: parent.width * 0.2
 			height: parent.height * 0.05
+			focus: true
+			readOnly: root.context.checking
+			busy: root.context.checking
+			failed: root.context.failText !== "" && text === ""
+			message: root.context.failText
 
-			Rectangle {
-				anchors.fill: parent
-				radius: Theme.roundingWindow
-				color: Theme.alpha(Theme.bgCard, 0.65)
+			onTextChanged: {
+				if (root.context.password !== text)
+					root.context.password = text;
+				if (text !== "")
+					root.context.failText = "";
+			}
+			onAccepted: root.context.submit()
+			onCancelled: root.context.password = ""
+
+			Component.onCompleted: focusInput()
+			Component.onDestruction: {
+				if (root.context.focusOwner === root)
+					root.context.focusOwner = null;
+			}
+			onInputFocusedChanged: {
+				if (inputFocused)
+					root.context.focusOwner = root;
+				else if (root.context.focusOwner === root)
+					root.context.focusOwner = null;
 			}
 
-			Rectangle {
-				id: outlineFill
-				anchors.fill: parent
-				visible: false
-				layer.enabled: true
-				gradient: Gradient {
-					orientation: Gradient.Horizontal
-					GradientStop {
-						position: 0
-						color: root.context.checking ? Theme.accentGreen : field.failed ? Theme.warning : Theme.accentBlue
-					}
-					GradientStop {
-						position: 1
-						color: root.context.checking ? Theme.accentBlue : field.failed ? Theme.critical : Theme.accentPurple
-					}
+			Connections {
+				target: root.context
+				function onShownChanged() {
+					if (root.context.shown)
+						field.focusInput();
 				}
-			}
-
-			Rectangle {
-				id: outlineMask
-				anchors.fill: parent
-				visible: false
-				layer.enabled: true
-				radius: Theme.roundingWindow
-				color: "transparent"
-				border.width: Theme.borderSize
-				border.color: "black"
-			}
-
-			MultiEffect {
-				anchors.fill: parent
-				source: outlineFill
-				maskEnabled: true
-				maskSource: outlineMask
-			}
-
-			Item {
-				anchors.fill: parent
-				anchors.margins: Theme.paddingItem
-				clip: true
-
-				ListModel {
-					id: dots
+				function onNudgeChanged() {
+					field.focusInput();
 				}
-
-				Connections {
-					target: root.context
-					function onPasswordChanged() {
-						var len = root.context.password.length;
-						while (dots.count < len)
-							dots.append({});
-						if (dots.count > len)
-							dots.remove(len, dots.count - len);
-					}
-				}
-
-				Row {
-					anchors.verticalCenter: parent.verticalCenter
-					x: (parent.width - width) / 2
-					spacing: field.dotSize * 0.3
-
-					Behavior on x {
-						NumberAnimation {
-							duration: Theme.lockDotsFade
-							easing.type: Easing.OutCubic
-						}
-					}
-
-					Repeater {
-						model: dots
-						Rectangle {
-							width: field.dotSize
-							height: field.dotSize
-							radius: width / 2
-							color: Theme.textMain
-
-							NumberAnimation on opacity {
-								from: 0
-								to: 1
-								duration: Theme.lockDotsFade
-							}
-							NumberAnimation on scale {
-								from: 0.6
-								to: 1
-								duration: Theme.lockDotsFade
-								easing.type: Easing.OutQuad
-							}
-						}
-					}
-				}
-
-				Text {
-					anchors.centerIn: parent
-					width: parent.width
-					visible: field.failed
-					text: root.context.failText
-					color: Theme.textMain
-					horizontalAlignment: Text.AlignHCenter
-					elide: Text.ElideRight
-					font.family: Theme.fontFamily
-					font.pixelSize: Theme.fontSizeSmall
+				function onPasswordChanged() {
+					if (field.text !== root.context.password)
+						field.text = root.context.password;
 				}
 			}
 		}

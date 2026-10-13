@@ -171,7 +171,11 @@ Item {
 			}
 			if (!target) {
 				clearAction();
-			} else if ((actionStatus === "Connecting…" || actionStatus.indexOf("Pairing") === 0) && target.connected) {
+			} else if (actionStatus.indexOf("Pairing") === 0 && target.paired) {
+				// Paired is the whole job: not every device connects right after.
+				clearAction();
+				errorMessage = "";
+			} else if (actionStatus === "Connecting…" && target.connected) {
 				clearAction();
 				errorMessage = "";
 			} else if (actionStatus === "Disconnecting…" && !target.connected) {

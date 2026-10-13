@@ -46,6 +46,8 @@ Singleton {
 	property int suggestionIndex: 0
 	property string geocodePendingQuery: ""
 	property string geocodeActiveQuery: ""
+	// The query the suggestions on screen answer; they lag behind the typing.
+	property string suggestionsQuery: ""
 
 	property string label: ""
 	property string tempNum: ""
@@ -60,7 +62,10 @@ Singleton {
 
 	readonly property int refreshMinutes: 15
 
-	readonly property string reportLocation: configuredLocation || ipCity || (current ? "Current Location" : "")
+	// A name saved without coordinates could not be geocoded: the forecast is
+	// then the IP location's, and must not be labelled with that name.
+	readonly property bool configuredHasCoordinates: configuredLocationState.latitude !== null && configuredLocationState.longitude !== null
+	readonly property string reportLocation: (configuredHasCoordinates ? configuredLocation : "") || ipCity || configuredLocation || (current ? "Current Location" : "")
 
 	readonly property string tooltipText: {
 		if (!reportLocation && !tempNum)
@@ -129,6 +134,7 @@ Singleton {
 		editingLocation = true;
 		savingLocation = false;
 		locationSuggestions = [];
+		suggestionsQuery = "";
 		suggestionIndex = 0;
 	}
 
@@ -136,11 +142,15 @@ Singleton {
 		editingLocation = false;
 		savingLocation = false;
 		locationSuggestions = [];
+		suggestionsQuery = "";
 		geocodeDebounce.stop();
 	}
 
 	function commitLocation(text) {
-		var location = WeatherModel.locationCommit(text, locationSuggestions, suggestionIndex);
+		// Suggestions for an older query are not what was typed: the name alone
+		// goes out then, and weather-location geocodes it.
+		var fresh = suggestionsQuery === String(text || "").trim();
+		var location = WeatherModel.locationCommit(text, fresh ? locationSuggestions : [], suggestionIndex);
 		if (location.name === "") {
 			clearLocation();
 			return;
@@ -193,6 +203,7 @@ Singleton {
 			geocodeDebounce.stop();
 			geocodePendingQuery = "";
 			locationSuggestions = [];
+			suggestionsQuery = "";
 			return;
 		}
 		geocodePendingQuery = q;
@@ -202,8 +213,11 @@ Singleton {
 	function startGeocode() {
 		if (geocodePendingQuery === "" || !editingLocation)
 			return;
+		// A lookup in flight picks the newer query up when it ends; killing it
+		// would report an empty result first and blank the list.
+		if (geocodeProc.running)
+			return;
 		geocodeActiveQuery = geocodePendingQuery;
-		geocodeProc.running = false;
 		geocodeProc.command = [
 			"curl", "-fsS", "--max-time", "5",
 			"https://geocoding-api.open-meteo.com/v1/search?name=" + encodeURIComponent(geocodeActiveQuery) + "&count=5&language=en&format=json"
@@ -268,6 +282,8 @@ Singleton {
 				return;
 			}
 			if (code !== 0) {
+				// The location is saved all the same; only its forecast is missing.
+				root.finishSavingLocation();
 				if (!root.current)
 					root.lastError = "Offline — couldn't fetch forecast";
 			} else if (root.lastError.indexOf("Offline") === 0) {
@@ -311,6 +327,7 @@ Singleton {
 			waitForEnd: true
 			onStreamFinished: {
 				root.locationSuggestions = root.editingLocation ? WeatherModel.parseGeocodingResults(text) : [];
+				root.suggestionsQuery = root.geocodeActiveQuery;
 				root.suggestionIndex = 0;
 				if (root.editingLocation && root.geocodePendingQuery !== "" && root.geocodePendingQuery !== root.geocodeActiveQuery)
 					geocodeDebounce.restart();
@@ -328,8 +345,14 @@ Singleton {
 	Process {
 		id: locationSaveProc
 		onExited: exitCode => {
-			if (exitCode !== 0 || !root.savingLocation)
+			if (!root.savingLocation)
 				return;
+			// Nothing was written: back to the field instead of a spinner that
+			// never stops.
+			if (exitCode !== 0) {
+				root.savingLocation = false;
+				return;
+			}
 			locationFile.reload();
 		}
 	}

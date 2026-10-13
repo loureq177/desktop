@@ -15,6 +15,10 @@ Scope {
 	// Drives the surfaces' fade; the lock itself engages and releases around it.
 	property bool shown: false
 
+	// The surface that has the keyboard, if any.
+	property var focusOwner: null
+	property bool nudge: false
+
 	property double fingerprintStarted: 0
 	property int fingerprintFastFails: 0
 
@@ -28,6 +32,9 @@ Scope {
 	// The desktop as it was when the lock engaged. Without a screenshot (boot,
 	// restored lock, grim failure) the wallpaper stands in for it.
 	function backdropSource(screen): string {
+		// A lock surface has no screen for a moment while it is set up.
+		if (!screen)
+			return "";
 		return showBackdrop ? "file://" + backdropPath(screen) : Wallpaper.url;
 	}
 
@@ -179,7 +186,9 @@ Scope {
 	Process {
 		id: screenshots
 		onExited: code => {
-			if (!root.shown)
+			// Past the timeout the lock engaged without it, and may be open
+			// again by now: a late screenshot must not lock a second time.
+			if (!root.shown && screenshotTimeout.running)
 				root.engage(code === 0);
 		}
 	}
@@ -189,6 +198,22 @@ Scope {
 		id: screenshotTimeout
 		interval: 500
 		onTriggered: root.engage(false)
+	}
+
+	// Hyprland gives a lock surface the keyboard on pointer motion or when the
+	// surface commits while nothing is focused. A static lock screen does
+	// neither, so focus dropped behind it (outputs coming back after DPMS or
+	// suspend) would stay lost until the mouse moved: keep committing until
+	// a surface has it again.
+	Timer {
+		interval: 250
+		repeat: true
+		running: root.shown && root.focusOwner === null
+		onRunningChanged: {
+			if (running)
+				console.info("lock: no surface has the keyboard, nudging the compositor");
+		}
+		onTriggered: root.nudge = !root.nudge
 	}
 
 	Timer {

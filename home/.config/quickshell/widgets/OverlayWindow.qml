@@ -11,6 +11,7 @@ PanelWindow {
 	property bool instantHide: false
 	property bool grabFocus: false
 	property bool dismissOnEsc: true
+	property bool dismissOnClick: true
 	property int layer: WlrLayer.Overlay
 	property int keyboardFocusMode: WlrKeyboardFocus.Exclusive
 	property string namespace: "quickshell"
@@ -94,7 +95,7 @@ PanelWindow {
 
 		MouseArea {
 			anchors.fill: parent
-			enabled: root.shown
+			enabled: root.shown && root.dismissOnClick
 			onPressed: root.dismissRequested()
 		}
 	}

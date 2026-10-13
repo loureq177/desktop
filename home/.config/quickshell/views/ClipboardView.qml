@@ -27,6 +27,10 @@ CenterModal {
 	property string textReqId: ""
 	property string imgReqId: ""
 	property string decodedId: ""
+	// Counts preview requests: a decode restarted mid-flight still reports the
+	// output of the one it replaced, which belongs to an older request.
+	property int textSeq: 0
+	property int textStartedSeq: -1
 	property bool listFailed: false
 
 	readonly property var currentEntry: filtered.length > 0 && currentIndex < filtered.length ? filtered[currentIndex] : null
@@ -131,6 +135,7 @@ CenterModal {
 				decodeProc.running = true;
 			} else {
 				win.textReqId = String(e.id);
+				win.textSeq++;
 				textDecodeProc.running = true;
 			}
 		}
@@ -158,9 +163,12 @@ CenterModal {
 				return ["true"];
 			return ["cliphist", "decode", win.textReqId];
 		}
+		onStarted: win.textStartedSeq = win.textSeq
 		stdout: StdioCollector {
 			onStreamFinished: {
 				var reqId = win.textReqId;
+				if (win.textStartedSeq !== win.textSeq)
+					return;
 				if (reqId !== "" && win.currentEntry && String(win.currentEntry.id) === reqId) {
 					win.decodedText = String(this.text || "");
 					win.decodedId = reqId;
@@ -370,15 +378,7 @@ CenterModal {
 				flickDeceleration: Theme.flickDecel
 				maximumFlickVelocity: Theme.maxFlickVel
 
-				ScrollBar.vertical: ScrollBar {
-					visible: previewFlick.contentHeight > previewFlick.height
-					policy: ScrollBar.AsNeeded
-					contentItem: Rectangle {
-						implicitWidth: 4
-						radius: Theme.roundingSubtle
-						color: parent.hovered || parent.pressed ? Theme.textDim : Theme.border
-					}
-				}
+				ScrollBar.vertical: ThinScrollBar {}
 
 				Text {
 					id: previewText

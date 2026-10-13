@@ -227,13 +227,7 @@ SideDrawer {
 		onTriggered: win.commitBrightness()
 	}
 
-	readonly property var wifiDevice: {
-		var vals = Networking.devices.values;
-		for (var i = 0; i < vals.length; i++)
-			if (vals[i].type === DeviceType.Wifi)
-				return vals[i];
-		return null;
-	}
+	readonly property var wifiDevice: SystemStatus.wifiDevice
 	readonly property bool wifiUp: win.wifiDevice?.connected ?? false
 	readonly property string activeSsid: {
 		var d = win.wifiDevice;

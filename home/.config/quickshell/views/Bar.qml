@@ -41,29 +41,9 @@ PanelWindow {
 	Component.onCompleted: Bars.add(bar)
 	Component.onDestruction: Bars.remove(bar)
 
-	readonly property var batteryDevice: {
-		var vals = UPower.devices.values;
-		for (var i = 0; i < vals.length; i++)
-			if (vals[i].isLaptopBattery && vals[i].isPresent)
-				return vals[i];
-		return null;
-	}
-
-	readonly property var wifiDevice: {
-		var vals = Networking.devices.values;
-		for (var i = 0; i < vals.length; i++)
-			if (vals[i].type === DeviceType.Wifi)
-				return vals[i];
-		return null;
-	}
-
-	readonly property var wiredDevice: {
-		var vals = Networking.devices.values;
-		for (var i = 0; i < vals.length; i++)
-			if (vals[i].type === DeviceType.Wired)
-				return vals[i];
-		return null;
-	}
+	readonly property var batteryDevice: SystemStatus.batteryDevice
+	readonly property var wifiDevice: SystemStatus.wifiDevice
+	readonly property var wiredDevice: SystemStatus.wiredDevice
 
 	property Item tooltipTarget: null
 	property string tooltipText: ""
@@ -349,7 +329,7 @@ PanelWindow {
 					onWheel: w => {
 						if (w.angleDelta.y > 0)
 							Quickshell.execDetached(["hyprctl", "dispatch", "hl.dsp.focus({workspace='+1'})"]);
-						else
+						else if (w.angleDelta.y < 0)
 							Quickshell.execDetached(["hyprctl", "dispatch", "hl.dsp.focus({workspace='-1'})"]);
 					}
 				}
@@ -492,7 +472,9 @@ PanelWindow {
 
 				readonly property string netInfo: {
 					if (wifiUp) {
-						var signal = wifiNetwork?.signalStrength ?? 0;
+						// Reported as a 0..1 fraction.
+						var strength = wifiNetwork?.signalStrength ?? 0;
+						var signal = Math.round(strength > 1.0 ? strength : strength * 100);
 						return "Wi-Fi: " + (wifiNetwork?.name || "Connected") + (signal > 0 ? " (" + signal + "%)" : "");
 					}
 					if (wiredUp)

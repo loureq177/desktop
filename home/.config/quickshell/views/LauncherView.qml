@@ -99,6 +99,12 @@ CenterModal {
 			Quickshell.execDetached(clean);
 	}
 
+	// A typed command runs where its output can be read, and the window stays
+	// once it is done.
+	function runInTerminal(commandLine) {
+		return ["ghostty", "--wait-after-command=true", "-e", "sh", "-c", commandLine];
+	}
+
 	function isMode(m) {
 		return validModes.indexOf(m) !== -1;
 	}
@@ -336,7 +342,7 @@ CenterModal {
 			return true;
 		}
 		if (item.kind === "run") {
-			spawn(["sh", "-c", item.label]);
+			spawn(runInTerminal(item.label));
 			return true;
 		}
 		if (item.kind === "emoji") {
@@ -379,7 +385,7 @@ CenterModal {
 			var rawCmd = q.substring(1).trim();
 			if (filtered.length === 0 && rawCmd !== "") {
 				lastError = "";
-				spawn(["sh", "-c", rawCmd]);
+				spawn(runInTerminal(rawCmd));
 				close();
 				return;
 			}
@@ -525,7 +531,7 @@ CenterModal {
 					Behavior on color { ColorAnimation { duration: 100 } }
 
 					ColumnLayout {
-						visible: modelData.kind === "app"
+						visible: modelData.kind === "app" || modelData.kind === "power" || modelData.kind === "action"
 						anchors.fill: parent
 						anchors.margins: Theme.paddingItem
 						spacing: 4
@@ -533,35 +539,8 @@ CenterModal {
 						IconImage {
 							Layout.alignment: Qt.AlignHCenter
 							implicitSize: 48
-							source: modelData.entry && modelData.entry.icon ? Quickshell.iconPath(modelData.entry.icon, true) : ""
-							asynchronous: true
-						}
-
-						Text {
-							Layout.fillWidth: true
-							Layout.fillHeight: true
-							horizontalAlignment: Text.AlignHCenter
-							verticalAlignment: Text.AlignVCenter
-							wrapMode: Text.Wrap
-							maximumLineCount: 2
-							elide: Text.ElideRight
-							font.family: Theme.fontMono
-							font.pointSize: Theme.fontSizeGrid
-							color: index === window.currentIndex ? Theme.accentBlue : Theme.textMain
-							text: modelData.label || ""
-						}
-					}
-
-					ColumnLayout {
-						visible: modelData.kind === "power" || modelData.kind === "action"
-						anchors.fill: parent
-						anchors.margins: Theme.paddingItem
-						spacing: 4
-
-						IconImage {
-							Layout.alignment: Qt.AlignHCenter
-							implicitSize: 48
-							source: modelData.icon ? Quickshell.iconPath(modelData.icon, true) : ""
+							readonly property string iconName: modelData.entry?.icon ?? modelData.icon ?? ""
+							source: iconName ? Quickshell.iconPath(iconName, true) : ""
 							asynchronous: true
 						}
 

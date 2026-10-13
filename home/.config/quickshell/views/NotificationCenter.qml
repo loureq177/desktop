@@ -36,7 +36,14 @@ SideDrawer {
 		var liveIds = {};
 		for (i = 0; i < h.length; i++) {
 			if (h[i])
-				liveIds[String(h[i].id)] = true;
+				liveIds[String(h[i].id)] = h[i];
+		}
+		// A notification replaced in place keeps its row and gets a fresh copy.
+		for (i = 0; i < centerModel.count; i++) {
+			var row = centerModel.get(i);
+			var cur = liveIds[row.nid];
+			if (cur && row.entry.rev !== cur.rev)
+				centerModel.setProperty(i, "entry", cur);
 		}
 		for (i = 0; i < centerModel.count; i++) {
 			if (!liveIds[centerModel.get(i).nid]) {
@@ -241,17 +248,7 @@ SideDrawer {
 					}
 				}
 
-				ScrollBar.vertical: ScrollBar {
-					id: vScrollBar
-					visible: size < 1.0
-					active: size < 1.0
-					policy: ScrollBar.AsNeeded
-					contentItem: Rectangle {
-						implicitWidth: 4
-						radius: Theme.roundingSubtle
-						color: parent.hovered || parent.pressed ? Theme.textDim : Theme.border
-					}
-				}
+				ScrollBar.vertical: ThinScrollBar {}
 
 				delegate: Item {
 					id: entryWrap

@@ -1,12 +1,10 @@
 import ".."
-import Quickshell
-import Quickshell.Hyprland
+import "../widgets"
 import Quickshell.Services.Polkit
-import Quickshell.Wayland
 import QtQuick
 import QtQuick.Layouts
 
-Item {
+FadeOverlay {
 	id: root
 
 	property string currentMessage: ""
@@ -14,13 +12,37 @@ Item {
 	property bool responseVisible: false
 	property bool failed: false
 	property bool submitted: false
-	property bool closing: false
-
-	readonly property bool dialogVisible: agent.isActive || closing
-
 	property string displayCommand: ""
 
 	property string inputPromptText: ""
+
+	// What PAM says without asking for anything, e.g. pam_fprintd's "place your
+	// finger": until that module is done there is no password prompt to answer.
+	property string supplementaryText: ""
+	property bool supplementaryError: false
+	// Enter was pressed before the password was asked for: send it once it is.
+	property bool queued: false
+
+	// Escape hides the dialog at once; the agent drops the request a moment later.
+	property bool cancelled: false
+
+	shown: agent.isActive && !cancelled
+	card: dialogCard
+	namespace: "quickshell-polkit"
+	dismissOnClick: false
+
+	onDismissRequested: cancelRequest()
+	onFullyClosed: {
+		currentMessage = "";
+		displayCommand = "";
+		responseRequired = false;
+		failed = false;
+		submitted = false;
+		queued = false;
+		inputPromptText = "";
+		supplementaryText = "";
+		field.text = "";
+	}
 
 	function updateCommandInfo() {
 		if (!currentMessage) {
@@ -60,67 +82,64 @@ Item {
 		responseRequired = !!flow.isResponseRequired;
 		responseVisible = !!flow.responseVisible;
 		failed = !!flow.failed;
-		inputPromptText = String(flow.inputPrompt || "");
-		if (responseRequired)
+		inputPromptText = String(flow.inputPrompt || "").replace(/:\s*$/, "");
+		supplementaryText = String(flow.supplementaryMessage || "").trim();
+		supplementaryError = !!flow.supplementaryIsError;
+		// The dots stay while the answer is checked, until something new is asked.
+		if (responseRequired && submitted) {
 			submitted = false;
+			field.text = "";
+		}
 		updateCommandInfo();
+		if (responseRequired && queued) {
+			queued = false;
+			if (field.text.length > 0)
+				submitResponse();
+		}
 	}
 
 	function beginFlow() {
-		closeTimer.stop();
-		closing = false;
+		cancelled = false;
 		submitted = false;
 		failed = false;
+		queued = false;
 		inputPromptText = "";
-		passwordInput.text = "";
+		supplementaryText = "";
+		field.text = "";
 		cardTrans.x = 0;
 		syncFromFlow();
 		Qt.callLater(refocus);
 	}
 
 	function refocus() {
-		if (dialogVisible)
-			passwordInput.forceActiveFocus();
+		if (shown)
+			field.focusInput();
 	}
 
 	function submitResponse() {
 		if (root.submitted)
 			return;
 		var flow = agent.flow;
-		if (!flow || !flow.isResponseRequired || passwordInput.text.length === 0) {
-			console.warn("Polkit: submit blocked — flow:", !!flow, "responseRequired:", flow ? !!flow.isResponseRequired : false, "inputLen:", passwordInput.text.length);
+		if (!flow || field.text.length === 0) {
 			Qt.callLater(root.refocus);
 			return;
 		}
+		if (!flow.isResponseRequired) {
+			queued = true;
+			return;
+		}
+		queued = false;
 		failed = false;
 		submitted = true;
-		flow.submit(passwordInput.text);
-		passwordInput.text = "";
+		flow.submit(field.text);
 	}
 
 	function cancelRequest() {
-		passwordInput.text = "";
-		submitted = false;
-		closing = true;
-		closeTimer.restart();
+		if (cancelled)
+			return;
+		cancelled = true;
 		if (agent.flow)
 			agent.flow.cancelAuthenticationRequest();
-	}
-
-	Timer {
-		id: closeTimer
-		interval: 160
-		repeat: false
-		onTriggered: {
-			closing = false;
-			currentMessage = "";
-			displayCommand = "";
-			responseRequired = false;
-			failed = false;
-			submitted = false;
-			inputPromptText = "";
-			passwordInput.text = "";
-		}
 	}
 
 	PolkitAgent {
@@ -129,12 +148,8 @@ Item {
 
 		onAuthenticationRequestStarted: root.beginFlow()
 		onIsActiveChanged: {
-			if (isActive) {
+			if (isActive)
 				root.syncFromFlow();
-			} else if (!root.closing) {
-				root.closing = true;
-				closeTimer.restart();
-			}
 		}
 	}
 
@@ -158,6 +173,12 @@ Item {
 			root.syncFromFlow();
 			Qt.callLater(root.refocus);
 		}
+		function onSupplementaryMessageChanged() {
+			root.syncFromFlow();
+		}
+		function onSupplementaryIsErrorChanged() {
+			root.syncFromFlow();
+		}
 		function onFailedChanged() {
 			root.syncFromFlow();
 			if (root.failed)
@@ -166,17 +187,10 @@ Item {
 		function onAuthenticationFailed() {
 			root.syncFromFlow();
 			root.submitted = false;
-			passwordInput.text = "";
+			root.queued = false;
+			field.text = "";
 			shakeAnim.restart();
 			Qt.callLater(root.refocus);
-		}
-		function onAuthenticationSucceeded() {
-			root.closing = true;
-			closeTimer.restart();
-		}
-		function onAuthenticationRequestCancelled() {
-			root.closing = true;
-			closeTimer.restart();
 		}
 	}
 
@@ -192,165 +206,80 @@ Item {
 		NumberAnimation { target: cardTrans; property: "x"; to: 0; duration: 30; easing.type: Easing.OutQuad }
 	}
 
-	PanelWindow {
-		id: panel
+	Rectangle {
+		id: dialogCard
 
-		visible: root.dialogVisible
-		color: "transparent"
-		exclusionMode: ExclusionMode.Ignore
-		exclusiveZone: 0
+		anchors.centerIn: parent
+		width: Math.min(460, root.width - 40)
+		implicitHeight: cardLayout.implicitHeight + 48
+		color: Theme.alpha(Theme.bgCard, 0.92)
+		border.color: Theme.border
+		border.width: Theme.borderSize
+		radius: Theme.roundingWindow
 
-		WlrLayershell.layer: WlrLayer.Overlay
-		WlrLayershell.keyboardFocus: visible ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
-		WlrLayershell.namespace: "quickshell-polkit"
-
-		screen: Quickshell.screens.find(s => s.name === Hyprland.focusedMonitor?.name) ?? Quickshell.screens[0] ?? null
-
-		anchors {
-			top: true
-			bottom: true
-			left: true
-			right: true
+		transform: Translate {
+			id: cardTrans
 		}
 
-		Rectangle {
-			id: backdrop
-			anchors.fill: parent
-			color: Theme.backdropColor
-			opacity: root.dialogVisible && !root.closing ? 1.0 : 0.0
+		ColumnLayout {
+			id: cardLayout
 
-			Behavior on opacity {
-				NumberAnimation { duration: 150 }
+			anchors.left: parent.left
+			anchors.right: parent.right
+			anchors.top: parent.top
+			anchors.margins: 24
+			spacing: 20
+
+			Text {
+				Layout.fillWidth: true
+				text: root.displayCommand
+				color: Theme.textMain
+				font.family: Theme.fontMono
+				font.pixelSize: 16
+				font.bold: true
+				wrapMode: Text.WrapAnywhere
+				maximumLineCount: 3
+				elide: Text.ElideRight
+				lineHeight: 1.2
 			}
 
-			MouseArea {
-				anchors.fill: parent
-				onClicked: root.refocus()
-			}
-		}
+			PasswordField {
+				id: field
 
-		Rectangle {
-			id: card
+				Layout.fillWidth: true
+				Layout.preferredHeight: 46
+				focus: true
+				fillColor: Theme.bgMain
+				masked: !root.responseVisible
+				readOnly: root.submitted
+				busy: root.submitted
+				failed: root.failed
+				message: root.failed ? "Wrong password, try again" : root.inputPromptText
 
-			anchors.centerIn: parent
-			width: Math.min(460, panel.width - 40)
-			implicitHeight: cardLayout.implicitHeight + 48
-			color: Qt.rgba(Theme.bgCardColor.r, Theme.bgCardColor.g, Theme.bgCardColor.b, 0.92)
-			border.color: root.submitted ? Theme.accentGreen : (root.failed ? Theme.critical : Theme.border)
-			border.width: Theme.borderSize
-			radius: Theme.roundingWindow
-			clip: true
-
-			opacity: root.dialogVisible && !root.closing ? 1.0 : 0.0
-			scale: root.dialogVisible && !root.closing ? 1.0 : 0.96
-
-			Behavior on opacity {
-				NumberAnimation { duration: 150 }
-			}
-			Behavior on scale {
-				NumberAnimation { duration: 150; easing.type: Easing.OutCubic }
-			}
-			Behavior on border.color {
-				ColorAnimation { duration: 150 }
-			}
-
-			transform: Translate {
-				id: cardTrans
-				x: 0
-			}
-
-			ColumnLayout {
-				id: cardLayout
-
-				anchors.left: parent.left
-				anchors.right: parent.right
-				anchors.top: parent.top
-				anchors.margins: 24
-				spacing: 20
-
-				RowLayout {
-					Layout.fillWidth: true
-					spacing: 10
-
-					Text {
-						Layout.fillWidth: true
-						text: root.displayCommand
-						color: Theme.textMain
-						font.family: Theme.fontMono
-						font.pixelSize: 16
-						font.bold: true
-						wrapMode: Text.WrapAnywhere
-						maximumLineCount: 3
-						elide: Text.ElideRight
-						lineHeight: 1.2
-					}
+				onAccepted: root.submitResponse()
+				onCancelled: root.cancelRequest()
+				onTextChanged: {
+					if (text.length > 0 && root.failed)
+						root.failed = false;
 				}
+			}
 
-				Rectangle {
-					Layout.fillWidth: true
-					implicitHeight: 54
-					color: Theme.bgMain
-					border.color: root.submitted ? Theme.accentGreen : (root.failed ? Theme.critical : (passwordInput.activeFocus ? Theme.accentBlue : Theme.border))
-					border.width: Theme.borderSize
-					radius: Theme.roundingWindow
-
-					Behavior on border.color {
-						ColorAnimation { duration: 150 }
-					}
-
-					TextInput {
-						id: passwordInput
-
-						anchors.fill: parent
-						anchors.leftMargin: 18
-						anchors.rightMargin: 18
-						verticalAlignment: TextInput.AlignVCenter
-						clip: true
-						color: Theme.textMain
-						selectionColor: Theme.selectionBg
-						selectedTextColor: Theme.textMain
-						font.family: Theme.fontMono
-						font.pixelSize: 20
-						font.letterSpacing: root.responseVisible ? 0 : 4
-						echoMode: root.responseVisible ? TextInput.Normal : TextInput.Password
-						passwordCharacter: "•"
-						activeFocusOnPress: true
-						focus: true
-						enabled: root.dialogVisible && !root.submitted
-						onAccepted: root.submitResponse()
-						onTextChanged: {
-							if (text.length > 0 && root.failed)
-								root.failed = false;
-						}
-						Keys.onPressed: function (event) {
-							if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter) && !event.isAutoRepeat) {
-								root.submitResponse();
-								event.accepted = true;
-							} else if (event.key === Qt.Key_Escape && !event.isAutoRepeat) {
-								root.cancelRequest();
-								event.accepted = true;
-							}
-						}
-					}
-
-					Text {
-						anchors.fill: parent
-						anchors.leftMargin: 18
-						anchors.rightMargin: 18
-						verticalAlignment: Text.AlignVCenter
-						text: root.submitted ? "Checking…" : (root.failed ? "Wrong password, try again" : ((root.responseRequired && root.inputPromptText) ? root.inputPromptText : "Password…"))
-						textFormat: Text.PlainText
-						color: root.submitted ? Theme.accentGreen : (root.failed ? Theme.critical : Theme.textMuted)
-						font.family: Theme.fontFamily
-						font.pixelSize: 17
-						elide: Text.ElideRight
-						visible: passwordInput.text.length === 0
-
-						Behavior on color {
-							ColorAnimation { duration: 150 }
-						}
-					}
+			Text {
+				Layout.fillWidth: true
+				Layout.topMargin: -8
+				visible: text !== ""
+				text: {
+					if (root.submitted)
+						return "";
+					if (root.queued)
+						return (root.supplementaryText !== "" ? root.supplementaryText + " — " : "") + "password goes in once it is asked for";
+					return root.supplementaryText;
 				}
+				textFormat: Text.PlainText
+				color: root.supplementaryError && !root.queued ? Theme.critical : Theme.textDim
+				font.family: Theme.fontFamily
+				font.pixelSize: Theme.fontSizeSmall
+				wrapMode: Text.Wrap
 			}
 		}
 	}
