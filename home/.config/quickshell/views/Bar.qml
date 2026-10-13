@@ -1,8 +1,11 @@
 import ".."
+import "../widgets"
+import "../widgets/LineIcons.js" as LineIcons
 import Quickshell
 import Quickshell.Bluetooth
 import Quickshell.Hyprland
 import Quickshell.Networking
+import Quickshell.Services.Mpris
 import Quickshell.Services.UPower
 import Quickshell.Wayland
 import QtQuick
@@ -44,6 +47,103 @@ PanelWindow {
 	readonly property var batteryDevice: SystemStatus.batteryDevice
 	readonly property var wifiDevice: SystemStatus.wifiDevice
 	readonly property var wiredDevice: SystemStatus.wiredDevice
+
+	// Hyprland only reports the visible special through events; the monitor
+	// snapshot covers the time before the first one arrives.
+	property var specialEvent: null
+	readonly property string visibleSpecial: {
+		var name = specialEvent ?? Hyprland.monitorFor(modelData)?.lastIpcObject?.specialWorkspace?.name ?? "";
+		return String(name).replace(/^special:/, "");
+	}
+	// Joined first so the list only changes when the set of specials does.
+	readonly property string specialsKey: Hyprland.workspaces.values
+		.map(w => String(w.name))
+		.filter(n => n.startsWith("special:"))
+		.map(n => n.slice(8))
+		.sort()
+		.join("\n")
+	readonly property var specials: specialsKey !== "" ? specialsKey.split("\n") : []
+	// Folded away behind the memory readout until one is on screen or the pointer asks.
+	property bool specialsHovered: false
+	readonly property bool specialsExpanded: visibleSpecial !== "" || specialsHovered
+
+	// Line icon per special workspace name (see programs.special in hyprland.lua).
+	readonly property var specialIcons: ({
+		calendar: "calendar",
+		claude: "sparkles",
+		jolt: "zap",
+		mail: "mail",
+		spotify: "audio-lines",
+		tasks: "circle-check",
+		whatsapp: "message-circle",
+		yazi: "folder"
+	})
+
+	readonly property var players: Mpris.players.values
+
+	function toggleSpecial(name: string): void {
+		Quickshell.execDetached([
+			"hyprctl", "dispatch", "hl.dsp.workspace.toggle_special('" + name + "')"
+		]);
+	}
+
+	function cycleSpecial(delta: int): void {
+		if (specials.length === 0 || cycleThrottle.running)
+			return;
+		var count = specials.length;
+		var index = specials.indexOf(visibleSpecial);
+		var target = specials[index < 0 ? (delta > 0 ? 0 : count - 1) : (index + delta + count) % count];
+		if (target === visibleSpecial)
+			return;
+		cycleThrottle.start();
+		toggleSpecial(target);
+	}
+
+	function playerFor(special: string): var {
+		return players.find(p => ((p?.desktopEntry ?? "") + " " + (p?.identity ?? "")).toLowerCase().includes(special)) ?? null;
+	}
+
+	function trackLabel(player: var): string {
+		if (!player)
+			return "";
+		return [player.trackArtist, player.trackTitle].filter(s => s).join(" — ");
+	}
+
+	Connections {
+		target: Hyprland
+		function onRawEvent(ev) {
+			if (ev.name !== "activespecial")
+				return;
+			var parts = String(ev.data ?? "").split(",");
+			if (parts.pop() === bar.screenName)
+				bar.specialEvent = parts.join(",");
+		}
+	}
+
+	Timer {
+		id: expandTimer
+		interval: 120
+		onTriggered: bar.specialsHovered = true
+	}
+
+	Timer {
+		id: collapseTimer
+		interval: 300
+		onTriggered: bar.specialsHovered = false
+	}
+
+	Timer {
+		id: cycleThrottle
+		interval: 200
+	}
+
+	// Colour rule: at rest the workspace group on the left is textDim and the
+	// readouts (clock, weather, status) are textMain. Blue marks what is on
+	// screen or wants attention, green what is running (playback, charging), dim
+	// what is switched off; warning and critical speak for themselves.
+
+	// The bar has no background of its own, so hover is a tint rather than a solid fill.
+	readonly property color hoverColor: Theme.alpha(Theme.textMain, 0.1)
 
 	property Item tooltipTarget: null
 	property string tooltipText: ""
@@ -162,6 +262,7 @@ PanelWindow {
 		id: pill
 
 		property string text: ""
+		property string icon: ""
 		property string value: ""
 		property color textColor: Theme.textMain
 		property bool isActive: false
@@ -180,9 +281,9 @@ PanelWindow {
 
 		Layout.alignment: Qt.AlignVCenter
 		implicitHeight: Theme.barHeight
-		implicitWidth: (text !== "" || value !== "" || custom) ? pillRow.implicitWidth + 14 : 0
-		visible: text !== "" || value !== "" || custom
-		color: isActive ? Theme.alpha(Theme.accent, 0.16) : (pillArea.containsMouse ? Theme.bgHover : "transparent")
+		implicitWidth: (text !== "" || icon !== "" || value !== "" || custom) ? pillRow.implicitWidth + 14 : 0
+		visible: text !== "" || icon !== "" || value !== "" || custom
+		color: isActive ? Theme.alpha(Theme.accent, 0.16) : (pillArea.containsMouse ? bar.hoverColor : "transparent")
 		border.width: 0
 		radius: Theme.roundingElement
 
@@ -193,7 +294,13 @@ PanelWindow {
 		Row {
 			id: pillRow
 			anchors.centerIn: parent
-			spacing: pill.custom ? 10 : ((pill.text !== "" && pill.value !== "") ? 6 : 0)
+			spacing: pill.custom ? 10 : (((pill.text !== "" || pill.icon !== "") && pill.value !== "") ? 6 : 0)
+
+			LineIcon {
+				anchors.verticalCenter: parent.verticalCenter
+				name: pill.icon
+				color: pill.textColor
+			}
 
 			Text {
 				anchors.verticalCenter: parent.verticalCenter
@@ -248,11 +355,16 @@ PanelWindow {
 		MouseArea {
 			anchors.fill: parent
 			z: -1
-			enabled: QuickSettings.panelOpen || Notifications.centerOpen || Weather.panelOpen
+			enabled: QuickSettings.panelOpen || Notifications.centerOpen || Weather.panelOpen || bar.visibleSpecial !== ""
 			onPressed: {
-				QuickSettings.close();
-				Notifications.closeCenter();
-				Weather.close();
+				// Panels first; with none open, the click puts the special away.
+				if (QuickSettings.panelOpen || Notifications.centerOpen || Weather.panelOpen) {
+					QuickSettings.close();
+					Notifications.closeCenter();
+					Weather.close();
+				} else {
+					bar.toggleSpecial(bar.visibleSpecial);
+				}
 			}
 		}
 
@@ -262,17 +374,16 @@ PanelWindow {
 			anchors.verticalCenter: parent.verticalCenter
 			spacing: 6
 
-			Rectangle {
+			Item {
 				id: wsContainer
 				Layout.alignment: Qt.AlignVCenter
+				Layout.leftMargin: 6
 				implicitHeight: Theme.barHeight
-				implicitWidth: wsRow.implicitWidth
-				color: "transparent"
+				implicitWidth: wsRow.width
 
-				RowLayout {
+				Row {
 					id: wsRow
-					anchors.fill: parent
-					spacing: 2
+					height: parent.height
 
 					Repeater {
 						model: {
@@ -281,28 +392,26 @@ PanelWindow {
 							return ws;
 						}
 
-						delegate: Rectangle {
+						delegate: Item {
 							id: wsButton
 							required property var modelData
 							readonly property bool isActive: modelData.active
 
-							Layout.alignment: Qt.AlignVCenter
-							implicitHeight: Theme.barHeight
-							implicitWidth: wsLabel.implicitWidth + 14
-							color: wsArea.containsMouse ? Theme.bgHover : (isActive ? Theme.alpha(Theme.accent, 0.18) : "transparent")
-							border.width: 0
-							radius: Theme.roundingElement
+							height: Theme.barHeight
+							width: wsDot.width + 10
 
-							Behavior on color { ColorAnimation { duration: 120 } }
-
-							Text {
-								id: wsLabel
+							Rectangle {
+								id: wsDot
 								anchors.centerIn: parent
-								text: wsButton.modelData.name
-								font.family: Theme.fontMono
-								font.pixelSize: Theme.fontSizeBar
-								font.bold: true
+								width: wsButton.isActive ? 26 : 8
+								height: 8
+								radius: 4
 								color: wsButton.isActive ? Theme.accentBlue : (wsArea.containsMouse ? Theme.textMain : Theme.textDim)
+
+								Behavior on width {
+									NumberAnimation { duration: Theme.animNormal; easing.type: Easing.OutCubic }
+								}
+								Behavior on color { ColorAnimation { duration: 120 } }
 							}
 
 							MouseArea {
@@ -335,32 +444,132 @@ PanelWindow {
 				}
 			}
 
-			Pill {
-				visible: SystemStatus.memPercent !== ""
-				text: "󰍛"
-				value: SystemStatus.memPercent !== "" ? SystemStatus.memPercent + "%" : ""
-				textColor: Number(SystemStatus.memPercent) >= 90 ? Theme.critical : (Number(SystemStatus.memPercent) >= 75 ? Theme.warning : Theme.textDim)
-				tooltipText: SystemStatus.memTooltip
-				onActivated: Quickshell.execDetached([
-					"hyprctl", "dispatch", "hl.dsp.workspace.toggle_special('btop')"
-				])
-			}
+			Item {
+				id: specialsZone
+				Layout.alignment: Qt.AlignVCenter
+				implicitHeight: Theme.barHeight
+				implicitWidth: specialsRow.width
 
-			Pill {
-				visible: SystemStatus.gpuDevicePath !== "" && SystemStatus.gpuActive
-				text: "󰢮"
-				value: ""
-				textColor: Theme.accentGreen
-				tooltipText: "dGPU: Active"
-				onActivated: Quickshell.execDetached([
-					"hyprctl", "dispatch", "hl.dsp.workspace.toggle_special('btop')"
-				])
+				HoverHandler {
+					onHoveredChanged: {
+						if (hovered) {
+							collapseTimer.stop();
+							expandTimer.restart();
+						} else {
+							expandTimer.stop();
+							collapseTimer.restart();
+						}
+					}
+				}
+
+				Row {
+					id: specialsRow
+					height: parent.height
+
+					// Memory doubles as the btop special, so the group needs no marker of its own.
+					Pill {
+						visible: SystemStatus.memPercent !== ""
+						icon: "memory-stick"
+						value: SystemStatus.memPercent !== "" ? SystemStatus.memPercent + "%" : ""
+						textColor: Number(SystemStatus.memPercent) >= 90 ? Theme.critical : (Number(SystemStatus.memPercent) >= 75 ? Theme.warning : (bar.visibleSpecial === "btop" ? Theme.accentBlue : Theme.textDim))
+						isActive: bar.visibleSpecial === "btop"
+						tooltipText: SystemStatus.memTooltip
+						onActivated: bar.toggleSpecial("btop")
+					}
+
+					Repeater {
+						model: bar.specials.filter(name => name !== "btop")
+
+						delegate: Item {
+							id: sp
+							required property string modelData
+							readonly property var player: bar.playerFor(modelData)
+							readonly property bool playing: player?.isPlaying ?? false
+							readonly property bool shown: modelData === bar.visibleSpecial
+							readonly property string icon: bar.specialIcons[modelData] ?? ""
+							readonly property color tint: shown ? Theme.accentBlue
+								: playing ? Theme.accentGreen
+								: (spArea.containsMouse ? Theme.textMain : Theme.textDim)
+							readonly property string tip: {
+								var title = modelData.charAt(0).toUpperCase() + modelData.slice(1);
+								var track = bar.trackLabel(player);
+								return track !== "" ? title + "\n" + track : title;
+							}
+
+							onTipChanged: bar.updateTooltip(sp, tip)
+
+							height: Theme.barHeight
+							width: bar.specialsExpanded ? 30 : 0
+							opacity: bar.specialsExpanded ? 1 : 0
+							clip: true
+
+							Behavior on width {
+								NumberAnimation { duration: Theme.animNormal; easing.type: Easing.OutCubic }
+							}
+							Behavior on opacity {
+								NumberAnimation { duration: Theme.animFast }
+							}
+
+							Rectangle {
+								anchors.fill: parent
+								color: spArea.containsMouse ? bar.hoverColor : (sp.shown ? Theme.alpha(Theme.accent, 0.18) : "transparent")
+								radius: Theme.roundingElement
+
+								Behavior on color { ColorAnimation { duration: 120 } }
+							}
+
+							LineIcon {
+								anchors.centerIn: parent
+								name: sp.icon
+								color: sp.tint
+							}
+
+							Text {
+								anchors.centerIn: parent
+								visible: sp.icon === ""
+								text: sp.modelData.charAt(0).toUpperCase()
+								font.family: Theme.fontMono
+								font.pixelSize: Theme.fontSizeBar
+								font.bold: true
+								color: sp.tint
+							}
+
+							MouseArea {
+								id: spArea
+								anchors.fill: parent
+								hoverEnabled: true
+								cursorShape: Qt.PointingHandCursor
+								acceptedButtons: Qt.LeftButton | Qt.MiddleButton | Qt.RightButton
+								onEntered: bar.showTooltip(sp, sp.tip)
+								onExited: bar.hideTooltip(sp)
+								onPressed: mouse => {
+									bar.hideTooltipNow();
+									if (mouse.button === Qt.RightButton)
+										sp.player?.togglePlaying();
+									else if (mouse.button === Qt.MiddleButton)
+										sp.player?.next();
+									else
+										bar.toggleSpecial(sp.modelData);
+								}
+							}
+						}
+					}
+				}
+
+				MouseArea {
+					anchors.fill: parent
+					acceptedButtons: Qt.NoButton
+					onWheel: w => {
+						if (w.angleDelta.y !== 0)
+							bar.cycleSpecial(w.angleDelta.y > 0 ? -1 : 1);
+					}
+				}
 			}
 
 			Pill {
 				visible: SystemStatus.powerSaveActive
-				text: "󰌪"
-				textColor: Theme.accentGreen
+				icon: "leaf"
+				textColor: Theme.textMain
 				tooltipText: "Battery saver: On (60 Hz)"
 				onActivated: Quickshell.execDetached(["sh", "-c", "~/.local/bin/power-save"])
 			}
@@ -390,7 +599,7 @@ PanelWindow {
 			Pill {
 				id: weatherPill
 				visible: Weather.label !== ""
-				text: Weather.label
+				icon: LineIcons.weather(Weather.current?.weatherCode, Weather.current?.isDay ?? true)
 				value: Weather.tempNum !== "" ? (Weather.tempNum + "°") : ""
 				textColor: Theme.textMain
 				isActive: Weather.panelOpen
@@ -428,7 +637,7 @@ PanelWindow {
 
 			Pill {
 				visible: SystemStatus.screencasts > 0
-				text: "󰒎"
+				icon: "screen-share"
 				textColor: Theme.accentPurple
 				isActive: true
 				tooltipText: "Screen sharing active (" + SystemStatus.screencasts + (SystemStatus.screencasts === 1 ? " stream)" : " streams)")
@@ -436,8 +645,8 @@ PanelWindow {
 
 			Pill {
 				visible: SystemStatus.awakeActive
-				text: "󰖦"
-				textColor: Theme.accentBlue
+				icon: "coffee"
+				textColor: Theme.textMain
 				tooltipText: "Awake: Active"
 				onActivated: Quickshell.execDetached(["sh", "-c", "~/.local/bin/awake-toggle"])
 			}
@@ -503,22 +712,16 @@ PanelWindow {
 					"hyprctl", "dispatch", "hl.dsp.workspace.toggle_special('jolt')"
 				])
 
-				Text {
+				LineIcon {
 					anchors.verticalCenter: parent.verticalCenter
-					font.family: Theme.fontFamily
-					font.pixelSize: Theme.fontSizeBarIcon
-					font.bold: true
-					text: !statusPill.adapter?.enabled ? "󰂲" : (statusPill.btConnected.length > 0 ? "󰂱" : "󰂯")
-					color: statusPill.btConnected.length > 0 ? Theme.accentBlue : (statusPill.adapter?.enabled ? Theme.textMain : Theme.textDim)
+					name: !statusPill.adapter?.enabled ? "bluetooth-off" : (statusPill.btConnected.length > 0 ? "bluetooth-connected" : "bluetooth")
+					color: statusPill.adapter?.enabled ? Theme.textMain : Theme.textDim
 				}
 
-				Text {
+				LineIcon {
 					anchors.verticalCenter: parent.verticalCenter
-					font.family: Theme.fontFamily
-					font.pixelSize: Theme.fontSizeBarIcon
-					font.bold: true
-					text: statusPill.wifiUp ? "󰖩" : (statusPill.wiredUp ? "󰈀" : "󰖪")
-					color: (statusPill.wifiUp || statusPill.wiredUp) ? Theme.accentBlue : Theme.textDim
+					name: statusPill.wifiUp ? "wifi" : (statusPill.wiredUp ? "ethernet-port" : "wifi-off")
+					color: (statusPill.wifiUp || statusPill.wiredUp) ? Theme.textMain : Theme.textDim
 				}
 
 				Text {
@@ -528,7 +731,7 @@ PanelWindow {
 					font.family: Theme.fontMono
 					font.pixelSize: Theme.fontSizeBar
 					font.bold: true
-					color: statusPill.charging || statusPill.full ? Theme.accentGreen
+					color: statusPill.charging ? Theme.accentGreen
 						: statusPill.pct <= 10 ? Theme.critical
 						: statusPill.pct <= 20 ? Theme.warning
 						: Theme.textMain
@@ -541,9 +744,9 @@ PanelWindow {
 				readonly property bool isOpen: Notifications.centerOpen
 				readonly property bool hasNotifications: historyCount > 0
 
-				text: dnd ? "󰂛" : (hasNotifications ? "󰂚" : "󰂜")
+				icon: dnd ? "bell-off" : (hasNotifications ? "bell-dot" : "bell")
 				value: ""
-				textColor: dnd ? Theme.warning : (hasNotifications || isOpen ? Theme.accentBlue : Theme.textDim)
+				textColor: dnd ? Theme.warning : (hasNotifications || isOpen ? Theme.accentBlue : Theme.textMain)
 				isActive: isOpen
 				tooltipText: {
 					if (dnd)
