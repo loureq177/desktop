@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# wallpaper, weather, weather-location, bedtime, check-updates, awake-toggle,
+# wallpaper, weather, weather-location, check-updates, awake-toggle,
 # quickshell-session
 
 load helpers
@@ -174,82 +174,6 @@ walls() {
     assert_call "qs ipc call weather refresh"
 }
 
-# --- bedtime -----------------------------------------------------------------
-
-# wifi STATE: what `nmcli radio wifi` reports.
-wifi() {
-    echo "$1" >"$SANDBOX/wifi"
-    stub nmcli "[[ \"\$*\" == 'radio wifi' ]] && cat '$SANDBOX/wifi'; true"
-}
-BED_MARKER() { echo "$HOME/.local/state/bedtime/wifi-off"; }
-
-@test "bedtime 21:50: warns and leaves wifi alone" {
-    fake_time 21 50
-    wifi enabled
-    sut "$BIN/bedtime"
-    assert_status 0
-    assert_call_like "WiFi will turn off in 10 minutes."
-    refute_call_like "nmcli radio wifi off"
-}
-
-@test "bedtime 22:00: turns wifi off, announces it and remembers doing so" {
-    fake_time 22 00
-    wifi enabled
-    sut "$BIN/bedtime"
-    assert_status 0
-    assert_call "nmcli radio wifi off"
-    assert_call_like "WiFi has been turned off."
-    [[ -f "$(BED_MARKER)" ]]
-}
-
-@test "bedtime 23:30: turns wifi off without another notification" {
-    fake_time 23 30
-    wifi enabled
-    sut "$BIN/bedtime"
-    assert_status 0
-    assert_call "nmcli radio wifi off"
-    refute_call_like "notify-send"
-}
-
-@test "bedtime 22:00: does not claim a wifi the user had already switched off" {
-    fake_time 22 00
-    wifi disabled
-    sut "$BIN/bedtime"
-    assert_status 0
-    refute_call_like "nmcli radio wifi off"
-    [[ ! -e "$(BED_MARKER)" ]]
-}
-
-@test "bedtime 07:00: turns wifi back on only if bedtime turned it off" {
-    fake_time 07 00
-    wifi disabled
-    sut "$BIN/bedtime"
-    assert_status 0
-    refute_call_like "nmcli radio wifi on"
-
-    mkdir -p "$(dirname "$(BED_MARKER)")"
-    : >"$(BED_MARKER)"
-    sut "$BIN/bedtime"
-    assert_status 0
-    assert_call "nmcli radio wifi on"
-    [[ ! -e "$(BED_MARKER)" ]]
-}
-
-@test "bedtime: copes with 08 and 09 (not octal)" {
-    fake_time 08 09
-    wifi enabled
-    sut "$BIN/bedtime"
-    assert_status 0
-}
-
-@test "bedtime: survives a missing NetworkManager" {
-    fake_time 22 00
-    stub nmcli 'exit 1'
-    sut "$BIN/bedtime"
-    assert_status 0
-    [[ ! -e "$(BED_MARKER)" ]]
-}
-
 # --- check-updates -----------------------------------------------------------
 
 CU_STAMP() { echo "$HOME/.local/state/check-updates/last-check"; }
@@ -374,11 +298,58 @@ awake_stubs() {
     [[ "$(call_count systemd-cat)" -eq 1 ]]
 }
 
+lock_state() {
+    export HYPRLAND_INSTANCE_SIGNATURE=sig
+    LOCK_STATE="$XDG_RUNTIME_DIR/hypr/sig/quickshell-lock-state"
+    mkdir -p "${LOCK_STATE%/*}"
+    [[ -z "${1:-}" ]] || echo "$1" >"$LOCK_STATE"
+}
+
+@test "quickshell-session: a shell that dies before unlocking leaves the session to hyprlock" {
+    stub pidof 'exit 1'
+    stub systemd-cat 'exit 1'
+    stub hyprctl 'exit 0'
+    stub logger
+    stub hyprlock
+    lock_state locked
+    sut "$BIN/quickshell-session"
+    # Unlocked through hyprlock once; the relaunches after that do not lock again.
+    [[ "$(grep -cx "hyprlock " "$CALLS")" -eq 1 ]] || fail "$(calls)"
+    [[ "$(<"$LOCK_STATE")" == unlocked ]]
+}
+
+@test "quickshell-session: locks with hyprlock when the shell never came up at all" {
+    stub pidof 'exit 1'
+    stub systemd-cat 'exit 1'
+    stub hyprctl 'exit 0'
+    stub logger
+    stub hyprlock 'exit 1'
+    lock_state
+    sut "$BIN/quickshell-session"
+    assert_status 1
+    assert_call "hyprlock "
+    assert_call_like "THE SESSION IS NOT LOCKED"
+    [[ ! -e "$LOCK_STATE" ]]
+}
+
+@test "quickshell-session: a crash in an unlocked session does not lock it" {
+    stub pidof 'exit 1'
+    stub systemd-cat 'exit 1'
+    stub hyprctl 'exit 0'
+    stub logger
+    stub hyprlock
+    lock_state unlocked
+    sut "$BIN/quickshell-session"
+    refute_call_like "hyprlock"
+}
+
 @test "quickshell-session: relaunches a crashed shell, then gives up" {
     stub pidof 'exit 1'
     stub systemd-cat 'exit 1'
     stub hyprctl 'exit 0'
     stub logger
+    stub hyprlock
+    lock_state unlocked
     sut "$BIN/quickshell-session"
     assert_status 1
     [[ "$(call_count systemd-cat)" -eq 6 ]]

@@ -18,11 +18,27 @@ if [ -f /var/log/pacman.log ]; then
     pacman_log_start=$(wc -l < /var/log/pacman.log 2>/dev/null || echo 0)
 fi
 
-echo "==> Updating system & AUR packages..."
+abort() {
+    echo "operation aborted" >&2
+    exit "$1"
+}
+
+echo "==> Updating system packages..."
 if command -v paru >/dev/null 2>&1; then
-    paru -Syu --devel --noconfirm --skipreview --sudo pkexec || { rc=$?; echo "operation aborted" >&2; exit "$rc"; }
+    paru -Syu --repo --noconfirm --sudo pkexec || abort $?
+
+    # AUR build scripts run as this user and come from strangers: paru shows
+    # what changed and asks before building, so this part needs a terminal.
+    section "==> Updating AUR packages..."
+    if [[ -z "$(paru -Qua --devel 2>/dev/null || true)" ]]; then
+        echo "✓ Nothing to update."
+    elif [[ -t 0 ]]; then
+        paru -Sua --devel --sudo pkexec || abort $?
+    else
+        echo "Skipped: AUR updates are reviewed before they are built. Run 'sysupdate' in a terminal."
+    fi
 elif command -v pacman >/dev/null 2>&1; then
-    pkexec pacman -Syu --noconfirm || { rc=$?; echo "operation aborted" >&2; exit "$rc"; }
+    pkexec pacman -Syu --noconfirm || abort $?
 fi
 
 section "==> Updating Zsh plugins (zinit)..."

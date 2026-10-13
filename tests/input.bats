@@ -156,27 +156,27 @@ backlight() {
     backlight $'amdgpu_bl1,backlight,128,50%,255\n'
     sut "$BIN/brightness" up
     assert_status 0
-    assert_call "brightnessctl set +10%"
+    assert_call "brightnessctl -c backlight set +10%"
     assert_call "qs ipc call osd brightness 50"
     assert_call "qs ipc call quicksettings refresh"
 
     sut "$BIN/brightness" down
     assert_status 0
-    assert_call "brightnessctl set 10%-"
+    assert_call "brightnessctl -c backlight set 10%-"
 }
 
 @test "brightness: rejects anything but up and down" {
     backlight $'amdgpu_bl1,backlight,128,50%,255\n'
     sut "$BIN/brightness" sideways
     assert_status 2
-    refute_call_like "brightnessctl set"
+    refute_call_like " set "
 }
 
 @test "brightness: is a no-op on machines without a backlight" {
     backlight ''
     sut "$BIN/brightness" up
     assert_status 0
-    refute_call_like "brightnessctl set"
+    refute_call_like " set "
     refute_call_like "qs ipc"
 }
 
@@ -266,6 +266,18 @@ dictation_stubs() {
     stub whisper-cli "printf '%s\n' '$2'"
     stub_stdin wl-copy
     stub wtype
+    stub notify-send
+    mkdir -p "$HOME/.local/share/whisper"
+    echo model >"$HOME/.local/share/whisper/ggml-base.bin"
+}
+
+@test "dictation: says so instead of recording when the speech model is missing" {
+    dictation_stubs pl ""
+    rm "$HOME/.local/share/whisper/ggml-base.bin"
+    sut "$BIN/dictation"
+    assert_status 1
+    assert_call_like "Speech model not found"
+    refute_call_like "pw-record"
 }
 
 recorded_audio() {

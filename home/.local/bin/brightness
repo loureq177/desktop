@@ -6,8 +6,8 @@ timeout 5 brightnessctl -c backlight -m 2>/dev/null | grep -q . || exit 0
 
 ACTION="${1:-}"
 case "$ACTION" in
-up) timeout 5 brightnessctl set +10% >/dev/null 2>&1 ;;
-down) timeout 5 brightnessctl set 10%- >/dev/null 2>&1 ;;
+up) timeout 5 brightnessctl -c backlight set +10% >/dev/null 2>&1 ;;
+down) timeout 5 brightnessctl -c backlight set 10%- >/dev/null 2>&1 ;;
 *) echo "brightness: want up|down" >&2; exit 2 ;;
 esac
 

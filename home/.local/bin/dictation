@@ -6,7 +6,7 @@ PID_FILE="$RUN_DIR/dictation.pid"
 LOCK_FILE="$RUN_DIR/dictation.lock"
 AUDIO_RAW="$RUN_DIR/dictation_raw.wav"
 AUDIO_CLEAN="$RUN_DIR/dictation_clean.wav"
-MODEL="$HOME/.local/share/whisper/ggml-base.bin"
+MODEL="${XDG_DATA_HOME:-$HOME/.local/share}/whisper/ggml-base.bin"
 
 exec 200>"$LOCK_FILE"
 flock -n 200 || exit 0
@@ -63,6 +63,11 @@ stop() {
 }
 
 start() {
+    if [[ ! -s "$MODEL" ]]; then
+        notify-send --app-name "Dictation" -i "dialog-warning" "Dictation" \
+            "Speech model not found: $MODEL (install.sh downloads it)." 200>&- 2>/dev/null || true
+        exit 1
+    fi
     rm -f "$PID_FILE" "$AUDIO_RAW" "$AUDIO_CLEAN"
     bar start
     pw-record --rate 16000 --channels 1 "$AUDIO_RAW" 200>&- >/dev/null 2>&1 &

@@ -31,7 +31,7 @@ elif [ "${1:-}" = "fullscreen" ]; then
         timeout 5 grim "$FILE"
     fi
 else
-    echo "screenshot.sh: unknown mode '${1:-}' (want region|fullscreen)" >&2
+    echo "screenshot: unknown mode '${1:-}' (want region|fullscreen)" >&2
     exit 2
 fi
 

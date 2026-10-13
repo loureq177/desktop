@@ -8,6 +8,22 @@ pidof quickshell >/dev/null && exit 0
 
 export MALLOC_CONF=narenas:1,muzzy_decay_ms:0
 
+# quickshell is also the lock screen, and autologin counts on it: the session
+# opens unlocked and the shell locks it as it starts. Unless the shell recorded
+# an unlock (LockScreen.qml), a dead shell means nothing holds the lock, so the
+# stand-in locker takes over until the password is given.
+lock_state="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/hypr/${HYPRLAND_INSTANCE_SIGNATURE:-}/quickshell-lock-state"
+lock_without_shell() {
+    [[ "$(cat "$lock_state" 2>/dev/null)" == unlocked ]] && return 0
+    logger -t quickshell "no shell to hold the lock, falling back to hyprlock"
+    if hyprlock; then
+        mkdir -p "${lock_state%/*}"
+        echo unlocked >"$lock_state"
+    else
+        logger -p user.err -t quickshell "hyprlock failed as well: THE SESSION IS NOT LOCKED"
+    fi
+}
+
 fails=0
 window=$SECONDS
 while true; do
@@ -16,6 +32,8 @@ while true; do
 
     # The session is going down, not the shell.
     hyprctl -j monitors >/dev/null 2>&1 || exit 0
+
+    lock_without_shell
 
     if ((SECONDS - window > 60)); then
         fails=0

@@ -99,10 +99,12 @@ run_if npm npm cache clean --force
 
 section "Pruning container engines..."
 if [ "$AUTO" = 1 ]; then
-    echo "  (skipped in --auto: deletes images and volumes)"
+    echo "  (skipped in --auto: deletes images)"
 else
-    run_if podman podman system prune -a --force --volumes
-    run_if docker docker system prune -a -f --volumes
+    # Images, stopped containers and build cache come back with a pull or a
+    # build. Volumes hold data and do not: they stay.
+    run_if podman podman system prune -a --force
+    run_if docker docker system prune -a -f
     run_if docker docker builder prune -f
 fi
 

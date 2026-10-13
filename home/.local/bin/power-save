@@ -7,11 +7,12 @@ action="${1:-toggle}"
 with_brightness=true
 command -v brightnessctl >/dev/null || with_brightness=false
 
-exec 201>"$XDG_RUNTIME_DIR/powersave.lock"
+RUN_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+exec 201>"$RUN_DIR/powersave.lock"
 flock -w 2 201 || exit 0
 
-STATE_FILE="$XDG_RUNTIME_DIR/powersave_mode"
-PREV_BRIGHTNESS_FILE="$XDG_RUNTIME_DIR/powersave_prev_brightness"
+STATE_FILE="$RUN_DIR/powersave_mode"
+PREV_BRIGHTNESS_FILE="$RUN_DIR/powersave_prev_brightness"
 STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}"
 GHOSTTY_SHADER="$STATE_DIR/ghostty/active-shader.glsl"
 GHOSTTY_PERF="$STATE_DIR/ghostty/perf.conf"
@@ -59,6 +60,8 @@ slow_tail() {
     qs ipc call quicksettings refresh || true
 }
 
+# Switching the power profile can dim the panel a few seconds later (see
+# restore-backlight); put the brightness back once that has settled.
 restore_later() {
     sleep 12
     restore-backlight
@@ -69,7 +72,7 @@ apply_display() {
     fields="$(hyprctl monitors -j | jq -r --arg hz "$1" '
         first(.[] | select(.name | startswith("eDP"))) as $m
         | ([$m.availableModes[] | select(startswith("\($m.width)x\($m.height)@"))
-            | sub(".*@"; "") | rtrimstr("Hz") | tonumber | floor] | max // 165) as $max
+            | sub(".*@"; "") | rtrimstr("Hz") | tonumber | floor] | max // ($m.refreshRate | floor)) as $max
         | [if ($m.description // "") != "" then "desc:\($m.description)" else $m.name end,
            $m.width, $m.height, "\($m.x)x\($m.y)", $m.scale, (if $hz == "max" then $max else $hz end)]
         | @tsv' || true)"
@@ -92,9 +95,9 @@ ghostty_perf() {
     mkdir -p "${GHOSTTY_PERF%/*}"
     cat >"$GHOSTTY_PERF" <<EOF
 # Managed by power-save. Do not edit.
-# background-opacity<1: Ghostty wysyła bufor z alfą, dopiero wtedy Hyprland
-# bluruje tło za oknem (przy 1.0 bufor jest nieprzeźroczysty i blur nie ma
-# czego łapać — docs: background-blur na Linuksie tylko pod KDE).
+# background-opacity below 1 makes Ghostty send a buffer with alpha, and only
+# then does Hyprland blur what is behind the window (at 1.0 the buffer is
+# opaque and there is nothing to blur; background-blur itself is KDE-only).
 custom-shader-animation = $anim
 background-opacity = $opacity
 background-blur = false
@@ -120,7 +123,12 @@ opencode_anims() {
     local json
     mkdir -p "${OPENCODE_KV%/*}"
     [[ -s "$OPENCODE_KV" ]] && json="$(<"$OPENCODE_KV")" || json='{}'
-    jq --argjson v "$1" '.animations_enabled = $v' <<<"$json" >"$OPENCODE_KV"
+    # Through a temp file: a jq that fails must not leave opencode's state empty.
+    if jq --argjson v "$1" '.animations_enabled = $v' <<<"$json" >"$OPENCODE_KV.tmp"; then
+        mv "$OPENCODE_KV.tmp" "$OPENCODE_KV"
+    else
+        rm -f "$OPENCODE_KV.tmp"
+    fi
 }
 
 enable_mode() {

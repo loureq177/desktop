@@ -2,7 +2,11 @@
 set -euo pipefail
 
 SRC="${XDG_CONFIG_HOME:-$HOME/.config}/firefox-defaults"
-INIFILE="${XDG_CONFIG_HOME:-$HOME/.config}/mozilla/firefox/profiles.ini"
+# Firefox keeps its profiles under XDG_CONFIG_HOME, or in ~/.mozilla when
+# that directory was there first.
+FF_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/mozilla/firefox"
+[ -f "$FF_DIR/profiles.ini" ] || [ ! -f "$HOME/.mozilla/firefox/profiles.ini" ] || FF_DIR="$HOME/.mozilla/firefox"
+INIFILE="$FF_DIR/profiles.ini"
 
 [ -f "$INIFILE" ] || { echo "firefox-apply: $INIFILE not found" >&2; exit 1; }
 
@@ -34,7 +38,7 @@ PROFILE="${SEL#*$'\t'}"
 if [ "$ISREL" = "0" ]; then
     PROFILE_DIR="$PROFILE"
 else
-    PROFILE_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/mozilla/firefox/$PROFILE"
+    PROFILE_DIR="$FF_DIR/$PROFILE"
 fi
 [ -d "$PROFILE_DIR" ] || { echo "firefox-apply: profile dir not found: $PROFILE_DIR" >&2; exit 1; }
 

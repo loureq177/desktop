@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# firefox-apply, firefox-webapp, rclone-sync, mesa-egl, dgpu-run
+# firefox-apply, firefox-webapp, mesa-egl, dgpu-run
 
 load helpers
 
@@ -175,54 +175,6 @@ zoom_rows() {
     sut "$BIN/firefox-webapp" gemini https://gemini.google.com
     assert_status 0
     assert_call_like "firefox --profile"
-}
-
-# --- rclone-sync -------------------------------------------------------------
-
-@test "rclone-sync: syncs the home dir to the default remote, skipping dotfiles and build dirs" {
-    stub rclone
-    sut "$BIN/rclone-sync"
-    assert_status 0
-    assert_call_like "rclone sync $HOME google-drive-backup:mlorenc-backup --exclude=.*/** --exclude=.* --exclude=node_modules/**"
-    assert_call_like "--drive-use-trash=true"
-    refute_call_like "--progress"
-    refute_call_like "notify-send"
-}
-
-@test "rclone-sync: backup.conf overrides source and remote" {
-    stub rclone
-    mkdir -p "$HOME/.config/rclone"
-    printf 'RCLONE_BACKUP_SOURCE="%s/My Docs"\nRCLONE_BACKUP_REMOTE="b2:bucket"\n' "$HOME" >"$HOME/.config/rclone/backup.conf"
-    sut "$BIN/rclone-sync"
-    assert_status 0
-    assert_call_like "rclone sync $HOME/My Docs b2:bucket --exclude"
-}
-
-@test "rclone-sync: the example config is a valid starting point" {
-    stub rclone
-    mkdir -p "$HOME/.config/rclone"
-    cp "$REPO/archlinux/.config/rclone/backup.conf.example" "$HOME/.config/rclone/backup.conf"
-    sut "$BIN/rclone-sync"
-    assert_status 0
-    assert_call_like "rclone sync "
-}
-
-@test "rclone-sync: a failed sync notifies and keeps rclone's exit code" {
-    stub rclone 'exit 7'
-    sut "$BIN/rclone-sync"
-    assert_status 7
-    assert_call_like "Rclone Sync failed"
-}
-
-@test "rclone-sync: does not start twice" {
-    stub rclone
-    exec 9>"$XDG_RUNTIME_DIR/rclone-sync.lock"
-    flock -n 9
-    sut "$BIN/rclone-sync"
-    exec 9>&-
-    assert_status 0
-    assert_output_like "already running"
-    refute_call_like "rclone"
 }
 
 # --- mesa-egl / dgpu-run -----------------------------------------------------

@@ -70,8 +70,9 @@ orphans() {
     assert_call "sudo paccache -r -u -k 0"
     assert_call "flatpak uninstall --unused -y"
     assert_call "gio trash --empty"
-    assert_call "podman system prune -a --force --volumes"
-    assert_call "docker system prune -a -f --volumes"
+    assert_call "podman system prune -a --force"
+    assert_call "docker system prune -a -f"
+    refute_call_like "--volumes"
     assert_call "sudo journalctl --vacuum-size=200M --vacuum-time=2weeks --quiet"
     assert_output_like "Total reclaimed space:"
 }
@@ -123,7 +124,7 @@ orphans() {
 @test "sysupdate: upgrades system and AUR, then the user-level tools" {
     sut "$BIN/sysupdate"
     assert_status 0
-    assert_call "paru -Syu --devel --noconfirm --skipreview --sudo pkexec"
+    assert_call "paru -Syu --repo --noconfirm --sudo pkexec"
     assert_call "zsh -ic zinit self-update && zinit update --all"
     assert_call "flatpak update -y"
     assert_call "tldr --update"
@@ -134,6 +135,22 @@ orphans() {
     else
         assert_call_like "Reboot Recommended"
     fi
+}
+
+@test "sysupdate: never builds AUR packages without a terminal to review them in" {
+    stub paru '[[ "$1" == -Qua ]] && echo "some-aur-pkg 1 -> 2"; true'
+    sut "$BIN/sysupdate"
+    assert_status 0
+    assert_output_like "AUR updates are reviewed before they are built"
+    refute_call_like "paru -Sua"
+    refute_call_like "--skipreview"
+}
+
+@test "sysupdate: with no AUR updates pending asks for nothing" {
+    sut "$BIN/sysupdate"
+    assert_status 0
+    assert_output_like "Nothing to update."
+    refute_call_like "paru -Sua"
 }
 
 @test "sysupdate: stops with the package manager's exit code when the upgrade fails" {
