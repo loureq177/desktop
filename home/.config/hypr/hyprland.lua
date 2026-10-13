@@ -25,12 +25,17 @@ local programs = {
 
 	-- special workspace name -> app; `key` binds SUPER + SHIFT + key to toggle it
 	special = {
-		gemini = webapp("gemini", "https://gemini.google.com", "Gemini", "A", "AI (Gemini)"),
+		claude = webapp("claude", "https://claude.ai", "Claude", "A", "AI (Claude)"),
 		calendar = webapp("calendar", "https://calendar.google.com", "Calendar", "C"),
 		mail = webapp("gmail", "https://mail.google.com", "Gmail", "E", "Mail"),
 		tasks = webapp("tasks", "https://tasks.google.com", "Tasks", "T"),
 		whatsapp = webapp("whatsapp", "https://web.whatsapp.com", "WhatsApp", "W"),
-		spotify = { exe = "flatpak run com.spotify.Client", class = "spotify", key = "S", desc = "Spotify" },
+		spotify = {
+			exe = "flatpak run com.spotify.Client",
+			class = "spotify",
+			key = "S",
+			desc = "Spotify",
+		},
 		btop = { exe = "ghostty +new-window -e btop", key = "B", desc = "Activity Monitor" },
 		yazi = { exe = "ghostty +new-window -e yazi", key = "F", desc = "File manager (yazi)" },
 		jolt = { exe = "ghostty +new-window -e jolt" },
@@ -239,11 +244,10 @@ hl.config({
 		repeat_delay = 200,
 		repeat_rate = 20,
 		sensitivity = 0.2,
-		scroll_factor = 0.3,
+		scroll_factor = 0.5,
 		touchpad = {
 			natural_scroll = true,
 			tap_to_click = true,
-			scroll_factor = 0.5,
 		},
 	},
 	cursor = {
@@ -413,7 +417,12 @@ local function refresh_special_gestures()
 	set_cycle_gestures(visible ~= nil)
 end
 
-for _, ev in ipairs({ "workspace.special_active", "workspace.active", "window.active", "window.close" }) do
+for _, ev in ipairs({
+	"workspace.special_active",
+	"workspace.active",
+	"window.active",
+	"window.close",
+}) do
 	hl.on(ev, refresh_special_gestures)
 end
 
@@ -631,7 +640,10 @@ local function monitor_in_direction(dir)
 		if
 			m.name ~= cur.name
 			and overlap(m.y, m.y + m.height, cur.y, cur.y + cur.height)
-			and ((dir == "left" and m.x + m.width <= cur.x) or (dir == "right" and m.x >= cur.x + cur.width))
+			and (
+				(dir == "left" and m.x + m.width <= cur.x)
+				or (dir == "right" and m.x >= cur.x + cur.width)
+			)
 		then
 			return true
 		end
@@ -782,11 +794,23 @@ end
 local function mouse_binds(mod)
 	b(mod .. "mouse_down", "Next workspace", hl.dsp.focus({ workspace = "e+1" }))
 	b(mod .. "mouse_up", "Previous workspace", hl.dsp.focus({ workspace = "e-1" }))
-	b(mod .. "SHIFT + mouse_down", "Move window to next workspace", hl.dsp.window.move({ workspace = "r+1" }))
-	b(mod .. "SHIFT + mouse_up", "Move window to previous workspace", hl.dsp.window.move({ workspace = "r-1" }))
+	b(
+		mod .. "SHIFT + mouse_down",
+		"Move window to next workspace",
+		hl.dsp.window.move({ workspace = "r+1" })
+	)
+	b(
+		mod .. "SHIFT + mouse_up",
+		"Move window to previous workspace",
+		hl.dsp.window.move({ workspace = "r-1" })
+	)
 	b(mod .. "mouse:274", "Toggle floating", hl.dsp.window.float({ action = "toggle" }))
 	hl.bind(mod .. "mouse:272", hl.dsp.window.drag(), { mouse = true, description = "Move window" })
-	hl.bind(mod .. "mouse:273", hl.dsp.window.resize(), { mouse = true, description = "Resize window" })
+	hl.bind(
+		mod .. "mouse:273",
+		hl.dsp.window.resize(),
+		{ mouse = true, description = "Resize window" }
+	)
 end
 
 mouse_binds("SUPER + ")

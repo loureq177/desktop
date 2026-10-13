@@ -75,7 +75,7 @@ FadeOverlay {
 		{ cat: "Essential", match: ["terminal", "browser", "keybindings"] },
 		{ cat: "Notifications", match: ["notification"] },
 		{ cat: "Clipboard & Selection", match: ["clipboard"] },
-		{ cat: "Special Workspaces", match: ["calendar", "tasks", "whatsapp", "mail", "spotify", "gemini", "yazi", "activity monitor"] },
+		{ cat: "Special Workspaces", match: ["calendar", "tasks", "whatsapp", "mail", "spotify", "claude", "yazi", "activity monitor"] },
 		{ cat: "System & Tools", match: ["lock system", "emoji", "quick actions", "weather"] },
 		{ cat: "Window Management", match: ["close window", "fullscreen", "split", "floating", "swap window", "resize window"] },
 		{ cat: "Navigation & Workspaces", match: ["focus", "workspace"] }
