@@ -130,11 +130,6 @@ if [ "$OS" = "Linux" ]; then
     _log_info "Configuring autologin on tty1..."
     # No display manager: getty logs $USER in, the login shell execs Hyprland (.zprofile)
     # and quickshell locks the session as soon as it starts.
-    if pacman -Qq ly &>/dev/null; then
-        sudo systemctl disable ly@tty1.service 2>/dev/null || true
-        sudo pacman -Rns --noconfirm ly
-        sudo rm -rf /etc/ly /etc/systemd/system/ly@tty1.service.d
-    fi
     gpu_wait=""
     if [ -x /usr/local/bin/wait-for-gpus ]; then
         gpu_wait="ExecStartPre=-/usr/local/bin/wait-for-gpus"
@@ -153,24 +148,17 @@ EOF
     sudo systemctl unmask getty@tty1.service
     sudo systemctl enable getty@tty1.service || _log_warn "Failed to enable getty@tty1."
 
-    if [ -f "archlinux/.config/keyd/default.conf" ]; then
-        _log_info "Configuring keyd keyboard remapper..."
-        sudo mkdir -p /etc/keyd
-        _install_etc_file archlinux/.config/keyd/default.conf /etc/keyd/default.conf 644
-        sudo systemctl enable --now keyd 2>/dev/null || _log_warn "Failed to enable keyd."
-        sudo keyd reload 2>/dev/null || true
-    fi
-
-    if [ -d system/etc ]; then
-        _log_info "Installing system memory tuning (THP, zram, swap sysctls)..."
-        while IFS= read -r -d '' src; do
-            dest="/${src#system/}"
-            sudo mkdir -p "$(dirname "$dest")"
-            _install_etc_file "$src" "$dest" 644
-        done < <(find system/etc -type f -print0 | sort -z)
-        sudo systemd-tmpfiles --create /etc/tmpfiles.d/memory.conf || _log_warn "Failed to apply tmpfiles memory settings."
-        sudo sysctl --quiet --load /etc/sysctl.d/99-zram.conf || _log_warn "Failed to apply zram sysctls."
-    fi
+    _log_info "Installing system configs (keyd, THP, zram, swap sysctls)..."
+    # archlinux/etc mirrors /etc; stow skips it (.stowrc) and the files are copied.
+    while IFS= read -r -d '' src; do
+        dest="/${src#archlinux/}"
+        sudo mkdir -p "$(dirname "$dest")"
+        _install_etc_file "$src" "$dest" 644
+    done < <(find archlinux/etc -type f -print0 | sort -z)
+    sudo systemctl enable --now keyd 2>/dev/null || _log_warn "Failed to enable keyd."
+    sudo keyd reload 2>/dev/null || true
+    sudo systemd-tmpfiles --create /etc/tmpfiles.d/memory.conf || _log_warn "Failed to apply tmpfiles memory settings."
+    sudo sysctl --quiet --load /etc/sysctl.d/99-zram.conf || _log_warn "Failed to apply zram sysctls."
 
     if [ -x "$HOME/.local/bin/apply-ui" ]; then
         _log_info "Applying UI styles..."

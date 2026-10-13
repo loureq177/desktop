@@ -138,7 +138,7 @@ stow_ignored() {
 @test "stow links every tracked file except the ones meant to stay in the repo" {
     need stow
     # Package lists, docs and machine-local files are deliberately not linked.
-    local allowed='^(packages(-[a-z]+)?\.txt|aur\.txt|flatpak\.txt|Brewfile|(.*/)?README\.md|\.config/hypr/local\.lua|\.config/opencode/service\.json|\.gemini/antigravity-cli/settings\.json)$'
+    local allowed='^(packages(-[a-z]+)?\.txt|aur\.txt|flatpak\.txt|Brewfile|(.*/)?README\.md|\.config/hypr/local\.lua|etc)$'
     local pkg path bad=0
     for pkg in common archlinux macos; do
         while IFS= read -r path; do

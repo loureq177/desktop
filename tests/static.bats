@@ -103,7 +103,7 @@ check_each() {
 
 @test "keyd config is valid" {
     need keyd
-    run keyd check "$REPO/archlinux/.config/keyd/default.conf"
+    run keyd check "$REPO/archlinux/etc/keyd/default.conf"
     assert_status 0
     assert_output_like "No errors found"
 }

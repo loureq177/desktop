@@ -10,6 +10,14 @@ cd ~/.files
 ./install.sh
 ```
 
+On Arch the installer also changes the system: it upgrades and installs packages, enables autologin on tty1 for the current user, copies `archlinux/etc` into `/etc` (keyd, zram and memory tuning) and enables the user timers. AUR packages need `paru` to be installed first.
+
+## Layout
+
+- `common/` – configs shared by both systems, linked into `~`
+- `archlinux/` – Hyprland, quickshell, scripts and package lists; `archlinux/etc` is copied to `/etc` instead of linked
+- `macos/` – Brewfile and scripts
+
 ## Usage
 
 ```bash

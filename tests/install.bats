@@ -25,7 +25,6 @@ install) mkdir -p '$ROOT'\"\$(dirname \"\${@: -1}\")\" && cp \"\${@: -2:1}\" '$R
 esac
 [[ \"\${@: -1}\" != - ]] || cat >>'$SANDBOX/pacman.stdin'
 true"
-    stub pacman 'exit 1' # only called directly as `pacman -Qq ly`
     stub flatpak
     stub paru
     stub systemctl
@@ -198,11 +197,13 @@ EOF
 @test "install (Arch): installs keyd and memory tuning into /etc" {
     arch_only
     install --no-upgrade
-    cmp "$ROOT/etc/keyd/default.conf" "$COPY/archlinux/.config/keyd/default.conf"
+    [[ -f "$ROOT/etc/keyd/default.conf" && -f "$ROOT/etc/sysctl.d/99-zram.conf" ]] || fail "$(calls)"
     local f
     while IFS= read -r f; do
-        cmp "$ROOT/${f#system/}" "$COPY/$f" || fail "not installed: /${f#system/}"
-    done < <(cd "$COPY" && find system/etc -type f)
+        cmp "$ROOT/${f#archlinux/}" "$COPY/$f" || fail "not installed: /${f#archlinux/}"
+    done < <(cd "$COPY" && find archlinux/etc -type f)
+    # /etc files are copied by root, never linked into the home dir.
+    [[ ! -e "$HOME/etc" ]] || fail "stow linked ~/etc"
     assert_call "sudo systemctl enable --now keyd"
     assert_call "sudo sysctl --quiet --load /etc/sysctl.d/99-zram.conf"
 }
