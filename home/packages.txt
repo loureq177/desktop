@@ -8,7 +8,6 @@ aws-cli-v2
 bat
 bats
 bazaar
-bluetui
 btop
 buf
 bun
@@ -58,13 +57,11 @@ hyprland
 hyprpicker
 hyprshutdown
 hyprsunset
-impala
 inter-font
 jless
 jolt
 jq
 keyd
-lazydocker
 lazygit
 lib32-gamemode
 libcanberra
@@ -99,7 +96,6 @@ pipewire-jack
 pipewire-pulse
 playerctl
 podman
-profile-sync-daemon
 prusa-slicer
 python-pip
 python-pynvim
