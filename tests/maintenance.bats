@@ -6,15 +6,13 @@ load helpers
 setup() {
     sandbox_setup
     MAC="$REPO/macos/.local/bin"
-    ZSH="$SAFE/zsh"
-    [[ -x "$ZSH" ]] || skip "needs zsh"
     stub sudo
     stub notify-send
     local tool
     for tool in pacman paccache flatpak gio uv pip bun npm podman docker pkexec tldr nvim brew mas pipx softwareupdate yarn qlmanage; do
         stub "$tool"
     done
-    # sysupdate runs `zsh -ic ...`; the scripts themselves are started with the real zsh.
+    # sysupdate updates the zsh plugins through `zsh -ic ...`.
     stub zsh
     stub systemctl
     stub paru
@@ -26,7 +24,7 @@ setup() {
 sysclean() {
     # The script also empties /tmp/paru, which is outside the sandbox.
     if compgen -G "/tmp/paru/*" >/dev/null; then skip "/tmp/paru is in use on this machine"; fi
-    sut "$ZSH" "$BIN/sysclean" "$@"
+    sut "$BIN/sysclean" "$@"
 }
 
 orphans() {
@@ -123,7 +121,7 @@ orphans() {
 # --- sysupdate (Arch) --------------------------------------------------------
 
 @test "sysupdate: upgrades system and AUR, then the user-level tools" {
-    sut "$ZSH" "$BIN/sysupdate"
+    sut "$BIN/sysupdate"
     assert_status 0
     assert_call "paru -Syu --devel --noconfirm --skipreview --sudo pkexec"
     assert_call "zsh -ic zinit self-update && zinit update --all"
@@ -140,7 +138,7 @@ orphans() {
 
 @test "sysupdate: stops with the package manager's exit code when the upgrade fails" {
     stub paru 'exit 5'
-    sut "$ZSH" "$BIN/sysupdate"
+    sut "$BIN/sysupdate"
     assert_status 5
     assert_output_like "operation aborted"
     refute_call_like "flatpak"
@@ -150,14 +148,14 @@ orphans() {
 
 @test "sysupdate: falls back to pacman when paru is not installed" {
     rm "$STUBS/paru"
-    sut "$ZSH" "$BIN/sysupdate"
+    sut "$BIN/sysupdate"
     assert_status 0
     assert_call "pkexec pacman -Syu --noconfirm"
 }
 
 @test "sysupdate: points out pending .pacnew files" {
     stub pacdiff '[[ "$1" == -o ]] && echo /etc/pacman.conf.pacnew; true'
-    sut "$ZSH" "$BIN/sysupdate"
+    sut "$BIN/sysupdate"
     assert_status 0
     assert_output_like "/etc/pacman.conf.pacnew"
     assert_call_like "Pacnew Files Detected"
@@ -165,7 +163,7 @@ orphans() {
 
 @test "sysupdate: skips optional tools that are not installed" {
     rm "$STUBS"/{flatpak,tldr,uv,nvim,pacdiff,notify-send}
-    sut "$ZSH" "$BIN/sysupdate"
+    sut "$BIN/sysupdate"
     assert_status 0
     if [[ -d "/usr/lib/modules/$(uname -r)" ]]; then
         assert_output_like "System update complete"
@@ -177,7 +175,7 @@ orphans() {
 # --- macOS -------------------------------------------------------------------
 
 @test "macos sysupdate --help: prints usage and updates nothing" {
-    sut "$ZSH" "$MAC/sysupdate" --help
+    sut "$MAC/sysupdate" --help
     assert_status 0
     assert_output_like "Usage: sysupdate [--only="
     [[ ! -s "$CALLS" ]]
@@ -185,7 +183,7 @@ orphans() {
 
 @test "macos sysupdate: updates every tool by default" {
     stub mas '[[ "$1" == outdated ]] && echo "123 Xcode (15 -> 16)"; true'
-    sut "$ZSH" "$MAC/sysupdate"
+    sut "$MAC/sysupdate"
     assert_status 0
     assert_call "brew update"
     assert_call "brew upgrade --quiet"
@@ -199,14 +197,14 @@ orphans() {
 }
 
 @test "macos sysupdate: does not run mas upgrade when nothing is outdated" {
-    sut "$ZSH" "$MAC/sysupdate" --only=mas
+    sut "$MAC/sysupdate" --only=mas
     assert_status 0
     assert_call "mas outdated"
     refute_call_like "mas upgrade"
 }
 
 @test "macos sysupdate --only: runs just the selected steps" {
-    sut "$ZSH" "$MAC/sysupdate" --only=brew
+    sut "$MAC/sysupdate" --only=brew
     assert_status 0
     assert_call "brew update"
     refute_call_like "mas"
@@ -215,7 +213,7 @@ orphans() {
     refute_call_like "softwareupdate"
 
     : >"$CALLS"
-    sut "$ZSH" "$MAC/sysupdate" --only=tldr,nvim
+    sut "$MAC/sysupdate" --only=tldr,nvim
     assert_status 0
     assert_call "tldr --update"
     assert_call "nvim --headless +Lazy! sync +qa"
@@ -228,7 +226,7 @@ orphans() {
     : >"$HOME/.Trash/junk"
     : >"$HOME/Library/Caches/Homebrew/old.tar"
     : >"$HOME/Documents/keep.txt"
-    sut "$ZSH" "$MAC/sysclean"
+    sut "$MAC/sysclean"
     assert_status 0
     assert_call "brew cleanup --prune=all"
     assert_call "brew autoremove"

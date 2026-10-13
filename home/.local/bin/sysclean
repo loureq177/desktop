@@ -1,10 +1,15 @@
-#!/usr/bin/env zsh
+#!/usr/bin/env bash
 set -euo pipefail
+shopt -s nullglob
 
 AUTO=0
 if [[ "${1:-}" == "--auto" ]]; then
     AUTO=1
 fi
+
+section() {
+    printf '\n%s\n' "$*"
+}
 
 skip_sudo() {
     echo "  (skipped in --auto: needs sudo)"
@@ -12,10 +17,10 @@ skip_sudo() {
 
 run_if() {
     command -v "$1" >/dev/null 2>&1 || return 0
-    local tool=$1
+    local tool=$1 rc=0
     shift
-    timeout 120 "$@" </dev/null 2>/dev/null || { [ $? = 124 ] && echo "  (skipped $tool - timed out)"; }
-    true
+    timeout 120 "$@" </dev/null 2>/dev/null || rc=$?
+    [ "$rc" -ne 124 ] || echo "  (skipped $tool - timed out)"
 }
 
 avail_bytes() {
@@ -26,7 +31,7 @@ avail_bytes() {
 print_total() {
     local green=$'\033[1;32m' reset=$'\033[0m'
     local line="━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    echo "\n${green}${line}\n  Total reclaimed space: $1\n${line}${reset}"
+    printf '\n%s%s\n  Total reclaimed space: %s\n%s%s\n' "$green" "$line" "$1" "$line" "$reset"
 }
 
 CLEAN_MOUNTS=()
@@ -42,15 +47,15 @@ if [ -n "$orphan_list" ]; then
         echo "Orphans found (leaving them: removal needs sudo):"
         echo "$orphan_list"
     else
-        echo "Removing: ${orphan_list}"
-        orphans=(${(f)orphan_list})
+        mapfile -t orphans <<<"$orphan_list"
+        echo "Removing: ${orphans[*]}"
         sudo pacman -Rns --noconfirm "${orphans[@]}"
     fi
 else
     echo "No orphaned packages."
 fi
 
-echo "\nCleaning cached pacman packages..."
+section "Cleaning cached pacman packages..."
 if [ "$AUTO" = 1 ]; then
     skip_sudo
 elif command -v paccache >/dev/null 2>&1; then
@@ -58,9 +63,9 @@ elif command -v paccache >/dev/null 2>&1; then
     sudo paccache -r -u -k 0
 fi
 
-echo "\nCleaning Paru AUR cache..."
+section "Cleaning Paru AUR cache..."
 if [ -d "$HOME/.cache/paru" ]; then
-    rm -rf "$HOME/.cache/paru/clone/"*(N) "$HOME/.cache/paru/diff/"*(N) 2>/dev/null || true
+    rm -rf "$HOME/.cache/paru/clone/"* "$HOME/.cache/paru/diff/"* 2>/dev/null || true
     if [ -d "$HOME/.cache/paru/pkg" ]; then
         paccache -r -k 2 -c "$HOME/.cache/paru/pkg" 2>/dev/null || true
         paccache -r -u -k 0 -c "$HOME/.cache/paru/pkg" 2>/dev/null || true
@@ -68,7 +73,7 @@ if [ -d "$HOME/.cache/paru" ]; then
 fi
 
 if command -v flatpak >/dev/null 2>&1; then
-    echo "\nCleaning Flatpak leftovers..."
+    section "Cleaning Flatpak leftovers..."
     if [ "$AUTO" = 1 ]; then
         flatpak uninstall --user --unused -y 2>/dev/null || true
     else
@@ -76,23 +81,23 @@ if command -v flatpak >/dev/null 2>&1; then
     fi
 fi
 
-echo "\nCleaning miscellaneous caches..."
-rm -rf "$HOME/.cache/thumbnails/"*(N) /tmp/paru/*(N) 2>/dev/null || true
+section "Cleaning miscellaneous caches..."
+rm -rf "$HOME/.cache/thumbnails/"* /tmp/paru/* 2>/dev/null || true
 
-echo "\nEmptying trash..."
+section "Emptying trash..."
 if [ "$AUTO" = 1 ]; then
     echo "  (skipped in --auto: deletes user data)"
 else
     run_if gio gio trash --empty
 fi
 
-echo "\nCleaning Python & Node caches..."
+section "Cleaning Python & Node caches..."
 run_if uv uv cache prune
 run_if pip pip cache purge
 run_if bun bun pm cache rm
 run_if npm npm cache clean --force
 
-echo "\nPruning container engines..."
+section "Pruning container engines..."
 if [ "$AUTO" = 1 ]; then
     echo "  (skipped in --auto: deletes images and volumes)"
 else
@@ -101,14 +106,15 @@ else
     run_if docker docker builder prune -f
 fi
 
-echo "\nCleaning orphaned kernel modules..."
+section "Cleaning orphaned kernel modules..."
 if [ "$AUTO" = 1 ]; then
     skip_sudo
 else
     running_kernel=$(uname -r)
-    for dir in /usr/lib/modules/*(N/); do
-        ver=$(basename "$dir")
+    for dir in /usr/lib/modules/*/; do
         dir="${dir%/}"
+        [ -L "$dir" ] && continue
+        ver="${dir##*/}"
         if [ "$ver" = "$running_kernel" ]; then
             echo "  Keeping $ver (running kernel)"
             continue
@@ -122,21 +128,21 @@ else
     done
 fi
 
-echo "\nVacuuming systemd coredumps..."
+section "Vacuuming systemd coredumps..."
 if [ "$AUTO" = 1 ]; then
     skip_sudo
 elif [ -d /var/lib/systemd/coredump ]; then
     sudo sh -c 'rm -rf -- /var/lib/systemd/coredump/*' 2>/dev/null || true
 fi
 
-echo "\nVacuuming journal..."
+section "Vacuuming journal..."
 if [ "$AUTO" = 1 ]; then
     skip_sudo
 else
     sudo journalctl --vacuum-size=200M --vacuum-time=2weeks --quiet
 fi
 
-echo "\nChecking for failed systemd services..."
+section "Checking for failed systemd services..."
 failed_sys=$(systemctl --failed --no-legend --no-pager 2>/dev/null || true)
 failed_user=$(systemctl --user --failed --no-legend --no-pager 2>/dev/null || true)
 
@@ -152,7 +158,7 @@ if [ -z "$failed_sys" ] && [ -z "$failed_user" ]; then
     echo "No failed services."
 fi
 
-echo "\nSystem is clean."
+section "System is clean."
 
 AVAIL_AFTER=$(avail_bytes "${CLEAN_MOUNTS[@]}")
 FREED_BYTES=$((AVAIL_AFTER - AVAIL_BEFORE))
