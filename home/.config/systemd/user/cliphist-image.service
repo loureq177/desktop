@@ -8,3 +8,6 @@ Type=simple
 ExecStart=/usr/bin/sh -c 'exec /usr/bin/wl-paste --type image --watch cliphist -max-items 100 store'
 Restart=on-failure
 RestartSec=1
+
+[Install]
+WantedBy=hyprland-session.target

@@ -1,12 +1,14 @@
 [Unit]
 Description=Sync power-save mode and Ghostty effects with the power source
-After=graphical-session.target
-PartOf=graphical-session.target
+PartOf=hyprland-session.target
+After=hyprland-session.target
+# Laptops only: a desktop has no power source to follow.
+ConditionPathExistsGlob=/sys/class/power_supply/BAT*
 
 [Service]
 ExecStart=%h/.local/bin/power-save-watcher
-Restart=always
+Restart=on-failure
 RestartSec=2
 
 [Install]
-WantedBy=default.target
+WantedBy=hyprland-session.target

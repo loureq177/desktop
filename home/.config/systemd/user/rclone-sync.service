@@ -1,9 +1,0 @@
-[Unit]
-Description=Rclone Sync Background Sync
-After=network-online.target
-Wants=network-online.target
-ConditionACPower=true
-
-[Service]
-Type=oneshot
-ExecStart=%h/.local/bin/rclone-sync

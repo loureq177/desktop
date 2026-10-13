@@ -2,6 +2,8 @@
 Description=Hyprland compositor session
 Documentation=https://wiki.hypr.land
 BindsTo=graphical-session.target
-Wants=graphical-session-pre.target xwayland-satellite.socket cliphist-text.service cliphist-image.service wl-clip-persist.service
+# Session services hook themselves in with WantedBy= (install.sh enables them);
+# the X11 socket is part of the session itself: hyprland.lua exports DISPLAY=:0.
+Wants=graphical-session-pre.target xwayland-satellite.socket
 After=graphical-session-pre.target
 Before=graphical-session.target
