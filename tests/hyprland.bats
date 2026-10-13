@@ -96,8 +96,9 @@ records() { awk -F'\t' -v kind="$1" '$1 == kind { sub(/^[^\t]*\t/, ""); print }'
     stub wpctl 'echo "Volume: 0.40"'
     stub slurp 'exit 1'
     stub hyprpicker 'true'
-    mkdir -p "$HOME/Pictures/Wallpapers"
+    mkdir -p "$HOME/Pictures/Wallpapers" "$HOME/.local/share/whisper"
     : >"$HOME/Pictures/Wallpapers/a.png"
+    echo model >"$HOME/.local/share/whisper/ggml-base.bin"
 
     local cmd bad=0 count=0
     while IFS= read -r cmd; do
@@ -119,6 +120,13 @@ records() { awk -F'\t' -v kind="$1" '$1 == kind { sub(/^[^\t]*\t/, ""); print }'
     mock_run
     [[ "$(records EXEC | head -n 1)" == "~/.local/bin/quickshell-session" ]] || fail "$(records EXEC)"
     records EXEC | grep -qxF "systemctl --user start hyprland-session.target"
+    records EXEC | grep -qxF "~/.local/bin/wallpaper init"
+}
+
+@test "local.lua can add its own startup commands" {
+    printf 'return { autostart = { "my-machine-only --flag" } }\n' >"$HOME/.config/hypr/local.lua"
+    mock_run
+    records EXEC | grep -qxF "my-machine-only --flag" || fail "$(records EXEC)"
     records EXEC | grep -qxF "~/.local/bin/wallpaper init"
 }
 

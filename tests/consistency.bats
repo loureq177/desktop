@@ -92,12 +92,51 @@ UNITS="archlinux/.config/systemd/user"
     done
 }
 
-@test "units enabled by install.sh exist and declare how they are enabled" {
+@test "units install.sh enables say what pulls them in" {
     local unit
-    while IFS= read -r unit; do
-        [[ -f "$REPO/$UNITS/$unit" ]] || fail "install.sh enables $unit, which is not in the repo"
-        grep -q '^WantedBy=' "$REPO/$UNITS/$unit" || fail "$unit has no WantedBy=, so 'enable' does nothing"
-    done < <(grep -oE 'enable --now "[^"$]+\.(service|socket|timer)"' "$REPO/install.sh" | sed -E 's/.*"(.*)"/\1/')
+    for unit in "$REPO/$UNITS"/*.{timer,service,socket}; do
+        grep -q '^\[Install\]' "$unit" || continue
+        grep -q '^WantedBy=' "$unit" || fail "${unit##*/} has [Install] but no WantedBy=, so 'enable' does nothing"
+    done
+}
+
+@test "session services belong to the Hyprland session, not to the login" {
+    local unit
+    for unit in "$REPO/$UNITS"/*.service; do
+        grep -q '^\[Install\]' "$unit" || continue
+        grep -qx 'WantedBy=hyprland-session.target' "$unit" || fail "${unit##*/} is not wanted by hyprland-session.target"
+        grep -qx 'PartOf=hyprland-session.target' "$unit" || fail "${unit##*/} does not stop with hyprland-session.target"
+    done
+}
+
+@test "install.sh enables external units that the package lists install" {
+    grep -q 'enable hypridle.service' "$REPO/install.sh"
+    grep -qx hypridle "$REPO/archlinux/packages.txt"
+    grep -q 'enable wayland-pipewire-idle-inhibit.service' "$REPO/install.sh"
+    grep -qx wayland-pipewire-idle-inhibit "$REPO/archlinux/aur.txt"
+}
+
+@test "every /etc config has its package in the lists" {
+    # config under archlinux/etc -> the package that reads it
+    local -A owner=(
+        [etc/keyd/default.conf]=keyd
+        [etc/systemd/zram-generator.conf]=zram-generator
+    )
+    local file
+    for file in "${!owner[@]}"; do
+        [[ -f "$REPO/archlinux/$file" ]] || fail "$file is gone: drop it from this test"
+        grep -qx "${owner[$file]}" "$REPO/archlinux/packages.txt" || fail "$file needs ${owner[$file]}, which packages.txt does not install"
+    done
+}
+
+@test "no listed package needs a repository that install.sh does not enable" {
+    need pacman
+    pacman -Si pacman >/dev/null 2>&1 || skip "no pacman sync database"
+    local pkgs
+    mapfile -t pkgs < <(listed_packages "$REPO"/archlinux/{packages.txt,packages-laptop.txt})
+    local outside
+    outside="$(pacman -Si "${pkgs[@]}" 2>/dev/null | awk '/^Repository/ {repo=$3} /^Name/ && repo != "core" && repo != "extra" {print $3 " (" repo ")"}')"
+    [[ -z "$outside" ]] || fail "not in core/extra, which is all a fresh pacman.conf enables:" "$outside"
 }
 
 @test "units the session target pulls in exist" {
@@ -244,11 +283,11 @@ listed_packages() {
         qs notify-send nmcli brightnessctl checkupdates pacdiff paccache gdbus cliphist wl-copy wl-paste wtype
         hyprctl Hyprland hypridle hyprsunset hyprpicker pw-record sox whisper-cli flock jq sqlite3 firefox grim slurp
         tesseract canberra-gtk-play satty wf-recorder pactl wpctl v4l2-ctl ffplay powerprofilesctl udevadm
-        rclone curl playerctl stow bat nvim zsh python3 gsettings systemd-inhibit xdg-open ghostty keyd flatpak
+        curl playerctl stow bat nvim zsh python3 gsettings systemd-inhibit xdg-open ghostty keyd flatpak
         yazi btop lazygit fzf git
     )
-    # Not installable from a list: paru is bootstrapped by hand (install.sh
-    # warns), prime-run only matters on NVIDIA machines.
+    # Not installable from a list: install.sh builds paru from the AUR,
+    # prime-run only matters on NVIDIA machines.
     local unit_bins
     mapfile -t unit_bins < <(grep -ohE '^Exec[A-Za-z]*=-?/usr/bin/[A-Za-z0-9_.-]+' "$REPO/$UNITS"/*.service | sed 's|.*/||' | sort -u)
 

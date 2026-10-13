@@ -1,2 +1,1 @@
 com.spotify.Client
-net.pistegamez.PekkaKana2

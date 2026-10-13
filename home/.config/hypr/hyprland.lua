@@ -83,10 +83,17 @@ hl.on("hyprland.start", function()
 		"dbus-update-activation-environment --systemd WAYLAND_DISPLAY DISPLAY XDG_CURRENT_DESKTOP HYPRLAND_INSTANCE_SIGNATURE AQ_DRM_DEVICES VK_DRIVER_FILES VK_ICD_FILENAMES LIBVA_DRIVER_NAME GSK_RENDERER GTK_A11Y GDK_BACKEND GDK_WAYLAND_DISABLE XCURSOR_THEME XCURSOR_SIZE HYPRCURSOR_THEME HYPRCURSOR_SIZE QT_QPA_PLATFORM SDL_VIDEODRIVER ELECTRON_OZONE_PLATFORM_HINT",
 		"systemctl --user start hyprland-session.target",
 
-		"wpctl set-volume @DEFAULT_AUDIO_SOURCE@ 0.25",
 		"~/.local/bin/wallpaper init",
 		"sh -c 'pidof hyprsunset >/dev/null || hyprsunset'",
+		-- install.sh cannot do this before Firefox has made a profile.
+		"sh -c '~/.local/bin/firefox-apply >/dev/null 2>&1'",
 	}
+	-- Machine-specific startup commands (local.lua).
+	if type(local_cfg.autostart) == "table" then
+		for _, cmd in ipairs(local_cfg.autostart) do
+			table.insert(cmds, cmd)
+		end
+	end
 
 	for _, cmd in ipairs(cmds) do
 		hl.exec_cmd(cmd)

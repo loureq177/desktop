@@ -30,6 +30,8 @@ true"
     stub systemctl
     stub bat
     stub brew
+    # The dictation model: "download" whatever -o names.
+    stub curl 'while (($#)); do [[ "$1" == -o ]] && echo model >"$2"; shift; done'
     os Linux
 }
 
@@ -118,12 +120,28 @@ EOF
     [[ "$(<"$SANDBOX/pacman.stdin")" == $'indented-pkg\nlast-pkg' ]] || fail "$(cat -A "$SANDBOX/pacman.stdin")"
 }
 
-@test "install (Arch): skips AUR packages with a warning when paru is missing" {
+@test "install (Arch): builds paru from the AUR when it is missing" {
     arch_only
     rm "$STUBS/paru"
+    # git is real elsewhere in this suite; here it must not reach the network.
+    stub git 'mkdir -p "${@: -1}"'
+    stub makepkg "printf '#!/bin/bash\nprintf \"%%s\\\\n\" \"paru \$*\" >>\"%s\"\n' '$CALLS' >'$STUBS/paru'; chmod +x '$STUBS/paru'"
     install --no-upgrade
     assert_status 0
-    assert_output_like "paru not found - skipping AUR packages"
+    assert_call "sudo pacman -S --noconfirm --needed base-devel git"
+    assert_call_like "git clone --depth 1 https://aur.archlinux.org/paru.git"
+    assert_call "makepkg -si --noconfirm"
+    assert_call_like "paru -S --noconfirm --needed"
+}
+
+@test "install (Arch): skips AUR packages with a warning when paru cannot be built" {
+    arch_only
+    rm "$STUBS/paru"
+    stub git 'exit 1'
+    install --no-upgrade
+    assert_status 0
+    assert_output_like "Could not build paru - skipping AUR packages."
+    refute_call_like "paru -S"
 }
 
 @test "install (Arch): links the common and Arch configs into the home dir" {
@@ -132,7 +150,7 @@ EOF
     assert_status 0
     local f
     for f in .config/zsh/.zshrc .config/nvim/init.lua .config/hypr/hyprland.lua .config/quickshell/shell.qml \
-        .config/systemd/user/bedtime.timer .local/lib/dotfiles/capture.sh; do
+        .config/systemd/user/sysclean.timer .local/lib/dotfiles/capture.sh; do
         [[ -f "$HOME/$f" ]] || fail "missing after install: ~/$f"
         [[ "$(realpath "$HOME/$f")" == "$COPY/"* ]] || fail "~/$f is not a link into the repo"
     done
@@ -198,6 +216,7 @@ EOF
     arch_only
     install --no-upgrade
     [[ -f "$ROOT/etc/keyd/default.conf" && -f "$ROOT/etc/sysctl.d/99-zram.conf" ]] || fail "$(calls)"
+    [[ -f "$ROOT/etc/systemd/logind.conf.d/lid-inhibit.conf" ]] || fail "$(calls)"
     local f
     while IFS= read -r f; do
         cmp "$ROOT/${f#archlinux/}" "$COPY/$f" || fail "not installed: /${f#archlinux/}"
@@ -208,20 +227,52 @@ EOF
     assert_call "sudo sysctl --quiet --load /etc/sysctl.d/99-zram.conf"
 }
 
-@test "install (Arch): enables every timer and the session services" {
+@test "install (Arch): enables the units of this repo that can be enabled" {
     arch_only
     install --no-upgrade
-    local timer
-    for timer in "$COPY"/archlinux/.config/systemd/user/*.timer; do
-        assert_call "systemctl --user enable --now ${timer##*/}"
+    local unit
+    for unit in "$COPY"/archlinux/.config/systemd/user/*.{timer,service}; do
+        if grep -q '^\[Install\]' "$unit"; then
+            assert_call "systemctl --user enable --now ${unit##*/}"
+        else
+            refute_call_like "enable --now ${unit##*/}"
+        fi
     done
-    assert_call "systemctl --user enable --now volume-listener.service"
-    assert_call "systemctl --user enable --now wl-clip-persist.service"
-    if has_battery; then
-        assert_call "systemctl --user enable --now power-save-watcher.service"
-    else
-        refute_call_like "power-save-watcher"
-    fi
+    assert_call "systemctl --user enable hypridle.service"
+}
+
+@test "install (Arch): leaves units that are not from this repo alone" {
+    arch_only
+    mkdir -p "$HOME/.config/systemd/user"
+    printf '[Timer]\nOnCalendar=daily\n[Install]\nWantedBy=timers.target\n' >"$HOME/.config/systemd/user/somebody-elses.timer"
+    install --no-upgrade
+    assert_status 0
+    refute_call_like "somebody-elses"
+}
+
+@test "install (Arch): makes zsh the login shell" {
+    arch_only
+    [[ -x /usr/bin/zsh ]] || skip "needs /usr/bin/zsh"
+    stub_quiet getent "echo 'tester:x:1000:1000::/home/tester:/usr/bin/bash'"
+    install --no-upgrade
+    assert_call "sudo chsh -s /usr/bin/zsh tester"
+
+    : >"$CALLS"
+    stub_quiet getent "echo 'tester:x:1000:1000::/home/tester:/usr/bin/zsh'"
+    install --no-upgrade
+    refute_call_like "chsh"
+}
+
+@test "install (Arch): fetches the dictation model once" {
+    arch_only
+    install --no-upgrade
+    assert_status 0
+    assert_call_like "curl -fL --retry 2 -o $HOME/.local/share/whisper/ggml-base.bin.part https://"
+    [[ -s "$HOME/.local/share/whisper/ggml-base.bin" ]] || fail "$(calls)"
+
+    : >"$CALLS"
+    install --no-upgrade
+    refute_call_like "curl"
 }
 
 @test "install (Arch): can be run again" {

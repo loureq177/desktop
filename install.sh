@@ -62,6 +62,24 @@ restow_pkg() {
     fi
     stow --verbose --restow --target ~ "$2"
 }
+# paru is not in the official repositories: build it once from the AUR.
+bootstrap_paru() {
+    command -v paru &>/dev/null && return 0
+    _log_info "paru not found. Building it from the AUR..."
+    local build
+    sudo pacman -S --noconfirm --needed base-devel git || return 1
+    build="$(mktemp -d)" || return 1
+    if git clone --depth 1 https://aur.archlinux.org/paru.git "$build/paru" &&
+        (cd "$build/paru" && makepkg -si --noconfirm); then
+        rm -rf "$build"
+        return 0
+    fi
+    rm -rf "$build"
+    return 1
+}
+enable_user_unit() {
+    systemctl --user enable --now "$1" 2>/dev/null || _log_warn "Failed to enable $1."
+}
 _install_etc_file() {
     local src="$1" dest="$2" mode="$3" bk
     if [ -L "$dest" ]; then
@@ -112,13 +130,13 @@ if [ "$OS" = "Linux" ]; then
     fi
 
     if [ -f archlinux/aur.txt ] && [ -s archlinux/aur.txt ] && pkglist archlinux/aur.txt | grep -q .; then
-        if command -v paru &>/dev/null; then
+        if bootstrap_paru; then
             _log_info "Installing AUR packages via paru..."
             pkglist archlinux/aur.txt | xargs -r -d '\n' paru -S --noconfirm --needed
             _log_ok "AUR packages installed."
         else
-            _log_warn "paru not found - skipping AUR packages"
-            _log_warn "Install paru first."
+            _log_warn "Could not build paru - skipping AUR packages."
+            _log_warn "Install paru by hand and run this script again."
         fi
     fi
 
@@ -130,15 +148,10 @@ if [ "$OS" = "Linux" ]; then
     _log_info "Configuring autologin on tty1..."
     # No display manager: getty logs $USER in, the login shell execs Hyprland (.zprofile)
     # and quickshell locks the session as soon as it starts.
-    gpu_wait=""
-    if [ -x /usr/local/bin/wait-for-gpus ]; then
-        gpu_wait="ExecStartPre=-/usr/local/bin/wait-for-gpus"
-    fi
     autologin_conf=$(mktemp)
     cat >"$autologin_conf" <<EOF
 [Service]
 Type=simple
-$gpu_wait
 ExecStart=
 ExecStart=-/usr/bin/agetty --noreset --noclear --noissue --autologin $USER - \${TERM}
 EOF
@@ -148,7 +161,13 @@ EOF
     sudo systemctl unmask getty@tty1.service
     sudo systemctl enable getty@tty1.service || _log_warn "Failed to enable getty@tty1."
 
-    _log_info "Installing system configs (keyd, THP, zram, swap sysctls)..."
+    # .zprofile is what turns the tty1 login into the Hyprland session.
+    if [ -x /usr/bin/zsh ] && [ "$(getent passwd "$USER" 2>/dev/null | cut -d: -f7)" != /usr/bin/zsh ]; then
+        _log_info "Making zsh the login shell..."
+        sudo chsh -s /usr/bin/zsh "$USER" || _log_warn "Failed to change the login shell to zsh."
+    fi
+
+    _log_info "Installing system configs (keyd, THP, zram, swap sysctls, lid inhibitor)..."
     # archlinux/etc mirrors /etc; stow skips it (.stowrc) and the files are copied.
     while IFS= read -r -d '' src; do
         dest="/${src#archlinux/}"
@@ -159,6 +178,9 @@ EOF
     sudo keyd reload 2>/dev/null || true
     sudo systemd-tmpfiles --create /etc/tmpfiles.d/memory.conf || _log_warn "Failed to apply tmpfiles memory settings."
     sudo sysctl --quiet --load /etc/sysctl.d/99-zram.conf || _log_warn "Failed to apply zram sysctls."
+    sudo systemctl daemon-reload 2>/dev/null || true
+    sudo systemctl start systemd-zram-setup@zram0.service 2>/dev/null || _log_warn "zram starts on the next boot."
+    sudo systemctl kill -s HUP systemd-logind 2>/dev/null || true
 
     if [ -x "$HOME/.local/bin/apply-ui" ]; then
         _log_info "Applying UI styles..."
@@ -167,22 +189,37 @@ EOF
 
     if command -v firefox &>/dev/null && [ -x "$HOME/.local/bin/firefox-apply" ]; then
         _log_info "Applying Firefox defaults..."
-        "$HOME/.local/bin/firefox-apply" || _log_warn "Failed to apply Firefox defaults."
+        # A Firefox that has never run has no profile yet; the session applies
+        # the defaults again on every login (hyprland.lua).
+        "$HOME/.local/bin/firefox-apply" || _log_warn "No Firefox profile yet: the defaults go in at the first login after Firefox has run once."
+    fi
+
+    whisper_model="${XDG_DATA_HOME:-$HOME/.local/share}/whisper/ggml-base.bin"
+    if [ ! -s "$whisper_model" ]; then
+        _log_info "Downloading the speech model for dictation..."
+        mkdir -p "$(dirname "$whisper_model")"
+        if command -v curl &>/dev/null &&
+            curl -fL --retry 2 -o "$whisper_model.part" https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin; then
+            mv "$whisper_model.part" "$whisper_model"
+            _log_ok "Speech model installed."
+        else
+            rm -f "$whisper_model.part"
+            _log_warn "Could not download $whisper_model - dictation stays off until it is there."
+        fi
     fi
 
     if command -v systemctl &>/dev/null; then
         systemctl --user daemon-reload 2>/dev/null || true
-        for timer in "$HOME"/.config/systemd/user/*.timer; do
-            [ -e "$timer" ] || continue
-            name="$(basename "$timer")"
-            systemctl --user enable --now "$name" 2>/dev/null || _log_warn "Failed to enable $name."
-        done
-        systemctl --user enable --now "volume-listener.service" 2>/dev/null || _log_warn "Failed to enable volume-listener.service."
-        # Wayland clears the clipboard when the source app exits; keep it alive.
-        # Service has WantedBy=hyprland-session.target so it also starts on next login.
-        systemctl --user enable --now "wl-clip-persist.service" 2>/dev/null || _log_warn "Failed to enable wl-clip-persist.service."
-        if compgen -G "/sys/class/power_supply/BAT*" >/dev/null 2>&1; then
-            systemctl --user enable --now "power-save-watcher.service" 2>/dev/null || _log_warn "Failed to enable power-save-watcher.service."
+        # Every unit of this repo that can be enabled, and only those: other
+        # units in ~/.config/systemd/user are somebody else's business.
+        while IFS= read -r unit; do
+            enable_user_unit "$(basename "$unit")"
+        done < <(grep -l '^\[Install\]' archlinux/.config/systemd/user/*.{timer,service,socket} 2>/dev/null | sort)
+        # Shipped by their packages, configured here; the session starts them.
+        systemctl --user enable hypridle.service 2>/dev/null || _log_warn "Failed to enable hypridle.service."
+        if command -v wayland-pipewire-idle-inhibit &>/dev/null; then
+            systemctl --user enable wayland-pipewire-idle-inhibit.service 2>/dev/null ||
+                _log_warn "Failed to enable wayland-pipewire-idle-inhibit.service."
         fi
     fi
 elif [ "$OS" = "Darwin" ]; then

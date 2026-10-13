@@ -42,6 +42,11 @@ return {
 		-- })
 	end,
 
+	-- Commands to run once when the session starts, after the shell is up.
+	autostart = {
+		-- "wpctl set-volume @DEFAULT_AUDIO_SOURCE@ 0.25", -- a hot microphone
+	},
+
 	-- Set to true if you define custom Lid Switch handling in monitors()
 	custom_lid_switch = false,
 }
