@@ -19,5 +19,3 @@ else
         sleep infinity >/dev/null 2>&1
     systemctl --user show -p MainPID --value "$UNIT" >"$PID_FILE"
 fi
-
-qs ipc call quicksettings refresh >/dev/null 2>&1 || true

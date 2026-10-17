@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# No argument toggles the mode; --reapply and --sync are for apply-ui and
-# power-save-watcher.
+# No argument toggles the mode; --reapply is for apply-ui, --sync for the shell
+# (SystemStatus.qml runs it whenever the power source changes).
 action="${1:-toggle}"
 with_brightness=true
 command -v brightnessctl >/dev/null || with_brightness=false
@@ -14,8 +14,8 @@ flock -w 2 201 || exit 0
 STATE_FILE="$RUN_DIR/powersave_mode"
 PREV_BRIGHTNESS_FILE="$RUN_DIR/powersave_prev_brightness"
 STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}"
-GHOSTTY_SHADER="$STATE_DIR/ghostty/active-shader.glsl"
 GHOSTTY_PERF="$STATE_DIR/ghostty/perf.conf"
+GHOSTTY_SHADER="${XDG_CONFIG_HOME:-$HOME/.config}/ghostty/shaders/cursor_warp.glsl"
 OPENCODE_KV="$STATE_DIR/opencode/kv.json"
 
 is_active() { [[ -f "$STATE_FILE" ]]; }
@@ -35,15 +35,10 @@ detach() { ( exec 201>&-; "$@" ) >/dev/null 2>&1 & }
 
 bri() { brightnessctl -c backlight "$@" >/dev/null || true; }
 
-notify_ui() {
-    [[ -z "${1:-}" ]] || qs ipc call osd brightness "$1" || true
-    qs ipc call quicksettings refresh || true
-}
-
 report_brightness() {
     local pct
     pct="$(brightnessctl -c backlight -m | head -n 1 | cut -d, -f4 | tr -dc '0-9' || true)"
-    detach notify_ui "$pct"
+    [[ -z "$pct" ]] || detach qs ipc call osd brightness "$pct"
 }
 
 ghostty_reload() {
@@ -57,7 +52,6 @@ ghostty_reload() {
 slow_tail() {
     ghostty_reload
     powerprofilesctl set "$1" || true
-    qs ipc call quicksettings refresh || true
 }
 
 # Switching the power profile can dim the panel a few seconds later (see
@@ -82,41 +76,24 @@ apply_display() {
     hyprctl eval "hl.monitor({ output = '${desc}', mode = '${width}x${height}@${hz}', position = '${pos}', scale = ${scale} }); hl.config({ decoration = { blur = { enabled = ${blur} } } })" >/dev/null || true
 }
 
-ghostty_shader() {
-    local shader=cursor_warp
-    [[ "$1" == off ]] && shader=noop
-    mkdir -p "${GHOSTTY_SHADER%/*}"
-    ln -sfn "${XDG_CONFIG_HOME:-$HOME/.config}/ghostty/shaders/$shader.glsl" "$GHOSTTY_SHADER"
-}
-
-ghostty_perf() {
-    local anim=true opacity=0.80
-    [[ "$1" == off ]] && { anim=false; opacity=1.0; }
-    mkdir -p "${GHOSTTY_PERF%/*}"
-    cat >"$GHOSTTY_PERF" <<EOF
-# Managed by power-save. Do not edit.
-# background-opacity below 1 makes Ghostty send a buffer with alpha, and only
-# then does Hyprland blur what is behind the window (at 1.0 the buffer is
-# opaque and there is nothing to blur; background-blur itself is KDE-only).
-custom-shader-animation = $anim
-background-opacity = $opacity
-background-blur = false
-minimum-contrast = 1
-EOF
-}
-
 # Ghostty shader animation + translucency cost GPU time, so they are on only
 # on AC power and outside power-save mode. Returns 1 when nothing changed.
 ghostty_candy() {
-    local want=off
-    if on_ac && ! is_active; then want=on; fi
-    local anim=true
-    [[ "$want" == off ]] && anim=false
-    if [[ -e "$GHOSTTY_SHADER" ]] && grep -qx "custom-shader-animation = $anim" "$GHOSTTY_PERF" 2>/dev/null; then
-        return 1
+    local shader="$GHOSTTY_SHADER" anim=true opacity=0.80 conf
+    if ! on_ac || is_active; then
+        # An empty custom-shader clears the list: no shader at all.
+        shader="" anim=false opacity=1.0
     fi
-    ghostty_perf "$want"
-    ghostty_shader "$want"
+    conf="# Managed by power-save. Do not edit.
+# background-opacity below 1 makes Ghostty send a buffer with alpha, and only
+# then does Hyprland blur what is behind the window (at 1.0 the buffer is
+# opaque and there is nothing to blur; background-blur itself is KDE-only).
+custom-shader = $shader
+custom-shader-animation = $anim
+background-opacity = $opacity"
+    [[ "$(cat "$GHOSTTY_PERF" 2>/dev/null)" != "$conf" ]] || return 1
+    mkdir -p "${GHOSTTY_PERF%/*}"
+    printf '%s\n' "$conf" >"$GHOSTTY_PERF"
 }
 
 opencode_anims() {
@@ -178,7 +155,7 @@ case "$action" in
 toggle) if is_active; then disable_mode; else enable_mode; fi ;;
 --reapply) if is_active; then apply_display 60; fi ;;
 --sync)
-    # Called by power-save-watcher on every power supply change.
+    # Called by the shell on every power supply change.
     if is_active && on_ac; then
         disable_mode
     elif ghostty_candy; then

@@ -44,15 +44,11 @@ if (( total > 0 || pacnew_count > 0 )); then
         summary=".pacnew files detected ($pacnew_count)"
         body="System configuration merge required."
     fi
-    body=$(printf '%s\n\nClick Update to start the upgrade.' "$body")
-
-    gdbus call --session \
-        --dest org.freedesktop.Notifications \
-        --object-path /org/freedesktop/Notifications \
-        --method org.freedesktop.Notifications.Notify \
-        -- \
-        "System Update" 0 "archlinux" \
-        "$summary" "$body" \
-        '["update", "Update system"]' \
-        '{}' -1 >/dev/null 2>&1 || true
+    # Waits for the answer: the card or its button starts the upgrade.
+    action=$(notify-send --app-name "System Update" -i archlinux \
+        -A "default=Update system" -A "update=Update system" \
+        "$summary" "$body" 2>/dev/null || true)
+    if [[ "$action" == default || "$action" == update ]]; then
+        ghostty +new-window -e "$HOME/.local/bin/sysupdate"
+    fi
 fi

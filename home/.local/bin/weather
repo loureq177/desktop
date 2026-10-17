@@ -1,9 +1,0 @@
-#!/usr/bin/env bash
-set -euo pipefail
-
-stat=$(qs ipc call weather status || true)
-if [[ -n "$stat" && "$stat" != "null" && "$stat" != "Weather unavailable" ]]; then
-    notify-send -u low --app-name "Weather" -i "weather-clear" "Weather" "$stat"
-else
-    notify-send -u low --app-name "Weather" -i "dialog-warning" "Weather" "Weather information unavailable."
-fi

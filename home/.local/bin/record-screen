@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# record-screen [--mic] [--cam]: stops the recording that is running, or else
+# asks for an area and records it, with the microphone and the camera if asked.
 set -euo pipefail
 
 OUT_DIR="$HOME/Videos/Screencasts"
@@ -145,14 +147,7 @@ fi
 
 # A previous recording that died on its own leaves these behind.
 cleanup_extras
-
-# Without `start` this is the toggle: nothing is recording, so ask what to record.
-if [[ "${1:-}" != "start" ]]; then
-    exec 200>&-
-    qs ipc call shell summon launcher record
-    exit 0
-fi
-shift
+rm -f "$STATUS_FILE"
 
 MIC=false
 CAM=false
@@ -170,10 +165,8 @@ FILE="$OUT_DIR/$(date +'%Y-%m-%d_%H-%M-%S').mp4"
 echo "$FILE" >"$STATUS_FILE"
 
 exec 200>&-
-if qs ipc call notifications status 2>/dev/null | grep -q '"dnd":true'; then
-    :
-else
-    qs ipc call notifications dndOn || true
+# Do not disturb goes off again with the recording, unless it was on before.
+if [[ "$(qs ipc call notifications dndOn 2>/dev/null)" == true ]]; then
     : >"$DND_MARKER"
 fi
 
