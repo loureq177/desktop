@@ -4,26 +4,35 @@ import Quickshell.Services.Notifications
 import QtQuick
 import QtQuick.Layouts
 
+// A delegate for Notifications.history and .toasts: the properties are the
+// rows' roles (see Notifications.row()).
 Rectangle {
 	id: root
 
-	property var notif: null
+	required property int nid
+	required property string appName
+	required property string summary
+	required property string body
+	required property int urgency
+	required property string image
+	required property string appIcon
+	required property bool hasInlineReply
+	required property string replyPlaceholder
+	required property var actions
+	required property double time
+
 	property bool isSelected: false
 	property bool isToast: false
-	property bool showTime: true
 
-	readonly property bool critical: !!(notif && notif.urgency === NotificationUrgency.Critical)
-	readonly property var liveNotif: notif ? Notifications.liveById(notif.id) : null
-	readonly property bool canReply: !!(liveNotif && liveNotif.hasInlineReply)
-	readonly property var actionEntries: notif ? (isToast ? Notifications.entriesFromActions(notif.id, notif.actions) : Notifications.historyActionEntries(notif)) : []
+	readonly property bool critical: urgency === NotificationUrgency.Critical
+	// A closed notification can no longer take a reply.
+	readonly property bool canReply: hasInlineReply && Notifications.live(nid) !== null
 
 	signal activated()
 	signal dismissed()
-	signal replyFocusGained()
-	signal replyFocusLost()
+	signal replyFocused(bool focused)
 
-	width: parent ? parent.width : Theme.notifWidth
-	implicitHeight: Math.max(bodyCol.implicitHeight + Theme.notifPadV * 2, notifPic.size + Theme.notifPadV * 2)
+	implicitHeight: Math.max(bodyCol.implicitHeight, notifPic.size) + Theme.notifPadV * 2
 	color: hoverArea.containsMouse ? Theme.bgHover : (isToast ? Theme.panel(Theme.bgCard) : Theme.inset(Theme.bgMain))
 	border.color: critical ? Theme.critical
 		: isToast ? Theme.border
@@ -41,7 +50,6 @@ Rectangle {
 		visible: root.isSelected && !root.isToast
 		color: Theme.selectionBg
 		radius: Theme.roundingElement
-		z: 0
 	}
 
 	MouseArea {
@@ -49,7 +57,6 @@ Rectangle {
 		anchors.fill: parent
 		hoverEnabled: true
 		cursorShape: Qt.PointingHandCursor
-		acceptedButtons: Qt.LeftButton
 		onClicked: root.activated()
 	}
 
@@ -59,15 +66,13 @@ Rectangle {
 		anchors.leftMargin: Theme.notifPadH
 		anchors.verticalCenter: parent.verticalCenter
 		size: 64
-		image: root.notif ? (root.notif.image || "") : ""
-		appIcon: root.notif ? (root.notif.appIcon || "") : ""
-		appName: root.notif ? (root.notif.appName || "") : ""
-		z: 1
+		image: root.image
+		appIcon: root.appIcon
+		appName: root.appName
 	}
 
 	ColumnLayout {
 		id: bodyCol
-		z: 2
 		anchors.left: notifPic.right
 		anchors.leftMargin: 12
 		anchors.right: closeBtn.left
@@ -81,7 +86,7 @@ Rectangle {
 
 			Text {
 				Layout.fillWidth: true
-				text: root.notif ? (root.notif.appName || "") : ""
+				text: root.appName
 				font.family: Theme.fontMono
 				font.pointSize: Theme.fontSizeSmall - 2
 				font.bold: true
@@ -91,21 +96,17 @@ Rectangle {
 			}
 
 			Text {
-				text: {
-					if (!root.showTime || !root.notif || !root.notif.time)
-						return "";
-					return Qt.formatTime(new Date(root.notif.time), "hh:mm");
-				}
+				visible: !root.isToast
+				text: Qt.formatTime(new Date(root.time), "hh:mm")
 				font.family: Theme.fontMono
 				font.pointSize: Theme.fontSizeSmall - 3
 				color: Theme.textMuted
-				visible: text !== ""
 			}
 		}
 
 		Text {
 			Layout.fillWidth: true
-			text: root.notif ? (root.notif.summary || "") : ""
+			text: root.summary
 			font.family: Theme.fontFamily
 			font.pointSize: Theme.fontSizeSmall - 1
 			font.bold: true
@@ -116,7 +117,7 @@ Rectangle {
 
 		Text {
 			Layout.fillWidth: true
-			text: root.notif ? (root.notif.body || "") : ""
+			text: root.body
 			font.family: Theme.fontFamily
 			font.pointSize: Theme.fontSizeSmall - 2
 			color: Theme.textDim
@@ -126,37 +127,98 @@ Rectangle {
 			visible: text !== ""
 		}
 
-		NotificationReplyField {
+		Rectangle {
 			Layout.fillWidth: true
 			Layout.topMargin: 4
 			visible: root.canReply
-			notif: root.liveNotif
-			placeholder: root.notif?.inlineReplyPlaceholder || "Reply…"
-			onFocusGained: root.replyFocusGained()
-			onFocusLost: root.replyFocusLost()
-			onReplied: root.dismissed()
+			implicitHeight: 30
+			color: Theme.inset(Theme.bgMain)
+			border.color: replyField.activeFocus ? Theme.selectionBorder : Theme.border
+			border.width: 1
+			radius: Theme.roundingElement
+
+			TextInput {
+				id: replyField
+				anchors.fill: parent
+				anchors.leftMargin: 8
+				anchors.rightMargin: 8
+				verticalAlignment: TextInput.AlignVCenter
+				font.family: Theme.fontMono
+				font.pointSize: Theme.fontSizeSmall - 2
+				color: Theme.textMain
+				clip: true
+				selectByMouse: true
+				wrapMode: TextInput.Wrap
+				activeFocusOnPress: true
+
+				onAccepted: {
+					var n = Notifications.live(root.nid);
+					if (text.trim() !== "" && n && n.sendInlineReply(text)) {
+						text = "";
+						focus = false;
+						root.dismissed();
+					}
+				}
+				onActiveFocusChanged: root.replyFocused(activeFocus)
+				Keys.onEscapePressed: focus = false
+			}
+
+			Text {
+				visible: replyField.text === "" && !replyField.activeFocus
+				anchors.fill: parent
+				anchors.leftMargin: 8
+				anchors.rightMargin: 8
+				verticalAlignment: Text.AlignVCenter
+				elide: Text.ElideRight
+				text: root.replyPlaceholder || "Reply…"
+				font.family: Theme.fontMono
+				font.pointSize: Theme.fontSizeSmall - 2
+				color: Theme.textMuted
+			}
 		}
 
 		RowLayout {
 			Layout.fillWidth: true
 			Layout.topMargin: 4
 			spacing: 6
-			visible: root.actionEntries.length > 0
+			visible: root.actions.count > 0
 
 			Repeater {
-				model: root.actionEntries
-				delegate: Item {
-					id: actionWrap
-					required property var modelData
+				model: root.actions
+
+				delegate: Rectangle {
+					id: actionButton
+					required property string identifier
+					required property string text
 
 					Layout.fillWidth: true
 					implicitHeight: 28
+					color: buttonArea.containsMouse ? Theme.border : Theme.bgHover
+					border.color: buttonArea.containsMouse ? Theme.tileBorderHover : Theme.tileBorder
+					border.width: 1
+					radius: Theme.roundingElement
 
-					NotificationActionButton {
+					Behavior on color { ColorAnimation { duration: 120 } }
+
+					Text {
 						anchors.fill: parent
-						notifId: actionWrap.modelData.notifId ?? root.notif.id
-						identifier: actionWrap.modelData.identifier ?? ""
-						label: actionWrap.modelData.text || actionWrap.modelData.label || ""
+						anchors.leftMargin: 10
+						anchors.rightMargin: 10
+						horizontalAlignment: Text.AlignHCenter
+						verticalAlignment: Text.AlignVCenter
+						elide: Text.ElideRight
+						text: actionButton.text
+						font.family: Theme.fontMono
+						font.pointSize: Theme.fontSizeSmall - 2
+						color: Theme.textMain
+					}
+
+					MouseArea {
+						id: buttonArea
+						anchors.fill: parent
+						hoverEnabled: true
+						cursorShape: Qt.PointingHandCursor
+						onClicked: Notifications.invoke(root.nid, actionButton.identifier)
 					}
 				}
 			}
@@ -169,7 +231,6 @@ Rectangle {
 		anchors.right: parent.right
 		anchors.margins: 6
 		size: 24
-		z: 3
 		onClicked: root.dismissed()
 	}
 }

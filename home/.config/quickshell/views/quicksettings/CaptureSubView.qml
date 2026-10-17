@@ -10,10 +10,47 @@ Item {
 	id: root
 
 	signal backRequested()
-	signal closeRequested()
 
 	property int currentIndex: 0
 	focus: true
+
+	// The panel is gone by the time the area picker comes up.
+	readonly property string recordCmd: "sleep 0.15 && ~/.local/bin/record-screen"
+	readonly property var recordActions: SystemStatus.recording ? [
+		{
+			id: "record",
+			title: "Stop Recording",
+			desc: "Save the screen recording",
+			icon: "circle-stop",
+			isRecording: true,
+			cmd: "~/.local/bin/record-screen"
+		}
+	] : [
+		{
+			id: "record",
+			title: "Screen Record",
+			desc: "Record an area or a window",
+			icon: "video",
+			isRecording: false,
+			cmd: recordCmd
+		},
+		{
+			id: "record",
+			title: "Screen Record + Microphone",
+			desc: "With the microphone mixed in",
+			icon: "mic",
+			isRecording: false,
+			cmd: recordCmd + " --mic"
+		},
+		{
+			id: "record",
+			title: "Screen Record + Microphone + Camera",
+			desc: "With the microphone and a camera overlay",
+			icon: "webcam",
+			isRecording: false,
+			cmd: recordCmd + " --mic --cam"
+		}
+	]
 
 	readonly property var captureActions: [
 		{
@@ -23,15 +60,8 @@ Item {
 			icon: "camera",
 			isRecording: false,
 			cmd: "sleep 0.15 && ~/.local/bin/screenshot region"
-		},
-		{
-			id: "record",
-			title: "Screen Record",
-			desc: SystemStatus.recording ? "Recording active • Click to stop" : "Record an area, optionally with microphone and camera",
-			icon: SystemStatus.recording ? "circle-stop" : "video",
-			isRecording: SystemStatus.recording,
-			cmd: "~/.local/bin/record-screen toggle"
-		},
+		}
+	].concat(recordActions, [
 		{
 			id: "colorpicker",
 			title: "Color Picker",
@@ -56,9 +86,9 @@ Item {
 			isRecording: false,
 			cmd: "~/.local/bin/dictation"
 		}
-	]
+	])
 
-	readonly property int preferredHeight: 390
+	readonly property int preferredHeight: 60 + captureActions.length * 66
 
 	onVisibleChanged: {
 		if (visible) {
@@ -68,7 +98,7 @@ Item {
 	}
 
 	function runCommand(cmd) {
-		QuickSettings.closeInstant();
+		Panels.closeInstant();
 		Quickshell.execDetached(["sh", "-c", cmd]);
 	}
 
@@ -109,7 +139,11 @@ Item {
 			onBackClicked: root.backRequested()
 		}
 
-		SubViewHeaderRule {}
+		Rectangle {
+			Layout.fillWidth: true
+			Layout.preferredHeight: 1
+			color: Theme.border
+		}
 
 		ListView {
 			id: captureList

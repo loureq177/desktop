@@ -2,41 +2,43 @@ import ".."
 import "../widgets"
 import QtQuick
 import QtQuick.Layouts
-import "../WeatherModel.js" as WeatherModel
 
-SlideOverlay {
+OverlayWindow {
 	id: root
 
-	shown: Weather.panelOpen
-	offscreenSlide: Math.max(700, card.height + Theme.notifTopMargin + 60)
+	panel: "weather"
+	style: "slide"
+	card: weatherCard
+	offscreenSlide: Math.max(700, weatherCard.height + Theme.notifTopMargin + 60)
 
 	function requestDismiss() {
 		if (Weather.editingLocation)
 			Weather.cancelEditingLocation();
 		else
-			root.dismissed();
+			Panels.close("weather");
 	}
 
 	onDismissRequested: root.requestDismiss()
-
-	Connections {
-		target: root
-		function onOpened() {
-			chartCanvas.requestPaint();
-			card.forceActiveFocus();
-		}
+	onOpened: {
+		Weather.refresh();
+		chartCanvas.requestPaint();
+		weatherCard.forceActiveFocus();
+	}
+	onShownChanged: {
+		if (!shown && Weather.editingLocation)
+			Weather.cancelEditingLocation();
 	}
 
 	Connections {
 		target: Weather
 		function onEditingLocationChanged() {
 			if (!Weather.editingLocation)
-				card.forceActiveFocus();
+				weatherCard.forceActiveFocus();
 		}
 	}
 
 	Rectangle {
-		id: card
+		id: weatherCard
 		anchors.horizontalCenter: parent.horizontalCenter
 		y: Theme.notifTopMargin - root.slide
 		width: Math.min(576, root.width - 32)
@@ -102,7 +104,7 @@ SlideOverlay {
 					LineIcon {
 						id: heroIcon
 						anchors.verticalCenter: parent.verticalCenter
-						name: Weather.label
+						name: Weather.current?.icon ?? ""
 						color: Theme.textMain
 						size: 58
 					}
@@ -116,7 +118,7 @@ SlideOverlay {
 
 							Text {
 								id: tempBig
-								text: Weather.tempNum || "—"
+								text: Weather.current?.tempNum ?? "—"
 								color: Theme.textMain
 								font.family: Theme.fontFamily
 								font.pixelSize: 48
@@ -124,7 +126,7 @@ SlideOverlay {
 							}
 
 							Text {
-								text: Weather.current ? Weather.tempUnit : ""
+								text: Weather.current ? "°C" : ""
 								color: Theme.textDim
 								font.family: Theme.fontFamily
 								font.pixelSize: 18
@@ -135,10 +137,10 @@ SlideOverlay {
 
 						Row {
 							spacing: 6
-							visible: !!(Weather.reportTodayHigh || Weather.reportTodayLow)
+							visible: !!(Weather.today.high || Weather.today.low)
 
 							Text {
-								text: "↑" + (Weather.reportTodayHigh || "—")
+								text: "↑" + (Weather.today.high || "—")
 								color: Theme.textMain
 								font.family: Theme.fontFamily
 								font.pixelSize: 13
@@ -146,7 +148,7 @@ SlideOverlay {
 							}
 
 							Text {
-								text: "↓" + (Weather.reportTodayLow || "—")
+								text: "↓" + (Weather.today.low || "—")
 								color: Theme.textMuted
 								font.family: Theme.fontFamily
 								font.pixelSize: 13
@@ -330,7 +332,7 @@ SlideOverlay {
 								font.letterSpacing: 1
 							}
 							Text {
-								text: Weather.reportFeels
+								text: Weather.current?.feelsLike ?? ""
 								color: Theme.textMain
 								font.family: Theme.fontFamily
 								font.pixelSize: 16
@@ -348,7 +350,7 @@ SlideOverlay {
 								font.letterSpacing: 1
 							}
 							Text {
-								text: Weather.reportWind
+								text: Weather.current?.wind ?? ""
 								color: Theme.textMain
 								font.family: Theme.fontFamily
 								font.pixelSize: 16
@@ -366,7 +368,7 @@ SlideOverlay {
 								font.letterSpacing: 1
 							}
 							Text {
-								text: Weather.reportHumidity
+								text: Weather.current?.humidity ?? ""
 								color: Theme.textMain
 								font.family: Theme.fontFamily
 								font.pixelSize: 16
@@ -719,7 +721,7 @@ SlideOverlay {
 
 							LineIcon {
 								anchors.verticalCenter: parent.verticalCenter
-								name: Weather.dayIcon(modelData)
+								name: modelData.icon
 								color: Theme.accentBlue
 								size: 30
 							}
@@ -729,7 +731,7 @@ SlideOverlay {
 								spacing: 3
 
 								Text {
-									text: WeatherModel.dayName(modelData.date, null).toUpperCase()
+									text: modelData.dayName.toUpperCase()
 									color: Theme.textDim
 									font.family: Theme.fontFamily
 									font.pixelSize: 14
@@ -740,7 +742,7 @@ SlideOverlay {
 									spacing: 6
 
 									Text {
-										text: Weather.bareTempForDay(modelData, "max")
+										text: modelData.maxTemp
 										color: Theme.textMain
 										font.family: Theme.fontFamily
 										font.pixelSize: 15
@@ -748,7 +750,7 @@ SlideOverlay {
 									}
 
 									Text {
-										text: Weather.bareTempForDay(modelData, "min")
+										text: modelData.minTemp
 										color: Theme.textMuted
 										font.family: Theme.fontFamily
 										font.pixelSize: 15

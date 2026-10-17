@@ -4,7 +4,7 @@ import Quickshell.Services.Polkit
 import QtQuick
 import QtQuick.Layouts
 
-FadeOverlay {
+OverlayWindow {
 	id: root
 
 	property string currentMessage: ""

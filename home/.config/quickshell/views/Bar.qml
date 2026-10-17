@@ -83,6 +83,29 @@ PanelWindow {
 		]);
 	}
 
+	// Right-click closes a special: closing its windows removes the workspace
+	// (misc:close_special_on_empty). Hiding, which leaves the app running,
+	// stays on the left click.
+	function closeSpecial(name: string): void {
+		if (name === "")
+			return;
+		var ws = "special:" + name;
+		var wins = Hyprland.toplevels.values.filter(t => t?.workspace?.name === ws);
+		for (var i = 0; i < wins.length; i++) {
+			var addr = String(wins[i].address ?? "");
+			if (!addr.startsWith("0x"))
+				addr = "0x" + addr;
+			// A selector that matches nothing also lands on the focused window.
+			if (!/^0x[0-9a-f]+$/i.test(addr))
+				continue;
+			// The selector must go in the table: a bare string arg is ignored
+			// and the dispatcher falls back to the focused window.
+			Quickshell.execDetached([
+				"hyprctl", "dispatch", "hl.dsp.window.close({ window = 'address:" + addr + "' })"
+			]);
+		}
+	}
+
 	function cycleSpecial(delta: int): void {
 		if (specials.length === 0 || cycleThrottle.running)
 			return;
@@ -225,7 +248,7 @@ PanelWindow {
 			id: tipBox
 			implicitWidth: tipLabel.implicitWidth + 20
 			implicitHeight: tipLabel.implicitHeight + 10
-			color: Theme.alpha(Theme.bgCardColor, 0.96)
+			color: Theme.alpha(Theme.bgCard, 0.96)
 			border.color: Theme.border
 			border.width: 1
 			radius: Theme.roundingElement
@@ -339,16 +362,13 @@ PanelWindow {
 		MouseArea {
 			anchors.fill: parent
 			z: -1
-			enabled: QuickSettings.panelOpen || Notifications.centerOpen || Weather.panelOpen || bar.visibleSpecial !== ""
+			enabled: Panels.active !== "" || bar.visibleSpecial !== ""
 			onPressed: {
 				// Panels first; with none open, the click puts the special away.
-				if (QuickSettings.panelOpen || Notifications.centerOpen || Weather.panelOpen) {
-					QuickSettings.close();
-					Notifications.closeCenter();
-					Weather.close();
-				} else {
+				if (Panels.active !== "")
+					Panels.close();
+				else
 					bar.toggleSpecial(bar.visibleSpecial);
-				}
 			}
 		}
 
@@ -447,6 +467,7 @@ PanelWindow {
 						isActive: bar.visibleSpecial === "btop"
 						tooltipText: SystemStatus.memTooltip
 						onActivated: bar.toggleSpecial("btop")
+						onRightClicked: bar.closeSpecial("btop")
 					}
 
 					Repeater {
@@ -502,15 +523,13 @@ PanelWindow {
 								anchors.fill: parent
 								hoverEnabled: true
 								cursorShape: Qt.PointingHandCursor
-								acceptedButtons: Qt.LeftButton | Qt.MiddleButton | Qt.RightButton
+								acceptedButtons: Qt.LeftButton | Qt.RightButton
 								onEntered: bar.showTooltip(sp, sp.tip)
 								onExited: bar.hideTooltip(sp)
 								onPressed: mouse => {
 									bar.hideTooltipNow();
 									if (mouse.button === Qt.RightButton)
-										sp.player?.togglePlaying();
-									else if (mouse.button === Qt.MiddleButton)
-										sp.player?.next();
+										bar.closeSpecial(sp.modelData);
 									else
 										bar.toggleSpecial(sp.modelData);
 								}
@@ -561,15 +580,14 @@ PanelWindow {
 
 			Pill {
 				id: weatherPill
-				visible: Weather.label !== ""
-				icon: Weather.label
-				value: Weather.tempNum !== "" ? (Weather.tempNum + "°") : ""
+				visible: Weather.current !== null
+				icon: Weather.current?.icon ?? ""
+				value: Weather.current ? Weather.current.tempNum + "°" : ""
 				textColor: Theme.textMain
-				isActive: Weather.panelOpen
+				isActive: Panels.active === "weather"
 				tooltipText: Weather.tooltipText
-				onActivated: Weather.toggle()
+				onActivated: Panels.toggle("weather")
 				onMiddleClicked: Weather.refresh()
-				onRightClicked: Quickshell.execDetached(["sh", "-c", "~/.local/bin/weather"])
 			}
 		}
 
@@ -668,9 +686,9 @@ PanelWindow {
 				}
 
 				custom: true
-				isActive: QuickSettings.panelOpen
+				isActive: Panels.active === "quicksettings"
 				tooltipText: [btInfo, netInfo, batteryInfo].filter(s => s !== "").join("\n")
-				onActivated: QuickSettings.toggle()
+				onActivated: Panels.toggle("quicksettings")
 				onRightClicked: Quickshell.execDetached([
 					"hyprctl", "dispatch", "hl.dsp.workspace.toggle_special('jolt')"
 				])
@@ -702,9 +720,9 @@ PanelWindow {
 			}
 
 			Pill {
-				readonly property int historyCount: Notifications.history.length
+				readonly property int historyCount: Notifications.history.count
 				readonly property bool dnd: Notifications.dnd
-				readonly property bool isOpen: Notifications.centerOpen
+				readonly property bool isOpen: Panels.active === "notifications"
 				readonly property bool hasNotifications: historyCount > 0
 
 				icon: dnd ? "bell-off" : (hasNotifications ? "bell-dot" : "bell")
@@ -718,7 +736,7 @@ PanelWindow {
 						return "Notifications: " + historyCount + (historyCount === 1 ? " notification" : " notifications");
 					return "Notifications: None";
 				}
-				onActivated: Notifications.toggle()
+				onActivated: Panels.toggle("notifications")
 			}
 		}
 	}

@@ -5,27 +5,19 @@ import Quickshell.Io
 import QtQuick
 import QtQuick.Layouts
 
-FadeOverlay {
+OverlayWindow {
 	id: window
 
+	panel: "keybindings"
 	namespace: "quickshell-keybindings"
 	backdropColor: Qt.rgba(0, 0, 0, 0.55)
 	card: sheetCard
 
-	function open() {
+	onOpened: {
 		if (!loader.running)
 			loader.running = true;
-		window.shown = true;
 	}
-
-	function toggle() {
-		if (window.shown)
-			close();
-		else
-			open();
-	}
-
-	onDismissRequested: window.close()
+	onDismissRequested: Panels.close("keybindings")
 
 	property var entries: []
 	property var columns: [[], [], []]
@@ -33,6 +25,7 @@ FadeOverlay {
 
 	readonly property var categoryOrder: [
 		"Gestures",
+		"Mouse",
 		"Essential",
 		"Window Management",
 		"Navigation & Workspaces",
@@ -46,27 +39,43 @@ FadeOverlay {
 	readonly property var staticGestures: [
 		{
 			category: "Gestures",
-			chord: "Touchpad 3-Finger ↔",
+			chord: "3-Finger ↔",
 			action: "Switch workspace",
 			order: 1
 		},
 		{
 			category: "Gestures",
-			chord: "Touchpad 3-Finger ↑",
+			chord: "3-Finger ↑",
 			action: "Open special workspace",
 			order: 2
 		},
 		{
 			category: "Gestures",
-			chord: "Touchpad 3-Finger ↓",
+			chord: "3-Finger ↓",
 			action: "Hide special workspace",
 			order: 3
 		},
 		{
 			category: "Gestures",
-			chord: "Touchpad 3-Finger ↔ (Special)",
+			chord: "3-Finger ↔ (Special)",
 			action: "Cycle special workspaces",
 			order: 4
+		}
+	]
+
+	// The bar documents its own mouse handling here; hyprctl cannot see it.
+	readonly property var staticMouse: [
+		{
+			category: "Mouse",
+			chord: "Left-click bar icon",
+			action: "Open / hide special workspace",
+			order: 1
+		},
+		{
+			category: "Mouse",
+			chord: "Right-click bar icon",
+			action: "Close special workspace",
+			order: 2
 		}
 	]
 
@@ -75,7 +84,8 @@ FadeOverlay {
 		{ cat: "Essential", match: ["terminal", "browser", "keybindings"] },
 		{ cat: "Notifications", match: ["notification"] },
 		{ cat: "Clipboard & Selection", match: ["clipboard"] },
-		{ cat: "Special Workspaces", match: ["calendar", "tasks", "whatsapp", "mail", "spotify", "claude", "yazi", "activity monitor"] },
+		// hyprland.lua describes every special workspace toggle as "Show <app>".
+		{ cat: "Special Workspaces", match: ["show "] },
 		{ cat: "System & Tools", match: ["lock system", "emoji", "quick actions", "weather"] },
 		{ cat: "Window Management", match: ["close window", "fullscreen", "split", "floating", "swap window", "resize window"] },
 		{ cat: "Navigation & Workspaces", match: ["focus", "workspace"] }
@@ -94,8 +104,8 @@ FadeOverlay {
 	}
 
 	readonly property var rankPriorities: ({
-		"Essential": { "Terminal": 1, "Browser": 2, "Launch apps": 3, "Keybindings": 4 },
-		"Capture & OCR": { "Screenshot (region)": 1, "Screenshot (full)": 2, "Color picker": 3, "OCR from screen": 4, "Dictation": 5 },
+		"Essential": { "Terminal": 1, "Browser": 2, "Launcher": 3, "Keybindings": 4 },
+		"Capture & OCR": { "Screenshot (region)": 1, "Screenshot (full)": 2, "Dictation": 3 },
 		"Clipboard & Selection": { "Clipboard history": 1 },
 		"Notifications": { "Close latest notification": 1, "Toggle notification center": 2 }
 	})
@@ -106,7 +116,7 @@ FadeOverlay {
 		var act = item.action || "";
 		var subRank = 50;
 
-		if (item.category === "Gestures") {
+		if (item.category === "Gestures" || item.category === "Mouse") {
 			subRank = item.order || 50;
 		} else if (rankPriorities[item.category] && rankPriorities[item.category][act]) {
 			subRank = rankPriorities[item.category][act];
@@ -119,7 +129,6 @@ FadeOverlay {
 			if (act.indexOf("Focus") === 0) subRank = 1;
 			else if (act.indexOf("Switch to workspace") !== -1) subRank = 10;
 			else if (act.indexOf("Move window to workspace") !== -1) subRank = 20;
-			else if (act.indexOf("Move window silently") !== -1) subRank = 30;
 		}
 
 		return (catIdx * 1000) + subRank;
@@ -159,10 +168,12 @@ FadeOverlay {
 	function statusText() {
 		if (loading) return "Loading keybindings...";
 		var gestureCount = 0;
+		var mouseCount = 0;
 		for (var i = 0; i < entries.length; i++) {
 			if (entries[i].category === "Gestures") gestureCount++;
+			else if (entries[i].category === "Mouse") mouseCount++;
 		}
-		return entries.length + " items (" + (entries.length - gestureCount) + " keys, " + gestureCount + " gestures)";
+		return entries.length + " items (" + (entries.length - gestureCount - mouseCount) + " keys, " + gestureCount + " gestures, " + mouseCount + " mouse)";
 	}
 
 	Process {
@@ -178,6 +189,9 @@ FadeOverlay {
 
 					for (var g = 0; g < window.staticGestures.length; g++)
 						list.push(window.staticGestures[g]);
+
+					for (var m = 0; m < window.staticMouse.length; m++)
+						list.push(window.staticMouse[m]);
 
 					var keyMap = {
 						"comma": ",", "period": ".", "slash": "/", "space": "SPACE",
@@ -245,7 +259,7 @@ FadeOverlay {
 
 					window.entries = list;
 				} catch (e) {
-					window.entries = [].concat(window.staticGestures);
+					window.entries = [].concat(window.staticGestures, window.staticMouse);
 				}
 				window.loading = false;
 				window.rebuildColumns();
@@ -352,7 +366,7 @@ FadeOverlay {
 											font.family: Theme.fontMono
 											font.pointSize: 11.5
 											font.bold: true
-											color: modelData.category === "Gestures" ? Theme.accentGreen : Theme.accentPurple
+											color: modelData.category === "Gestures" || modelData.category === "Mouse" ? Theme.accentGreen : Theme.accentPurple
 										}
 
 										Rectangle {
@@ -372,12 +386,12 @@ FadeOverlay {
 											spacing: 12
 
 											Text {
-												Layout.preferredWidth: 168
+												Layout.preferredWidth: 200
 												Layout.alignment: Qt.AlignTop
 												font.family: Theme.fontMono
 												font.pointSize: 12
 												font.bold: true
-												color: modelData.category === "Gestures" ? Theme.accentGreen : Theme.accentBlue
+												color: modelData.category === "Gestures" || modelData.category === "Mouse" ? Theme.accentGreen : Theme.accentBlue
 												elide: Text.ElideRight
 												text: modelData.chord || ""
 											}

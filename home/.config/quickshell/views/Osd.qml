@@ -18,8 +18,9 @@ PanelWindow {
 		: kind === "mic" ? (muted ? "mic-off" : "mic")
 		: (muted ? "volume-x" : value <= 1 ? "volume" : value <= 50 ? "volume-1" : "volume-2")
 
+	// Quick settings has sliders for both, which show the change already.
 	function show(newKind, newValue, newMuted) {
-		if ((newKind === "volume" || newKind === "brightness") && QuickSettings.panelOpen)
+		if ((newKind === "volume" || newKind === "brightness") && Panels.active === "quicksettings")
 			return;
 		// Read before the stop: a fade-out caught halfway leaves the card dim.
 		var fading = fadeOut.running;
@@ -63,8 +64,6 @@ PanelWindow {
 		interval: 1500
 		onTriggered: fadeOut.start()
 	}
-
-	readonly property alias card: card
 
 	NumberAnimation {
 		id: fadeIn
@@ -153,17 +152,39 @@ PanelWindow {
 		}
 	}
 
+	// Whatever changed the volume: keys, quick settings, another mixer. A node
+	// that is not ready yet is only filling in its values, not changing.
+	Connections {
+		target: SystemStatus.sink?.audio ?? null
+		function onVolumeChanged() {
+			win.showVolume();
+		}
+		function onMutedChanged() {
+			win.showVolume();
+		}
+	}
+
+	Connections {
+		target: SystemStatus.source?.audio ?? null
+		function onMutedChanged() {
+			if (SystemStatus.source.ready)
+				win.show("mic", undefined, SystemStatus.source.audio.muted);
+		}
+	}
+
+	function showVolume(): void {
+		var sink = SystemStatus.sink;
+		if (sink.ready)
+			win.show("volume", Math.round(sink.audio.volume * 100), sink.audio.muted);
+	}
+
+	// The brightness keys and power-save report the level they set.
 	IpcHandler {
 		target: "osd"
 
-		function volume(newValue: int, isMuted: bool): void {
-			win.show("volume", newValue, isMuted);
-		}
 		function brightness(newValue: int): void {
+			SystemStatus.brightness = newValue;
 			win.show("brightness", newValue);
-		}
-		function mic(isMuted: bool): void {
-			win.show("mic", undefined, isMuted);
 		}
 	}
 }

@@ -7,30 +7,19 @@ Rectangle {
 	signal clicked()
 
 	property int size: 28
-	property bool bordered: false
-	property int iconSize: size >= 26 ? 14 : 11
-	property color idleColor: "transparent"
-	property color hoverColor: Theme.bgHover
-	property color idleBorderColor: Theme.border
-	property color hoverBorderColor: Theme.textDim
-	property color idleTextColor: size >= 26 ? Theme.textDim : Theme.textMuted
-	property color hoverTextColor: Theme.critical
 
 	implicitWidth: size
 	implicitHeight: size
 	radius: size >= 24 ? Theme.roundingElement : Theme.roundingSubtle
-	color: mouseArea.containsMouse ? hoverColor : idleColor
-	border.color: bordered ? (mouseArea.containsMouse ? hoverBorderColor : idleBorderColor) : "transparent"
-	border.width: bordered ? 1 : 0
+	color: mouseArea.containsMouse ? Theme.bgHover : "transparent"
 
 	Behavior on color { ColorAnimation { duration: 120 } }
-	Behavior on border.color { ColorAnimation { duration: 120 } }
 
 	LineIcon {
 		anchors.centerIn: parent
 		name: "x"
-		size: root.iconSize
-		color: mouseArea.containsMouse ? root.hoverTextColor : root.idleTextColor
+		size: root.size >= 26 ? 14 : 11
+		color: mouseArea.containsMouse ? Theme.critical : (root.size >= 26 ? Theme.textDim : Theme.textMuted)
 	}
 
 	MouseArea {

@@ -3,7 +3,7 @@ import "../widgets"
 import QtQuick
 import QtQuick.Layouts
 
-FadeOverlay {
+OverlayWindow {
 	id: root
 
 	property int cardWidth: Theme.windowWidth
@@ -32,20 +32,11 @@ FadeOverlay {
 	enterScale: 0.82
 	exitScale: 0.85
 
-	function open() {
+	onOpened: {
 		search.clear();
-		root.shown = true;
 		search.focusInput();
 	}
-
-	function toggle() {
-		if (root.shown)
-			close();
-		else
-			open();
-	}
-
-	onDismissRequested: root.close()
+	onDismissRequested: Panels.close(root.panel)
 
 	// Scene position of the last pointer event. Rows scrolling or animating
 	// under a resting cursor also emit hover events, which must not steal the
@@ -93,7 +84,7 @@ FadeOverlay {
 				leftRightNavigate: root.searchLeftRightNavigate
 
 				onAccepted: root.searchAccepted()
-				onCancelled: root.close()
+				onCancelled: Panels.close(root.panel)
 				onStepped: delta => root.searchStepped(delta)
 				onSteppedColumn: delta => root.searchSteppedColumn(delta)
 				onCompleted: root.searchCompleted()

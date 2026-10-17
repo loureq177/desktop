@@ -1,7 +1,5 @@
 import ".."
 import "../widgets"
-import Quickshell.Services.Notifications
-import QtQml.Models
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -9,325 +7,194 @@ import QtQuick.Layouts
 SideDrawer {
 	id: win
 
-	shown: Notifications.centerOpen
-	handoff: Notifications.centerHandoff
+	panel: "notifications"
 	cardHeight: Math.min(680, win.height - Theme.notifTopMargin - 20)
 	property int currentIndex: 0
 
-	ListModel {
-		id: centerModel
-	}
-
-	function clampIndex(): void {
-		if (win.currentIndex >= centerModel.count)
-			win.currentIndex = Math.max(0, centerModel.count - 1);
-	}
-
-	function syncCenter(): void {
-		var h = Notifications.history;
-		var have = {};
-		var i;
-		for (i = 0; i < centerModel.count; i++)
-			have[centerModel.get(i).nid] = true;
-		for (i = h.length - 1; i >= 0; i--) {
-			if (h[i] && !have[String(h[i].id)])
-				centerModel.insert(0, { nid: String(h[i].id), entry: h[i] });
-		}
-		win.clampIndex();
-		var liveIds = {};
-		for (i = 0; i < h.length; i++) {
-			if (h[i])
-				liveIds[String(h[i].id)] = h[i];
-		}
-		// A notification replaced in place keeps its row and gets a fresh copy.
-		for (i = 0; i < centerModel.count; i++) {
-			var row = centerModel.get(i);
-			var cur = liveIds[row.nid];
-			if (cur && row.entry.rev !== cur.rev)
-				centerModel.setProperty(i, "entry", cur);
-		}
-		for (i = 0; i < centerModel.count; i++) {
-			if (!liveIds[centerModel.get(i).nid]) {
-				sweepTimer.restart();
-				return;
-			}
-		}
-	}
-
 	onOpened: {
-		QuickSettings.close();
-		Weather.close();
-		var validHistory = [];
-		for (var i = 0; i < Notifications.history.length; i++) {
-			var item = Notifications.history[i];
-			if (item && (item.summary || item.body || item.appName || item.image))
-				validHistory.push(item);
-		}
-		if (validHistory.length !== Notifications.history.length)
-			Notifications.history = validHistory;
-		win.syncCenter();
 		win.currentIndex = 0;
 		centerList.forceActiveFocus();
 	}
-	onDismissed: Notifications.closeCenter()
-	onDrawerClosed: Notifications.centerHandoff = false
 
-	Connections {
-		target: Notifications
-		function onHistoryChanged() {
-			win.syncCenter();
-		}
-	}
-
-	Timer {
-		id: sweepTimer
-		interval: 280
-		onTriggered: {
-			var h = Notifications.history;
-			var ids = {};
-			for (var i = 0; i < h.length; i++) {
-				if (h[i])
-					ids[String(h[i].id)] = true;
-			}
-			for (var k = centerModel.count - 1; k >= 0; k--) {
-				if (!ids[centerModel.get(k).nid])
-					centerModel.remove(k);
-			}
-			win.clampIndex();
-		}
-	}
+	onCurrentIndexChanged: centerList.positionViewAtIndex(currentIndex, ListView.Contain)
 
 	ColumnLayout {
 		anchors.fill: parent
 		spacing: 12
 
-			RowLayout {
-				Layout.fillWidth: true
-				Layout.preferredHeight: 32
-				spacing: 10
+		RowLayout {
+			Layout.fillWidth: true
+			Layout.preferredHeight: 32
+			spacing: 10
 
-				Text {
-					text: "Notifications"
-					font.family: Theme.fontFamily
-					font.pixelSize: Theme.fontSize + 1
-					font.bold: true
-					color: Theme.textMain
-				}
-
-				Rectangle {
-					visible: Notifications.history.length > 0
-					implicitWidth: countLabel.implicitWidth + 12
-					implicitHeight: 20
-					radius: height / 2
-					color: Theme.selectionBg
-					border.color: Theme.selectionBorder
-					border.width: 1
-
-					Text {
-						id: countLabel
-						anchors.centerIn: parent
-						text: String(Notifications.history.length)
-						font.family: Theme.fontMono
-						font.pixelSize: Theme.fontSizeSmall - 1
-						font.bold: true
-						color: Theme.accentBlue
-					}
-				}
-
-				Item {
-					Layout.fillWidth: true
-				}
-
-				Rectangle {
-					visible: Notifications.history.length > 0
-					implicitWidth: clearRow.implicitWidth + 16
-					implicitHeight: 28
-					radius: Theme.roundingElement
-					color: clearArea.containsMouse ? Theme.bgHover : "transparent"
-					border.color: clearArea.containsMouse ? Theme.tileBorderHover : Theme.tileBorder
-					border.width: 1
-
-					Behavior on color { ColorAnimation { duration: 120 } }
-
-					RowLayout {
-						id: clearRow
-						anchors.centerIn: parent
-						spacing: 5
-
-						LineIcon {
-							name: "list-x"
-							size: 14
-							color: clearArea.containsMouse ? Theme.textMain : Theme.textDim
-						}
-
-						Text {
-							text: "Clear all"
-							font.family: Theme.fontMono
-							font.pixelSize: Theme.fontSizeSmall
-							color: clearArea.containsMouse ? Theme.textMain : Theme.textDim
-						}
-					}
-
-					MouseArea {
-						id: clearArea
-						anchors.fill: parent
-						hoverEnabled: true
-						cursorShape: Qt.PointingHandCursor
-						onClicked: Notifications.clear()
-					}
-				}
-
-				CloseButton {
-					onClicked: Notifications.closeCenter()
-				}
+			Text {
+				text: "Notifications"
+				font.family: Theme.fontFamily
+				font.pixelSize: Theme.fontSize + 1
+				font.bold: true
+				color: Theme.textMain
 			}
 
 			Rectangle {
-				Layout.fillWidth: true
-				Layout.preferredHeight: 1
-				color: Theme.border
-			}
+				visible: Notifications.history.count > 0
+				implicitWidth: countLabel.implicitWidth + 12
+				implicitHeight: 20
+				radius: height / 2
+				color: Theme.selectionBg
+				border.color: Theme.selectionBorder
+				border.width: 1
 
-			ListView {
-				id: centerList
-				visible: centerModel.count > 0
-				Layout.fillWidth: true
-				Layout.fillHeight: true
-				clip: true
-				boundsBehavior: Flickable.DragAndOvershootBounds
-				flickDeceleration: Theme.flickDecel
-				maximumFlickVelocity: Theme.maxFlickVel
-				spacing: 8
-				model: centerModel
-				currentIndex: win.currentIndex
-				highlightFollowsCurrentItem: true
-				highlightMoveDuration: 0
-				focus: true
-
-				function rowId(idx): var {
-					if (idx < 0 || idx >= centerModel.count)
-						return -1;
-					var row = centerModel.get(idx);
-					return row && row.entry ? row.entry.id : -1;
-				}
-
-				Keys.onPressed: event => {
-					var count = centerModel.count;
-					if (event.key === Qt.Key_J || event.key === Qt.Key_Down) {
-						if (count > 0) {
-							win.currentIndex = Math.min(count - 1, win.currentIndex + 1);
-							centerList.positionViewAtIndex(win.currentIndex, ListView.Visible);
-						}
-						event.accepted = true;
-					} else if (event.key === Qt.Key_K || event.key === Qt.Key_Up) {
-						if (count > 0) {
-							win.currentIndex = Math.max(0, win.currentIndex - 1);
-							centerList.positionViewAtIndex(win.currentIndex, ListView.Visible);
-						}
-						event.accepted = true;
-					} else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
-						if (!event.isAutoRepeat && count > 0 && win.currentIndex >= 0 && win.currentIndex < count) {
-							var actId = centerList.rowId(win.currentIndex);
-							if (actId !== -1)
-								Notifications.activate(actId);
-						}
-						event.accepted = true;
-					} else if (event.key === Qt.Key_X) {
-						if (!event.isAutoRepeat && count > 0 && win.currentIndex >= 0 && win.currentIndex < count) {
-							var disId = centerList.rowId(win.currentIndex);
-							if (disId !== -1) {
-								Notifications.dismissEntry(disId);
-								if (win.currentIndex >= count - 1) {
-									win.currentIndex = Math.max(0, count - 2);
-								}
-							}
-						}
-						event.accepted = true;
-					} else if (event.key === Qt.Key_Escape || event.key === Qt.Key_Q) {
-						Notifications.closeCenter();
-						event.accepted = true;
-					}
-				}
-
-				ScrollBar.vertical: ThinScrollBar {}
-
-				delegate: Item {
-					id: entryWrap
-					required property var entry
-					required property int index
-					readonly property string nid: entry ? String(entry.id) : ""
-					readonly property bool gone: {
-						var h = Notifications.history;
-						for (var i = 0; i < h.length; i++) {
-							if (h[i] && String(h[i].id) === entryWrap.nid)
-								return false;
-						}
-						return true;
-					}
-
-					width: ListView.view.width
-					implicitHeight: gone ? 0 : card.implicitHeight
-					clip: true
-
-					Behavior on implicitHeight {
-						NumberAnimation {
-							duration: 200
-							easing.type: Easing.OutCubic
-						}
-					}
-
-					NotificationCard {
-						id: card
-						anchors.left: parent.left
-						anchors.right: parent.right
-						anchors.rightMargin: (centerList.ScrollBar.vertical && centerList.ScrollBar.vertical.visible) ? 10 : 0
-						anchors.top: parent.top
-						notif: entry
-						isSelected: index === win.currentIndex
-						isToast: false
-						showTime: true
-
-						opacity: entryWrap.gone ? 0.0 : 1.0
-						Behavior on opacity {
-							NumberAnimation { duration: 180; easing.type: Easing.OutCubic }
-						}
-
-						onActivated: {
-							win.currentIndex = index;
-							Notifications.activate(entry.id);
-						}
-						onDismissed: {
-							Notifications.dismissEntry(entry.id);
-						}
-					}
+				Text {
+					id: countLabel
+					anchors.centerIn: parent
+					text: String(Notifications.history.count)
+					font.family: Theme.fontMono
+					font.pixelSize: Theme.fontSizeSmall - 1
+					font.bold: true
+					color: Theme.accentBlue
 				}
 			}
 
 			Item {
-				visible: centerModel.count === 0
 				Layout.fillWidth: true
-				Layout.fillHeight: true
+			}
 
-				ColumnLayout {
+			Rectangle {
+				visible: Notifications.history.count > 0
+				implicitWidth: clearRow.implicitWidth + 16
+				implicitHeight: 28
+				radius: Theme.roundingElement
+				color: clearArea.containsMouse ? Theme.bgHover : "transparent"
+				border.color: clearArea.containsMouse ? Theme.tileBorderHover : Theme.tileBorder
+				border.width: 1
+
+				Behavior on color { ColorAnimation { duration: 120 } }
+
+				RowLayout {
+					id: clearRow
 					anchors.centerIn: parent
-					spacing: 10
+					spacing: 5
 
 					LineIcon {
-						Layout.alignment: Qt.AlignHCenter
-						name: "bell"
-						size: 44
-						color: Theme.textMuted
+						name: "list-x"
+						size: 14
+						color: clearArea.containsMouse ? Theme.textMain : Theme.textDim
 					}
 
 					Text {
-						Layout.alignment: Qt.AlignHCenter
-						text: "No notifications"
-						font.family: Theme.fontFamily
-						font.pixelSize: Theme.fontSize
-						font.bold: true
-						color: Theme.textDim
+						text: "Clear all"
+						font.family: Theme.fontMono
+						font.pixelSize: Theme.fontSizeSmall
+						color: clearArea.containsMouse ? Theme.textMain : Theme.textDim
 					}
 				}
+
+				MouseArea {
+					id: clearArea
+					anchors.fill: parent
+					hoverEnabled: true
+					cursorShape: Qt.PointingHandCursor
+					onClicked: Notifications.clear()
+				}
 			}
+
+			CloseButton {
+				onClicked: Panels.close("notifications")
+			}
+		}
+
+		Rectangle {
+			Layout.fillWidth: true
+			Layout.preferredHeight: 1
+			color: Theme.border
+		}
+
+		ListView {
+			id: centerList
+			visible: count > 0
+			Layout.fillWidth: true
+			Layout.fillHeight: true
+			clip: true
+			boundsBehavior: Flickable.DragAndOvershootBounds
+			flickDeceleration: Theme.flickDecel
+			maximumFlickVelocity: Theme.maxFlickVel
+			spacing: 8
+			model: Notifications.history
+			currentIndex: win.currentIndex
+			focus: true
+
+			onCountChanged: {
+				if (win.currentIndex >= count)
+					win.currentIndex = Math.max(0, count - 1);
+			}
+
+			Keys.onPressed: event => {
+				var current = win.currentIndex < count ? Notifications.history.get(win.currentIndex).nid : -1;
+				if (event.key === Qt.Key_J || event.key === Qt.Key_Down) {
+					win.currentIndex = Math.min(count - 1, win.currentIndex + 1);
+				} else if (event.key === Qt.Key_K || event.key === Qt.Key_Up) {
+					win.currentIndex = Math.max(0, win.currentIndex - 1);
+				} else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
+					if (!event.isAutoRepeat && current !== -1)
+						Notifications.activate(current);
+				} else if (event.key === Qt.Key_X) {
+					if (!event.isAutoRepeat && current !== -1)
+						Notifications.dismiss(current);
+				} else if (event.key === Qt.Key_Escape || event.key === Qt.Key_Q) {
+					Panels.close("notifications");
+				} else {
+					return;
+				}
+				event.accepted = true;
+			}
+
+			ScrollBar.vertical: ThinScrollBar {}
+
+			delegate: NotificationCard {
+				required property int index
+
+				width: ListView.view.width - (centerList.ScrollBar.vertical.visible ? 10 : 0)
+				isSelected: index === win.currentIndex
+				onActivated: {
+					win.currentIndex = index;
+					Notifications.activate(nid);
+				}
+				onDismissed: Notifications.dismiss(nid)
+			}
+
+			remove: Transition {
+				NumberAnimation { property: "opacity"; to: 0; duration: 180; easing.type: Easing.OutCubic }
+			}
+			displaced: Transition {
+				NumberAnimation { property: "y"; duration: 200; easing.type: Easing.OutCubic }
+			}
+		}
+
+		Item {
+			visible: centerList.count === 0
+			Layout.fillWidth: true
+			Layout.fillHeight: true
+
+			ColumnLayout {
+				anchors.centerIn: parent
+				spacing: 10
+
+				LineIcon {
+					Layout.alignment: Qt.AlignHCenter
+					name: "bell"
+					size: 44
+					color: Theme.textMuted
+				}
+
+				Text {
+					Layout.alignment: Qt.AlignHCenter
+					text: "No notifications"
+					font.family: Theme.fontFamily
+					font.pixelSize: Theme.fontSize
+					font.bold: true
+					color: Theme.textDim
+				}
+			}
+		}
 	}
 }

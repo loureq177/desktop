@@ -3,34 +3,32 @@ import "../widgets"
 import "./quicksettings"
 import Quickshell
 import Quickshell.Bluetooth
-import Quickshell.Hyprland
-import Quickshell.Io
 import Quickshell.Networking
-import Quickshell.Wayland
 import QtQuick
 import QtQuick.Layouts
 
 SideDrawer {
 	id: win
 
-	shown: QuickSettings.panelOpen
-	instantHide: QuickSettings.instantHide
-	handoff: QuickSettings.handoff
-	dismissOnEsc: QuickSettings.subView === "main"
+	panel: "quicksettings"
+	// "main", or the page of one tile: "wifi", "bluetooth", "capture".
+	property string subView: "main"
+	dismissOnEsc: subView === "main"
 	cardWidth: 520
 	readonly property int mainContentHeight: Math.min((contentCol.implicitHeight > 0 ? contentCol.implicitHeight : 430) + Theme.paddingCard * 2, win.height - Theme.notifTopMargin - 20)
 	readonly property int currentSubViewHeight: {
-		if (QuickSettings.subView === "wifi")
+		if (subView === "wifi")
 			return wifiSubView.preferredHeight + Theme.paddingCard * 2;
-		if (QuickSettings.subView === "bluetooth")
+		if (subView === "bluetooth")
 			return btSubView.preferredHeight + Theme.paddingCard * 2;
-		if (QuickSettings.subView === "capture")
+		if (subView === "capture")
 			return captureSubView.preferredHeight + Theme.paddingCard * 2;
 		return 540;
 	}
 	readonly property int subViewHeight: Math.min(currentSubViewHeight, Math.min(680, win.height - Theme.notifTopMargin - 20))
-	cardHeight: QuickSettings.subView === "main" ? mainContentHeight : subViewHeight
+	cardHeight: subView === "main" ? mainContentHeight : subViewHeight
 
+	readonly property bool brightnessReady: SystemStatus.brightness >= 0
 	readonly property int rowVolume: 0
 	readonly property int rowBrightness: win.brightnessReady ? 1 : -1
 	readonly property int rowTilesStart: win.brightnessReady ? 2 : 1
@@ -52,7 +50,7 @@ SideDrawer {
 	}
 
 	function focusSubView(): void {
-		switch (QuickSettings.subView) {
+		switch (subView) {
 		case "main": contentCol.forceActiveFocus(); break;
 		case "wifi": wifiSubView.forceActiveFocus(); break;
 		case "bluetooth": btSubView.forceActiveFocus(); break;
@@ -61,18 +59,15 @@ SideDrawer {
 	}
 
 	function backToMain(): void {
-		QuickSettings.subView = "main";
-		contentCol.forceActiveFocus();
+		subView = "main";
 	}
 
 	function togglePowerSave(): void {
 		Quickshell.execDetached(["sh", "-c", "~/.local/bin/power-save"]);
-		markerRefresh.restart();
 	}
 
 	function toggleAwake(): void {
 		Quickshell.execDetached(["sh", "-c", "~/.local/bin/awake-toggle"]);
-		markerRefresh.restart();
 	}
 
 	function toggleWifiRadio(): void {
@@ -87,160 +82,64 @@ SideDrawer {
 
 	function activateTile(r, c, viaIcon): void {
 		if (r === rowWifiBt) {
-			if (c === 0)
-				viaIcon ? toggleWifiRadio() : QuickSettings.openWifi();
+			if (viaIcon)
+				c === 0 ? toggleWifiRadio() : toggleBtRadio();
 			else
-				viaIcon ? toggleBtRadio() : QuickSettings.openBluetooth();
+				win.subView = c === 0 ? "wifi" : "bluetooth";
 		} else if (r === rowBatteryCapture) {
 			if (c === 0)
 				togglePowerSave();
 			else
-				QuickSettings.openCapture();
+				win.subView = "capture";
 		} else if (r === rowStayAwakeDnd) {
 			if (c === 0)
 				toggleAwake();
 			else
-				Notifications.toggleDnd();
+				Notifications.dnd = !Notifications.dnd;
 		}
 	}
 
-	onOpened: {
-		Notifications.closeCenter();
-		Weather.close();
-		refreshVolume();
-		refreshBrightness();
-		if (QuickSettings.subView === "main")
+	onOpened: mode => {
+		win.subView = mode || "main";
+		SystemStatus.readBrightness();
+		if (win.subView === "main")
 			select(0, 0);
 		focusSubView();
 	}
-	onDismissed: QuickSettings.close()
-	onDrawerClosed: {
-		QuickSettings.instantHide = false;
-		QuickSettings.handoff = false;
-		QuickSettings.subView = "main";
-	}
+	onSubViewChanged: focusSubView()
+	onFullyClosed: subView = "main"
 
-	Connections {
-		target: QuickSettings
-		function onSubViewChanged() {
-			win.focusSubView();
-		}
-	}
-
-	property real volPct: 20
-	property bool volMuted: false
-	property bool volReady: false
-	property int volMax: 100
-	property real volShown: 20
+	readonly property var audio: SystemStatus.sink?.audio ?? null
+	readonly property bool volReady: SystemStatus.sink?.ready ?? false
+	readonly property bool volMuted: audio?.muted ?? false
+	readonly property int volPct: Math.round(Math.min(1, audio?.volume ?? 0) * 100)
 	readonly property string volIcon: win.volMuted ? "volume-x" : (win.volPct <= 1 ? "volume" : (win.volPct <= 50 ? "volume-1" : "volume-2"))
 
-	function refreshVolume(): void {
-		if (!volQuery.running)
-			volQuery.running = true;
+	function setVolume(pct: real): void {
+		if (!win.audio)
+			return;
+		win.audio.volume = Math.max(0, Math.min(100, Math.round(pct))) / 100;
+		volumeSound.restart();
 	}
 
-	function playVolumeSound(): void {
-		if (!win.volMuted)
-			Quickshell.execDetached(["canberra-gtk-play", "-i", "audio-volume-change"]);
-	}
-
-	function commitVolume(): void {
-		volSet.command = ["wpctl", "set-volume", "-l", "1.0", "@DEFAULT_AUDIO_SINK@", String(Math.round(win.volShown)) + "%"];
-		volSet.running = true;
-		win.playVolumeSound();
+	// One click once a drag or a run of key presses settles.
+	Timer {
+		id: volumeSound
+		interval: 120
+		onTriggered: {
+			if (!win.volMuted)
+				Quickshell.execDetached(["canberra-gtk-play", "-i", "audio-volume-change"]);
+		}
 	}
 
 	function toggleMute(): void {
-		if (!volMuteProc.running)
-			volMuteProc.running = true;
-	}
-
-	Process {
-		id: volQuery
-		command: ["wpctl", "get-volume", "@DEFAULT_AUDIO_SINK@"]
-		stdout: StdioCollector {
-			onStreamFinished: {
-				var line = String(this.text || "");
-				var m = line.match(/Volume:\s+([0-9.]+)/);
-				if (m) {
-					var pct = Math.round(parseFloat(m[1]) * 100);
-					win.volPct = Math.max(0, Math.min(win.volMax, pct));
-					win.volMuted = line.indexOf("MUTED") !== -1;
-					win.volReady = true;
-					if (!volRow.slider.pressed)
-						win.volShown = Math.max(0, Math.min(win.volMax, pct));
-				}
-			}
-		}
-	}
-
-	Process {
-		id: volSet
-		onExited: win.refreshVolume()
-	}
-
-	Process {
-		id: volMuteProc
-		command: ["wpctl", "set-mute", "@DEFAULT_AUDIO_SINK@", "toggle"]
-		onExited: win.refreshVolume()
-	}
-
-	Timer {
-		id: volSettle
-		interval: 80
-		onTriggered: win.commitVolume()
-	}
-
-	property int brightness: 50
-	property bool brightnessReady: false
-
-	function refreshBrightness(): void {
-		if (!briQuery.running)
-			briQuery.running = true;
-	}
-
-	function commitBrightness(): void {
-		briSet.command = ["brightnessctl", "-c", "backlight", "set", String(win.brightness) + "%", "-q"];
-		briSet.running = true;
-	}
-
-	Process {
-		id: briQuery
-		command: ["sh", "-c", "brightnessctl -c backlight -m 2>/dev/null | head -n 1 | cut -d, -f4 | tr -dc '0-9'"]
-		stdout: StdioCollector {
-			onStreamFinished: {
-				var v = parseInt(String(this.text || "").trim());
-				if (!isNaN(v) && !briRow.slider.pressed) {
-					win.brightness = Math.max(0, Math.min(100, v));
-					win.brightnessReady = true;
-				}
-			}
-		}
-	}
-
-	Process {
-		id: briSet
-		onExited: win.refreshBrightness()
-	}
-
-	Timer {
-		id: briSettle
-		interval: 60
-		onTriggered: win.commitBrightness()
+		if (win.audio)
+			win.audio.muted = !win.audio.muted;
 	}
 
 	readonly property var wifiDevice: SystemStatus.wifiDevice
 	readonly property bool wifiUp: win.wifiDevice?.connected ?? false
-	readonly property string activeSsid: {
-		var d = win.wifiDevice;
-		if (!d || !d.networks || !d.networks.values)
-			return "";
-		var vals = d.networks.values;
-		for (var i = 0; i < vals.length; i++)
-			if (vals[i] && vals[i].connected)
-				return vals[i].name || "";
-		return "";
-	}
+	readonly property string activeSsid: (win.wifiDevice?.networks?.values ?? []).find(n => n?.connected)?.name ?? ""
 	readonly property string wifiSubtitle: {
 		if (!Networking.wifiHardwareEnabled)
 			return "Blocked";
@@ -251,61 +150,15 @@ SideDrawer {
 
 	readonly property var btAdapter: Bluetooth.defaultAdapter
 	readonly property bool btEnabled: win.btAdapter?.enabled ?? false
-	readonly property int btConnected: {
-		var a = win.btAdapter;
-		if (!a || !a.devices || !a.devices.values)
-			return 0;
-		var n = 0;
-		var vals = a.devices.values || [];
-		for (var i = 0; i < vals.length; i++)
-			if (vals[i].connected)
-				n++;
-		return n;
-	}
+	readonly property var btConnected: (win.btAdapter?.devices?.values ?? []).filter(d => d.connected)
 	readonly property string btSubtitle: {
 		if (!win.btAdapter)
 			return "No adapter";
-		if (win.btConnected > 1)
-			return win.btConnected + " connected";
-		if (win.btConnected === 1) {
-			var vals = (win.btAdapter.devices && win.btAdapter.devices.values) || [];
-			for (var i = 0; i < vals.length; i++) {
-				if (vals[i].connected)
-					return vals[i].name || vals[i].deviceName || "Connected";
-			}
-			return "Connected";
-		}
+		if (win.btConnected.length > 1)
+			return win.btConnected.length + " connected";
+		if (win.btConnected.length === 1)
+			return win.btConnected[0].name || win.btConnected[0].deviceName || "Connected";
 		return win.btEnabled ? "On" : "Off";
-	}
-
-	Timer {
-		id: pollTimer
-		interval: 3000
-		running: win.shown
-		repeat: true
-		triggeredOnStart: true
-		onTriggered: {
-			SystemStatus.refresh();
-			win.refreshVolume();
-			if (!briRow.slider.pressed)
-				win.refreshBrightness();
-		}
-	}
-
-	Timer {
-		id: markerRefresh
-		interval: 100
-		onTriggered: SystemStatus.refresh()
-	}
-
-	Connections {
-		target: QuickSettings
-		function onRefreshRequested(): void {
-			SystemStatus.refresh();
-			win.refreshVolume();
-			if (!briRow.slider.pressed)
-				win.refreshBrightness();
-		}
 	}
 
 	component SamsungTile: Rectangle {
@@ -470,7 +323,7 @@ SideDrawer {
 		anchors.fill: parent
 		spacing: 10
 		focus: true
-		visible: QuickSettings.subView === "main"
+		visible: win.subView === "main"
 		enabled: visible
 
 		Keys.onPressed: event => {
@@ -493,22 +346,18 @@ SideDrawer {
 				event.accepted = true;
 			} else if (event.key === Qt.Key_H || event.key === Qt.Key_Left) {
 				if (win.navRow === win.rowVolume) {
-					win.volShown = Math.max(0, win.volShown - 5);
-					win.commitVolume();
+					win.setVolume(win.volPct - 5);
 				} else if (win.navRow === win.rowBrightness && win.brightnessReady) {
-					win.brightness = Math.max(0, win.brightness - 5);
-					win.commitBrightness();
+					SystemStatus.setBrightness(SystemStatus.brightness - 5);
 				} else if (win.navRow >= win.rowTilesStart && win.navRow <= win.maxRow) {
 					win.navCol = 0;
 				}
 				event.accepted = true;
 			} else if (event.key === Qt.Key_L || event.key === Qt.Key_Right) {
 				if (win.navRow === win.rowVolume) {
-					win.volShown = Math.min(win.volMax, win.volShown + 5);
-					win.commitVolume();
+					win.setVolume(win.volPct + 5);
 				} else if (win.navRow === win.rowBrightness && win.brightnessReady) {
-					win.brightness = Math.min(100, win.brightness + 5);
-					win.commitBrightness();
+					SystemStatus.setBrightness(SystemStatus.brightness + 5);
 				} else if (win.navRow >= win.rowTilesStart) {
 					win.navCol = 1;
 				}
@@ -530,7 +379,7 @@ SideDrawer {
 					win.activateTile(win.navRow, win.navCol, false);
 				event.accepted = true;
 			} else if (event.key === Qt.Key_C) {
-				QuickSettings.openCapture();
+				win.subView = "capture";
 				win.select(win.rowBatteryCapture, 1);
 				event.accepted = true;
 			} else if (event.key === Qt.Key_W) {
@@ -538,7 +387,7 @@ SideDrawer {
 					win.toggleWifiRadio();
 					win.select(win.rowWifiBt, 0);
 				} else {
-					QuickSettings.openWifi();
+					win.subView = "wifi";
 				}
 				event.accepted = true;
 			} else if (event.key === Qt.Key_B) {
@@ -546,7 +395,7 @@ SideDrawer {
 					win.toggleBtRadio();
 					win.select(win.rowWifiBt, 1);
 				} else {
-					QuickSettings.openBluetooth();
+					win.subView = "bluetooth";
 				}
 				event.accepted = true;
 			} else if (event.key === Qt.Key_S) {
@@ -558,7 +407,7 @@ SideDrawer {
 				win.select(win.rowStayAwakeDnd, 0);
 				event.accepted = true;
 			} else if (event.key === Qt.Key_D) {
-				Notifications.toggleDnd();
+				Notifications.dnd = !Notifications.dnd;
 				win.select(win.rowStayAwakeDnd, 1);
 				event.accepted = true;
 			} else if (event.key === Qt.Key_M) {
@@ -566,7 +415,7 @@ SideDrawer {
 				win.select(win.rowVolume, 0);
 				event.accepted = true;
 			} else if (event.key === Qt.Key_Escape || event.key === Qt.Key_Q) {
-				QuickSettings.close();
+				Panels.close("quicksettings");
 				event.accepted = true;
 			}
 		}
@@ -586,7 +435,7 @@ SideDrawer {
 			}
 
 			CloseButton {
-				onClicked: QuickSettings.close()
+				onClicked: Panels.close("quicksettings")
 			}
 		}
 
@@ -594,23 +443,14 @@ SideDrawer {
 			id: volRow
 			current: win.isCurrent(win.rowVolume)
 			icon: win.volIcon
-			label: win.volReady ? (win.volMuted ? "Muted" : Math.round(volRow.slider.pressed ? win.volShown : win.volPct) + "%") : "…"
+			label: win.volReady ? (win.volMuted ? "Muted" : win.volPct + "%") : "…"
 			ready: win.volReady
 			muted: win.volMuted
-			value: win.volShown
-			maxValue: win.volMax
+			value: win.volPct
 			iconInteractive: true
 			onSelectRequested: win.select(win.rowVolume, 0)
 			onIconClicked: win.toggleMute()
-			onScrubbed: v => {
-				win.volShown = Math.round(v);
-				if (volSettle.running)
-					volSettle.restart();
-				else {
-					win.commitVolume();
-					volSettle.restart();
-				}
-			}
+			onScrubbed: v => win.setVolume(v)
 		}
 
 		SliderRow {
@@ -618,19 +458,11 @@ SideDrawer {
 			visible: win.brightnessReady
 			current: win.isCurrent(win.rowBrightness)
 			icon: "sun"
-			label: win.brightnessReady ? win.brightness + "%" : "…"
+			label: SystemStatus.brightness + "%"
 			ready: win.brightnessReady
-			value: win.brightness
+			value: SystemStatus.brightness
 			onSelectRequested: win.select(win.rowBrightness, 0)
-			onScrubbed: v => {
-				win.brightness = Math.round(v);
-				if (briSettle.running)
-					briSettle.restart();
-				else {
-					win.commitBrightness();
-					briSettle.restart();
-				}
-			}
+			onScrubbed: v => SystemStatus.setBrightness(v)
 		}
 
 		GridLayout {
@@ -649,20 +481,20 @@ SideDrawer {
 				active: Networking.wifiEnabled
 				hasDetails: true
 				onIconClicked: win.toggleWifiRadio()
-				onBodyClicked: QuickSettings.openWifi()
+				onBodyClicked: win.subView = "wifi"
 			}
 
 			SamsungTile {
 				itemRow: win.rowWifiBt
 				itemCol: 1
 				hotkey: "B"
-				icon: !win.btEnabled ? "bluetooth-off" : (win.btConnected > 0 ? "bluetooth-connected" : "bluetooth")
+				icon: !win.btEnabled ? "bluetooth-off" : (win.btConnected.length > 0 ? "bluetooth-connected" : "bluetooth")
 				title: "Bluetooth"
 				subtitle: win.btSubtitle
 				active: win.btEnabled
 				hasDetails: true
 				onIconClicked: win.toggleBtRadio()
-				onBodyClicked: QuickSettings.openBluetooth()
+				onBodyClicked: win.subView = "bluetooth"
 			}
 
 			SamsungTile {
@@ -690,8 +522,8 @@ SideDrawer {
 				activeColor: Theme.critical
 				hasDetails: true
 				hasToggleBadge: false
-				onIconClicked: QuickSettings.openCapture()
-				onBodyClicked: QuickSettings.openCapture()
+				onIconClicked: win.subView = "capture"
+				onBodyClicked: win.subView = "capture"
 			}
 
 			SamsungTile {
@@ -717,8 +549,8 @@ SideDrawer {
 				active: Notifications.dnd
 				activeColor: Theme.warning
 				hasDetails: false
-				onIconClicked: Notifications.toggleDnd()
-				onBodyClicked: Notifications.toggleDnd()
+				onIconClicked: Notifications.dnd = !Notifications.dnd
+				onBodyClicked: Notifications.dnd = !Notifications.dnd
 			}
 		}
 	}
@@ -726,30 +558,27 @@ SideDrawer {
 	WifiSubView {
 		id: wifiSubView
 		anchors.fill: parent
-		visible: QuickSettings.subView === "wifi"
+		visible: win.subView === "wifi"
 		enabled: visible
 		focus: visible
 		onBackRequested: win.backToMain()
-		onCloseRequested: QuickSettings.close()
 	}
 
 	BluetoothSubView {
 		id: btSubView
 		anchors.fill: parent
-		visible: QuickSettings.subView === "bluetooth"
+		visible: win.subView === "bluetooth"
 		enabled: visible
 		focus: visible
 		onBackRequested: win.backToMain()
-		onCloseRequested: QuickSettings.close()
 	}
 
 	CaptureSubView {
 		id: captureSubView
 		anchors.fill: parent
-		visible: QuickSettings.subView === "capture"
+		visible: win.subView === "capture"
 		enabled: visible
 		focus: visible
 		onBackRequested: win.backToMain()
-		onCloseRequested: QuickSettings.close()
 	}
 }

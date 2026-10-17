@@ -1,156 +1,115 @@
 import "../.."
 import "../../widgets"
-import "../../widgets/ListNav.js" as ListNav
 import "."
 import Quickshell
-import Quickshell.Io
 import Quickshell.Networking
 import QtQuick
-import QtQuick.Controls
 import QtQuick.Layouts
 
-Item {
+DeviceList {
 	id: root
 
-	signal backRequested()
-	signal closeRequested()
-
 	readonly property var wifiDevice: SystemStatus.wifiDevice
-
-	readonly property bool wifiEnabled: Networking.wifiEnabled
-	property bool scanning: false
-	property var networkList: []
-	property int currentIndex: 0
-
-	readonly property int preferredHeight: {
-		if (!wifiEnabled)
-			return 260;
-		var itemsCount = networkList.length;
-		if (itemsCount === 0)
-			return 220;
-		var listHeight = itemsCount * 56 - 6;
-		if (promptSsid !== "")
-			listHeight += passwordCard.implicitHeight + 12;
-		return Math.min(620, Math.max(260, 81 + listHeight));
-	}
-
-	property string promptSsid: ""
-	property var promptNet: null
-	property string passwordInput: ""
+	// The network the password form is open for.
+	property var promptItem: null
 	property bool showPassword: false
-	property string errorMessage: ""
-	property string pendingForgetSsid: ""
-	readonly property string connectingSsid: pending.target
 
-	Timer {
-		id: forgetConfirmTimer
-		interval: 3000
-		onTriggered: {
-			root.pendingForgetSsid = "";
-			if (root.errorMessage.indexOf("Press X again") === 0)
-				root.errorMessage = "";
+	title: "Wi-Fi"
+	subtitle: !radioOn ? "Off" : (scanning ? "Scanning…" : items.length + " networks found")
+	noun: "Wi-Fi"
+	things: "networks"
+	offIcon: "wifi-off"
+	emptyTitle: "No networks found"
+	emptyHint: "Press [r] to rescan"
+	timeoutMessage: "Connection timed out"
+	radioKey: Qt.Key_W
+	radioOn: Networking.wifiEnabled
+	prompting: promptItem !== null
+	extraHeight: prompting ? passwordCard.implicitHeight + 12 : 0
+
+	// One row per name: the connected access point, else the strongest.
+	items: {
+		var byName = {};
+		for (const net of root.wifiDevice?.networks?.values ?? []) {
+			if (!net || !net.name || net.name.trim() === "")
+				continue;
+			var strength = net.signalStrength > 1.0 ? net.signalStrength : net.signalStrength * 100;
+			var best = byName[net.name];
+			if (best && (best.connected || (!net.connected && best.strength >= strength)))
+				continue;
+			byName[net.name] = {
+				key: net.name,
+				name: net.name,
+				net: net,
+				strength: strength,
+				icon: root.signalIcon(strength),
+				connected: net.connected,
+				saved: net.known,
+				detail: net.known ? "Saved" : Math.round(strength) + "% signal",
+				dim: strength < 50,
+				secured: net.security !== WifiSecurityType.Open && net.security !== WifiSecurityType.Unknown,
+				battery: -1
+			};
 		}
+		return Object.values(byName).sort((a, b) => {
+			if (a.connected !== b.connected)
+				return a.connected ? -1 : 1;
+			if (a.saved !== b.saved)
+				return a.saved ? -1 : 1;
+			return b.strength - a.strength;
+		});
 	}
 
-	Timer {
-		id: forgetRefreshTimer
-		interval: 600
-		onTriggered: root.refreshList()
+	onItemsChanged: {
+		var connected = items.find(i => i.connected);
+		if (connected && connected.key === pendingKey)
+			clearPending();
+		if (connected && promptItem && connected.key === promptItem.key)
+			closePrompt();
 	}
 
-	PendingAction {
-		id: pending
-		onTimedOut: expired => {
-			if (expired !== "") {
-				root.errorMessage = "Connection timed out";
-				root.refreshList();
-				if (root.promptSsid !== "")
-					passInput.forceActiveFocus();
-			}
-		}
-	}
-
-	onWifiEnabledChanged: {
-		if (!wifiEnabled)
-			pending.clear();
-	}
-
-	function getSignalIcon(strength) {
-		var s = strength > 1.0 ? strength : strength * 100;
-		if (s >= 75) return "wifi";
-		if (s >= 50) return "wifi-high";
-		if (s >= 25) return "wifi-low";
-		if (s > 0) return "wifi-zero";
+	function signalIcon(strength) {
+		if (strength >= 75) return "wifi";
+		if (strength >= 50) return "wifi-high";
+		if (strength >= 25) return "wifi-low";
+		if (strength > 0) return "wifi-zero";
 		return "wifi-off";
 	}
 
-	function isSecured(sec) {
-		return sec !== WifiSecurityType.Open && sec !== WifiSecurityType.Unknown;
+	function connect(item): void {
+		if (promptItem && promptItem.key !== item.key)
+			closePrompt();
+		startPending(item.key, "Connecting…");
+		item.net.connect();
 	}
 
-	function refreshList(): void {
-		if (!wifiDevice || !wifiDevice.networks) {
-			networkList = [];
+	function openPrompt(item): void {
+		clearPending();
+		errorMessage = "";
+		showPassword = false;
+		passInput.text = "";
+		promptItem = item;
+		passInput.forceActiveFocus();
+	}
+
+	function closePrompt(): void {
+		promptItem = null;
+		errorMessage = "";
+		clearPending();
+		passInput.text = "";
+		root.forceActiveFocus();
+	}
+
+	function submitPassword(): void {
+		if (!promptItem || isPending(promptItem))
+			return;
+		if (passInput.text.trim() === "") {
+			passInput.forceActiveFocus();
 			return;
 		}
-
-		var raw = wifiDevice.networks.values;
-		var byName = {};
-		for (var i = 0; i < raw.length; i++) {
-			var net = raw[i];
-			if (!net || !net.name || net.name.trim() === "")
-				continue;
-			var name = net.name;
-			var str = net.signalStrength > 1.0 ? net.signalStrength : (net.signalStrength * 100);
-			if (!byName[name] || net.connected || (str > byName[name].signalStrength && !byName[name].connected)) {
-				byName[name] = {
-					net: net,
-					name: name,
-					signalStrength: str,
-					connected: net.connected,
-					known: net.known,
-					security: net.security
-				};
-			}
-		}
-
-		var arr = Object.values(byName);
-		arr.sort(function(a, b) {
-			if (a.connected !== b.connected) return a.connected ? -1 : 1;
-			if (a.known !== b.known) return a.known ? -1 : 1;
-			return b.signalStrength - a.signalStrength;
-		});
-
-		var curName = (currentIndex >= 0 && currentIndex < networkList.length && networkList[currentIndex]) ? networkList[currentIndex].name : "";
-		networkList = arr;
-		if (curName !== "") {
-			for (var s = 0; s < arr.length; s++) {
-				if (arr[s].name === curName) {
-					currentIndex = s;
-					break;
-				}
-			}
-		}
-		if (currentIndex >= arr.length)
-			currentIndex = Math.max(0, arr.length - 1);
-
-		if (pending.target !== "") {
-			for (var c = 0; c < arr.length; c++) {
-				if (arr[c].name === pending.target && arr[c].connected) {
-					pending.clear();
-					break;
-				}
-			}
-		}
-
-		if (promptSsid !== "") {
-			for (var p = 0; p < arr.length; p++) {
-				if (arr[p].name === promptSsid && arr[p].connected) {
-					closePasswordPrompt();
-					break;
-				}
-			}
-		}
+		startPending(promptItem.key, "Connecting…");
+		promptItem.net.connectWithPsk(passInput.text);
+		passInput.forceActiveFocus();
 	}
 
 	function rescan(): void {
@@ -161,504 +120,215 @@ Item {
 		scanTimer.restart();
 	}
 
-	Timer {
-		id: scanTimer
-		interval: 3000
-		onTriggered: {
-			root.scanning = false;
-			root.refreshList();
-		}
-	}
-
-	Timer {
-		id: autoRefresh
-		interval: 3000
-		repeat: true
-		running: root.visible && root.wifiEnabled
-		onTriggered: root.refreshList()
-	}
-
-	function toggleWifi(): void {
+	onScanRequested: rescan()
+	onRadioToggled: {
 		Networking.wifiEnabled = !Networking.wifiEnabled;
 		if (Networking.wifiEnabled)
 			rescan();
 	}
-
-	function selectItem(index): void {
-		if (index < 0 || index >= networkList.length)
-			return;
-		var item = networkList[index];
-		if (!item)
-			return;
-
-		if (item.connected)
-			return;
-		if (pending.target === item.name && pending.status !== "")
-			return;
-		if (item.known || !isSecured(item.security)) {
-			connectNetwork(item);
-		} else {
-			openPasswordPrompt(item);
-		}
+	onActivated: item => {
+		if (item.saved || !item.secured)
+			connect(item);
+		else
+			openPrompt(item);
 	}
-
-	function toggleConnection(index): void {
-		if (index < 0 || index >= networkList.length)
-			return;
-		var item = networkList[index];
-		if (!item)
-			return;
-
-		if (pending.target === item.name && pending.status !== "")
-			return;
-		if (item.connected) {
-			disconnectNetwork(item);
-			return;
-		}
-		if (item.known || !isSecured(item.security)) {
-			connectNetwork(item);
-		} else {
-			openPasswordPrompt(item);
-		}
+	onDisconnectRequested: item => {
+		if (promptItem && promptItem.key === item.key)
+			closePrompt();
+		clearPending();
+		item.net.disconnect();
 	}
-
-	function connectNetwork(item): void {
-		errorMessage = "";
-		if (promptSsid !== "" && promptSsid !== item.name)
-			closePasswordPrompt();
-		pending.start(item.name, "Connecting…");
-		try {
-			item.net.connect();
-		} catch (e) {
-			errorMessage = "Connection failed";
-			pending.clear();
-		}
-	}
-
-	function disconnectNetwork(item): void {
-		errorMessage = "";
-		if (promptSsid === item.name)
-			closePasswordPrompt();
-		try { item.net.disconnect(); } catch (e) {}
-		pending.clear();
-		root.refreshList();
-	}
-
-	function forgetNetwork(item): void {
-		if (!item || !item.name)
-			return;
-		if (root.pendingForgetSsid !== item.name) {
-			root.pendingForgetSsid = item.name;
-			root.errorMessage = "Press X again to forget \"" + item.name + "\"";
-			forgetConfirmTimer.restart();
-			return;
-		}
-		forgetConfirmTimer.stop();
-		root.pendingForgetSsid = "";
-		errorMessage = "";
-		if (promptSsid === item.name)
-			closePasswordPrompt();
-		if (item.net) {
-			try { item.net.forget(); } catch (e) {}
-		}
+	onForgetConfirmed: item => {
+		if (promptItem && promptItem.key === item.key)
+			closePrompt();
+		item.net.forget();
 		Quickshell.execDetached(["nmcli", "connection", "delete", item.name]);
-		pending.clear();
-		forgetRefreshTimer.restart();
 	}
-
-	function openPasswordPrompt(item): void {
-		if (!item || item.connected)
-			return;
-		promptSsid = item.name;
-		promptNet = item.net;
-		passwordInput = "";
-		showPassword = false;
-		errorMessage = "";
-		pending.clear();
-		passInput.text = "";
-		passInput.forceActiveFocus();
-	}
-
-	function closePasswordPrompt(): void {
-		promptSsid = "";
-		promptNet = null;
-		passwordInput = "";
-		errorMessage = "";
-		pending.clear();
-		forgetConfirmTimer.stop();
-		root.pendingForgetSsid = "";
-		if (passInput)
-			passInput.text = "";
-		root.forceActiveFocus();
-	}
-
-	function cancelPassword(): void {
-		pending.clear();
-		closePasswordPrompt();
-	}
-
-	function submitPassword(): void {
-		if (promptSsid === "")
-			return;
-		if (pending.target === promptSsid && pending.status !== "")
-			return;
-		var pass = passInput ? passInput.text : passwordInput;
-		if (!pass || pass.trim() === "") {
-			if (passInput)
-				passInput.forceActiveFocus();
-			return;
-		}
-		var ssid = promptSsid;
-		passwordInput = pass;
-		pending.start(ssid, "Connecting…");
-		errorMessage = "";
-
-		try {
-			promptNet.connectWithPsk(pass);
-		} catch (e) {
-			errorMessage = "Connection failed";
-			pending.clear();
+	onTimedOut: {
+		if (prompting)
 			passInput.forceActiveFocus();
-			return;
-		}
-		passInput.forceActiveFocus();
 	}
-
-	onVisibleChanged: {
-		if (visible) {
-			refreshList();
-			if (wifiEnabled)
-				rescan();
-			currentIndex = 0;
-			root.forceActiveFocus();
-		} else {
-			if (promptSsid !== "")
-				closePasswordPrompt();
-			else
-				pending.clear();
-		}
-	}
-
-	Keys.onPressed: event => {
-		if (promptSsid !== "") {
-			if (event.key === Qt.Key_Escape) {
-				cancelPassword();
-				event.accepted = true;
-			} else if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter) && !(passInput && passInput.activeFocus)) {
-				submitPassword();
-				event.accepted = true;
-			} else if (event.key === Qt.Key_J || event.key === Qt.Key_K || event.key === Qt.Key_Down || event.key === Qt.Key_Up) {
-				event.accepted = true;
-			}
-			return;
-		}
-
-		var next = ListNav.step(event, networkList.length, currentIndex);
-		if (next >= 0) {
-			currentIndex = next;
-			listView.positionViewAtIndex(next, ListView.Contain);
-			event.accepted = true;
+	onPromptKeyPressed: event => {
+		if (event.key === Qt.Key_Escape) {
+			closePrompt();
 		} else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
-			if (!event.isAutoRepeat && root.wifiEnabled)
-				toggleConnection(currentIndex);
-			event.accepted = true;
-		} else if (event.key === Qt.Key_Space) {
-			if (!event.isAutoRepeat)
-				toggleWifi();
-			event.accepted = true;
-		} else if (event.key === Qt.Key_X || event.key === Qt.Key_Delete) {
-			if (!event.isAutoRepeat && currentIndex >= 0 && currentIndex < networkList.length)
-				forgetNetwork(networkList[currentIndex]);
-			event.accepted = true;
-		} else if (event.key === Qt.Key_R) {
-			rescan();
-			event.accepted = true;
-		} else if (event.key === Qt.Key_W) {
-			toggleWifi();
-			event.accepted = true;
-		} else if (event.key === Qt.Key_H || event.key === Qt.Key_Left || event.key === Qt.Key_Backspace || event.key === Qt.Key_Escape || event.key === Qt.Key_Q) {
-			backRequested();
-			event.accepted = true;
+			submitPassword();
+		} else if (event.key !== Qt.Key_J && event.key !== Qt.Key_K && event.key !== Qt.Key_Down && event.key !== Qt.Key_Up) {
+			return;
 		}
+		event.accepted = true;
+	}
+	onVisibleChanged: {
+		if (!visible && prompting)
+			closePrompt();
 	}
 
-	ColumnLayout {
-		anchors.fill: parent
-		spacing: 12
+	Timer {
+		id: scanTimer
+		interval: 3000
+		onTriggered: root.scanning = false
+	}
 
-		SubViewHeader {
-			Layout.fillWidth: true
-			title: "Wi-Fi"
-			subtitle: !root.wifiEnabled ? "Off" : (root.scanning ? "Scanning…" : (root.networkList.length + " networks found"))
-			enabledState: root.wifiEnabled
-			isScanning: root.scanning
-			onBackClicked: root.backRequested()
-			onScanClicked: root.rescan()
-			onToggleClicked: root.toggleWifi()
-		}
+	Rectangle {
+		id: passwordCard
+		Layout.fillWidth: true
+		visible: root.prompting
+		radius: Theme.roundingElement
+		color: Theme.inset(Theme.bgMain)
+		border.color: Theme.accentBlue
+		border.width: 1
+		implicitHeight: passCol.implicitHeight + 20
 
-		SubViewHeaderRule {}
+		ColumnLayout {
+			id: passCol
+			anchors.fill: parent
+			anchors.margins: 12
+			spacing: 10
 
-		ErrorBanner {
-			visible: root.errorMessage !== "" && root.promptSsid === "" && root.wifiEnabled
-			message: root.errorMessage
-		}
+			RowLayout {
+				Layout.fillWidth: true
+				spacing: 8
 
-		SubViewOffPlaceholder {
-			visible: !root.wifiEnabled
-			icon: "wifi-off"
-			title: "Wi-Fi is turned off"
-			subtitle: "Turn on Wi-Fi to scan and connect to networks"
-			buttonText: "Turn On Wi-Fi"
-			hintText: "Press [space] to turn on"
-			onEnableClicked: root.toggleWifi()
-		}
+				Text {
+					Layout.fillWidth: true
+					text: "Enter password for \"" + (root.promptItem?.name ?? "") + "\""
+					font.family: Theme.fontFamily
+					font.pixelSize: Theme.fontSizeSmall
+					font.bold: true
+					color: Theme.textMain
+					elide: Text.ElideRight
+				}
 
-		Item {
-			Layout.fillWidth: true
-			Layout.fillHeight: true
-			visible: root.wifiEnabled
+				CloseButton {
+					size: 22
+					onClicked: root.closePrompt()
+				}
+			}
 
-			StyledListView {
-				id: listView
-				model: root.networkList
+			Rectangle {
+				Layout.fillWidth: true
+				Layout.preferredHeight: 36
+				radius: Theme.roundingSubtle
+				color: Theme.inset(Theme.bgCard)
+				border.color: passInput.activeFocus ? Theme.accentBlue : Theme.border
+				border.width: 1
 
-				delegate: ListRowCard {
-					id: delegateRoot
+				RowLayout {
+					anchors.fill: parent
+					anchors.leftMargin: 10
+					anchors.rightMargin: 8
+					spacing: 6
 
-					readonly property bool isConnecting: root.connectingSsid === modelData.name
-
-					isSelected: index === root.currentIndex
-					isConnected: modelData.connected
-					onClicked: {
-						root.currentIndex = index;
-						root.selectItem(index);
-					}
-
-					LineIcon {
-						Layout.preferredWidth: 24
-						name: root.getSignalIcon(modelData.signalStrength)
-						size: 20
-						color: isConnected ? Theme.accentBlue : (modelData.signalStrength >= 50 ? Theme.textMain : Theme.textDim)
-					}
-
-					ColumnLayout {
+					TextInput {
+						id: passInput
 						Layout.fillWidth: true
-						spacing: 1
-
-						RowLayout {
-							Layout.fillWidth: true
-							spacing: 6
-
-							Text {
-								Layout.fillWidth: true
-								text: modelData.name
-								font.family: Theme.fontFamily
-								font.pixelSize: Theme.fontSizeSmall + 1
-								font.bold: isConnected || isSelected
-								color: isConnected ? Theme.accentBlue : Theme.textMain
-								elide: Text.ElideRight
-							}
-
-							LineIcon {
-								visible: root.isSecured(modelData.security)
-								name: "lock"
-								size: 13
-								color: Theme.textDim
-							}
-						}
+						echoMode: root.showPassword ? TextInput.Normal : TextInput.Password
+						font.family: Theme.fontMono
+						font.pixelSize: Theme.fontSizeSmall
+						color: Theme.textMain
+						clip: true
+						onAccepted: root.submitPassword()
 
 						Text {
-							text: isConnecting
-								? "Connecting…"
-								: (isConnected
-									? "Connected"
-									: (modelData.known ? "Saved" : String(Math.round(modelData.signalStrength)) + "% signal"))
+							text: "Wi-Fi password…"
 							font.family: Theme.fontMono
-							font.pixelSize: Theme.fontSizeSmall - 2
-							color: isConnecting ? Theme.warning : (isConnected ? Theme.accentBlue : Theme.textDim)
+							font.pixelSize: Theme.fontSizeSmall
+							color: Theme.textMuted
+							visible: !passInput.text && !passInput.activeFocus
+							anchors.verticalCenter: parent.verticalCenter
 						}
 					}
 
-					ListRowActions {
-						isConnected: delegateRoot.isConnected
-						isSelected: delegateRoot.isSelected
-						canForget: modelData.known
-						busy: delegateRoot.isConnecting
-						onDisconnectClicked: root.disconnectNetwork(modelData)
-						onForgetClicked: root.forgetNetwork(modelData)
+					Rectangle {
+						Layout.preferredWidth: 26
+						Layout.preferredHeight: 26
+						radius: Theme.roundingSubtle
+						color: eyeArea.containsMouse ? Theme.bgHover : "transparent"
+
+						LineIcon {
+							anchors.centerIn: parent
+							name: root.showPassword ? "eye-off" : "eye"
+							size: 16
+							color: eyeArea.containsMouse ? Theme.textMain : Theme.textDim
+						}
+
+						MouseArea {
+							id: eyeArea
+							anchors.fill: parent
+							hoverEnabled: true
+							cursorShape: Qt.PointingHandCursor
+							onClicked: root.showPassword = !root.showPassword
+						}
 					}
 				}
 			}
 
-			EmptyListHint {
-				anchors.fill: parent
-				visible: root.networkList.length === 0 && !root.scanning
-				title: "No networks found"
-				hint: "Press [r] to rescan"
+			Text {
+				readonly property bool connecting: root.isPending(root.promptItem)
+				visible: root.errorMessage !== "" || connecting
+				Layout.fillWidth: true
+				text: root.errorMessage !== "" ? root.errorMessage : root.pendingStatus
+				font.family: Theme.fontMono
+				font.pixelSize: Theme.fontSizeSmall - 2
+				color: root.errorMessage !== "" ? Theme.critical : Theme.warning
 			}
-		}
 
-		Rectangle {
-			id: passwordCard
-			Layout.fillWidth: true
-			visible: root.promptSsid !== ""
-			radius: Theme.roundingElement
-			color: Theme.inset(Theme.bgMain)
-			border.color: Theme.accentBlue
-			border.width: 1
-			implicitHeight: passCol.implicitHeight + 20
+			RowLayout {
+				Layout.fillWidth: true
+				spacing: 8
 
-			ColumnLayout {
-				id: passCol
-				anchors.fill: parent
-				anchors.margins: 12
-				spacing: 10
+				Item { Layout.fillWidth: true }
 
-				RowLayout {
-					Layout.fillWidth: true
-					spacing: 8
+				Rectangle {
+					implicitWidth: cancelLabel.implicitWidth + 18
+					implicitHeight: 30
+					radius: Theme.roundingSubtle
+					color: cancelArea.containsMouse ? Theme.bgHover : "transparent"
+					border.color: Theme.border
+					border.width: 1
 
 					Text {
-						Layout.fillWidth: true
-						text: "Enter password for \"" + root.promptSsid + "\""
+						id: cancelLabel
+						anchors.centerIn: parent
+						text: "Cancel (Esc)"
 						font.family: Theme.fontFamily
-						font.pixelSize: Theme.fontSizeSmall
-						font.bold: true
-						color: Theme.textMain
-						elide: Text.ElideRight
+						font.pixelSize: Theme.fontSizeSmall - 1
+						color: Theme.textDim
 					}
 
-					CloseButton {
-						size: 22
-						onClicked: root.cancelPassword()
+					MouseArea {
+						id: cancelArea
+						anchors.fill: parent
+						hoverEnabled: true
+						cursorShape: Qt.PointingHandCursor
+						onClicked: root.closePrompt()
 					}
 				}
 
 				Rectangle {
-					Layout.fillWidth: true
-					Layout.preferredHeight: 36
+					readonly property bool connecting: root.isPending(root.promptItem)
+					implicitWidth: connectLabel.implicitWidth + 20
+					implicitHeight: 30
 					radius: Theme.roundingSubtle
-					color: Theme.inset(Theme.bgCard)
-					border.color: passInput.activeFocus ? Theme.accentBlue : Theme.border
-					border.width: 1
+					opacity: connecting ? 0.6 : 1.0
+					color: connectArea.containsMouse ? Qt.lighter(Theme.accentBlue, 1.15) : Theme.accentBlue
 
-					RowLayout {
+					Text {
+						id: connectLabel
+						anchors.centerIn: parent
+						text: parent.connecting ? "Connecting…" : "Connect (Enter)"
+						font.family: Theme.fontFamily
+						font.pixelSize: Theme.fontSizeSmall - 1
+						font.bold: true
+						color: Theme.bgMain
+					}
+
+					MouseArea {
+						id: connectArea
 						anchors.fill: parent
-						anchors.leftMargin: 10
-						anchors.rightMargin: 8
-						spacing: 6
-
-						TextInput {
-							id: passInput
-							Layout.fillWidth: true
-							echoMode: root.showPassword ? TextInput.Normal : TextInput.Password
-							font.family: Theme.fontMono
-							font.pixelSize: Theme.fontSizeSmall
-							color: Theme.textMain
-							clip: true
-							onTextChanged: root.passwordInput = text
-							onAccepted: root.submitPassword()
-
-							Text {
-								text: "Wi-Fi password…"
-								font.family: Theme.fontMono
-								font.pixelSize: Theme.fontSizeSmall
-								color: Theme.textMuted
-								visible: !passInput.text && !passInput.activeFocus
-								anchors.verticalCenter: parent.verticalCenter
-							}
-						}
-
-						Rectangle {
-							Layout.preferredWidth: 26
-							Layout.preferredHeight: 26
-							radius: Theme.roundingSubtle
-							color: eyeArea.containsMouse ? Theme.bgHover : "transparent"
-
-							LineIcon {
-								anchors.centerIn: parent
-								name: root.showPassword ? "eye-off" : "eye"
-								size: 16
-								color: eyeArea.containsMouse ? Theme.textMain : Theme.textDim
-							}
-
-							MouseArea {
-								id: eyeArea
-								anchors.fill: parent
-								hoverEnabled: true
-								cursorShape: Qt.PointingHandCursor
-								onClicked: root.showPassword = !root.showPassword
-							}
-						}
-					}
-				}
-
-				Text {
-					visible: root.errorMessage !== "" || (pending.target === root.promptSsid && pending.status !== "")
-					Layout.fillWidth: true
-					text: root.errorMessage !== "" ? root.errorMessage : (pending.target === root.promptSsid ? pending.status : "")
-					font.family: Theme.fontMono
-					font.pixelSize: Theme.fontSizeSmall - 2
-					color: root.errorMessage !== "" ? Theme.critical : Theme.warning
-				}
-
-				RowLayout {
-					Layout.fillWidth: true
-					spacing: 8
-
-					Item { Layout.fillWidth: true }
-
-					Rectangle {
-						implicitWidth: cancelLabel.implicitWidth + 18
-						implicitHeight: 30
-						radius: Theme.roundingSubtle
-						color: cancelBtnArea.containsMouse ? Theme.bgHover : "transparent"
-						border.color: Theme.border
-						border.width: 1
-
-						Text {
-							id: cancelLabel
-							anchors.centerIn: parent
-							text: "Cancel (Esc)"
-							font.family: Theme.fontFamily
-							font.pixelSize: Theme.fontSizeSmall - 1
-							color: Theme.textDim
-						}
-
-						MouseArea {
-							id: cancelBtnArea
-							anchors.fill: parent
-							hoverEnabled: true
-							cursorShape: Qt.PointingHandCursor
-							onClicked: root.cancelPassword()
-						}
-					}
-
-					Rectangle {
-						implicitWidth: connectLabel.implicitWidth + 20
-						implicitHeight: 30
-						radius: Theme.roundingSubtle
-						opacity: (pending.target === root.promptSsid && pending.status !== "") ? 0.6 : 1.0
-						color: connectBtnArea.containsMouse ? Qt.lighter(Theme.accentBlue, 1.15) : Theme.accentBlue
-
-						Text {
-							id: connectLabel
-							anchors.centerIn: parent
-							text: (pending.target === root.promptSsid && pending.status !== "") ? "Connecting…" : "Connect (Enter)"
-							font.family: Theme.fontFamily
-							font.pixelSize: Theme.fontSizeSmall - 1
-							font.bold: true
-							color: Theme.bgMain
-						}
-
-						MouseArea {
-							id: connectBtnArea
-							anchors.fill: parent
-							hoverEnabled: true
-							cursorShape: Qt.PointingHandCursor
-							onClicked: root.submitPassword()
-						}
+						hoverEnabled: true
+						cursorShape: Qt.PointingHandCursor
+						onClicked: root.submitPassword()
 					}
 				}
 			}

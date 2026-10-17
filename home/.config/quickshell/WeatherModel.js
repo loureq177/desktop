@@ -53,16 +53,10 @@ function locationCommit(text, suggestions, selectedIndex) {
   return { name: name, latitude: null, longitude: null };
 }
 
-function formatTemp(value) {
-  if (value === undefined || value === null || value === "") return "";
-  return value + "°C";
-}
-
-function dayName(dateString, formatter) {
+function dayName(dateString) {
   if (!dateString) return "";
   var d = new Date(dateString + "T12:00:00");
   if (isNaN(d.getTime())) return "";
-  if (formatter) return formatter(d);
   return ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][d.getDay()];
 }
 
@@ -120,19 +114,13 @@ function parseOpenMeteoCurrent(report) {
 
   var tempVal = Math.round(c.temperature_2m);
   var feelsVal = Math.round(c.apparent_temperature !== undefined && c.apparent_temperature !== null ? c.apparent_temperature : c.temperature_2m);
-  var windVal = Math.round(c.wind_speed_10m || 0) + " km/h";
-  var isDay = Number(c.is_day) === 1;
-  var code = c.weather_code || 0;
 
   return {
     tempNum: String(tempVal),
-    tempVal: tempVal,
     feelsLike: String(feelsVal) + "°C",
-    wind: windVal,
+    wind: Math.round(c.wind_speed_10m || 0) + " km/h",
     humidity: String(Math.round(c.relative_humidity_2m || 0)) + "%",
-    weatherCode: code,
-    isDay: isDay,
-    icon: iconForWmoCode(code, isDay)
+    icon: iconForWmoCode(c.weather_code || 0, Number(c.is_day) === 1)
   };
 }
 
@@ -151,20 +139,14 @@ function parseOpenMeteoHourly(report) {
       var parts = String(rawTime).split("T");
       hourStr = parts[1] ? parts[1].slice(0, 5) : rawTime;
     }
-    var tempC = hourly.temperature_2m ? hourly.temperature_2m[i] : 0;
-    var tempVal = Math.round(tempC);
     var code = hourly.weather_code ? hourly.weather_code[i] : 0;
     var isDay = hourly.is_day ? Number(hourly.is_day[i]) === 1 : true;
-    var pop = hourly.precipitation_probability ? Math.round(hourly.precipitation_probability[i] || 0) : 0;
 
     result.push({
       time: hourStr,
-      temp: tempVal,
-      tempStr: String(tempVal) + "°",
-      code: code,
-      isDay: isDay,
+      temp: Math.round(hourly.temperature_2m ? hourly.temperature_2m[i] : 0),
       icon: iconForWmoCode(code, isDay),
-      pop: pop
+      pop: hourly.precipitation_probability ? Math.round(hourly.precipitation_probability[i] || 0) : 0
     });
   }
   return result;
@@ -199,17 +181,13 @@ function parseOpenMeteoDaily(report, todayString) {
 
     var maxC = daily.temperature_2m_max ? daily.temperature_2m_max[i] : 0;
     var minC = daily.temperature_2m_min ? daily.temperature_2m_min[i] : 0;
-    var code = daily.weather_code ? daily.weather_code[i] : 0;
-    var maxVal = Math.round(maxC);
-    var minVal = Math.round(minC);
 
     result.push({
       date: date,
       dayName: dayName(date),
-      maxTemp: String(maxVal) + "°",
-      minTemp: String(minVal) + "°",
-      weatherCode: code,
-      icon: iconForWmoCode(code, true)
+      maxTemp: String(Math.round(maxC)) + "°",
+      minTemp: String(Math.round(minC)) + "°",
+      icon: iconForWmoCode(daily.weather_code ? daily.weather_code[i] : 0, true)
     });
   }
   return result;
@@ -220,7 +198,6 @@ if (typeof module !== "undefined") {
     parseLocationFile: parseLocationFile,
     parseGeocodingResults: parseGeocodingResults,
     locationCommit: locationCommit,
-    formatTemp: formatTemp,
     dayName: dayName,
     iconForWmoCode: iconForWmoCode,
     parseOpenMeteoCurrent: parseOpenMeteoCurrent,

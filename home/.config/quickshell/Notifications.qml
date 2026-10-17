@@ -4,36 +4,86 @@ import Quickshell.Io
 import Quickshell.Services.Notifications
 import QtQuick
 
+// Two lists of rows, newest first: `history` for the center and `toasts` for
+// the popups. A row copies the notification's fields (see row()), so the
+// center keeps showing it after its app has closed it.
 Singleton {
 	id: root
 
 	property bool dnd: false
-	property bool centerOpen: false
-	// The center and quick settings share a spot: on a swap the outgoing
-	// drawer fades out in place instead of sliding across the incoming one.
-	property bool centerHandoff: false
-	property var toasts: []
-	property var history: []
-	property int historyLimit: 100
-	property int maxToasts: 4
-
-	property int toastTimeoutMs: 5000
-	property var toastArrivedAt: ({})
-
-	// Milliseconds since the epoch: far past what an int holds.
-	property double lastSoundAt: 0
-
-	// Bumped each time a notification is replaced in place, so the views can
-	// tell their copy of it is stale.
-	property var revisions: ({})
-	property var pendingUpdates: ({})
+	readonly property ListModel history: ListModel {}
+	readonly property ListModel toasts: ListModel {}
+	readonly property int historyLimit: 100
+	readonly property int maxToasts: 4
+	readonly property int toastTimeoutMs: 5000
 
 	// Set while a toast's reply field has focus: nothing expires mid-typing.
 	property bool toastsHeld: false
+	// Milliseconds since the epoch: far past what an int holds.
+	property double lastSoundAt: 0
+	property var pendingUpdates: ({})
 
-	onCenterOpenChanged: {
-		if (root.centerOpen)
-			root.hideToasts();
+	function row(n): var {
+		var now = Date.now();
+		return {
+			nid: n.id,
+			appName: n.appName || n.desktopEntry || "",
+			desktopEntry: n.desktopEntry || "",
+			summary: n.summary || "",
+			body: n.body || "",
+			urgency: n.urgency,
+			image: n.image || "",
+			appIcon: n.appIcon || "",
+			hasInlineReply: n.hasInlineReply,
+			replyPlaceholder: n.inlineReplyPlaceholder || "",
+			actions: root.buttonActions(n.actions),
+			time: now,
+			// For a toast: when its timeout started (see the expiry timer).
+			shownAt: now,
+			timeout: root.toastTimeoutFor(n)
+		};
+	}
+
+	// The actions worth a button: "default" is a click on the card itself.
+	function buttonActions(actions): var {
+		var out = [];
+		for (var i = 0; i < actions.length; i++) {
+			var ident = (actions[i].identifier || "").trim();
+			var label = (actions[i].text || "").trim();
+			if (ident === "" || ident === "default" || ident === "settings")
+				continue;
+			if (label === "" || label.toLowerCase() === "action" || label.toLowerCase() === "activate")
+				continue;
+			out.push({ identifier: actions[i].identifier, text: label });
+		}
+		return out;
+	}
+
+	function toastTimeoutFor(n): int {
+		if (n.urgency === NotificationUrgency.Critical || n.expireTimeout === 0)
+			return 0;
+		if (n.expireTimeout > 0)
+			return n.expireTimeout < 100 ? Math.round(n.expireTimeout * 1000) : n.expireTimeout;
+		return root.toastTimeoutMs;
+	}
+
+	function indexIn(model, nid): int {
+		for (var i = 0; i < model.count; i++) {
+			if (model.get(i).nid === nid)
+				return i;
+		}
+		return -1;
+	}
+
+	function removeFrom(model, nid): void {
+		var i = root.indexIn(model, nid);
+		if (i >= 0)
+			model.remove(i);
+	}
+
+	// The notification itself, while its app still has it open.
+	function live(nid): var {
+		return server.trackedNotifications.values.find(n => n.id === nid) ?? null;
 	}
 
 	function playSound(): void {
@@ -44,174 +94,48 @@ Singleton {
 		Quickshell.execDetached(["paplay", "/usr/share/sounds/freedesktop/stereo/message.oga"]);
 	}
 
-	function snapshot(n, when): var {
-		return {
-			id: n.id,
-			appName: n.appName || n.desktopEntry || "",
-			desktopEntry: n.desktopEntry || "",
-			summary: n.summary || "",
-			body: n.body || "",
-			urgency: n.urgency,
-			image: n.image || "",
-			appIcon: n.appIcon || "",
-			actions: (n.actions || []).map(a => ({ identifier: a.identifier || "", text: a.text || "" })),
-			time: when,
-			rev: root.revisionOf(n.id)
-		};
-	}
-
-	function revisionOf(id: var): int {
-		return root.revisions[id] || 0;
-	}
-
-	function showToast(n, now): void {
-		root.toastArrivedAt[n.id] = now;
+	function showToast(n): void {
 		if (root.dnd && n.urgency !== NotificationUrgency.Critical)
 			return;
-		var updated = [n].concat(root.toasts.filter(t => t !== n));
-		if (updated.length > root.maxToasts) {
-			var dropped = updated.slice(root.maxToasts);
-			for (var d = 0; d < dropped.length; d++)
-				delete root.toastArrivedAt[dropped[d].id];
-			updated = updated.slice(0, root.maxToasts);
+		var i = root.indexIn(root.toasts, n.id);
+		if (i >= 0) {
+			root.toasts.set(i, root.row(n));
+			root.toasts.move(i, 0, 1);
+		} else {
+			root.toasts.insert(0, root.row(n));
+			if (root.toasts.count > root.maxToasts)
+				root.toasts.remove(root.maxToasts, root.toasts.count - root.maxToasts);
 		}
-		root.toasts = updated;
 		root.playSound();
 	}
 
-	// A replaced notification (replaces_id) keeps its object and only changes
-	// its properties, several at once: collect them into one refresh.
-	function queueUpdate(id: var): void {
-		root.pendingUpdates[id] = true;
+	// A replaced notification (replaces_id) keeps its object and changes its
+	// properties, several at once: collect them into one update.
+	function queueUpdate(nid): void {
+		root.pendingUpdates[nid] = true;
 		Qt.callLater(root.flushUpdates);
 	}
 
 	function flushUpdates(): void {
 		var pending = root.pendingUpdates;
 		root.pendingUpdates = {};
-		var now = Date.now();
 		for (var key in pending) {
-			var n = root.liveById(key);
+			var n = root.live(Number(key));
 			if (!n)
 				continue;
-			root.revisions[n.id] = root.revisionOf(n.id) + 1;
-			var snap = root.snapshot(n, now);
-			var found = false;
-			var next = [];
-			for (var i = 0; i < root.history.length; i++) {
-				var h = root.history[i];
-				if (h && String(h.id) === String(n.id)) {
-					found = true;
-					next.push(snap);
-				} else {
-					next.push(h);
-				}
-			}
-			root.history = found ? next : [snap].concat(next);
-			root.pruneHistory();
-			root.showToast(n, now);
+			var i = root.indexIn(root.history, n.id);
+			if (i >= 0)
+				root.history.set(i, root.row(n));
+			else
+				root.history.insert(0, root.row(n));
+			root.showToast(n);
 		}
 	}
 
-	function removeToast(id: var): void {
-		delete root.toastArrivedAt[id];
-		var idStr = String(id);
-		var kept = [];
-		for (var i = 0; i < root.toasts.length; i++) {
-			var t = root.toasts[i];
-			if (t && String(t.id) !== idStr)
-				kept.push(t);
-		}
-		root.toasts = kept;
-	}
-
-	function latestToast(): var {
-		return root.toasts.length > 0 ? root.toasts[0] : null;
-	}
-
-	function latestToastId(): int {
-		return root.toasts.length > 0 && root.toasts[0] ? root.toasts[0].id : -1;
-	}
-
-	function liveById(id: var): var {
-		var idStr = String(id);
-		var vals = server.trackedNotifications.values;
-		for (var i = 0; i < vals.length; i++) {
-			if (vals[i] && String(vals[i].id) === idStr)
-				return vals[i];
-		}
-		return null;
-	}
-
-	function safeDismiss(n): void {
-		if (!n)
-			return;
-		var vals = server.trackedNotifications.values;
-		for (var i = 0; i < vals.length; i++) {
-			if (vals[i] === n) {
-				n.dismiss();
-				return;
-			}
-		}
-	}
-
-	function removeHistory(id: var): void {
-		var idStr = String(id);
-		var kept = [];
-		for (var i = 0; i < root.history.length; i++) {
-			var h = root.history[i];
-			if (h && String(h.id) !== idStr)
-				kept.push(h);
-		}
-		root.history = kept;
-	}
-
-	function dismissEntry(id: var): void {
-		root.safeDismiss(root.liveById(id));
-		root.removeToast(id);
-		root.removeHistory(id);
-	}
-
-	function entriesFromActions(id, acts): var {
-		var out = [];
-		var all = acts || [];
-		for (var i = 0; i < all.length; i++) {
-			var ident = ((all[i] && all[i].identifier) || "").trim();
-			if (ident === "" || ident === "default" || ident === "settings")
-				continue;
-			var label = ((all[i] && (all[i].text || all[i].label)) || "").trim();
-			var lower = label.toLowerCase();
-			if (label === "" || lower === "action" || lower === "activate")
-				continue;
-			out.push({ identifier: all[i].identifier || "", text: label, notifId: id });
-		}
-		return out;
-	}
-
-	function historyActionEntries(snap): var {
-		return root.entriesFromActions(snap.id, snap.actions);
-	}
-
-	function historyTimeById(id: var): var {
-		var idStr = String(id);
-		for (var i = 0; i < root.history.length; i++) {
-			if (root.history[i] && String(root.history[i].id) === idStr)
-				return root.history[i].time;
-		}
-		return null;
-	}
-
-	function historyById(id: var): var {
-		var idStr = String(id);
-		for (var i = 0; i < root.history.length; i++) {
-			if (root.history[i] && String(root.history[i].id) === idStr)
-				return root.history[i];
-		}
-		return null;
-	}
-
-	function launchSysupdate(): void {
-		Quickshell.execDetached(["ghostty", "+new-window", "-e", Quickshell.env("HOME") + "/.local/bin/sysupdate"]);
+	function dismiss(nid): void {
+		root.live(nid)?.dismiss();
+		root.removeFrom(root.toasts, nid);
+		root.removeFrom(root.history, nid);
 	}
 
 	function focusApp(appTarget: string): void {
@@ -221,186 +145,78 @@ Singleton {
 		Quickshell.execDetached(["hyprctl", "dispatch", 'hl.dsp.focus({ window = "' + lua + '" })']);
 	}
 
-	function handleLocalAction(id: int, identifier: string): bool {
-		if (identifier !== "update")
-			return false;
-		var found = root.liveById(id);
-		var app = (found && (found.appName || found.desktopEntry)) || "";
-		if (app === "") {
-			var snap = root.historyById(id);
-			app = (snap && snap.appName) || "";
-		}
-		if (app !== "System Update")
-			return false;
-		root.launchSysupdate();
-		root.dismissEntry(id);
-		return true;
-	}
-
-	function invokeByIdentifier(id: var, identifier: string): void {
-		if (root.handleLocalAction(id, identifier))
+	function invoke(nid, identifier: string): void {
+		var n = root.live(nid);
+		var action = n?.actions.find(a => a.identifier === identifier);
+		if (!action)
 			return;
-		var found = root.liveById(id);
-		if (found && found.actions) {
-			for (var j = 0; j < found.actions.length; j++) {
-				if (found.actions[j].identifier === identifier) {
-					found.actions[j].invoke();
-					if (!found.resident)
-						root.dismissEntry(id);
-					else
-						root.removeToast(id);
-					return;
-				}
-			}
+		action.invoke();
+		if (n.resident)
+			root.removeFrom(root.toasts, nid);
+		else
+			root.dismiss(nid);
+	}
+
+	// A click on the card: its default action, or else its app's window.
+	// Without an id, the newest toast.
+	function activate(nid): void {
+		if (nid === undefined) {
+			if (root.toasts.count === 0)
+				return;
+			nid = root.toasts.get(0).nid;
 		}
-	}
-
-	function activate(id: var): void {
-		if (id === -1)
-			return;
-		var targetId = id !== undefined && id !== null && id >= 0 ? id : root.latestToastId();
-		if (targetId < 0)
-			return;
-		var snap = root.historyById(targetId);
-		var found = root.liveById(targetId);
-		var invoked = false;
-
-		if (root.handleLocalAction(targetId, "update")) {
-			invoked = true;
-		} else if (found && found.actions) {
-			for (var i = 0; i < found.actions.length; i++) {
-				if (found.actions[i] && found.actions[i].identifier === "default") {
-					found.actions[i].invoke();
-					invoked = true;
-					break;
-				}
-			}
+		var action = root.live(nid)?.actions.find(a => a.identifier === "default");
+		if (action) {
+			action.invoke();
+		} else {
+			var i = root.indexIn(root.history, nid);
+			var entry = i >= 0 ? root.history.get(i) : null;
+			if (entry && (entry.desktopEntry || entry.appName))
+				root.focusApp(entry.desktopEntry || entry.appName);
 		}
-
-		var appTarget = "";
-		if (!invoked) {
-			appTarget = (found && (found.desktopEntry || found.appName)) || (snap && (snap.desktopEntry || snap.appName)) || "";
-			if (appTarget !== "")
-				root.focusApp(appTarget);
-		}
-
-		root.removeToast(targetId);
-		root.closeCenter();
-	}
-
-	function toggle(): void {
-		if (root.centerOpen)
-			root.closeCenter();
-		else {
-			root.centerHandoff = false;
-			QuickSettings.handOff();
-			root.centerOpen = true;
-		}
-	}
-
-	function closeCenter(): void {
-		root.centerHandoff = false;
-		root.centerOpen = false;
-	}
-
-	// Quick settings opens in the center's place.
-	function handOffCenter(): void {
-		root.centerHandoff = root.centerOpen;
-		root.centerOpen = false;
-	}
-
-	function hideToasts(): void {
-		root.toastArrivedAt = {};
-		if (root.toasts.length > 0)
-			root.toasts = [];
-	}
-
-	function toggleDnd(): void {
-		root.dnd = !root.dnd;
-	}
-
-	function dndOn(): void {
-		root.dnd = true;
-	}
-
-	function dndOff(): void {
-		root.dnd = false;
+		root.removeFrom(root.toasts, nid);
+		Panels.close("notifications");
 	}
 
 	function clear(): void {
-		var vals = server.trackedNotifications.values.slice();
-		for (var i = 0; i < vals.length; i++)
-			root.safeDismiss(vals[i]);
-		root.toasts = [];
-		root.history = [];
+		for (var n of server.trackedNotifications.values.slice())
+			n.dismiss();
+		root.toasts.clear();
+		root.history.clear();
 	}
 
 	function dismissLatest(): void {
-		var targetId = -1;
-		var t = root.latestToast();
-		if (t) {
-			targetId = t.id;
-		} else if (root.history.length > 0 && root.history[0]) {
-			targetId = root.history[0].id;
-		}
-		if (targetId >= 0) {
-			root.dismissEntry(targetId);
-		}
+		var latest = root.toasts.count > 0 ? root.toasts : root.history;
+		if (latest.count > 0)
+			root.dismiss(latest.get(0).nid);
 	}
 
-	function status(): string {
-		return JSON.stringify({ count: root.toasts.length, dnd: root.dnd, total: root.history.length, history: root.history, centerOpen: root.centerOpen });
-	}
-
-	function toastTimeoutFor(t): int {
-		if (t.urgency === NotificationUrgency.Critical || t.expireTimeout === 0)
-			return 0;
-		if (t.expireTimeout > 0)
-			return t.expireTimeout < 100 ? Math.round(t.expireTimeout * 1000) : t.expireTimeout;
-		return root.toastTimeoutMs;
+	// A panel on screen hides the toasts.
+	Connections {
+		target: Panels
+		function onActiveChanged() {
+			if (Panels.active !== "")
+				root.toasts.clear();
+		}
 	}
 
 	Timer {
 		interval: 500
-		running: root.toasts.length > 0
+		running: root.toasts.count > 0
 		repeat: true
 		onTriggered: {
 			var now = Date.now();
-			var liveIds = {};
-			var vals = root.toasts.slice();
-			for (var i = 0; i < vals.length; i++) {
-				var t = vals[i];
-				if (!t)
+			for (var i = root.toasts.count - 1; i >= 0; i--) {
+				var t = root.toasts.get(i);
+				if (t.timeout === 0)
 					continue;
-				liveIds[t.id] = true;
-				var timeout = root.toastTimeoutFor(t);
-				if (timeout === 0)
-					continue;
-				var at = root.toastArrivedAt[t.id];
-				if (at === undefined || root.toastsHeld) {
-					root.toastArrivedAt[t.id] = now;
-					continue;
-				}
 				// Only the toast goes: the notification stays open in the
 				// center, where its actions and reply still have to work.
-				if (now - at >= timeout)
-					root.removeToast(t.id);
+				if (root.toastsHeld)
+					root.toasts.setProperty(i, "shownAt", now);
+				else if (now - t.shownAt >= t.timeout)
+					root.toasts.remove(i);
 			}
-			for (var key in root.toastArrivedAt) {
-				if (!liveIds[key])
-					delete root.toastArrivedAt[key];
-			}
-		}
-	}
-
-	function pruneHistory(): void {
-		if (root.history.length <= root.historyLimit)
-			return;
-		var dropped = root.history.slice(root.historyLimit);
-		root.history = root.history.slice(0, root.historyLimit);
-		for (var i = 0; i < dropped.length; i++) {
-			if (dropped[i])
-				root.safeDismiss(root.liveById(dropped[i].id));
 		}
 	}
 
@@ -415,27 +231,20 @@ Singleton {
 		inlineReplySupported: true
 
 		onNotification: n => {
-			if (!n) return;
-			var summary = (n.summary || "").trim();
-			var body = (n.body || "").trim();
 			var appName = (n.appName || n.desktopEntry || "").trim();
-			if (summary === "" && body === "" && appName === "" && !n.image)
+			if (n.summary.trim() === "" && n.body.trim() === "" && appName === "" && !n.image)
 				return;
-
 			n.tracked = true;
-			var isReload = (n.lastGeneration === true);
-			var now = Date.now();
-			var filtered = [];
-			var nIdStr = String(n.id);
-			for (var i = 0; i < root.history.length; i++) {
-				if (root.history[i] && String(root.history[i].id) !== nIdStr)
-					filtered.push(root.history[i]);
-			}
-			root.history = [root.snapshot(n, now)].concat(filtered).slice(0, root.historyLimit);
-			root.pruneHistory();
-			if (!isReload)
-				root.showToast(n, now);
 			var id = n.id;
+			root.removeFrom(root.history, id);
+			root.history.insert(0, root.row(n));
+			while (root.history.count > root.historyLimit) {
+				root.live(root.history.get(root.historyLimit).nid)?.dismiss();
+				root.history.remove(root.historyLimit);
+			}
+			// Kept over a reload: already seen, so no toast this time.
+			if (!n.lastGeneration)
+				root.showToast(n);
 			var changed = () => root.queueUpdate(id);
 			n.summaryChanged.connect(changed);
 			n.bodyChanged.connect(changed);
@@ -444,33 +253,27 @@ Singleton {
 			n.imageChanged.connect(changed);
 			n.urgencyChanged.connect(changed);
 			n.actionsChanged.connect(changed);
-			n.closed.connect(() => {
-				root.removeToast(id);
-				delete root.revisions[id];
-			});
+			n.closed.connect(() => root.removeFrom(root.toasts, id));
 		}
 	}
 
 	IpcHandler {
 		target: "notifications"
 
-		function toggle(): void {
-			root.toggle();
-		}
-		function dndOn(): void {
-			root.dndOn();
+		// Returns whether this turned it on, so a caller knows to turn it off.
+		function dndOn(): bool {
+			var was = root.dnd;
+			root.dnd = true;
+			return !was;
 		}
 		function dndOff(): void {
-			root.dndOff();
+			root.dnd = false;
 		}
 		function dismissLatest(): void {
 			root.dismissLatest();
 		}
 		function invokeDefault(): void {
 			root.activate();
-		}
-		function status(): string {
-			return root.status();
 		}
 	}
 }

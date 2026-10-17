@@ -7,15 +7,9 @@ import "WeatherModel.js" as WeatherModel
 Singleton {
 	id: root
 
-	property bool panelOpen: false
-
-	onPanelOpenChanged: {
-		if (root.panelOpen)
-			Notifications.hideToasts();
-	}
-
-	property var report: null
+	// parseOpenMeteoCurrent's fields; null until the first forecast arrives.
 	property var current: null
+	property var today: ({ high: "", low: "" })
 	property var hourlyForecast: []
 	property var forecastDays: []
 
@@ -27,9 +21,8 @@ Singleton {
 	FileView {
 		id: locationFile
 		path: (Quickshell.env("XDG_STATE_HOME") || Quickshell.env("HOME") + "/.local/state") + "/weather/weather.json"
-		watchChanges: true
 		printErrors: false
-		onFileChanged: reload()
+		onSaveFailed: root.savingLocation = false
 		onLoaded: {
 			root.configuredLocationState = WeatherModel.parseLocationFile(this.text());
 			root.refresh();
@@ -49,14 +42,6 @@ Singleton {
 	// The query the suggestions on screen answer; they lag behind the typing.
 	property string suggestionsQuery: ""
 
-	property string label: ""
-	property string tempNum: ""
-	readonly property string tempUnit: "°C"
-	property string reportFeels: ""
-	property string reportWind: ""
-	property string reportHumidity: ""
-	property string reportTodayHigh: ""
-	property string reportTodayLow: ""
 	property string lastError: ""
 	property string pendingForecastUrl: ""
 
@@ -68,35 +53,12 @@ Singleton {
 	readonly property string reportLocation: (configuredHasCoordinates ? configuredLocation : "") || ipCity || configuredLocation || (current ? "Current Location" : "")
 
 	readonly property string tooltipText: {
-		if (!reportLocation && !tempNum)
-			return "Weather";
-		var s = (reportLocation ? reportLocation + ": " : "") + (tempNum ? tempNum + tempUnit : "");
-		if (reportTodayHigh && reportTodayLow)
-			s += " (↑" + reportTodayHigh + " ↓" + reportTodayLow + ")";
-		if (reportFeels)
-			s += ", Feels like " + reportFeels;
-		if (reportWind)
-			s += " · Wind " + reportWind;
-		return s;
-	}
-
-	function toggle() {
-		if (root.panelOpen)
-			close();
-		else
-			open();
-	}
-
-	function open() {
-		root.panelOpen = true;
-		locationFile.reload();
-		root.refresh();
-	}
-
-	function close() {
-		root.panelOpen = false;
-		if (root.editingLocation)
-			cancelEditingLocation();
+		if (!current)
+			return reportLocation || "Weather";
+		var s = (reportLocation ? reportLocation + ": " : "") + current.tempNum + "°C";
+		if (today.high && today.low)
+			s += " (↑" + today.high + " ↓" + today.low + ")";
+		return s + ", Feels like " + current.feelsLike + " · Wind " + current.wind;
 	}
 
 	function refresh() {
@@ -147,26 +109,26 @@ Singleton {
 	}
 
 	function commitLocation(text) {
-		// Suggestions for an older query are not what was typed: the name alone
-		// goes out then, and weather-location geocodes it.
-		var fresh = suggestionsQuery === String(text || "").trim();
-		var location = WeatherModel.locationCommit(text, fresh ? locationSuggestions : [], suggestionIndex);
-		if (location.name === "") {
+		var name = String(text || "").trim();
+		if (name === "") {
 			clearLocation();
 			return;
 		}
 		savingLocation = true;
-		configuredLocationState = {
-			name: location.name,
-			latitude: location.latitude,
-			longitude: location.longitude
-		};
-		persistLocation(location.name, location.latitude, location.longitude);
+		// Suggestions for an older query are not what was typed: look the name up
+		// first. Without a match it is kept with no coordinates.
+		if (suggestionsQuery !== name) {
+			geocodeDebounce.stop();
+			geocodePendingQuery = name;
+			startGeocode();
+			return;
+		}
+		saveLocation(WeatherModel.locationCommit(name, locationSuggestions, suggestionIndex));
 	}
 
 	function clearLocation() {
-		persistLocation("", null, null);
 		ipCity = "";
+		saveLocation(WeatherModel.locationCommit("", [], 0));
 		cancelEditingLocation();
 	}
 
@@ -174,27 +136,22 @@ Singleton {
 		if (!suggestion)
 			return;
 		savingLocation = true;
+		saveLocation(suggestion);
+	}
+
+	function saveLocation(location) {
 		configuredLocationState = {
-			name: suggestion.name,
-			latitude: suggestion.latitude,
-			longitude: suggestion.longitude
+			name: location.name,
+			latitude: location.latitude,
+			longitude: location.longitude
 		};
-		persistLocation(suggestion.name, suggestion.latitude, suggestion.longitude);
+		locationFile.setText(JSON.stringify(configuredLocationState) + "\n");
+		refresh();
 	}
 
 	function finishSavingLocation() {
 		if (savingLocation)
 			cancelEditingLocation();
-	}
-
-	function persistLocation(name, latitude, longitude) {
-		if (name && latitude !== null && longitude !== null)
-			locationSaveProc.command = ["weather-location", "--set", name, latitude + "," + longitude];
-		else if (name)
-			locationSaveProc.command = ["weather-location", "--set", name];
-		else
-			locationSaveProc.command = ["weather-location", "--clear"];
-		locationSaveProc.running = true;
 	}
 
 	function requestGeocode(query) {
@@ -225,30 +182,15 @@ Singleton {
 		geocodeProc.running = true;
 	}
 
-	function bareTempForDay(day, kind) {
-		if (!day) return "";
-		return kind === "max" ? day.maxTemp : day.minTemp;
-	}
-
-	function dayIcon(day) {
-		return day ? day.icon : "";
-	}
-
-	function status(): string {
-		if (!reportLocation && !tempNum)
-			return "Weather unavailable";
-		var s = (reportLocation ? reportLocation : "") + "  ·  Temp " + tempNum + tempUnit;
-		if (reportWind)
-			s += "  ·  Wind " + reportWind;
-		return s;
-	}
-
 	Process {
 		id: ipProc
 		// ipwho.is answers 200 with success=false when it cannot place the address.
 		command: ["curl", "-fsS", "--max-time", "4", "https://ipwho.is/?fields=success,city,latitude,longitude"]
 		onExited: code => {
-			if (code !== 0 && !root.current)
+			if (code === 0)
+				return;
+			root.finishSavingLocation();
+			if (!root.current)
 				root.lastError = "Offline — couldn't detect location";
 		}
 		stdout: StdioCollector {
@@ -297,20 +239,10 @@ Singleton {
 				if (!raw) return;
 				try {
 					var parsed = JSON.parse(raw);
-					root.report = parsed;
 					root.current = WeatherModel.parseOpenMeteoCurrent(parsed);
 					root.hourlyForecast = WeatherModel.parseOpenMeteoHourly(parsed);
 					root.forecastDays = WeatherModel.parseOpenMeteoDaily(parsed, Qt.formatDate(new Date(), "yyyy-MM-dd"));
-					var hl = WeatherModel.parseTodayHighLow(parsed);
-					root.reportTodayHigh = hl.high;
-					root.reportTodayLow = hl.low;
-					if (root.current) {
-						root.label = root.current.icon;
-						root.tempNum = root.current.tempNum;
-						root.reportFeels = root.current.feelsLike;
-						root.reportWind = root.current.wind;
-						root.reportHumidity = root.current.humidity;
-					}
+					root.today = WeatherModel.parseTodayHighLow(parsed);
 					root.finishSavingLocation();
 				} catch (e) {
 					console.warn("Weather forecast parse error:", e);
@@ -331,6 +263,8 @@ Singleton {
 				root.suggestionIndex = 0;
 				if (root.editingLocation && root.geocodePendingQuery !== "" && root.geocodePendingQuery !== root.geocodeActiveQuery)
 					geocodeDebounce.restart();
+				else if (root.savingLocation)
+					root.commitLocation(root.suggestionsQuery);
 			}
 		}
 	}
@@ -342,21 +276,6 @@ Singleton {
 		onTriggered: root.startGeocode()
 	}
 
-	Process {
-		id: locationSaveProc
-		onExited: exitCode => {
-			if (!root.savingLocation)
-				return;
-			// Nothing was written: back to the field instead of a spinner that
-			// never stops.
-			if (exitCode !== 0) {
-				root.savingLocation = false;
-				return;
-			}
-			locationFile.reload();
-		}
-	}
-
 	Timer {
 		id: refreshTimer
 		interval: root.refreshMinutes * 60 * 1000
@@ -366,11 +285,4 @@ Singleton {
 		onTriggered: root.refresh()
 	}
 
-	IpcHandler {
-		target: "weather"
-
-		function toggle(): void { root.toggle() }
-		function refresh(): void { root.refresh() }
-		function status(): string { return root.status() }
-	}
 }

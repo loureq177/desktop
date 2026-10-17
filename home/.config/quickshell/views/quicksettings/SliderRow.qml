@@ -12,9 +12,7 @@ Rectangle {
 	property bool ready: false
 	property bool muted: false
 	property real value: 0
-	property real maxValue: 100
 	property bool iconInteractive: false
-	property alias slider: pillSlider
 	signal selectRequested()
 	signal iconClicked()
 	signal scrubbed(real v)
@@ -68,14 +66,58 @@ Rectangle {
 			}
 		}
 
-		PillSlider {
-			id: pillSlider
-			value: row.value
-			maxValue: row.maxValue
-			ready: row.ready
-			muted: row.muted
-			fillColor: Theme.accentBlue
-			onScrubbed: v => row.scrubbed(v)
+		Item {
+			Layout.fillWidth: true
+			Layout.preferredHeight: 48
+			Layout.alignment: Qt.AlignVCenter
+			enabled: row.ready
+			opacity: enabled ? 1.0 : 0.4
+
+			Rectangle {
+				id: track
+				anchors.left: parent.left
+				anchors.right: parent.right
+				anchors.verticalCenter: parent.verticalCenter
+				height: slideArea.pressed ? 22 : 20
+				radius: Theme.roundingElement
+				color: Theme.bgHover
+				border.color: slideArea.containsMouse || slideArea.pressed ? Theme.tileBorderHover : Theme.tileBorder
+				border.width: 1
+				clip: true
+
+				Behavior on height {
+					NumberAnimation { duration: 100 }
+				}
+				Behavior on border.color {
+					ColorAnimation { duration: 120 }
+				}
+
+				Rectangle {
+					anchors.left: parent.left
+					anchors.top: parent.top
+					anchors.bottom: parent.bottom
+					width: parent.width * Math.max(0, Math.min(100, row.value)) / 100
+					radius: parent.radius
+					color: row.muted ? Theme.textDim : Theme.accentBlue
+
+					Behavior on color {
+						ColorAnimation { duration: 120 }
+					}
+				}
+
+				MouseArea {
+					id: slideArea
+					anchors.fill: parent
+					hoverEnabled: true
+					cursorShape: Qt.PointingHandCursor
+					preventStealing: true
+					onPressed: mouse => row.scrubbed(Math.max(0, Math.min(100, mouse.x / track.width * 100)))
+					onPositionChanged: mouse => {
+						if (pressed)
+							row.scrubbed(Math.max(0, Math.min(100, mouse.x / track.width * 100)));
+					}
+				}
+			}
 		}
 
 		Text {

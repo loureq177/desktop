@@ -9,6 +9,7 @@ import QtQuick.Layouts
 CenterModal {
 	id: win
 
+	panel: "clipboard"
 	searchTitle: "Clip"
 	searchPlaceholder: "Search..."
 
@@ -65,7 +66,7 @@ CenterModal {
 				ext = "jpeg";
 			mime = "image/" + ext;
 		}
-		win.close();
+		Panels.close("clipboard");
 		if (mime !== "")
 			Quickshell.execDetached([Quickshell.env("HOME") + "/.local/bin/clipboard-insert", String(entry.id), mime]);
 		else
@@ -76,30 +77,20 @@ CenterModal {
 		paste(filtered[currentIndex]);
 	}
 
-	function open() {
-		query = "";
+	onOpened: {
 		win.listFailed = false;
-		searchBar.clear();
 		listLoader.running = true;
-		win.shown = true;
-		searchBar.focusInput();
 	}
 
-	function close() {
-		win.shown = false;
+	onShownChanged: {
+		if (shown)
+			return;
 		decodeProc.running = false;
 		Quickshell.execDetached(["rm", "-f", Quickshell.env("XDG_RUNTIME_DIR") + "/clipboard-preview"]);
 		win.decodedText = "";
 		win.decodedId = "";
 		win.textReqId = "";
 		win.imgReqId = "";
-	}
-
-	function toggle() {
-		if (win.shown)
-			close();
-		else
-			open();
 	}
 
 	function move(delta) {

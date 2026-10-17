@@ -9,8 +9,9 @@ import QtQuick.Layouts
 CenterModal {
 	id: window
 
-	searchTitle: window.mode === "apps" ? "" : window.modeTitle()
-	searchPlaceholder: window.modePlaceholder()
+	panel: "launcher"
+	searchTitle: window.mode === "emoji" ? "Emoji" : ""
+	searchPlaceholder: window.mode === "emoji" ? "Search emoji..." : "Search..."
 	searchCompleteOnTab: window.isCommandQuery()
 	searchLeftRightNavigate: (window.mode === "apps" && !window.isCommandQuery()) || window.mode === "emoji"
 	searchScopeHints: window.mode === "apps"
@@ -52,16 +53,6 @@ CenterModal {
 		}
 	}
 
-	readonly property var validModes: ["apps", "emoji", "record"]
-
-	readonly property string recordCmd: "sleep 0.15 && ~/.local/bin/record-screen start"
-
-	readonly property var recordList: [
-		{ label: "Screen only", icon: "camera-video", kind: "action", cmd: ["sh", "-c", recordCmd] },
-		{ label: "Screen + microphone", icon: "audio-input-microphone", kind: "action", cmd: ["sh", "-c", recordCmd + " --mic"] },
-		{ label: "Screen + microphone + camera", icon: "camera-web", kind: "action", cmd: ["sh", "-c", recordCmd + " --mic --cam"] }
-	]
-
 	readonly property var powerCommands: ({
 		"lock": ["sh", "-c", "loginctl lock-session"],
 		"suspend": ["sh", "-c", "loginctl lock-session && systemctl suspend"],
@@ -79,18 +70,6 @@ CenterModal {
 		{ label: "System update", icon: "system-software-update", kind: "action", cmd: ["ghostty", "+new-window", "-e", Quickshell.env("HOME") + "/.local/bin/sysupdate"], keywords: "update sysupdate aktualizacja pacman paru system" }
 	]
 
-	readonly property var modeTitles: ({
-		"apps": "",
-		"emoji": "Emoji",
-		"record": "Record"
-	})
-
-	readonly property var modePlaceholders: ({
-		"apps": "Search...",
-		"emoji": "Search emoji...",
-		"record": "What to record..."
-	})
-
 	function spawn(command, workingDirectory) {
 		var clean = ["env", "-u", "__EGL_VENDOR_LIBRARY_FILENAMES", "-u", "MALLOC_CONF"].concat(command);
 		if (workingDirectory)
@@ -103,16 +82,6 @@ CenterModal {
 	// once it is done.
 	function runInTerminal(commandLine) {
 		return ["ghostty", "--wait-after-command=true", "-e", "sh", "-c", commandLine];
-	}
-
-	function isMode(m) {
-		return validModes.indexOf(m) !== -1;
-	}
-
-	function setMode(m) {
-		if (isMode(m)) {
-			mode = m;
-		}
 	}
 
 	function isCommandQuery() {
@@ -149,27 +118,14 @@ CenterModal {
 		return null;
 	}
 
-	function open(newMode) {
-		if (newMode !== undefined && newMode !== null && newMode !== "")
-			setMode(newMode);
+	onOpened: newMode => {
+		window.mode = newMode === "emoji" ? "emoji" : "apps";
 		if (!runLoaded && !runLoader.running)
 			runLoader.running = true;
 		query = "";
 		searchBar.clear();
 		refilter();
-		window.shown = true;
 		searchBar.focusInput();
-	}
-
-	function close() {
-		window.shown = false;
-	}
-
-	function toggle(newMode) {
-		if (window.shown && (newMode === undefined || newMode === null || newMode === "" || newMode === mode))
-			close();
-		else
-			open(newMode);
 	}
 
 	function fieldScore(text, ql) {
@@ -301,11 +257,6 @@ CenterModal {
 					out.push({ kind: "emoji", char: item.e, name: item.k });
 			}
 			filtered = out;
-		} else if (mode === "record") {
-			var pql = q.toLowerCase();
-			filtered = recordList.filter(function(p) {
-				return q === "" || p.label.toLowerCase().indexOf(pql) !== -1;
-			});
 		}
 		currentIndex = 0;
 	}
@@ -346,7 +297,7 @@ CenterModal {
 			return true;
 		}
 		if (item.kind === "emoji") {
-			close();
+			Panels.close("launcher");
 			Quickshell.execDetached([Quickshell.env("HOME") + "/.local/bin/emoji-insert", item.char]);
 			return true;
 		}
@@ -386,13 +337,13 @@ CenterModal {
 			if (filtered.length === 0 && rawCmd !== "") {
 				lastError = "";
 				spawn(runInTerminal(rawCmd));
-				close();
+				Panels.close("launcher");
 				return;
 			}
 		}
 		if (filtered.length > 0 && currentIndex >= 0 && currentIndex < filtered.length) {
 			if (execute(filtered[currentIndex]))
-				close();
+				Panels.close("launcher");
 		}
 	}
 
@@ -407,26 +358,15 @@ CenterModal {
 	}
 
 	function gridColumnCount() {
-		if (mode !== "apps" && mode !== "emoji")
-			return 1;
 		var avail = contentBox.width;
 		if (!avail || avail <= 0)
 			return 1;
 		return Math.max(1, Math.floor(avail / desiredCellWidth()));
 	}
 
-	function modeTitle() {
-		return modeTitles[mode] || "";
-	}
-
-	function modePlaceholder() {
-		return modePlaceholders[mode] || "";
-	}
-
 	function emptyText() {
 		if (isCommandQuery())
 			return query.trim() === "" ? "Type a command — Enter runs" : "No matching command — Enter runs it anyway";
-		if (mode === "record") return "No matching recording option";
 		if (mode === "emoji") return emojis.length === 0 ? "Loading emojis..." : "No matching emojis";
 		return "No matching applications or actions";
 	}
@@ -614,7 +554,7 @@ CenterModal {
 
 		ListView {
 			id: list
-			visible: window.mode === "record" || (window.mode === "apps" && window.isCommandQuery())
+			visible: window.isCommandQuery()
 			anchors.fill: parent
 			clip: true
 			boundsBehavior: Flickable.DragAndOvershootBounds
@@ -639,19 +579,10 @@ CenterModal {
 					spacing: 14
 
 					LineIcon {
-						visible: modelData.kind === "run"
 						Layout.alignment: Qt.AlignVCenter
 						name: "terminal"
 						size: 20
 						color: Theme.accentPurple
-					}
-
-					IconImage {
-						visible: modelData.kind === "action"
-						Layout.alignment: Qt.AlignVCenter
-						implicitSize: 24
-						source: modelData.icon ? Quickshell.iconPath(modelData.icon, true) : ""
-						asynchronous: true
 					}
 
 					Text {
@@ -665,7 +596,6 @@ CenterModal {
 					}
 
 					Rectangle {
-						visible: modelData.kind === "run"
 						Layout.alignment: Qt.AlignVCenter
 						implicitWidth: badgeText.implicitWidth + 10
 						implicitHeight: 22
