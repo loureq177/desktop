@@ -2,25 +2,58 @@
 set -euo pipefail
 shopt -s nullglob
 
+# Next to the script, not under $HOME: the --root run gets root's environment.
+source "$(dirname "$(readlink -f "$0")")/../lib/dotfiles/log.sh"
+
 AUTO=0
-if [[ "${1:-}" == "--auto" ]]; then
-    AUTO=1
-fi
+ROOT=0
+case "${1:-}" in
+--auto) AUTO=1 ;;
+--root) ROOT=1 ;;
+esac
 
 section() {
-    printf '\n%s\n' "$*"
+    _log_info "$*"
 }
 
 skip_sudo() {
     echo "  (skipped in --auto: needs sudo)"
 }
 
+# The tools below report "0 bytes removed" even when there was nothing to do,
+# so their output is dropped; the section's own line says what was cleaned.
 run_if() {
     command -v "$1" >/dev/null 2>&1 || return 0
     local tool=$1 rc=0
     shift
-    timeout 120 "$@" </dev/null 2>/dev/null || rc=$?
+    timeout 120 "$@" </dev/null >/dev/null 2>&1 || rc=$?
     [ "$rc" -ne 124 ] || echo "  (skipped $tool - timed out)"
+}
+
+# prune_paccache CMD... [-- EXTRA...]: keep two versions of every package and
+# drop uninstalled ones, reporting only paccache's own "finished" verdicts.
+prune_paccache() {
+    local -a cmd=() extra=()
+    local arg sep=0 mode out line found=0
+    for arg in "$@"; do
+        if [ "$arg" = -- ]; then
+            sep=1
+        elif [ "$sep" = 0 ]; then
+            cmd+=("$arg")
+        else
+            extra+=("$arg")
+        fi
+    done
+    for mode in "-r -k 2" "-r -u -k 0"; do
+        # shellcheck disable=SC2086
+        out=$("${cmd[@]}" $mode "${extra[@]}" 2>&1) || true
+        while IFS= read -r line; do
+            [ -n "$line" ] || continue
+            _log_ok "${line#finished: }"
+            found=1
+        done < <(grep -oE 'finished: .*' <<<"$out" || true)
+    done
+    [ "$found" = 1 ] || _log_ok "Nothing to remove."
 }
 
 avail_bytes() {
@@ -34,84 +67,26 @@ print_total() {
     printf '\n%s%s\n  Total reclaimed space: %s\n%s%s\n' "$green" "$line" "$1" "$line" "$reset"
 }
 
-CLEAN_MOUNTS=()
-for m in / /home /boot; do
-    [ -e "$m" ] && CLEAN_MOUNTS+=("$m")
-done
-AVAIL_BEFORE=$(avail_bytes "${CLEAN_MOUNTS[@]}")
-
-echo "Checking for orphaned packages..."
-orphan_list=$(paru -Qdtq || true)
-if [ -n "$orphan_list" ]; then
-    if [ "$AUTO" = 1 ]; then
-        echo "Orphans found (leaving them: removal needs sudo):"
-        echo "$orphan_list"
-    else
-        mapfile -t orphans <<<"$orphan_list"
+# What needs root, run as `sysclean --root` (pkexec or sudo). It finds what to
+# remove by itself: nothing it deletes comes from the caller.
+root_steps() {
+    section "Checking for orphaned packages..."
+    local -a orphans
+    mapfile -t orphans < <(pacman -Qdtq || true)
+    if [ "${#orphans[@]}" -gt 0 ]; then
         echo "Removing: ${orphans[*]}"
-        sudo pacman -Rns --noconfirm "${orphans[@]}"
-    fi
-else
-    echo "No orphaned packages."
-fi
-
-section "Cleaning cached pacman packages..."
-if [ "$AUTO" = 1 ]; then
-    skip_sudo
-elif command -v paccache >/dev/null 2>&1; then
-    sudo paccache -r -k 2
-    sudo paccache -r -u -k 0
-fi
-
-section "Cleaning Paru AUR cache..."
-if [ -d "$HOME/.cache/paru" ]; then
-    rm -rf "$HOME/.cache/paru/clone/"* "$HOME/.cache/paru/diff/"* 2>/dev/null || true
-    if [ -d "$HOME/.cache/paru/pkg" ]; then
-        paccache -r -k 2 -c "$HOME/.cache/paru/pkg" 2>/dev/null || true
-        paccache -r -u -k 0 -c "$HOME/.cache/paru/pkg" 2>/dev/null || true
-    fi
-fi
-
-if command -v flatpak >/dev/null 2>&1; then
-    section "Cleaning Flatpak leftovers..."
-    if [ "$AUTO" = 1 ]; then
-        flatpak uninstall --user --unused -y 2>/dev/null || true
+        pacman -Rns --noconfirm "${orphans[@]}"
     else
-        flatpak uninstall --unused -y 2>/dev/null || true
+        _log_ok "No orphaned packages."
     fi
-fi
 
-section "Cleaning miscellaneous caches..."
-rm -rf "$HOME/.cache/thumbnails/"* /tmp/paru/* 2>/dev/null || true
+    section "Cleaning cached pacman packages..."
+    if command -v paccache >/dev/null 2>&1; then
+        prune_paccache paccache
+    fi
 
-section "Emptying trash..."
-if [ "$AUTO" = 1 ]; then
-    echo "  (skipped in --auto: deletes user data)"
-else
-    run_if gio gio trash --empty
-fi
-
-section "Cleaning Python & Node caches..."
-run_if uv uv cache prune
-run_if pip pip cache purge
-run_if bun bun pm cache rm
-run_if npm npm cache clean --force
-
-section "Pruning container engines..."
-if [ "$AUTO" = 1 ]; then
-    echo "  (skipped in --auto: deletes images)"
-else
-    # Images, stopped containers and build cache come back with a pull or a
-    # build. Volumes hold data and do not: they stay.
-    run_if podman podman system prune -a --force
-    run_if docker docker system prune -a -f
-    run_if docker docker builder prune -f
-fi
-
-section "Cleaning orphaned kernel modules..."
-if [ "$AUTO" = 1 ]; then
-    skip_sudo
-else
+    section "Cleaning orphaned kernel modules..."
+    local running_kernel dir ver removed_modules=0
     running_kernel=$(uname -r)
     for dir in /usr/lib/modules/*/; do
         dir="${dir%/}"
@@ -126,22 +101,117 @@ else
         fi
         pacman -Qo "$dir" &>/dev/null && continue
         echo "Removing orphaned modules directory: $dir"
-        sudo rm -rf -- "${dir:?module dir unset}"
+        rm -rf -- "${dir:?module dir unset}"
+        removed_modules=1
     done
+    [ "$removed_modules" = 1 ] || _log_ok "No orphaned modules."
+
+    section "Vacuuming systemd coredumps..."
+    if [ -d /var/lib/systemd/coredump ]; then
+        rm -rf -- /var/lib/systemd/coredump/*
+        _log_ok "Coredumps removed."
+    else
+        _log_ok "No coredumps."
+    fi
+
+    section "Vacuuming journal..."
+    journalctl --vacuum-size=200M --vacuum-time=2weeks --quiet
+    _log_ok "Journal trimmed to 200M / 2 weeks."
+}
+
+if [ "$ROOT" = 1 ]; then
+    if [ "$(id -u)" != 0 ]; then
+        _log_error "--root is how sysclean runs its root steps; run plain 'sysclean'."
+        exit 2
+    fi
+    root_steps
+    exit 0
 fi
 
-section "Vacuuming systemd coredumps..."
-if [ "$AUTO" = 1 ]; then
-    skip_sudo
-elif [ -d /var/lib/systemd/coredump ]; then
-    sudo sh -c 'rm -rf -- /var/lib/systemd/coredump/*' 2>/dev/null || true
-fi
+CLEAN_MOUNTS=()
+for m in / /home /boot; do
+    [ -e "$m" ] && CLEAN_MOUNTS+=("$m")
+done
+AVAIL_BEFORE=$(avail_bytes "${CLEAN_MOUNTS[@]}")
 
-section "Vacuuming journal..."
+failed_services=0
+
 if [ "$AUTO" = 1 ]; then
-    skip_sudo
+    section "Checking for orphaned packages..."
+    orphan_list=$(paru -Qdtq || true)
+    if [ -n "$orphan_list" ]; then
+        echo "Orphans found (leaving them: removal needs sudo):"
+        echo "$orphan_list"
+    else
+        _log_ok "No orphaned packages."
+    fi
+    for step in "Cleaning cached pacman packages..." "Cleaning orphaned kernel modules..." \
+        "Vacuuming systemd coredumps..." "Vacuuming journal..."; do
+        section "$step"
+        skip_sudo
+    done
 else
-    sudo journalctl --vacuum-size=200M --vacuum-time=2weeks --quiet
+    # All root steps run in one `sysclean --root`, so there is one prompt: the
+    # quickshell polkit dialog in the Hyprland session, sudo in a tty or over ssh
+    # (pkexec's own text agent fails there on polkit 127, polkit-org/polkit#686).
+    if [ -n "${WAYLAND_DISPLAY:-}" ]; then
+        as_root=pkexec
+    else
+        as_root=sudo
+    fi
+    "$as_root" "$(readlink -f "$0")" --root || _log_warn "Root steps did not finish (exit $?); cleaning the rest."
+fi
+
+section "Cleaning Paru AUR cache..."
+if [ -d "$HOME/.cache/paru" ]; then
+    rm -rf "$HOME/.cache/paru/clone/"* "$HOME/.cache/paru/diff/"* 2>/dev/null || true
+    if [ -d "$HOME/.cache/paru/pkg" ]; then
+        prune_paccache paccache -- -c "$HOME/.cache/paru/pkg"
+    else
+        _log_ok "Cleared."
+    fi
+else
+    _log_ok "No Paru cache."
+fi
+
+if command -v flatpak >/dev/null 2>&1; then
+    section "Cleaning Flatpak leftovers..."
+    if [ "$AUTO" = 1 ]; then
+        flatpak uninstall --user --unused -y 2>/dev/null || true
+    else
+        flatpak uninstall --unused -y 2>/dev/null || true
+    fi
+fi
+
+section "Cleaning miscellaneous caches..."
+rm -rf "$HOME/.cache/thumbnails/"* /tmp/paru/* 2>/dev/null || true
+_log_ok "Thumbnails and temporary build files cleared."
+
+section "Emptying trash..."
+if [ "$AUTO" = 1 ]; then
+    echo "  (skipped in --auto: deletes user data)"
+else
+    run_if gio gio trash --empty
+    _log_ok "Trash emptied."
+fi
+
+section "Cleaning Python & Node caches..."
+run_if uv uv cache prune
+run_if pip pip cache purge
+run_if bun bun pm cache rm
+run_if npm npm cache clean --force
+_log_ok "Caches pruned."
+
+section "Pruning container engines..."
+if [ "$AUTO" = 1 ]; then
+    echo "  (skipped in --auto: deletes images)"
+else
+    # Images, stopped containers and build cache come back with a pull or a
+    # build. Volumes hold data and do not: they stay.
+    run_if podman podman system prune -a --force
+    run_if docker docker system prune -a -f
+    run_if docker docker builder prune -f
+    _log_ok "Unused images, stopped containers and build cache removed (volumes kept)."
 fi
 
 section "Checking for failed systemd services..."
@@ -149,18 +219,24 @@ failed_sys=$(systemctl --failed --no-legend --no-pager 2>/dev/null || true)
 failed_user=$(systemctl --user --failed --no-legend --no-pager 2>/dev/null || true)
 
 if [ -n "$failed_sys" ]; then
-    echo "⚠️  Failed system services:"
+    _log_warn "Failed system services:"
     echo "$failed_sys"
+    failed_services=1
 fi
 if [ -n "$failed_user" ]; then
-    echo "⚠️  Failed user services:"
+    _log_warn "Failed user services:"
     echo "$failed_user"
+    failed_services=1
 fi
-if [ -z "$failed_sys" ] && [ -z "$failed_user" ]; then
-    echo "No failed services."
+if [ "$failed_services" = 0 ]; then
+    _log_ok "No failed services."
 fi
 
-section "System is clean."
+if [ "$failed_services" = 0 ]; then
+    section "System is clean."
+else
+    section "Cleaned, but some services have failed (see above)."
+fi
 
 AVAIL_AFTER=$(avail_bytes "${CLEAN_MOUNTS[@]}")
 FREED_BYTES=$((AVAIL_AFTER - AVAIL_BEFORE))

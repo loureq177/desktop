@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+source "$HOME/.local/lib/dotfiles/log.sh"
+
 section() {
     printf '\n%s\n' "$*"
 }
@@ -13,6 +15,34 @@ step() {
     "$@" || true
 }
 
+# Zinit prints a line for every plugin it checks; real changes (git output)
+# still come through, the checked ones are only counted.
+update_zsh_plugins() {
+    run_captured zsh -ic "zinit self-update && zinit update --all" || return 0
+    local checked rest
+    checked=$(grep -cE 'Updating [^ ]+/[^ ]+$' <<<"$OUT" || true)
+    rest=$(grep -vE -e 'Updating [^ ]+/[^ ]+$' -e "can't change option" <<<"$OUT" || true)
+    [ -z "$rest" ] || printf '%s\n' "$rest"
+    [ "$checked" -eq 0 ] || _log_ok "Checked $checked plugins."
+}
+
+# Lazy's sync log runs to hundreds of lines; the lockfile diff says what moved.
+update_nvim_plugins() {
+    local lock="${XDG_CONFIG_HOME:-$HOME/.config}/nvim/lazy-lock.json" before="" after="" total changed
+    [ -f "$lock" ] && before=$(<"$lock")
+    run_captured nvim --headless "+Lazy! sync" +qa || return 0
+    [ -f "$lock" ] || return 0
+    after=$(<"$lock")
+    total=$(grep -c '^ *"' <<<"$after" || true)
+    changed=$(diff <(printf '%s\n' "$before") <(printf '%s\n' "$after") \
+        | sed -nE 's/^> *"([^"]+)".*/\1/p' | paste -sd, - | sed 's/,/, /g' || true)
+    if [ -n "$changed" ]; then
+        _log_ok "Updated: $changed (checked $total plugins)."
+    else
+        _log_ok "Checked $total plugins, none updated."
+    fi
+}
+
 pacman_log_start=0
 if [ -f /var/log/pacman.log ]; then
     pacman_log_start=$(wc -l < /var/log/pacman.log 2>/dev/null || echo 0)
@@ -23,9 +53,18 @@ abort() {
     exit "$1"
 }
 
+# In the Hyprland session root goes through the quickshell polkit dialog. In a
+# tty or over ssh there is no dialog, and pkexec's own text agent fails on
+# polkit 127 (polkit-org/polkit#686): sudo asks in the terminal there.
+if [ -n "${WAYLAND_DISPLAY:-}" ]; then
+    as_root=pkexec
+else
+    as_root=sudo
+fi
+
 echo "==> Updating system packages..."
 if command -v paru >/dev/null 2>&1; then
-    paru -Syu --repo --noconfirm --sudo pkexec || abort $?
+    paru -Syu --repo --noconfirm --sudo "$as_root" || abort $?
 
     # AUR build scripts run as this user and come from strangers: paru shows
     # what changed and asks before building, so this part needs a terminal.
@@ -33,16 +72,16 @@ if command -v paru >/dev/null 2>&1; then
     if [[ -z "$(paru -Qua --devel 2>/dev/null || true)" ]]; then
         echo "✓ Nothing to update."
     elif [[ -t 0 ]]; then
-        paru -Sua --devel --sudo pkexec || abort $?
+        paru -Sua --devel --sudo "$as_root" || abort $?
     else
         echo "Skipped: AUR updates are reviewed before they are built. Run 'sysupdate' in a terminal."
     fi
 elif command -v pacman >/dev/null 2>&1; then
-    pkexec pacman -Syu --noconfirm || abort $?
+    "$as_root" pacman -Syu --noconfirm || abort $?
 fi
 
 section "==> Updating Zsh plugins (zinit)..."
-zsh -ic "zinit self-update && zinit update --all" || true
+update_zsh_plugins
 
 if command -v aur-sync-vote >/dev/null 2>&1; then
     section "==> Syncing AUR votes..."
@@ -66,10 +105,10 @@ step "Updating tldr cache..." tldr tldr --update
 
 if command -v uv >/dev/null 2>&1; then
     section "==> Updating uv tools..."
-    uv tool upgrade --all 2>/dev/null || true
+    uv tool upgrade --all || true
 fi
 
-step "Updating Neovim plugins (LazyVim)..." nvim nvim --headless "+Lazy! sync" +qa
+step "Updating Neovim plugins (LazyVim)..." nvim update_nvim_plugins
 
 if command -v pacdiff >/dev/null 2>&1; then
     section "==> Checking and cleaning .pacnew / .pacsave files..."
