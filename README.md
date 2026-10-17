@@ -51,7 +51,7 @@ sysclean
 
 ### Theme
 
-`~/.config/ui/ui.toml` is the source for colors, fonts, spacing and animation timing. `apply-ui` writes them into Hyprland, quickshell, yazi, btop, lazygit, the fallback lock screen, fzf and slurp; the generated files are committed, and the tests fail when they are stale. Palette-only configs are plain templates in `~/.config/ui/templates`.
+`~/.config/ui/ui.toml` holds the colors, fonts and sizes the desktop's programs share. `apply-ui` renders it through the templates in `~/.config/ui/templates` into Hyprland, the fallback lock screen, slurp, yazi, btop and lazygit, and hands it to quickshell as `ui.js`; the generated files are committed, and the tests fail when they are stale. What only the shell uses (its sizes and animation timing) is set in `quickshell/Theme.qml`, and the fzf colors are written out in `.zshrc` because macOS has no `apply-ui`.
 
 Ghostty, Neovim, bat, delta and opencode use their upstream GitHub Dark themes and do not follow `ui.toml`.
 

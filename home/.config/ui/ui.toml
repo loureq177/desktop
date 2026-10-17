@@ -1,76 +1,35 @@
+# The look shared by the desktop's programs. apply-ui renders it into the
+# files under templates/ (Hyprland, hyprlock, slurp, yazi, btop, lazygit) and
+# hands all of it to the shell as quickshell/ui.js. What only the shell uses
+# (its sizes, timings and font sizes) lives in quickshell/Theme.qml.
+
 [rounding]
 window = 8
-element = 6
-subtle = 3
 power = 2.0
 
 [border]
 size = 2
-# Opacity of the hairline around tiles, rows and buttons (a tint of text_main),
-# at rest and under the pointer, and of the accent outline of a selection.
-tile = 0.08
-tile_hover = 0.18
-selection = 0.32
 
 [spacing]
 gaps_in = 10
 gaps_out = 20
-bar_height = 30
-bar_margin_x = 20
-bar_margin_y = 4
-
-[padding]
-notif_pad_v = 10
-notif_pad_h = 14
-menu_card = 16
-menu_item = 8
 
 [opacity]
 active = 1.0
 inactive = 0.96
 dim_special = 0.20
-# Shell panels and the tiles on them while they are frosted glass (AC power).
-glass = 0.68
-glass_inset = 0.7
 
-[animations]
-duration_fast = 150
-duration_normal = 250
-duration_smooth = 280
-flick_deceleration = 1500
-max_flick_velocity = 6000
-
+# The blurred desktop behind the lock screen, in the shell and in hyprlock.
 [lock]
-blur_max = 64
 brightness = 0.55
 vibrancy = 0.2
-fade_in = 450
-fade_out = 300
-dots_fade = 400
-
-[wallpaper]
-grow = 900
-feather = 120
-
-[launcher]
-width = 960
-height = 600
-
-[notifications]
-width = 500
-top_margin = 54
 
 [font]
 family = "JetBrainsMono Nerd Font Propo"
 mono = "JetBrainsMono Nerd Font Mono"
 ui = "Adwaita Sans 12"
-size_bar = 15
-size_bar_icon = 18
-size_menu = 14
-size_grid = 13
-size_search = 15
-size_notif = 17
 size_cursor = 24
+
 [theme]
 cursor = "Bibata-Modern-Classic"
 icon = "Papirus-Dark"
@@ -90,4 +49,3 @@ text_main = "#c9d1d9"
 text_dim = "#8b949e"
 text_muted = "#484f58"
 shadow = "#010409"
-
