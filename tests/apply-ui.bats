@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
-# apply-ui: ui.toml -> hypr/ui.lua, ui/ui.sh, yazi/theme.toml, quickshell/Theme.qml
-# and the palette templates (btop, lazygit, hyprlock)
+# apply-ui: ui.toml through ui/templates (hypr/ui.lua, ui/ui.sh, yazi, btop,
+# lazygit, hyprlock) and as quickshell/ui.js
 
 load helpers
 
@@ -35,10 +35,11 @@ lua_value() {
     rm -f "$CFG/ui/ui.sh"
     apply_ui --no-reload
     assert_status 0
-    [[ -s "$CFG/hypr/ui.lua" && -s "$CFG/ui/ui.sh" && -s "$CFG/yazi/theme.toml" && -s "$CFG/quickshell/Theme.qml" ]]
+    [[ -s "$CFG/hypr/ui.lua" && -s "$CFG/ui/ui.sh" && -s "$CFG/yazi/theme.toml" && -s "$CFG/quickshell/ui.js" ]]
     [[ -s "$CFG/btop/themes/github-dark.theme" && -s "$CFG/lazygit/config.yml" && -s "$CFG/hypr/hyprlock.conf" ]]
     # No placeholder survives rendering.
-    ! grep -nE '@[a-z_]+(:bare)?@' "$CFG/btop/themes/github-dark.theme" "$CFG/lazygit/config.yml" "$CFG/hypr/hyprlock.conf"
+    ! grep -nE '@[a-z_]+(:bare)?@' "$CFG/hypr/ui.lua" "$CFG/ui/ui.sh" "$CFG/yazi/theme.toml" \
+        "$CFG/btop/themes/github-dark.theme" "$CFG/lazygit/config.yml" "$CFG/hypr/hyprlock.conf"
     refute_call_like "gsettings"
     refute_call_like "hyprctl"
 }
@@ -56,16 +57,15 @@ lua_value() {
     [[ "$(lua_value colors.border)" == "rgba(${border#\#}ee)" ]] || fail "$(lua_value colors.border)"
 }
 
-@test "apply-ui: ui.sh gives shell scripts a slurp argument array and the fzf theme" {
+@test "apply-ui: ui.sh gives shell scripts a slurp argument array" {
     apply_ui --no-reload
-    run bash -c 'set -eu; source "$1"; printf "%s\n" "${#SLURP_ARGS[@]}" "${SLURP_ARGS[@]}" "$UI_FZF_THEME"' _ "$CFG/ui/ui.sh"
+    run bash -c 'set -eu; source "$1"; printf "%s\n" "${#SLURP_ARGS[@]}" "${SLURP_ARGS[@]}"' _ "$CFG/ui/ui.sh"
     assert_status 0
     local accent bg
     accent="$(toml colors.accent_blue)"
     bg="$(toml colors.bg_main)"
     [[ "${lines[0]}" == 11 ]] || fail "$output"
     [[ "${lines[*]:1:11}" == "-d -b ${bg}b0 -c $accent -s ${accent}20 -w $(toml border.size) -B #00000000" ]] || fail "$output"
-    [[ "${lines[12]}" == *"bg:$bg,"*"pointer:$accent,"* ]] || fail "$output"
 }
 
 @test "apply-ui: the yazi theme is valid toml" {
@@ -73,13 +73,13 @@ lua_value() {
     python3 -c 'import sys, tomllib; t = tomllib.load(open(sys.argv[1], "rb")); assert t["mgr"]["cwd"]["fg"] and len(t["filetype"]["rules"]) >= 5' "$CFG/yazi/theme.toml"
 }
 
-@test "apply-ui: the quickshell theme is valid qml" {
-    local qmllint=/usr/lib/qt6/bin/qmllint
-    [[ -x "$qmllint" ]] || skip "needs Qt6 qmllint"
+@test "apply-ui: ui.js hands the shell all of ui.toml" {
+    need node
     apply_ui --no-reload
-    run "$qmllint" "$CFG/quickshell/Theme.qml"
+    sed 's/^\.pragma .*$//' "$CFG/quickshell/ui.js" >"$BATS_TEST_TMPDIR/ui.js"
+    run node -e 'eval(require("fs").readFileSync(process.argv[1], "utf8")); console.log(config.border.size, config.colors.accent_blue)' "$BATS_TEST_TMPDIR/ui.js"
     assert_status 0
-    grep -q "readonly property int borderSize: $(toml border.size)$" "$CFG/quickshell/Theme.qml"
+    [[ "$output" == "$(toml border.size) $(toml colors.accent_blue)" ]] || fail "$output"
 }
 
 @test "apply-ui: a change in ui.toml reaches every consumer" {
@@ -92,8 +92,8 @@ lua_value() {
     grep -q 'accent_blue = "rgba(123456ee)"' "$CFG/hypr/ui.lua"
     grep -q -- '-c "#123456" -s "#12345620" -w 7 ' "$CFG/ui/ui.sh"
     grep -q 'cwd = { fg = "#123456", bold = true }' "$CFG/yazi/theme.toml"
-    grep -q 'readonly property string accentBlue: "#123456"' "$CFG/quickshell/Theme.qml"
-    grep -q 'readonly property int borderSize: 7$' "$CFG/quickshell/Theme.qml"
+    grep -q '"accent_blue": "#123456"' "$CFG/quickshell/ui.js"
+    grep -q '"size": 7$' "$CFG/quickshell/ui.js"
     grep -q 'theme\[hi_fg\]="#123456"' "$CFG/btop/themes/github-dark.theme"
     grep -q -- '- "#123456"' "$CFG/lazygit/config.yml"
     grep -q 'outer_color = rgba(123456ee) ' "$CFG/hypr/hyprlock.conf"
@@ -108,7 +108,7 @@ lua_value() {
         "ui/ui.sh:archlinux/.config/ui/ui.sh" \
         "hypr/ui.lua:archlinux/.config/hypr/ui.lua" \
         "yazi/theme.toml:common/.config/yazi/theme.toml" \
-        "quickshell/Theme.qml:archlinux/.config/quickshell/Theme.qml" \
+        "quickshell/ui.js:archlinux/.config/quickshell/ui.js" \
         "btop/themes/github-dark.theme:common/.config/btop/themes/github-dark.theme" \
         "lazygit/config.yml:common/.config/lazygit/config.yml" \
         "hypr/hyprlock.conf:archlinux/.config/hypr/hyprlock.conf"; do
@@ -146,5 +146,5 @@ lua_value() {
     echo 'this is = not [valid toml' >>"$TOML"
     apply_ui --no-reload
     [[ "$status" -ne 0 ]]
-    [[ ! -e "$CFG/hypr/ui.lua" && ! -e "$CFG/ui/ui.sh" && ! -e "$CFG/quickshell/Theme.qml" ]]
+    [[ ! -e "$CFG/hypr/ui.lua" && ! -e "$CFG/ui/ui.sh" && ! -e "$CFG/quickshell/ui.js" ]]
 }

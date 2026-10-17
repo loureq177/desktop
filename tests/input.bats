@@ -1,148 +1,15 @@
 #!/usr/bin/env bats
-# volume, volume-listener, brightness, restore-backlight, clipboard-insert,
-# emoji-insert, dictation
+# brightness, restore-backlight, clipboard-insert, emoji-insert, dictation
 
 load helpers
 
 setup() {
     sandbox_setup
     stub qs
-    stub canberra-gtk-play
 }
 
 teardown() {
     [[ ! -f "$XDG_RUNTIME_DIR/dictation.pid" ]] || kill "$(<"$XDG_RUNTIME_DIR/dictation.pid")" 2>/dev/null || true
-}
-
-# --- volume ------------------------------------------------------------------
-
-# wpctl_reports LINE: what `wpctl get-volume` prints.
-wpctl_reports() {
-    stub wpctl "[[ \"\$1\" == get-volume ]] && echo '$1'; true"
-}
-
-@test "volume: without an action prints usage and fails" {
-    sut "$BIN/volume"
-    assert_status 2
-    assert_output_like "Usage: volume output raise|lower|mute-toggle"
-}
-
-@test "volume output raise: raises by 5% capped at 100% and shows the OSD" {
-    wpctl_reports "Volume: 0.45"
-    sut "$BIN/volume" output raise
-    assert_status 0
-    assert_call "wpctl set-volume -l 1.0 @DEFAULT_AUDIO_SINK@ 5%+"
-    assert_call "qs ipc call osd volume 45 false"
-    wait_for_call_like "qs ipc call quicksettings refresh"
-    wait_for_call_like "canberra-gtk-play -i audio-volume-change"
-}
-
-@test "volume output lower: lowers by 5%" {
-    wpctl_reports "Volume: 0.05"
-    sut "$BIN/volume" output lower
-    assert_status 0
-    assert_call "wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-"
-    assert_call "qs ipc call osd volume 5 false"
-}
-
-@test "volume: reports whole percents for every step" {
-    local v
-    for v in 0.00 0.07 0.29 0.55 0.57 1.00; do
-        : >"$CALLS"
-        wpctl_reports "Volume: $v"
-        sut "$BIN/volume" output raise
-        assert_call "qs ipc call osd volume $((10#${v/./})) false"
-    done
-}
-
-@test "volume output mute-toggle: muting is silent, unmuting plays the sound" {
-    wpctl_reports "Volume: 0.30 [MUTED]"
-    sut "$BIN/volume" output mute-toggle
-    assert_status 0
-    assert_call "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"
-    assert_call "qs ipc call osd volume 30 true"
-    wait_for_call_like "qs ipc call quicksettings refresh"
-    refute_call_like "canberra-gtk-play"
-
-    wpctl_reports "Volume: 0.30"
-    sut "$BIN/volume" output mute-toggle
-    assert_status 0
-    assert_call "qs ipc call osd volume 30 false"
-    wait_for_call_like "canberra-gtk-play -i audio-volume-change"
-}
-
-@test "volume input mute-toggle: toggles the microphone and shows the OSD" {
-    wpctl_reports "Volume: 0.25 [MUTED]"
-    sut "$BIN/volume" input mute-toggle
-    assert_status 0
-    assert_call "wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle"
-    assert_call "qs ipc call osd mic true"
-
-    wpctl_reports "Volume: 0.25"
-    sut "$BIN/volume" input mute-toggle
-    assert_status 0
-    assert_call "qs ipc call osd mic false"
-}
-
-@test "volume: rejects unknown targets and actions without touching the mixer" {
-    wpctl_reports "Volume: 0.45"
-    local args
-    for args in "output boost" "input raise" "speaker raise"; do
-        # shellcheck disable=SC2086
-        sut "$BIN/volume" $args
-        assert_status 2
-    done
-    refute_call_like "wpctl set-"
-    refute_call_like "qs ipc"
-}
-
-# --- volume-listener ---------------------------------------------------------
-
-# Each `wpctl get-volume` call pops the next line of the per-device script.
-listener_stubs() {
-    stub wpctl "
-kind=sink
-[[ \"\$*\" == *SOURCE* ]] && kind=source
-f='$SANDBOX/wpctl.'\$kind
-head -n 1 \"\$f\"
-[[ \$(wc -l <\"\$f\") -gt 1 ]] && sed -i 1d \"\$f\"
-true"
-    stub pactl "cat '$SANDBOX/events'"
-}
-
-@test "volume-listener: shows the OSD for changes made outside the volume script" {
-    listener_stubs
-    printf '%s\n' "Volume: 0.40" "Volume: 0.45" "Volume: 0.45" "Volume: 0.45 [MUTED]" "Volume: 1.00" >"$SANDBOX/wpctl.sink"
-    printf '%s\n' "Volume: 0.25" "Volume: 0.25 [MUTED]" >"$SANDBOX/wpctl.source"
-    printf '%s\n' \
-        "Event 'change' on sink #55" \
-        "Event 'new' on client #91" \
-        "Event 'change' on sink #55" \
-        "Event 'change' on card #40" \
-        "Event 'change' on server" \
-        "Event 'change' on source #56" \
-        "Event 'change' on source #56" >"$SANDBOX/events"
-
-    sut "$BIN/volume-listener"
-    assert_status 0
-    wait_for_call_like "qs ipc call osd mic true"
-    wait_for_call_like "qs ipc call osd volume 100 false"
-    assert_call "qs ipc call osd volume 45 false"
-    assert_call "qs ipc call osd volume 45 true"
-    # One OSD per real change: the repeated 0.45 and the repeated mute are skipped.
-    [[ "$(call_count "qs ipc call osd volume")" -eq 3 ]] || fail "$(calls)"
-    [[ "$(call_count "qs ipc call osd mic")" -eq 1 ]] || fail "$(calls)"
-}
-
-@test "volume-listener: ignores unreadable volume output" {
-    listener_stubs
-    printf '%s\n' "Volume: 0.40" "" "garbage" >"$SANDBOX/wpctl.sink"
-    printf '%s\n' "Volume: 0.25" >"$SANDBOX/wpctl.source"
-    printf '%s\n' "Event 'change' on sink #55" "Event 'change' on sink #55" >"$SANDBOX/events"
-    sut "$BIN/volume-listener"
-    assert_status 0
-    "$REAL_SLEEP" 0.2
-    refute_call_like "qs ipc"
 }
 
 # --- brightness --------------------------------------------------------------
@@ -158,7 +25,6 @@ backlight() {
     assert_status 0
     assert_call "brightnessctl -c backlight set +10%"
     assert_call "qs ipc call osd brightness 50"
-    assert_call "qs ipc call quicksettings refresh"
 
     sut "$BIN/brightness" down
     assert_status 0

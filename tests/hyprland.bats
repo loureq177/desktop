@@ -119,7 +119,7 @@ records() { awk -F'\t' -v kind="$1" '$1 == kind { sub(/^[^\t]*\t/, ""); print }'
 @test "the shell starts first, then the session target and the wallpaper" {
     mock_run
     [[ "$(records EXEC | head -n 1)" == "~/.local/bin/quickshell-session" ]] || fail "$(records EXEC)"
-    records EXEC | grep -qxF "systemctl --user start hyprland-session.target"
+    records EXEC | grep -qF "systemctl --user restart hyprland-session.target"
     records EXEC | grep -qxF "~/.local/bin/wallpaper init"
 }
 

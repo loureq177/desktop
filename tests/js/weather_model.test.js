@@ -84,17 +84,9 @@ test("locationCommit: without suggestions keeps the typed name", () => {
   assert.deepEqual(m.locationCommit("Atlantis", undefined, 3), { name: "Atlantis", latitude: null, longitude: null });
 });
 
-test("formatTemp: formats numbers, including zero, and blanks missing values", () => {
-  assert.equal(m.formatTemp(21), "21°C");
-  assert.equal(m.formatTemp(0), "0°C");
-  assert.equal(m.formatTemp(-3), "-3°C");
-  for (const missing of [undefined, null, ""]) assert.equal(m.formatTemp(missing), "");
-});
-
 test("dayName: names the weekday of an ISO date", () => {
   assert.equal(m.dayName("2026-10-12"), "Monday");
   assert.equal(m.dayName("2026-10-18"), "Sunday");
-  assert.equal(m.dayName("2026-10-13", (d) => `day ${d.getDate()}`), "day 13");
   for (const bad of ["", null, undefined, "not-a-date"]) assert.equal(m.dayName(bad), "");
 });
 
@@ -133,12 +125,9 @@ test("parseOpenMeteoCurrent: rounds and labels the current conditions", () => {
   });
   assert.deepEqual(current, {
     tempNum: "12",
-    tempVal: 12,
     feelsLike: "9°C",
     wind: "15 km/h",
     humidity: "71%",
-    weatherCode: 61,
-    isDay: true,
     icon: m.iconForWmoCode(61, true),
   });
 });
@@ -147,7 +136,7 @@ test("parseOpenMeteoCurrent: zero degrees is a temperature, not missing data", (
   const current = m.parseOpenMeteoCurrent({ current: { temperature_2m: 0, apparent_temperature: 0, is_day: 0 } });
   assert.equal(current.tempNum, "0");
   assert.equal(current.feelsLike, "0°C");
-  assert.equal(current.isDay, false);
+  assert.equal(current.icon, m.iconForWmoCode(0, false));
   assert.equal(m.parseOpenMeteoCurrent({ current: { temperature_2m: -0.4 } }).tempNum, "0");
 });
 
@@ -173,21 +162,20 @@ test("parseOpenMeteoHourly: labels the first hour Now and the rest by clock time
     },
   });
   assert.deepEqual(
-    hourly.map((h) => [h.time, h.temp, h.tempStr, h.code, h.isDay, h.pop]),
+    hourly.map((h) => [h.time, h.temp, h.icon, h.pop]),
     [
-      ["Now", 12, "12°", 0, true, 0],
-      ["15:00", 10, "10°", 61, true, 65],
-      ["16:00", -1, "-1°", 71, false, 0],
+      ["Now", 12, m.iconForWmoCode(0, true), 0],
+      ["15:00", 10, m.iconForWmoCode(61, true), 65],
+      ["16:00", -1, m.iconForWmoCode(71, false), 0],
     ],
   );
-  assert.equal(hourly[2].icon, m.iconForWmoCode(71, false));
 });
 
 test("parseOpenMeteoHourly: shows at most 27 hours and tolerates sparse reports", () => {
   const time = Array.from({ length: 48 }, (_, i) => `2026-10-12T${String(i % 24).padStart(2, "0")}:00`);
   const hourly = m.parseOpenMeteoHourly({ hourly: { time } });
   assert.equal(hourly.length, 27);
-  assert.deepEqual([hourly[1].time, hourly[1].isDay, hourly[1].pop], ["01:00", true, 0]);
+  assert.deepEqual([hourly[1].time, hourly[1].icon, hourly[1].pop], ["01:00", m.iconForWmoCode(0, true), 0]);
   for (const report of [null, {}, { hourly: null }, { hourly: {} }, { hourly: { time: [] } }]) {
     assert.deepEqual(m.parseOpenMeteoHourly(report), []);
   }
@@ -225,14 +213,13 @@ test("parseOpenMeteoDaily: gives the next three days after today", () => {
   };
   const daily = m.parseOpenMeteoDaily(report, "2026-10-12");
   assert.deepEqual(
-    daily.map((d) => [d.date, d.dayName, d.maxTemp, d.minTemp, d.weatherCode]),
+    daily.map((d) => [d.date, d.dayName, d.maxTemp, d.minTemp, d.icon]),
     [
-      ["2026-10-13", "Tuesday", "14°", "4°", 61],
-      ["2026-10-14", "Wednesday", "14°", "4°", 3],
-      ["2026-10-15", "Thursday", "15°", "5°", 71],
+      ["2026-10-13", "Tuesday", "14°", "4°", m.iconForWmoCode(61, true)],
+      ["2026-10-14", "Wednesday", "14°", "4°", m.iconForWmoCode(3, true)],
+      ["2026-10-15", "Thursday", "15°", "5°", m.iconForWmoCode(71, true)],
     ],
   );
-  assert.equal(daily[0].icon, m.iconForWmoCode(61, true));
 });
 
 test("parseOpenMeteoDaily: without a date for today starts at the first day; no data gives nothing", () => {

@@ -58,7 +58,7 @@ UNITS="archlinux/.config/systemd/user"
 }
 
 @test "scripts started by name from quickshell are on the session PATH" {
-    # Process { command: ["weather-location", ...] } relies on ~/.local/bin in PATH.
+    # Process { command: ["restore-backlight", ...] } relies on ~/.local/bin in PATH.
     grep -q 'PATH="$HOME/.local/bin:' "$REPO/common/.zshenv"
     local name
     while IFS= read -r name; do
@@ -174,6 +174,15 @@ stow_ignored() {
         sed -n 's/^ *Ignoring path \(.*\) due to .*/\1/p' | sort -u
 }
 
+@test "tracked symlinks point at files that exist" {
+    # repo_files skips them (-f follows the link), so nothing else would notice.
+    local f bad=0
+    while IFS= read -r f; do
+        [[ -e "$REPO/$f" ]] || { echo "$f -> $(readlink "$REPO/$f") is broken" >&2; bad=1; }
+    done < <(git -C "$REPO" ls-files -s | awk '$1 == 120000 { print $4 }')
+    [[ "$bad" -eq 0 ]]
+}
+
 @test "stow links every tracked file except the ones meant to stay in the repo" {
     need stow
     # Package lists, docs and machine-local files are deliberately not linked.
@@ -280,9 +289,9 @@ listed_packages() {
     # Programs the dotfiles call. Keep in step with the scripts; optional
     # tools guarded by `command -v` (showtime, fwupdmgr, ...) are left out.
     local needed=(
-        qs notify-send nmcli brightnessctl checkupdates pacdiff paccache gdbus cliphist wl-copy wl-paste wtype
+        qs notify-send nmcli brightnessctl checkupdates pacdiff paccache cliphist wl-copy wl-paste wtype
         hyprctl Hyprland hypridle hyprsunset hyprpicker pw-record sox whisper-cli flock jq sqlite3 firefox grim slurp
-        tesseract canberra-gtk-play satty wf-recorder pactl wpctl v4l2-ctl ffplay powerprofilesctl udevadm
+        tesseract canberra-gtk-play satty wf-recorder pactl wpctl v4l2-ctl ffplay powerprofilesctl
         curl playerctl stow bat nvim zsh python3 gsettings systemd-inhibit xdg-open ghostty keyd flatpak
         yazi btop lazygit fzf git
     )
@@ -311,11 +320,11 @@ listed_packages() {
 
 # --- misc --------------------------------------------------------------------
 
-@test "ghostty shaders that power-save switches between exist" {
+@test "the ghostty shader power-save turns on is in the repo" {
     local shader
-    for shader in $(grep -oE 'shader=(cursor_warp|noop)|shader=[a-z_]+' "$REPO/archlinux/.local/bin/power-save" | cut -d= -f2 | sort -u); do
-        [[ -f "$REPO/archlinux/.config/ghostty/shaders/$shader.glsl" ]] || fail "missing shader $shader.glsl"
-    done
+    shader="$(grep -oE '^GHOSTTY_SHADER=.*/ghostty/shaders/[a-z_]+\.glsl' "$REPO/archlinux/.local/bin/power-save")"
+    [[ -n "$shader" ]] || fail "power-save no longer names its shader"
+    [[ -f "$REPO/archlinux/.config/ghostty/shaders/${shader##*/}" ]] || fail "missing ${shader##*/}"
 }
 
 @test "the default wallpaper that 'wallpaper init' falls back to is in the repo" {

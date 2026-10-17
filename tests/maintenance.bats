@@ -31,11 +31,21 @@ orphans() {
     stub paru "[[ \"\$1\" == -Qdtq ]] && printf '%s\n' $*; true"
 }
 
+# sysclean --root, as pkexec or sudo would run it. rm is a stub here: the root
+# steps only delete under /usr/lib/modules and /var/lib/systemd/coredump.
+sysclean_root() {
+    stub_quiet id 'echo 0'
+    stub rm
+    stub journalctl
+    sut "$BIN/sysclean" --root
+}
+
 @test "sysclean --auto: never asks for root and never deletes user data" {
     orphans orphan-a orphan-b
     sysclean --auto
     assert_status 0
     refute_call_like "sudo"
+    refute_call_like "pkexec"
     refute_call_like "gio"
     refute_call_like "podman"
     refute_call_like "docker"
@@ -61,41 +71,74 @@ orphans() {
     assert_call "npm cache clean --force"
 }
 
-@test "sysclean: removes orphans, package caches, trash, containers and old journals" {
-    orphans orphan-a orphan-b
-    sysclean
+@test "sysclean: asks for root once, in the polkit dialog inside the session" {
+    WAYLAND_DISPLAY=wayland-1 sysclean
     assert_status 0
-    assert_call "sudo pacman -Rns --noconfirm orphan-a orphan-b"
-    assert_call "sudo paccache -r -k 2"
-    assert_call "sudo paccache -r -u -k 0"
+    assert_call "pkexec $BIN/sysclean --root"
+    [[ "$(call_count pkexec)" -eq 1 ]] || fail "$(calls)"
+    refute_call_like "sudo"
     assert_call "flatpak uninstall --unused -y"
     assert_call "gio trash --empty"
     assert_call "podman system prune -a --force"
     assert_call "docker system prune -a -f"
     refute_call_like "--volumes"
-    assert_call "sudo journalctl --vacuum-size=200M --vacuum-time=2weeks --quiet"
     assert_output_like "Total reclaimed space:"
 }
 
-@test "sysclean: with no orphans removes no packages" {
+@test "sysclean: outside the session asks for root once through sudo" {
+    unset WAYLAND_DISPLAY
     sysclean
+    assert_status 0
+    assert_call "sudo $BIN/sysclean --root"
+    [[ "$(call_count sudo)" -eq 1 ]] || fail "$(calls)"
+    refute_call_like "pkexec"
+}
+
+@test "sysclean: a cancelled root step still cleans the rest" {
+    WAYLAND_DISPLAY=wayland-1
+    export WAYLAND_DISPLAY
+    stub pkexec 'exit 126'
+    sysclean
+    assert_status 0
+    assert_output_like "Root steps did not finish"
+    assert_call "gio trash --empty"
+}
+
+@test "sysclean --root: refuses to run without root" {
+    sut "$BIN/sysclean" --root
+    assert_status 2
+    refute_call_like "pacman"
+}
+
+@test "sysclean --root: removes orphans, package caches and old journals" {
+    stub pacman "[[ \"\$1\" == -Qdtq ]] && printf '%s\n' orphan-a orphan-b; true"
+    sysclean_root
+    assert_status 0
+    assert_call "pacman -Rns --noconfirm orphan-a orphan-b"
+    assert_call "paccache -r -k 2"
+    assert_call "paccache -r -u -k 0"
+    assert_call "journalctl --vacuum-size=200M --vacuum-time=2weeks --quiet"
+}
+
+@test "sysclean --root: with no orphans removes no packages" {
+    sysclean_root
     assert_status 0
     assert_output_like "No orphaned packages."
     refute_call_like "pacman -Rns"
 }
 
-@test "sysclean: never removes the running kernel's modules" {
+@test "sysclean --root: never removes the running kernel's modules" {
     # pacman claims to own nothing, so every other modules dir counts as orphaned.
     stub pacman 'exit 1'
-    sysclean
+    sysclean_root
     assert_status 0
     # (a container has no modules dir for the host kernel)
     [[ ! -d "/usr/lib/modules/$(uname -r)" ]] || assert_output_like "Keeping $(uname -r) (running kernel)"
     refute_call_like "rm -rf -- /usr/lib/modules/$(uname -r)"
 }
 
-@test "sysclean: keeps modules that a package still owns" {
-    sysclean
+@test "sysclean --root: keeps modules that a package still owns" {
+    sysclean_root
     assert_status 0
     refute_call_like "rm -rf -- /usr/lib/modules"
 }
@@ -122,7 +165,7 @@ orphans() {
 # --- sysupdate (Arch) --------------------------------------------------------
 
 @test "sysupdate: upgrades system and AUR, then the user-level tools" {
-    sut "$BIN/sysupdate"
+    WAYLAND_DISPLAY=wayland-1 sut "$BIN/sysupdate"
     assert_status 0
     assert_call "paru -Syu --repo --noconfirm --sudo pkexec"
     assert_call "zsh -ic zinit self-update && zinit update --all"
@@ -165,9 +208,21 @@ orphans() {
 
 @test "sysupdate: falls back to pacman when paru is not installed" {
     rm "$STUBS/paru"
-    sut "$BIN/sysupdate"
+    WAYLAND_DISPLAY=wayland-1 sut "$BIN/sysupdate"
     assert_status 0
     assert_call "pkexec pacman -Syu --noconfirm"
+}
+
+@test "sysupdate: outside the graphical session asks through sudo, not pkexec" {
+    unset WAYLAND_DISPLAY
+    sut "$BIN/sysupdate"
+    assert_status 0
+    assert_call "paru -Syu --repo --noconfirm --sudo sudo"
+    rm "$STUBS/paru"
+    : >"$CALLS"
+    sut "$BIN/sysupdate"
+    assert_call "sudo pacman -Syu --noconfirm"
+    refute_call_like "pkexec"
 }
 
 @test "sysupdate: points out pending .pacnew files" {

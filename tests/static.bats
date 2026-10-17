@@ -60,7 +60,8 @@ check_each() {
 
 @test "lua files parse" {
     need luac
-    repo_files '*.lua' '*.lua.example' | check_each luac -p
+    # Templates hold placeholders; what apply-ui renders from them is checked.
+    repo_files '*.lua' '*.lua.example' | grep -v '/ui/templates/' | check_each luac -p
 }
 
 @test "json files parse" {

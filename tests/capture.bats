@@ -25,7 +25,7 @@ esac"
     stub notify-send
     stub canberra-gtk-play
     stub satty
-    stub qs "[[ \"\$*\" == *'notifications status'* ]] && echo '{\"dnd\":false}'; true"
+    stub qs "[[ \"\$*\" == *'notifications dndOn'* ]] && echo true; true"
     stub pkill 'exit 1'
     stub pgrep 'exit 1'
     stub wf-recorder "echo \$\$ >'$SANDBOX/wf.pid'; exec '$REAL_SLEEP' 20 >/dev/null 2>&1"
@@ -234,16 +234,8 @@ EOF
 
 # --- record-screen -----------------------------------------------------------
 
-@test "record-screen: with nothing recording, the toggle opens the record menu" {
+@test "record-screen: records the selection with desktop audio" {
     sut "$BIN/record-screen"
-    assert_status 0
-    assert_call "qs ipc call shell summon launcher record"
-    refute_call_like "slurp"
-    refute_call_like "wf-recorder -c"
-}
-
-@test "record-screen start: records the selection with desktop audio" {
-    sut "$BIN/record-screen" start
     assert_status 0
     local file="$CASTS/2026-01-02_03-04-05.mp4"
     assert_call "wf-recorder -c libx264 -x yuv420p -C aac --audio=alsa_out.monitor -g 100,100 800x600 -f $file"
@@ -251,30 +243,30 @@ EOF
     kill -0 "$(<"$SANDBOX/wf.pid")"
 }
 
-@test "record-screen start: silences notifications and remembers to restore them" {
-    sut "$BIN/record-screen" start
+@test "record-screen: silences notifications and remembers to restore them" {
+    sut "$BIN/record-screen"
     assert_status 0
     assert_call "qs ipc call notifications dndOn"
     [[ -f "$DND_MARKER" ]]
 }
 
-@test "record-screen start: leaves do-not-disturb alone when it was already on" {
-    stub qs "[[ \"\$*\" == *'notifications status'* ]] && echo '{\"dnd\":true,\"count\":2}'; true"
-    sut "$BIN/record-screen" start
+@test "record-screen: leaves do-not-disturb alone when it was already on" {
+    stub qs "[[ \"\$*\" == *'notifications dndOn'* ]] && echo false; true"
+    sut "$BIN/record-screen"
     assert_status 0
-    refute_call_like "dndOn"
+    assert_call "qs ipc call notifications dndOn"
     [[ ! -e "$DND_MARKER" ]]
 }
 
-@test "record-screen start: records without audio when there is no sink" {
+@test "record-screen: records without audio when there is no sink" {
     stub pactl 'exit 1'
-    sut "$BIN/record-screen" start
+    sut "$BIN/record-screen"
     assert_status 0
     assert_call "wf-recorder -c libx264 -x yuv420p -g 100,100 800x600 -f $CASTS/2026-01-02_03-04-05.mp4"
 }
 
-@test "record-screen start --mic: mixes desktop and microphone into one device" {
-    sut "$BIN/record-screen" start --mic
+@test "record-screen --mic: mixes desktop and microphone into one device" {
+    sut "$BIN/record-screen" --mic
     assert_status 0
     assert_call_like "pactl load-module module-null-sink sink_name=record_mix"
     assert_call "pactl load-module module-loopback source=alsa_out.monitor sink=record_mix latency_msec=20"
@@ -283,22 +275,22 @@ EOF
     [[ "$(<"$MODULES_FILE")" == $'41\n42\n43' ]] || fail "$(<"$MODULES_FILE")"
 }
 
-@test "record-screen start: cancelling or a stray click records nothing" {
+@test "record-screen: cancelling or a stray click records nothing" {
     selection cancel
-    sut "$BIN/record-screen" start
+    sut "$BIN/record-screen"
     assert_status 0
     selection "5,5 1x1"
-    sut "$BIN/record-screen" start
+    sut "$BIN/record-screen"
     assert_status 0
     refute_call_like "wf-recorder -c"
     refute_call_like "dndOn"
     [[ ! -e "$STATUS_FILE" ]]
 }
 
-@test "record-screen start: cleans up and reports when wf-recorder dies at once" {
+@test "record-screen: cleans up and reports when wf-recorder dies at once" {
     stub wf-recorder 'exit 1'
     stub_quiet sleep "exec '$REAL_SLEEP' 0.3"
-    sut "$BIN/record-screen" start --mic
+    sut "$BIN/record-screen" --mic
     assert_status 1
     assert_call_like "Recording Failed"
     assert_call "qs ipc call notifications dndOff"
@@ -306,20 +298,20 @@ EOF
     [[ ! -e "$STATUS_FILE" && ! -e "$DND_MARKER" && ! -e "$MODULES_FILE" ]]
 }
 
-@test "record-screen start --cam: carries on without a camera" {
-    sut "$BIN/record-screen" start --cam
+@test "record-screen --cam: carries on without a camera" {
+    sut "$BIN/record-screen" --cam
     assert_status 0
     assert_call_like "No Camera Found"
     assert_call_like "wf-recorder"
     refute_call_like "ffplay"
 }
 
-@test "record-screen start --cam: parks the camera in the corner of the recorded area" {
+@test "record-screen --cam: parks the camera in the corner of the recorded area" {
     compgen -G "/dev/video*" >/dev/null || skip "no video device on this machine"
     stub v4l2-ctl "printf '\t[0]: MJPG (Motion-JPEG, compressed)\n'"
     stub_longrunning ffplay
     echo '[{"title":"WebcamOverlay","address":"0xabc"}]' >"$SANDBOX/clients.json"
-    sut "$BIN/record-screen" start --cam
+    sut "$BIN/record-screen" --cam
     assert_status 0
     # 800 wide -> 160 would be too small, so the camera is 200x112, 24px from the corner.
     assert_call_like "-window_title WebcamOverlay -x 200 -y 112"
@@ -371,11 +363,13 @@ recording_in_progress() {
 }
 
 @test "record-screen: clears leftovers of a recording that died on its own" {
+    echo "$CASTS/old.mp4" >"$STATUS_FILE"
     : >"$DND_MARKER"
     printf '41\n' >"$MODULES_FILE"
+    selection cancel
     sut "$BIN/record-screen"
     assert_status 0
     assert_call "qs ipc call notifications dndOff"
     assert_call "pactl unload-module 41"
-    [[ ! -e "$DND_MARKER" && ! -e "$MODULES_FILE" ]]
+    [[ ! -e "$STATUS_FILE" && ! -e "$DND_MARKER" && ! -e "$MODULES_FILE" ]]
 }

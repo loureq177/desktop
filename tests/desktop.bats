@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# wallpaper, weather, weather-location, check-updates, awake-toggle,
+# wallpaper, check-updates, awake-toggle,
 # quickshell-session
 
 load helpers
@@ -10,7 +10,6 @@ setup() {
     stub notify-send
     WALLS="$HOME/Pictures/Wallpapers"
     WALL_STATE="$HOME/.cache/wallpaper/current"
-    LOC_FILE="$HOME/.local/state/weather/weather.json"
 }
 
 # --- wallpaper ---------------------------------------------------------------
@@ -93,87 +92,6 @@ walls() {
     [[ "$(<"$WALL_STATE")" == "$SANDBOX/other/x.png" ]]
 }
 
-# --- weather -----------------------------------------------------------------
-
-@test "weather: shows the status reported by the shell" {
-    stub qs 'echo "Warsaw: 12°C"'
-    sut "$BIN/weather"
-    assert_status 0
-    assert_call "qs ipc call weather status"
-    assert_call "notify-send -u low --app-name Weather -i weather-clear Weather Warsaw: 12°C"
-}
-
-@test "weather: reports unavailable when the shell has no data" {
-    local reply
-    for reply in 'echo null' 'echo "Weather unavailable"' 'exit 1' 'true'; do
-        : >"$CALLS"
-        stub qs "$reply"
-        sut "$BIN/weather"
-        assert_status 0
-        assert_call "notify-send -u low --app-name Weather -i dialog-warning Weather Weather information unavailable."
-    done
-}
-
-# --- weather-location --------------------------------------------------------
-
-@test "weather-location: without arguments prints usage and fails" {
-    sut "$BIN/weather-location"
-    assert_status 1
-    assert_output_like "Usage: weather-location"
-}
-
-@test "weather-location --set: needs a name" {
-    sut "$BIN/weather-location" --set
-    [[ "$status" -ne 0 ]]
-    [[ ! -e "$LOC_FILE" ]]
-}
-
-@test "weather-location --set name lat,lon: stores them and refreshes the shell" {
-    sut "$BIN/weather-location" --set "São Paulo" "-23.55,-46.63"
-    assert_status 0
-    [[ "$(jq -c . "$LOC_FILE")" == '{"name":"São Paulo","latitude":-23.55,"longitude":-46.63}' ]]
-    assert_call "qs ipc call weather refresh"
-}
-
-@test "weather-location --set name: geocodes the name" {
-    stub curl 'echo "{\"results\":[{\"name\":\"Kraków\",\"latitude\":50.06,\"longitude\":19.94}]}"'
-    sut "$BIN/weather-location" --set "Kraków"
-    assert_status 0
-    [[ "$(jq -c . "$LOC_FILE")" == '{"name":"Kraków","latitude":50.06,"longitude":19.94}' ]]
-    assert_call_like "name=Kraków"
-}
-
-@test "weather-location --set name: keeps just the name when geocoding fails" {
-    local reply
-    for reply in 'exit 6' 'echo "{}"' 'echo "{\"results\":[]}"' 'echo "<html>"'; do
-        stub curl "$reply"
-        sut "$BIN/weather-location" --set 'O"Fallon'
-        assert_status 0
-        [[ "$(jq -c . "$LOC_FILE")" == '{"name":"O\"Fallon"}' ]] || fail "curl '$reply' gave: $(<"$LOC_FILE")"
-    done
-}
-
-@test "weather-location: what it writes is what the weather widget reads" {
-    need node
-    sut "$BIN/weather-location" --set "Gdańsk" "54.35,18.65"
-    assert_status 0
-    run node -e '
-        const m = require(process.argv[1]);
-        const fs = require("fs");
-        console.log(JSON.stringify(m.parseLocationFile(fs.readFileSync(process.argv[2], "utf8"))));
-    ' "$REPO/archlinux/.config/quickshell/WeatherModel.js" "$LOC_FILE"
-    [[ "$output" == '{"name":"Gdańsk","latitude":54.35,"longitude":18.65}' ]] || fail "$output"
-}
-
-@test "weather-location --clear: removes the location and refreshes the shell" {
-    mkdir -p "${LOC_FILE%/*}"
-    echo '{}' >"$LOC_FILE"
-    sut "$BIN/weather-location" --clear
-    assert_status 0
-    [[ ! -e "$LOC_FILE" ]]
-    assert_call "qs ipc call weather refresh"
-}
-
 # --- check-updates -----------------------------------------------------------
 
 CU_STAMP() { echo "$HOME/.local/state/check-updates/last-check"; }
@@ -183,7 +101,6 @@ updates_stubs() {
     stub checkupdates "printf '%s' '$1'; exit $2"
     stub paru "printf '%s' '$3'"
     stub pacdiff "printf '%s' '$4'"
-    stub gdbus
 }
 
 @test "check-updates: notifies with the official and AUR counts" {
@@ -193,15 +110,25 @@ updates_stubs() {
     assert_call_like "Available updates (5)"
     assert_call_like "Official packages: 3"
     assert_call_like "AUR packages: 2"
-    assert_call_like '["update", "Update system"]'
+    assert_call_like "-A update=Update system"
+    refute_call_like "ghostty"
     [[ "$(<"$(CU_STAMP)")" =~ ^[0-9]+$ ]]
+}
+
+@test "check-updates: the notification's button starts the upgrade" {
+    updates_stubs $'a 1 -> 2\n' 0 '' ''
+    stub notify-send 'echo update'
+    stub ghostty
+    sut "$BIN/check-updates"
+    assert_status 0
+    assert_call "ghostty +new-window -e $HOME/.local/bin/sysupdate"
 }
 
 @test "check-updates: stays quiet when everything is up to date" {
     updates_stubs '' 2 '' ''
     sut "$BIN/check-updates"
     assert_status 0
-    refute_call_like "gdbus"
+    refute_call_like "notify-send"
     [[ -f "$(CU_STAMP)" ]]
 }
 
@@ -227,7 +154,7 @@ updates_stubs() {
     sut "$BIN/check-updates"
     assert_status 0
     refute_call_like "checkupdates"
-    refute_call_like "gdbus"
+    refute_call_like "notify-send"
 }
 
 @test "check-updates: checks again after the cooldown or with a corrupt stamp" {
@@ -247,7 +174,7 @@ updates_stubs() {
     updates_stubs '' 1 '' ''
     sut "$BIN/check-updates"
     assert_status 0
-    refute_call_like "gdbus"
+    refute_call_like "notify-send"
     [[ ! -e "$(CU_STAMP)" ]]
 }
 
@@ -265,7 +192,6 @@ awake_stubs() {
     assert_status 0
     assert_call_like "systemd-run --user --unit=awake-inhibit --collect systemd-inhibit --what=idle:sleep:handle-lid-switch"
     [[ "$(<"$XDG_RUNTIME_DIR/awake_inhibit.pid")" == 4242 ]]
-    assert_call "qs ipc call quicksettings refresh"
 }
 
 @test "awake-toggle: stops the inhibitor when it is on" {
@@ -276,7 +202,6 @@ awake_stubs() {
     assert_call "systemctl --user stop awake-inhibit.service"
     refute_call_like "systemd-run"
     [[ ! -e "$XDG_RUNTIME_DIR/awake_inhibit.pid" ]]
-    assert_call "qs ipc call quicksettings refresh"
 }
 
 # --- quickshell-session ------------------------------------------------------

@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# power-save, power-save-watcher
+# power-save
 
 load helpers
 
@@ -8,7 +8,7 @@ setup() {
     STATE_FILE="$XDG_RUNTIME_DIR/powersave_mode"
     PREV_FILE="$XDG_RUNTIME_DIR/powersave_prev_brightness"
     PERF="$HOME/.local/state/ghostty/perf.conf"
-    SHADER="$HOME/.local/state/ghostty/active-shader.glsl"
+    SHADER="$HOME/.config/ghostty/shaders/cursor_warp.glsl"
     KV="$HOME/.local/state/opencode/kv.json"
     cp -r "$REPO/archlinux/.config/ghostty" "$HOME/.config/ghostty"
 
@@ -56,7 +56,7 @@ display_call() {
     assert_call "$(display_call 60 false)"
     grep -qx "custom-shader-animation = false" "$PERF"
     grep -qx "background-opacity = 1.0" "$PERF"
-    [[ "$(readlink "$SHADER")" == "$HOME/.config/ghostty/shaders/noop.glsl" ]]
+    grep -qx "custom-shader = " "$PERF"
     [[ "$(jq -c . "$KV")" == '{"animations_enabled":false}' ]]
     wait_for_call_like "powerprofilesctl set power-saver"
     wait_for_call_like "qs ipc call osd brightness 50"
@@ -93,12 +93,11 @@ display_call() {
     if machine_on_ac; then
         grep -qx "custom-shader-animation = true" "$PERF"
         grep -qx "background-opacity = 0.80" "$PERF"
-        [[ "$(readlink "$SHADER")" == "$HOME/.config/ghostty/shaders/cursor_warp.glsl" ]]
+        grep -qx "custom-shader = $SHADER" "$PERF"
     else
         grep -qx "custom-shader-animation = false" "$PERF"
-        [[ "$(readlink "$SHADER")" == "$HOME/.config/ghostty/shaders/noop.glsl" ]]
+        grep -qx "custom-shader = " "$PERF"
     fi
-    [[ -f "$REPO/archlinux/.config/ghostty/shaders/noop.glsl" && -f "$REPO/archlinux/.config/ghostty/shaders/cursor_warp.glsl" ]]
 }
 
 @test "power-save: keeps the other opencode settings" {
@@ -177,33 +176,11 @@ display_call() {
     sut "$BIN/power-save" --sync
     assert_status 0
     assert_call "pkill -SIGUSR2 -x ghostty"
-    [[ -f "$PERF" && -L "$SHADER" ]]
+    [[ -f "$PERF" ]]
 
     : >"$CALLS"
     sut "$BIN/power-save" --sync
     assert_status 0
     refute_call_like "pkill"
     refute_call_like "hyprctl eval"
-}
-
-# --- power-save-watcher ------------------------------------------------------
-
-@test "power-save-watcher: syncs at start and on every power supply event" {
-    printf '#!/bin/bash\necho "power-save $*" >>"%s"\n' "$CALLS" >"$BIN/power-save"
-    stub udevadm "printf '%s\n' 'KERNEL[1.0] change /devices/ADP1 (power_supply)' 'UDEV  [1.1] change /devices/ADP1 (power_supply)' 'POWER_SUPPLY_ONLINE=1' '' 'UDEV  [9.1] change /devices/BAT0 (power_supply)'"
-    sut "$BIN/power-save-watcher"
-    assert_status 0
-    if compgen -G "/sys/class/power_supply/ADP*/online" >/dev/null || compgen -G "/sys/class/power_supply/AC*/online" >/dev/null; then
-        local _
-        for _ in $(seq 1 60); do
-            [[ "$(call_count "power-save --sync")" -ge 3 ]] && break
-            "$REAL_SLEEP" 0.05
-        done
-        [[ "$(call_count "power-save --sync")" -eq 3 ]] || fail "$(calls)"
-        assert_call "udevadm monitor --udev --property --subsystem-match=power_supply"
-    else
-        # Desktop: nothing to watch.
-        refute_call_like "udevadm"
-        refute_call_like "power-save"
-    fi
 }

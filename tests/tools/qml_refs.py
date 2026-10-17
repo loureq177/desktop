@@ -51,7 +51,7 @@ def main():
         for file_name, alias in re.findall(r'^\s*import\s+"([^"]+\.js)"\s+as\s+(\w+)', text, re.M):
             module = (path.parent / file_name).resolve()
             if module.exists():
-                functions = set(re.findall(r"^function\s+(\w+)", strip_comments(module.read_text(encoding="utf-8")), re.M))
+                functions = set(re.findall(r"^(?:function|var)\s+(\w+)", strip_comments(module.read_text(encoding="utf-8")), re.M))
                 owners[alias] = (module, functions)
 
     problems, checked = [], 0

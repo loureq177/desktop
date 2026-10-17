@@ -175,13 +175,16 @@ EOF
     [[ "$output" == "$HOME/.config/zsh" ]] || fail "ZDOTDIR is '$output'"
 }
 
-@test "install (Arch): the ghostty drop-in dir is a real directory" {
+@test "install (Arch): the user-unit drop-in dirs are real directories" {
     arch_only
     # systemd ignores a drop-in directory that is itself a symlink.
     install --no-upgrade
-    local dir="$HOME/.config/systemd/user/app-com.mitchellh.ghostty.service.d"
-    [[ -d "$dir" && ! -L "$dir" ]]
-    [[ -f "$dir/override.conf" ]]
+    local unit dir
+    for unit in app-com.mitchellh.ghostty xdg-desktop-portal-hyprland; do
+        dir="$HOME/.config/systemd/user/$unit.service.d"
+        [[ -d "$dir" && ! -L "$dir" ]] || fail "$dir is not a real directory"
+        [[ -f "$dir/override.conf" ]] || fail "$dir/override.conf was not linked"
+    done
 }
 
 @test "install (Arch): does not hand ~/.ssh over to the repo" {
@@ -198,7 +201,7 @@ EOF
     install --no-upgrade
     assert_status 0
     assert_output_like "Applying UI styles"
-    assert_output_like "Generated: $HOME/.config/quickshell/Theme.qml"
+    assert_output_like "Generated: $HOME/.config/quickshell/ui.js"
     [[ -s "$HOME/.config/ui/ui.sh" && -s "$HOME/.config/hypr/ui.lua" ]]
 }
 
