@@ -54,9 +54,6 @@ hl.env("GDK_WAYLAND_DISABLE", "ext_background_effect_manager_v1")
 hl.env("QT_QPA_PLATFORM", "wayland;xcb")
 hl.env("QS_ICON_THEME", ui.theme.icon)
 hl.env("SDL_VIDEODRIVER", "wayland")
--- Xwayland is off in Hyprland: xwayland-satellite.socket owns :0 and starts it
--- for the first X11 client.
-hl.env("DISPLAY", ":0")
 for _, prefix in ipairs({ "XCURSOR", "HYPRCURSOR" }) do
 	hl.env(prefix .. "_THEME", ui.theme.cursor)
 	hl.env(prefix .. "_SIZE", tostring(ui.font.size_cursor))
@@ -69,6 +66,12 @@ local function gset(key, val)
 end
 
 hl.on("hyprland.start", function()
+	-- Xwayland is off in Hyprland: xwayland-satellite.socket owns :0 and starts
+	-- it for the first X11 client. Hyprland drops DISPLAY when it loads the
+	-- config with Xwayland disabled, so it has to be set here, before anything
+	-- is spawned (and before DISPLAY is exported to dbus/systemd below).
+	hl.env("DISPLAY", ":0")
+
 	local cmds = {
 		-- First, so the session it locks on startup has nothing on screen yet.
 		"~/.local/bin/quickshell-session",
@@ -81,7 +84,9 @@ hl.on("hyprland.start", function()
 		gset("monospace-font-name", ui.font.mono .. " 12"),
 
 		"dbus-update-activation-environment --systemd WAYLAND_DISPLAY DISPLAY XDG_CURRENT_DESKTOP HYPRLAND_INSTANCE_SIGNATURE AQ_DRM_DEVICES VK_DRIVER_FILES VK_ICD_FILENAMES LIBVA_DRIVER_NAME GSK_RENDERER GTK_A11Y GDK_BACKEND GDK_WAYLAND_DISABLE XCURSOR_THEME XCURSOR_SIZE HYPRCURSOR_THEME HYPRCURSOR_SIZE QT_QPA_PLATFORM SDL_VIDEODRIVER ELECTRON_OZONE_PLATFORM_HINT",
-		"systemctl --user start hyprland-session.target",
+		-- Nothing stops the target when Hyprland exits, so after a restart a plain
+		-- start is a no-op and its services stay bound to the dead compositor.
+		"sh -c 'systemctl --user reset-failed; systemctl --user restart hyprland-session.target'",
 
 		"~/.local/bin/wallpaper init",
 		"sh -c 'pidof hyprsunset >/dev/null || hyprsunset'",
@@ -176,21 +181,40 @@ local function compact_workspaces()
 		if #nums == 0 then
 			return
 		end
+		-- Number left to right across monitors, then by id within one. Hyprland
+		-- hands out initial workspaces in monitor id order, not by position.
+		local function pos(ws)
+			local m = ws.monitor
+			return m ~= nil and m.x or math.huge, m ~= nil and m.y or math.huge
+		end
 		table.sort(nums, function(a, b)
+			local ax, ay = pos(a)
+			local bx, by = pos(b)
+			if ax ~= bx then
+				return ax < bx
+			end
+			if ay ~= by then
+				return ay < by
+			end
 			return a.id < b.id
 		end)
 		local active = hl.get_active_workspace()
 		local focused_old = active ~= nil and active.id or nil
 		local focused_new = focused_old
+		-- Two passes through a free id range so swaps (1 <-> 2) never collide.
+		local moved = {}
 		for idx, ws in ipairs(nums) do
 			if ws.id ~= idx then
-				if hl.get_workspace(idx) == nil then
-					hl.dispatch(hl.dsp.workspace.change_id({ workspace = ws.id, id = idx }))
-					if focused_old == ws.id then
-						focused_new = idx
-					end
+				local tmp = 10000 + idx
+				hl.dispatch(hl.dsp.workspace.change_id({ workspace = ws.id, id = tmp }))
+				moved[idx] = tmp
+				if focused_old == ws.id then
+					focused_new = idx
 				end
 			end
+		end
+		for idx, tmp in pairs(moved) do
+			hl.dispatch(hl.dsp.workspace.change_id({ workspace = tmp, id = idx }))
 		end
 		if focused_new ~= nil and focused_new ~= focused_old then
 			pcall(function()
@@ -212,7 +236,7 @@ local function schedule_compact(ms)
 	end, { timeout = ms or 500, type = "oneshot" })
 end
 
-if local_cfg.lid_switch ~= false and not local_cfg.custom_lid_switch then
+if not local_cfg.custom_lid_switch then
 	hl.bind("switch:on:Lid Switch", function()
 		if not sync_monitors() and not has_external_monitor() then
 			hl.dispatch(hl.dsp.dpms({ action = "off" }))
@@ -241,6 +265,16 @@ if local_cfg.lid_switch ~= false and not local_cfg.custom_lid_switch then
 	hl.on("monitor.removed", function()
 		sync_monitors()
 		schedule_compact(500)
+	end)
+	-- Monitor positions can move without a monitor coming or going (local.lua).
+	hl.on("monitor.layout_changed", function()
+		schedule_compact(500)
+	end)
+	hl.on("config.reloaded", function()
+		-- --verify-config has no monitors and crashes on the timer.
+		if #hl.get_monitors() > 0 then
+			schedule_compact(500)
+		end
 	end)
 end
 
@@ -746,14 +780,14 @@ local cmds = {
 	["SUPER + B"] = { programs.browser, "Browser" },
 
 	["SUPER + space"] = { programs.launcher, "Launcher" },
-	["SUPER + A"] = { "qs ipc call quicksettings toggle", "Quick actions" },
-	["SUPER + N"] = { "qs ipc call notifications toggle", "Toggle notification center" },
+	["SUPER + A"] = { "qs ipc call shell toggle quicksettings ''", "Quick actions" },
+	["SUPER + N"] = { "qs ipc call shell toggle notifications ''", "Toggle notification center" },
 	["SUPER + comma"] = { "qs ipc call notifications dismissLatest", "Close latest notification" },
 	["SUPER + SHIFT + comma"] = {
 		"qs ipc call notifications invokeDefault",
 		"Activate latest notification",
 	},
-	["SUPER + W"] = { "qs ipc call weather toggle", "Weather" },
+	["SUPER + W"] = { "qs ipc call shell toggle weather ''", "Weather" },
 	["SUPER + E"] = { "qs ipc call shell toggle launcher emoji", "Emoji picker" },
 	["SUPER + C"] = { "qs ipc call shell toggle clipboard ''", "Clipboard history" },
 	["SUPER + escape"] = { "qs ipc call session lock", "Lock system" },
@@ -771,22 +805,33 @@ end
 
 for name, app in pairs(programs.special) do
 	if app.key then
-		b("SUPER + SHIFT + " .. app.key, app.desc, hl.dsp.workspace.toggle_special(name))
+		-- "Show ...": the keybindings sheet files these under special workspaces.
+		b("SUPER + SHIFT + " .. app.key, "Show " .. app.desc, hl.dsp.workspace.toggle_special(name))
 	end
 end
 
+-- The shell shows the new level on its own (Osd.qml follows PipeWire).
+local function audio(cmd)
+	return cmd .. " && canberra-gtk-play -i audio-volume-change"
+end
+
 local media = {
-	{ "XF86AudioRaiseVolume", "~/.local/bin/volume output raise", true, "Volume up" },
+	{
+		"XF86AudioRaiseVolume",
+		audio("wpctl set-volume -l 1.0 @DEFAULT_AUDIO_SINK@ 5%+"),
+		true,
+		"Volume up",
+	},
 	{
 		"XF86AudioLowerVolume",
-		"~/.local/bin/volume output lower",
+		audio("wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-"),
 		true,
 		"Volume down",
 	},
-	{ "XF86AudioMute", "~/.local/bin/volume output mute-toggle", nil, "Volume mute" },
+	{ "XF86AudioMute", audio("wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"), nil, "Volume mute" },
 	{
 		"XF86AudioMicMute",
-		"~/.local/bin/volume input mute-toggle",
+		audio("wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle"),
 		nil,
 		"Microphone mute",
 	},
