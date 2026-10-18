@@ -25,3 +25,6 @@ archlinux/.config/hypr/wallpapers/*
 !archlinux/.config/hypr/wallpapers/hyprland.png
 
 !**/.local/
+
+# Claude Code runs parallel sessions in worktrees here.
+.claude/worktrees/
