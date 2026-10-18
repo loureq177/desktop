@@ -638,6 +638,18 @@ hl.window_rule({
 })
 
 hl.window_rule({
+	-- Steam places its toasts by X11 coordinates, which xwayland-satellite
+	-- drops, so without this they float in the middle of the screen.
+	name = "steam-toasts",
+	match = { class = "^(steam)$", title = "^(notificationtoasts_.*)$" },
+	float = true,
+	pin = true,
+	move = string.format("monitor_w-window_w-%d monitor_h-window_h-%d", ui.spacing.gaps_out, ui.spacing.gaps_out),
+	no_initial_focus = true,
+	no_dim = true,
+})
+
+hl.window_rule({
 	name = "idle-inhibit-fullscreen",
 	match = { class = ".*" },
 	idle_inhibit = "fullscreen",
