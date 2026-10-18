@@ -176,6 +176,10 @@ EOF
         sudo mkdir -p "$(dirname "$dest")"
         _install_etc_file "$src" "$dest" 644
     done < <(find archlinux/etc -type f -print0 | sort -z)
+    # dbus-broker-launch reloads itself on config changes (inotify); the stock
+    # pacman hook's extra SIGHUP races that reload and times out after 90s.
+    sudo mkdir -p /etc/pacman.d/hooks
+    sudo ln -sfn /dev/null /etc/pacman.d/hooks/dbus-reload.hook
     sudo systemctl enable --now keyd 2>/dev/null || _log_warn "Failed to enable keyd."
     sudo keyd reload 2>/dev/null || true
     sudo systemd-tmpfiles --create /etc/tmpfiles.d/memory.conf || _log_warn "Failed to apply tmpfiles memory settings."
