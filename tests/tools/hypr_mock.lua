@@ -3,6 +3,7 @@
 --   BIND <keys> <description> <dispatcher> <command>
 --   EXEC <command>              (hl.exec_cmd, including the hyprland.start hook)
 --   ENV  <name> <value>
+--   WSRULE <workspace>          (hl.workspace_rule)
 --   UI   <path> <value|MISSING> (every ui.x.y the config reads)
 -- Usage: HOME=<dir with .config/hypr> lua hypr_mock.lua
 
@@ -46,6 +47,9 @@ local api = {
 	end,
 	env = function(name, value)
 		emit("ENV", name, value)
+	end,
+	workspace_rule = function(rule)
+		emit("WSRULE", rule.workspace)
 	end,
 	on = function(event, fn)
 		handlers[event] = handlers[event] or {}

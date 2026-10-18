@@ -136,3 +136,39 @@ records() { awk -F'\t' -v kind="$1" '$1 == kind { sub(/^[^\t]*\t/, ""); print }'
     cursor="$(lua -e "print(dofile('$HOME/.config/hypr/ui.lua').theme.cursor)")"
     records EXEC | grep -qxF "gsettings set org.gnome.desktop.interface cursor-theme '$cursor'" || fail "$(records EXEC)"
 }
+
+@test "the shell lists the same special workspaces as hyprland.lua" {
+    mock_run
+    local specials="$REPO/archlinux/.config/quickshell/Specials.js" name bad=0
+    while IFS= read -r name; do
+        grep -q "name: \"$name\"" "$specials" || { echo "Specials.js has no entry for special:$name" >&2; bad=1; }
+    done < <(records WSRULE | sed -n 's/^special://p' | sort -u)
+    while IFS= read -r name; do
+        records WSRULE | grep -qx "special:$name" || { echo "Specials.js lists $name, which hyprland.lua does not have" >&2; bad=1; }
+    done < <(sed -nE 's/.*\{ name: "([a-z]+)".*/\1/p' "$specials")
+    [[ "$bad" -eq 0 ]]
+}
+
+@test "special workspace binds are named after the shell's titles" {
+    mock_run
+    local specials="$REPO/archlinux/.config/quickshell/Specials.js" desc bad=0
+    while IFS= read -r desc; do
+        grep -qF "title: \"${desc#Show }\"" "$specials" || { echo "bind '$desc' has no Specials.js entry titled '${desc#Show }'" >&2; bad=1; }
+    done < <(records BIND | cut -f2 | grep '^Show ')
+    [[ "$bad" -eq 0 ]]
+}
+
+@test "binds the shell looks up by description exist" {
+    mock_run
+    local qs="$REPO/archlinux/.config/quickshell" desc bad=0
+    while IFS= read -r desc; do
+        records BIND | cut -f2 | grep -qxF "$desc" || { echo "the shell names bind '$desc', which hyprland.lua does not have" >&2; bad=1; }
+    done < <(grep -rhoE 'Keybinds\.chord\("[^"]+"\)|bind: "[^"]+"' "$qs" --include='*.qml' | sed -E 's/[^"]*"([^"]+)".*/\1/' | sort -u)
+    [[ "$bad" -eq 0 ]]
+}
+
+@test "the keyboard layout comes from local.lua" {
+    grep -q 'kb_layout = keyboard.layout or "us"' "$HOME/.config/hypr/hyprland.lua"
+    printf 'return { keyboard = { layout = "pl", options = "caps:none" } }\n' >"$HOME/.config/hypr/local.lua"
+    verify_config
+}
