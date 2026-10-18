@@ -57,13 +57,13 @@ Ghostty, Neovim, bat, delta and opencode use their upstream GitHub Dark themes a
 
 ### Key binds
 
-`SUPER + /` lists everything the desktop does, with the keys that do it: the launcher's actions (`?` typed there does the same), where Enter runs the action. The launcher's search finds them too, next to the apps, and the tiles and buttons of quick settings show their own key. The ones to know first:
+The desktop's actions are in Quick actions (`SUPER + A`): its tiles, the Capture page and the power menu (`P`). The launcher is for apps, the web apps and the other special workspaces among them. `SUPER + /` lists the keys, leaving out the ones a panel prints on its tiles and buttons. The ones to know first:
 
 | Keys | Action |
 | --- | --- |
 | `SUPER + Return` | Terminal |
-| `SUPER + Space` | Launcher: apps and actions, `2+2` calculates, `>` lists commands to run, `:` emoji, `?` all actions and keys |
-| `SUPER + A` | Quick settings (Wi-Fi, Bluetooth, capture, battery saver, power) |
+| `SUPER + Space` | Launcher: apps, `2+2` calculates, `>` lists commands to run |
+| `SUPER + A` | Quick actions (Wi-Fi, Bluetooth, capture, battery saver, power) |
 | `SUPER + N` | Notification center |
 | `SUPER + V` / `SUPER + E` | Clipboard history / emoji |
 | `SUPER + Tab` | Back to the previous window |
@@ -73,7 +73,7 @@ Ghostty, Neovim, bat, delta and opencode use their upstream GitHub Dark themes a
 
 Caps Lock is Esc when tapped and Ctrl when held (keyd). With `keyboard.options = "altwin:swap_lalt_lwin"` in `local.lua`, SUPER is the left Alt key.
 
-Everything also works with the mouse: the grid icon at the left of the bar opens the launcher, the quick settings header has the power page, the empty field of the launcher offers its other lists (apps, emoji, clipboard, actions), and a right click on a special workspace's icon in the bar closes it.
+Everything also works with the mouse: the grid icon at the left of the bar opens the launcher, the Quick actions header has the power menu, the empty field of the launcher offers its other lists (apps, emoji, clipboard, keys), and a right click on a special workspace's icon in the bar closes it.
 
 ### Good to know
 
