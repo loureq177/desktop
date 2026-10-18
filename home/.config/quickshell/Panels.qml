@@ -15,12 +15,24 @@ Singleton {
 	property string mode: ""
 	// The last close skips the exit animation (see closeInstant).
 	property bool instant: false
+	// The panel and mode a newly opened panel replaced: the keybindings sheet
+	// opened from a panel goes back to it.
+	property string previous: ""
+	property string previousMode: ""
+
+	// The windows in the middle of the screen that share size, place and one
+	// dim (CenterModal, CenterBackdrop).
+	readonly property var centered: ["launcher", "clipboard"]
 
 	// Also emitted for the panel already open, when it is opened on a new mode.
 	signal opened(string name, string mode)
 
 	function open(name, newMode): void {
 		root.instant = false;
+		if (root.active !== name) {
+			root.previous = root.active;
+			root.previousMode = root.mode;
+		}
 		root.mode = newMode || "";
 		root.active = name;
 		root.opened(name, root.mode);

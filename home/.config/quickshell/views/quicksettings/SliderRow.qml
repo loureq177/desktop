@@ -17,6 +17,12 @@ Rectangle {
 	signal iconClicked()
 	signal scrubbed(real v)
 
+	// A notch of the wheel is 5%, like H / L.
+	function wheel(w) {
+		if (row.ready && w.angleDelta.y !== 0)
+			row.scrubbed(Math.max(0, Math.min(100, Math.round(row.value) + (w.angleDelta.y > 0 ? 5 : -5))));
+	}
+
 	Layout.fillWidth: true
 	Layout.preferredHeight: 48
 	radius: Theme.roundingElement
@@ -31,6 +37,7 @@ Rectangle {
 		anchors.fill: parent
 		z: 0
 		onClicked: row.selectRequested()
+		onWheel: w => row.wheel(w)
 	}
 
 	RowLayout {
@@ -111,6 +118,7 @@ Rectangle {
 					hoverEnabled: true
 					cursorShape: Qt.PointingHandCursor
 					preventStealing: true
+					onWheel: w => row.wheel(w)
 					onPressed: mouse => row.scrubbed(Math.max(0, Math.min(100, mouse.x / track.width * 100)))
 					onPositionChanged: mouse => {
 						if (pressed)

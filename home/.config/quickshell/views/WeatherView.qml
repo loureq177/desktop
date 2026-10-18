@@ -7,6 +7,7 @@ OverlayWindow {
 	id: root
 
 	panel: "weather"
+	helpTopic: "Weather"
 	style: "slide"
 	card: weatherCard
 	offscreenSlide: Math.max(700, weatherCard.height + Theme.notifTopMargin + 60)
@@ -74,6 +75,8 @@ OverlayWindow {
 			if (event.key === Qt.Key_E && !Weather.editingLocation) {
 				Weather.startEditingLocation();
 				event.accepted = true;
+			} else if (event.text === "?" && !Weather.editingLocation) {
+				event.accepted = root.showHelp();
 			}
 		}
 

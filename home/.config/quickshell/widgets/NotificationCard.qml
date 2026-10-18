@@ -88,7 +88,7 @@ Rectangle {
 				Layout.fillWidth: true
 				text: root.appName
 				font.family: Theme.fontMono
-				font.pointSize: Theme.fontSizeSmall - 2
+				font.pixelSize: Theme.fontSizeSmall + 2
 				font.bold: true
 				color: Theme.textDim
 				elide: Text.ElideRight
@@ -99,7 +99,7 @@ Rectangle {
 				visible: !root.isToast
 				text: Qt.formatTime(new Date(root.time), "hh:mm")
 				font.family: Theme.fontMono
-				font.pointSize: Theme.fontSizeSmall - 3
+				font.pixelSize: Theme.fontSizeSmall + 1
 				color: Theme.textMuted
 			}
 		}
@@ -108,7 +108,7 @@ Rectangle {
 			Layout.fillWidth: true
 			text: root.summary
 			font.family: Theme.fontFamily
-			font.pointSize: Theme.fontSizeSmall - 1
+			font.pixelSize: Theme.fontSize
 			font.bold: true
 			color: Theme.textMain
 			elide: Text.ElideRight
@@ -119,7 +119,7 @@ Rectangle {
 			Layout.fillWidth: true
 			text: root.body
 			font.family: Theme.fontFamily
-			font.pointSize: Theme.fontSizeSmall - 2
+			font.pixelSize: Theme.fontSizeSmall + 2
 			color: Theme.textDim
 			wrapMode: Text.Wrap
 			maximumLineCount: 3
@@ -144,7 +144,7 @@ Rectangle {
 				anchors.rightMargin: 8
 				verticalAlignment: TextInput.AlignVCenter
 				font.family: Theme.fontMono
-				font.pointSize: Theme.fontSizeSmall - 2
+				font.pixelSize: Theme.fontSizeSmall + 2
 				color: Theme.textMain
 				clip: true
 				selectByMouse: true
@@ -172,7 +172,7 @@ Rectangle {
 				elide: Text.ElideRight
 				text: root.replyPlaceholder || "Reply…"
 				font.family: Theme.fontMono
-				font.pointSize: Theme.fontSizeSmall - 2
+				font.pixelSize: Theme.fontSizeSmall + 2
 				color: Theme.textMuted
 			}
 		}
@@ -209,7 +209,7 @@ Rectangle {
 						elide: Text.ElideRight
 						text: actionButton.text
 						font.family: Theme.fontMono
-						font.pointSize: Theme.fontSizeSmall - 2
+						font.pixelSize: Theme.fontSizeSmall + 2
 						color: Theme.textMain
 					}
 

@@ -1,5 +1,6 @@
 import ".."
 import "../widgets"
+import "../Specials.js" as Specials
 import Quickshell
 import Quickshell.Bluetooth
 import Quickshell.Hyprland
@@ -63,19 +64,12 @@ PanelWindow {
 		.join("\n")
 	readonly property var specials: specialsKey !== "" ? specialsKey.split("\n") : []
 
-	// Line icon per special workspace name (see programs.special in hyprland.lua).
-	readonly property var specialIcons: ({
-		calendar: "calendar",
-		claude: "sparkles",
-		jolt: "zap",
-		mail: "mail",
-		spotify: "audio-lines",
-		tasks: "circle-check",
-		whatsapp: "message-circle",
-		yazi: "folder"
-	})
-
 	readonly property var players: Mpris.players.values
+
+	// "A · B" of the parts that are not empty.
+	function hint(first, second) {
+		return [first, second].filter(p => p).join("  ·  ");
+	}
 
 	function toggleSpecial(name: string): void {
 		Quickshell.execDetached([
@@ -154,9 +148,11 @@ PanelWindow {
 
 	property Item tooltipTarget: null
 	property string tooltipText: ""
+	// A dimmer line under the text: what else the module does, and its keys.
+	property string tooltipHint: ""
 	property bool tooltipVisible: false
 
-	function showTooltip(item: Item, text: string): void {
+	function showTooltip(item: Item, text: string, hint: string): void {
 		if (!text) {
 			hideTooltip(item);
 			return;
@@ -164,6 +160,7 @@ PanelWindow {
 		hideTimer.stop();
 		tooltipTarget = item;
 		tooltipText = text;
+		tooltipHint = hint ?? "";
 		if (tooltipVisible) {
 			tipPop.visible = true;
 			tipPop.anchor.updateAnchor();
@@ -187,9 +184,10 @@ PanelWindow {
 		tipPop.visible = false;
 	}
 
-	function updateTooltip(item: Item, text: string): void {
+	function updateTooltip(item: Item, text: string, hint: string): void {
 		if (tooltipTarget === item) {
 			tooltipText = text;
+			tooltipHint = hint ?? "";
 			if (tipPop.visible)
 				tipPop.anchor.updateAnchor();
 		}
@@ -246,21 +244,33 @@ PanelWindow {
 
 		Rectangle {
 			id: tipBox
-			implicitWidth: tipLabel.implicitWidth + 20
-			implicitHeight: tipLabel.implicitHeight + 10
+			implicitWidth: tipColumn.implicitWidth + 20
+			implicitHeight: tipColumn.implicitHeight + 10
 			color: Theme.alpha(Theme.bgCard, 0.96)
 			border.color: Theme.border
 			border.width: 1
 			radius: Theme.roundingElement
 
-			Text {
-				id: tipLabel
+			Column {
+				id: tipColumn
 				anchors.centerIn: parent
-				text: bar.tooltipText
-				color: Theme.textMain
-				font.family: Theme.fontFamily
-				font.pixelSize: Theme.fontSizeSmall
-				font.bold: false
+				spacing: 3
+
+				Text {
+					text: bar.tooltipText
+					color: Theme.textMain
+					font.family: Theme.fontFamily
+					font.pixelSize: Theme.fontSizeSmall
+					font.bold: false
+				}
+
+				Text {
+					visible: bar.tooltipHint !== ""
+					text: bar.tooltipHint
+					color: Theme.textDim
+					font.family: Theme.fontFamily
+					font.pixelSize: Theme.fontSizeSmall - 1
+				}
 			}
 		}
 	}
@@ -274,6 +284,7 @@ PanelWindow {
 		property color textColor: Theme.textMain
 		property bool isActive: false
 		property string tooltipText: ""
+		property string tooltipHint: ""
 		property bool custom: false
 		default property alias content: pillRow.data
 		property alias containsMouse: pillArea.containsMouse
@@ -283,7 +294,7 @@ PanelWindow {
 
 		onTooltipTextChanged: {
 			if (pillArea.containsMouse && pill.tooltipText !== "")
-				bar.updateTooltip(pill, pill.tooltipText);
+				bar.updateTooltip(pill, pill.tooltipText, pill.tooltipHint);
 		}
 
 		Layout.alignment: Qt.AlignVCenter
@@ -338,7 +349,7 @@ PanelWindow {
 			acceptedButtons: Qt.LeftButton | Qt.MiddleButton | Qt.RightButton
 			onEntered: {
 				if (pill.tooltipText !== "" && !pill.isActive)
-					bar.showTooltip(pill, pill.tooltipText);
+					bar.showTooltip(pill, pill.tooltipText, pill.tooltipHint);
 			}
 			onExited: {
 				bar.hideTooltip(pill);
@@ -378,10 +389,18 @@ PanelWindow {
 			anchors.verticalCenter: parent.verticalCenter
 			spacing: 6
 
+			Pill {
+				icon: "layout-grid"
+				textColor: Panels.active === "launcher" ? Theme.accentBlue : Theme.textDim
+				isActive: Panels.active === "launcher"
+				tooltipText: "Apps and actions"
+				tooltipHint: Keybinds.chord("Launcher")
+				onActivated: Panels.toggle("launcher", "apps")
+			}
+
 			Item {
 				id: wsContainer
 				Layout.alignment: Qt.AlignVCenter
-				Layout.leftMargin: 6
 				implicitHeight: Theme.barHeight
 				implicitWidth: wsRow.width
 
@@ -423,7 +442,7 @@ PanelWindow {
 								anchors.fill: parent
 								hoverEnabled: true
 								cursorShape: Qt.PointingHandCursor
-								onEntered: bar.showTooltip(wsButton, "Workspace " + wsButton.modelData.name)
+								onEntered: bar.showTooltip(wsButton, "Workspace " + wsButton.modelData.name, Keybinds.chord("Switch to workspace " + wsButton.modelData.name))
 								onExited: bar.hideTooltip(wsButton)
 								onClicked: {
 									bar.hideTooltip(wsButton);
@@ -466,6 +485,7 @@ PanelWindow {
 						textColor: Number(SystemStatus.memPercent) >= 90 ? Theme.critical : (Number(SystemStatus.memPercent) >= 75 ? Theme.warning : (bar.visibleSpecial === "btop" ? Theme.accentBlue : Theme.textDim))
 						isActive: bar.visibleSpecial === "btop"
 						tooltipText: SystemStatus.memTooltip
+						tooltipHint: bar.hint("Click: Activity Monitor", Keybinds.chord("Show Activity Monitor"))
 						onActivated: bar.toggleSpecial("btop")
 						onRightClicked: bar.closeSpecial("btop")
 					}
@@ -479,17 +499,19 @@ PanelWindow {
 							readonly property var player: bar.playerFor(modelData)
 							readonly property bool playing: player?.isPlaying ?? false
 							readonly property bool shown: modelData === bar.visibleSpecial
-							readonly property string icon: bar.specialIcons[modelData] ?? ""
+							readonly property var special: Specials.find(modelData)
+							readonly property string icon: special?.icon ?? ""
 							readonly property color tint: shown ? Theme.accentBlue
 								: playing ? Theme.accentGreen
 								: (spArea.containsMouse ? Theme.textMain : Theme.textDim)
 							readonly property string tip: {
-								var title = modelData.charAt(0).toUpperCase() + modelData.slice(1);
+								var title = special?.title ?? (modelData.charAt(0).toUpperCase() + modelData.slice(1));
 								var track = bar.trackLabel(player);
 								return track !== "" ? title + "\n" + track : title;
 							}
+							readonly property string tipHint: bar.hint("Right-click: close", special ? Keybinds.chord(Specials.bindName(special)) : "")
 
-							onTipChanged: bar.updateTooltip(sp, tip)
+							onTipChanged: bar.updateTooltip(sp, tip, tipHint)
 
 							height: Theme.barHeight
 							width: 30
@@ -524,7 +546,7 @@ PanelWindow {
 								hoverEnabled: true
 								cursorShape: Qt.PointingHandCursor
 								acceptedButtons: Qt.LeftButton | Qt.RightButton
-								onEntered: bar.showTooltip(sp, sp.tip)
+								onEntered: bar.showTooltip(sp, sp.tip, sp.tipHint)
 								onExited: bar.hideTooltip(sp)
 								onPressed: mouse => {
 									bar.hideTooltipNow();
@@ -553,6 +575,7 @@ PanelWindow {
 				icon: "leaf"
 				textColor: Theme.textMain
 				tooltipText: "Battery saver: On (60 Hz)"
+				tooltipHint: "Click: turn off"
 				onActivated: Quickshell.execDetached(["sh", "-c", "~/.local/bin/power-save"])
 			}
 		}
@@ -568,6 +591,7 @@ PanelWindow {
 				value: valid ? Qt.formatDateTime(clockSource.date, "hh:mm") : Qt.formatDateTime(new Date(), "hh:mm")
 				textColor: Theme.textMain
 				tooltipText: Qt.formatDateTime(clock.valid ? clockSource.date : new Date(), "dddd, MMMM d, yyyy")
+				tooltipHint: bar.hint("Click: Calendar", Keybinds.chord("Show Calendar"))
 				onActivated: Quickshell.execDetached([
 					"hyprctl", "dispatch", "hl.dsp.workspace.toggle_special('calendar')"
 				])
@@ -586,6 +610,7 @@ PanelWindow {
 				textColor: Theme.textMain
 				isActive: Panels.active === "weather"
 				tooltipText: Weather.tooltipText
+				tooltipHint: bar.hint("Middle-click: refresh", Keybinds.chord("Weather"))
 				onActivated: Panels.toggle("weather")
 				onMiddleClicked: Weather.refresh()
 			}
@@ -628,7 +653,8 @@ PanelWindow {
 				visible: SystemStatus.awakeActive
 				icon: "coffee"
 				textColor: Theme.textMain
-				tooltipText: "Awake: Active"
+				tooltipText: "Keep awake: On"
+				tooltipHint: "Click: turn off"
 				onActivated: Quickshell.execDetached(["sh", "-c", "~/.local/bin/awake-toggle"])
 			}
 
@@ -688,6 +714,7 @@ PanelWindow {
 				custom: true
 				isActive: Panels.active === "quicksettings"
 				tooltipText: [btInfo, netInfo, batteryInfo].filter(s => s !== "").join("\n")
+				tooltipHint: bar.hint("Right-click: energy use", Keybinds.chord("Quick actions"))
 				onActivated: Panels.toggle("quicksettings")
 				onRightClicked: Quickshell.execDetached([
 					"hyprctl", "dispatch", "hl.dsp.workspace.toggle_special('jolt')"
@@ -736,6 +763,7 @@ PanelWindow {
 						return "Notifications: " + historyCount + (historyCount === 1 ? " notification" : " notifications");
 					return "Notifications: None";
 				}
+				tooltipHint: Keybinds.chord("Toggle notification center")
 				onActivated: Panels.toggle("notifications")
 			}
 		}

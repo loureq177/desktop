@@ -48,10 +48,12 @@ Singleton {
 
 	readonly property string fontFamily: ui.font.family
 	readonly property string fontMono: ui.font.mono
+	// Pixels, like every font size in the shell.
 	readonly property int fontSize: 17
 	readonly property int fontSizeSmall: 14
 	readonly property int fontSizeGrid: 13
-	readonly property int fontSizeSearch: 15
+	// Search fields and the rows of the centred windows.
+	readonly property int fontSizeLarge: 20
 	readonly property int fontSizeBar: 15
 	readonly property int fontSizeBarIcon: 18
 

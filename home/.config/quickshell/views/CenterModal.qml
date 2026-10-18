@@ -6,10 +6,16 @@ import QtQuick.Layouts
 OverlayWindow {
 	id: root
 
-	property int cardWidth: Theme.windowWidth
-	property int cardHeight: Theme.windowHeight
+	// The launcher, emoji and clipboard share one width and top edge, so going
+	// from one to the other only changes what is inside. A window that sets
+	// contentHeight is as tall as its results, up to the shared height.
+	readonly property int cardWidth: Theme.windowWidth
+	property int contentHeight: -1
+	// Everything around the contents: padding, the field, the lines, the footer.
+	readonly property int chromeHeight: Theme.paddingCard * 2 + 48 + 12 - 4 + 1 + 12 + (showFooter ? 12 + 1 + 12 + 36 : 0)
+	readonly property int cardHeight: contentHeight < 0 ? Theme.windowHeight : Math.min(Theme.windowHeight, chromeHeight + contentHeight)
 
-	property string searchTitle: ""
+	property string searchIcon: "search"
 	property string searchPlaceholder: ""
 	property bool searchCompleteOnTab: false
 	property bool searchLeftRightNavigate: false
@@ -29,10 +35,34 @@ OverlayWindow {
 	default property alias body: contentSlot.data
 
 	card: dialogCard
+	// Between the centred windows (same width, same top edge) only the
+	// contents change: the windows swap in place (OverlayWindow.swapIn/Out).
+	handoff: Panels.centered.indexOf(Panels.active) !== -1
+	swapOut: true
+	swapIn: Panels.centered.indexOf(Panels.previous) !== -1
+	// CenterBackdrop dims the screen for all of them.
+	backdropColor: "transparent"
 	enterScale: 0.82
 	exitScale: 0.85
 
+	// A new mode in the same window: the contents fade in again.
+	function crossfade(): void {
+		contentFade.restart();
+	}
+
+	NumberAnimation {
+		id: contentFade
+		target: contentSlot
+		property: "opacity"
+		from: 0
+		to: 1
+		duration: Theme.animFast
+		easing.type: Easing.OutCubic
+	}
+
 	onOpened: {
+		if (root.swapIn)
+			root.crossfade();
 		search.clear();
 		search.focusInput();
 	}
@@ -54,9 +84,19 @@ OverlayWindow {
 
 	Rectangle {
 		id: dialogCard
-		anchors.centerIn: parent
+		anchors.horizontalCenter: parent.horizontalCenter
+		y: Math.round((parent.height - Theme.windowHeight) / 2)
+		transformOrigin: Item.Top
 		width: root.cardWidth
 		height: root.cardHeight
+
+		Behavior on height {
+			enabled: root.shown && !root.animating
+			NumberAnimation {
+				duration: Theme.animFast
+				easing.type: Easing.OutCubic
+			}
+		}
 		color: Theme.panel(Theme.bgMain)
 		border.color: Theme.border
 		border.width: Theme.borderSize
@@ -77,7 +117,7 @@ OverlayWindow {
 				id: search
 				Layout.fillWidth: true
 				Layout.preferredHeight: 48
-				title: root.searchTitle
+				icon: root.searchIcon
 				placeholder: root.searchPlaceholder
 				showScopeHints: root.searchScopeHints
 				completeOnTab: root.searchCompleteOnTab
@@ -88,6 +128,15 @@ OverlayWindow {
 				onStepped: delta => root.searchStepped(delta)
 				onSteppedColumn: delta => root.searchSteppedColumn(delta)
 				onCompleted: root.searchCompleted()
+			}
+
+			Rectangle {
+				Layout.fillWidth: true
+				Layout.leftMargin: -Theme.paddingCard
+				Layout.rightMargin: -Theme.paddingCard
+				Layout.topMargin: -4
+				Layout.preferredHeight: 1
+				color: Theme.border
 			}
 
 			Item {
@@ -112,12 +161,11 @@ OverlayWindow {
 				Text {
 					anchors.fill: parent
 					verticalAlignment: Text.AlignVCenter
-					horizontalAlignment: Text.AlignLeft
 					font.family: Theme.fontMono
-					font.pointSize: Theme.fontSizeSmall
+					font.pixelSize: Theme.fontSize + 1
 					color: root.errorText !== "" ? Theme.critical : Theme.textDim
 					elide: Text.ElideRight
-					text: root.errorText !== "" ? root.errorText : root.statusText
+					text: root.errorText || root.statusText
 				}
 			}
 		}

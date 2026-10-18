@@ -48,6 +48,11 @@ OverlayWindow {
 				event.accepted = true;
 			}
 		}
+		// Keys the page itself leaves alone end up here.
+		Keys.onPressed: event => {
+			if (event.text === "?")
+				event.accepted = root.showHelp();
+		}
 
 		MouseArea {
 			anchors.fill: parent

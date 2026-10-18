@@ -19,6 +19,12 @@ PanelWindow {
 	// Closing because another drawer takes this one's place: the card fades
 	// out where it is instead of sliding across the newcomer.
 	property bool handoff: false
+	// Swapping with a window of the same size and place (the centred ones):
+	// the newcomer is there at once (swapIn) and the one leaving stays a few
+	// frames without its dim (swapOut), so no frame shows a half-transparent
+	// card, which Hyprland would not blur, or two dims on top of each other.
+	property bool swapIn: false
+	property bool swapOut: false
 	property bool dismissOnEsc: true
 	property bool dismissOnClick: true
 	property string namespace: "quickshell"
@@ -28,11 +34,20 @@ PanelWindow {
 	property real exitScale: 0.97
 	property int offscreenSlide: 0
 	property int slide: offscreenSlide
+	// The keybindings sheet section "?" opens on ("" for none).
+	property string helpTopic: ""
+
+	function showHelp(): bool {
+		if (helpTopic === "")
+			return false;
+		Panels.open("keybindings", helpTopic);
+		return true;
+	}
 
 	readonly property bool sliding: style === "slide"
 	readonly property Animation enterAnimation: sliding ? slideIn : fadeIn
 	readonly property Animation exitAnimation: sliding ? slideOut : fadeOut
-	readonly property bool leaving: exitAnimation.running || handoffOut.running
+	readonly property bool leaving: exitAnimation.running || handoffOut.running || swapOutTimer.running
 	readonly property bool animating: enterAnimation.running || leaving
 
 	// A panel gets the mode Panels opened it on, also when reopened on another.
@@ -40,7 +55,13 @@ PanelWindow {
 	signal dismissRequested()
 	signal fullyClosed()
 
-	visible: shown || leaving
+	// Set by hand, not bound to `shown || leaving`: that binding could run
+	// before onShownChanged starts the way out, unmapping the window for a
+	// frame and mapping it again, which shows as a blink.
+	property bool mapped: false
+	visible: mapped
+	onFullyClosed: mapped = false
+	Component.onCompleted: mapped = shown
 	color: "transparent"
 	exclusionMode: ExclusionMode.Ignore
 	exclusiveZone: 0
@@ -65,9 +86,19 @@ PanelWindow {
 
 	onShownChanged: {
 		if (shown) {
+			mapped = true;
 			exitAnimation.stop();
 			handoffOut.stop();
-			enterAnimation.restart();
+			swapOutTimer.stop();
+			if (swapIn) {
+				enterAnimation.stop();
+				backdropOpacity = 1.0;
+				card.opacity = 1.0;
+				card.scale = 1.0;
+				slide = 0;
+			} else {
+				enterAnimation.restart();
+			}
 			if (panel === "")
 				root.opened("");
 		} else if (Panels.instant && panel !== "") {
@@ -75,6 +106,10 @@ PanelWindow {
 			backdropOpacity = 0.0;
 			slide = offscreenSlide;
 			root.fullyClosed();
+		} else if (handoff && swapOut) {
+			enterAnimation.stop();
+			backdropOpacity = 0.0;
+			swapOutTimer.restart();
 		} else if (handoff) {
 			enterAnimation.stop();
 			handoffOut.restart();
@@ -194,6 +229,16 @@ PanelWindow {
 			to: 0.0
 			duration: Theme.animNormal
 			easing.type: Easing.InCubic
+		}
+	}
+
+	// Long enough for the newcomer to map and draw its first frame.
+	Timer {
+		id: swapOutTimer
+		interval: 80
+		onTriggered: {
+			if (!root.shown)
+				root.fullyClosed();
 		}
 	}
 

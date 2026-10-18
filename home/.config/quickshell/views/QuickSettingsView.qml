@@ -11,7 +11,8 @@ SideDrawer {
 	id: win
 
 	panel: "quicksettings"
-	// "main", or the page of one tile: "wifi", "bluetooth", "capture".
+	helpTopic: subView === "wifi" || subView === "bluetooth" ? "Wi-Fi & Bluetooth" : "Quick actions"
+	// "main", the page of one tile ("wifi", "bluetooth", "capture"), or "power".
 	property string subView: "main"
 	dismissOnEsc: subView === "main"
 	cardWidth: 520
@@ -23,6 +24,8 @@ SideDrawer {
 			return btSubView.preferredHeight + Theme.paddingCard * 2;
 		if (subView === "capture")
 			return captureSubView.preferredHeight + Theme.paddingCard * 2;
+		if (subView === "power")
+			return powerSubView.preferredHeight + Theme.paddingCard * 2;
 		return 540;
 	}
 	readonly property int subViewHeight: Math.min(currentSubViewHeight, Math.min(680, win.height - Theme.notifTopMargin - 20))
@@ -55,6 +58,7 @@ SideDrawer {
 		case "wifi": wifiSubView.forceActiveFocus(); break;
 		case "bluetooth": btSubView.forceActiveFocus(); break;
 		case "capture": captureSubView.forceActiveFocus(); break;
+		case "power": powerSubView.forceActiveFocus(); break;
 		}
 	}
 
@@ -313,7 +317,7 @@ SideDrawer {
 			font.pixelSize: 10
 			font.bold: true
 			color: stile.isSelected ? Theme.accentBlue : Theme.textDim
-			opacity: stile.isSelected ? 0.9 : 0.4
+			opacity: stile.isSelected ? 0.9 : 0.6
 			z: 2
 		}
 	}
@@ -410,6 +414,9 @@ SideDrawer {
 				Notifications.dnd = !Notifications.dnd;
 				win.select(win.rowStayAwakeDnd, 1);
 				event.accepted = true;
+			} else if (event.key === Qt.Key_P) {
+				win.subView = "power";
+				event.accepted = true;
 			} else if (event.key === Qt.Key_M) {
 				win.toggleMute();
 				win.select(win.rowVolume, 0);
@@ -432,6 +439,16 @@ SideDrawer {
 				font.pixelSize: Theme.fontSize + 1
 				font.bold: true
 				color: Theme.textMain
+			}
+
+			IconButton {
+				icon: "keyboard"
+				onClicked: win.showHelp()
+			}
+
+			IconButton {
+				icon: "power"
+				onClicked: win.subView = "power"
 			}
 
 			CloseButton {
@@ -531,7 +548,7 @@ SideDrawer {
 				itemCol: 0
 				hotkey: "A"
 				icon: "coffee"
-				title: "Awake"
+				title: "Keep awake"
 				subtitle: ""
 				active: SystemStatus.awakeActive
 				hasDetails: false
@@ -577,6 +594,15 @@ SideDrawer {
 		id: captureSubView
 		anchors.fill: parent
 		visible: win.subView === "capture"
+		enabled: visible
+		focus: visible
+		onBackRequested: win.backToMain()
+	}
+
+	PowerSubView {
+		id: powerSubView
+		anchors.fill: parent
+		visible: win.subView === "power"
 		enabled: visible
 		focus: visible
 		onBackRequested: win.backToMain()

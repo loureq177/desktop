@@ -13,6 +13,9 @@ ShellRoot {
 		}
 	}
 
+	CenterBackdrop {
+	}
+
 	LauncherView {
 	}
 

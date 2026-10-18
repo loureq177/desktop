@@ -10,8 +10,8 @@ CenterModal {
 	id: win
 
 	panel: "clipboard"
-	searchTitle: "Clip"
-	searchPlaceholder: "Search..."
+	searchIcon: "clipboard"
+	searchPlaceholder: "Search clipboard..."
 
 	onSearchQueryChanged: {
 		win.query = searchQuery;
@@ -208,7 +208,6 @@ CenterModal {
 			boundsBehavior: Flickable.DragAndOvershootBounds
 			flickDeceleration: Theme.flickDecel
 			maximumFlickVelocity: Theme.maxFlickVel
-			spacing: 2
 			model: win.filtered
 
 			delegate: Rectangle {
@@ -223,16 +222,14 @@ CenterModal {
 				readonly property string thumbPath: row.isImage ? (Quickshell.env("XDG_RUNTIME_DIR") || "/run/user/1000") + "/clipboard-thumbs/" + String(row.modelData.id) : ""
 
 				width: list.width
-				height: 52
+				height: 48
 				clip: true
 				color: row.index === win.currentIndex ? Theme.selectionBg : "transparent"
-				border.color: row.index === win.currentIndex ? Theme.selectionBorder : "transparent"
-				border.width: 1
 				radius: Theme.roundingElement
 
 				property bool thumbReady: false
 
-				Behavior on color { ColorAnimation { duration: 100 } }
+				Behavior on color { ColorAnimation { duration: 90 } }
 
 				Process {
 					id: thumbLoader
@@ -252,14 +249,14 @@ CenterModal {
 
 				RowLayout {
 					anchors.fill: parent
-					anchors.leftMargin: 10
-					anchors.rightMargin: 10
-					spacing: 10
+					anchors.leftMargin: 12
+					anchors.rightMargin: 12
+					spacing: 12
 
 					Rectangle {
 						visible: row.isImage
-						Layout.preferredWidth: 56
-						Layout.preferredHeight: 34
+						Layout.preferredWidth: 42
+						Layout.preferredHeight: 28
 						Layout.alignment: Qt.AlignVCenter
 						radius: Theme.roundingSubtle
 						color: Theme.bgHover
@@ -277,21 +274,26 @@ CenterModal {
 						}
 					}
 
-					LineIcon {
+					Item {
 						visible: !row.isImage
-						Layout.alignment: Qt.AlignVCenter
-						name: "clipboard"
-						size: 14
-						color: row.index === win.currentIndex ? Theme.accentBlue : Theme.textDim
+						Layout.preferredWidth: 28
+						Layout.preferredHeight: 28
+
+						LineIcon {
+							anchors.centerIn: parent
+							name: "type"
+							size: 18
+							color: row.index === win.currentIndex ? Theme.accentBlue : Theme.textDim
+						}
 					}
 
 					Text {
 						Layout.fillWidth: true
 						Layout.alignment: Qt.AlignVCenter
 						textFormat: Text.PlainText
-						font.family: Theme.fontMono
-						font.pixelSize: 13
-						color: row.index === win.currentIndex ? Theme.accentBlue : Theme.textMain
+						font.family: Theme.fontFamily
+						font.pixelSize: Theme.fontSizeSmall + 1
+						color: Theme.textMain
 						elide: Text.ElideRight
 						text: {
 							var p = row.preview;
@@ -325,8 +327,8 @@ CenterModal {
 		Text {
 			visible: win.filtered.length === 0
 			anchors.centerIn: list
-			font.family: Theme.fontMono
-			font.pointSize: Theme.fontSizeBar
+			font.family: Theme.fontFamily
+			font.pixelSize: Theme.fontSizeSmall + 1
 			color: Theme.textDim
 			text: win.listFailed ? "cliphist failed — is it installed?" : (win.entries.length === 0 ? "No clipboard entries" : "No match")
 		}
@@ -337,9 +339,7 @@ CenterModal {
 			anchors.bottom: parent.bottom
 			anchors.right: parent.right
 			width: parent.width * 0.58 - Theme.paddingItem
-			color: Theme.inset(Theme.bgCard)
-			border.color: Theme.border
-			border.width: 1
+			color: Theme.alpha(Theme.textMain, 0.04)
 			radius: Theme.roundingElement
 			clip: true
 
@@ -384,7 +384,7 @@ CenterModal {
 						return e.preview;
 					}
 					font.family: Theme.fontMono
-					font.pixelSize: 16
+					font.pixelSize: Theme.fontSizeSmall + 1
 					color: Theme.textMain
 				}
 			}

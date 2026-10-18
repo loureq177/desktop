@@ -8,6 +8,7 @@ SideDrawer {
 	id: win
 
 	panel: "notifications"
+	helpTopic: "Notifications"
 	cardHeight: Math.min(680, win.height - Theme.notifTopMargin - 20)
 	property int currentIndex: 0
 

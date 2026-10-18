@@ -2,10 +2,12 @@ import ".."
 import QtQuick
 import QtQuick.Layouts
 
+// The field the centred windows open on: no box of its own, an icon saying
+// what it searches, and a line under it that the window draws.
 Rectangle {
 	id: bar
 
-	property string title: ""
+	property string icon: "search"
 	property string placeholder: ""
 	property alias text: input.text
 	property bool completeOnTab: false
@@ -32,10 +34,7 @@ Rectangle {
 		input.cursorPosition = t.length;
 	}
 
-	color: Theme.inset(Theme.bgCard)
-	border.color: Theme.border
-	border.width: 1
-	radius: Theme.roundingElement
+	color: "transparent"
 	implicitHeight: 48
 
 	MouseArea {
@@ -46,18 +45,16 @@ Rectangle {
 
 	RowLayout {
 		anchors.fill: parent
-		anchors.leftMargin: 14
-		anchors.rightMargin: 14
-		spacing: Theme.paddingItem
+		anchors.leftMargin: 12
+		anchors.rightMargin: 4
+		spacing: 12
 
-		Text {
-			visible: bar.title !== ""
-			text: bar.title
-			font.family: Theme.fontMono
-			font.pointSize: Theme.fontSizeBar
-			font.bold: true
-			color: Theme.accentBlue
-			verticalAlignment: Text.AlignVCenter
+		LineIcon {
+			Layout.alignment: Qt.AlignVCenter
+			Layout.preferredWidth: 28
+			name: bar.icon
+			size: 20
+			color: Theme.textDim
 		}
 
 		TextInput {
@@ -65,7 +62,7 @@ Rectangle {
 			Layout.fillWidth: true
 			Layout.alignment: Qt.AlignVCenter
 			font.family: Theme.fontMono
-			font.pointSize: Theme.fontSizeSearch
+			font.pixelSize: Theme.fontSizeLarge
 			color: Theme.textMain
 			selectionColor: Theme.accentBlue
 			focus: true
@@ -137,28 +134,60 @@ Rectangle {
 			}
 		}
 
+		// What else the field takes, while it is empty; a click types the prefix.
 		RowLayout {
 			visible: bar.showScopeHints && input.text === ""
-			spacing: 12
+			spacing: 2
 			Layout.alignment: Qt.AlignVCenter
 
-			LineIcon {
-				name: "power"
-				size: 15
-				color: Theme.textMuted
-			}
+			Repeater {
+				model: [
+					{ prefix: "=", word: "calc", insert: "=" },
+					{ prefix: ">", word: "run", insert: ">" }
+				]
 
-			LineIcon {
-				name: "calculator"
-				size: 15
-				color: Theme.textMuted
-			}
+				delegate: Rectangle {
+					id: chip
+					required property var modelData
+					implicitWidth: chipRow.implicitWidth + 12
+					implicitHeight: 26
+					radius: Theme.roundingSubtle
+					color: chipArea.containsMouse ? Theme.bgHover : "transparent"
 
-			Text {
-				text: ">"
-				font.family: Theme.fontMono
-				font.pixelSize: 13
-				color: Theme.textMuted
+					Behavior on color { ColorAnimation { duration: 120 } }
+
+					Row {
+						id: chipRow
+						anchors.centerIn: parent
+						spacing: 5
+
+						Text {
+							text: chip.modelData.prefix
+							font.family: Theme.fontMono
+							font.pixelSize: Theme.fontSizeSmall
+							font.bold: true
+							color: chipArea.containsMouse ? Theme.accentBlue : Theme.textMain
+						}
+
+						Text {
+							text: chip.modelData.word
+							font.family: Theme.fontMono
+							font.pixelSize: Theme.fontSizeSmall
+							color: chipArea.containsMouse ? Theme.textMain : Theme.textDim
+						}
+					}
+
+					MouseArea {
+						id: chipArea
+						anchors.fill: parent
+						hoverEnabled: true
+						cursorShape: Qt.PointingHandCursor
+						onClicked: {
+							bar.complete(chip.modelData.insert);
+							bar.focusInput();
+						}
+					}
+				}
 			}
 		}
 	}

@@ -103,7 +103,7 @@ Item {
 			text: Qt.formatDateTime(clock.date, "HH:mm")
 			color: Theme.textMain
 			font.family: Theme.fontFamily
-			font.pointSize: 96
+			font.pixelSize: 128
 			font.bold: true
 		}
 
@@ -113,7 +113,7 @@ Item {
 			text: clock.date.toLocaleDateString(Qt.locale(), "dddd, dd MMMM yyyy")
 			color: Theme.textMain
 			font.family: Theme.fontFamily
-			font.pointSize: 18
+			font.pixelSize: 24
 		}
 
 		// Mirrors the bar's geometry and type so the shell seems to stay put while

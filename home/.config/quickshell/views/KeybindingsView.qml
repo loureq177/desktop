@@ -1,10 +1,13 @@
 import ".."
 import "../widgets"
 import Quickshell
-import Quickshell.Io
 import QtQuick
 import QtQuick.Layouts
 
+// Every key bind Hyprland reports, and what hyprctl cannot see: gestures, the
+// bar's mouse handling and the keys inside the shell's own panels. Opened from
+// a panel ("?"), it starts filtered to that panel's section and goes back to
+// the panel when it closes.
 OverlayWindow {
 	id: window
 
@@ -13,86 +16,116 @@ OverlayWindow {
 	backdropColor: Qt.rgba(0, 0, 0, 0.55)
 	card: sheetCard
 
-	onOpened: {
-		if (!loader.running)
-			loader.running = true;
-	}
-	onDismissRequested: Panels.close("keybindings")
-
-	property var entries: []
+	property string query: ""
+	property string returnTo: ""
+	property string returnMode: ""
 	property var columns: [[], [], []]
-	property bool loading: true
+
+	onOpened: mode => {
+		window.returnTo = mode ? Panels.previous : "";
+		window.returnMode = mode ? Panels.previousMode : "";
+		search.clear();
+		if (mode)
+			search.complete(mode);
+		search.focusInput();
+		flick.contentY = 0;
+		window.rebuildColumns();
+	}
+	onDismissRequested: {
+		if (window.returnTo !== "")
+			Panels.open(window.returnTo, window.returnMode);
+		else
+			Panels.close("keybindings");
+	}
 
 	readonly property var categoryOrder: [
-		"Gestures",
-		"Mouse",
 		"Essential",
 		"Window Management",
 		"Navigation & Workspaces",
 		"Special Workspaces",
 		"System & Tools",
 		"Capture & OCR",
-		"Clipboard & Selection",
-		"Notifications"
+		"Notifications",
+		"Keyboard",
+		"Mouse",
+		"Gestures",
+		"Bar",
+		"Panels",
+		"Launcher",
+		"Quick actions",
+		"Wi-Fi & Bluetooth",
+		"Weather"
 	]
 
-	readonly property var staticGestures: [
-		{
-			category: "Gestures",
-			chord: "3-Finger ↔",
-			action: "Switch workspace",
-			order: 1
-		},
-		{
-			category: "Gestures",
-			chord: "3-Finger ↑",
-			action: "Open special workspace",
-			order: 2
-		},
-		{
-			category: "Gestures",
-			chord: "3-Finger ↓",
-			action: "Hide special workspace",
-			order: 3
-		},
-		{
-			category: "Gestures",
-			chord: "3-Finger ↔ (Special)",
-			action: "Cycle special workspaces",
-			order: 4
-		}
-	]
+	// What the shell does on its own, out of hyprctl's sight. `order` keeps
+	// them in the sequence written here.
+	readonly property var staticEntries: [
+		{ category: "Gestures", chord: "3 FINGERS ↔", action: "Switch workspace" },
+		{ category: "Gestures", chord: "3 FINGERS ↑", action: "Open the last special workspace" },
+		{ category: "Gestures", chord: "3 FINGERS ↓", action: "Hide the special workspace" },
+		{ category: "Gestures", chord: "3 FINGERS ↔", action: "Cycle special workspaces (while one is open)" },
 
-	// The bar documents its own mouse handling here; hyprctl cannot see it.
-	readonly property var staticMouse: [
-		{
-			category: "Mouse",
-			chord: "Left-click bar icon",
-			action: "Open / hide special workspace",
-			order: 1
-		},
-		{
-			category: "Mouse",
-			chord: "Right-click bar icon",
-			action: "Close special workspace",
-			order: 2
-		}
-	]
+		{ category: "Keyboard", chord: "CAPS LOCK", action: "Esc when tapped, Ctrl when held" },
+
+		{ category: "Bar", chord: "CLICK ICON", action: "Open or hide a special workspace" },
+		{ category: "Bar", chord: "RIGHT-CLICK ICON", action: "Close it" },
+		{ category: "Bar", chord: "SCROLL DOTS", action: "Switch workspace" },
+		{ category: "Bar", chord: "SCROLL ICONS", action: "Cycle special workspaces" },
+		{ category: "Bar", chord: "CLICK MEMORY", action: "Activity Monitor" },
+		{ category: "Bar", chord: "CLICK CLOCK", action: "Calendar" },
+		{ category: "Bar", chord: "MIDDLE-CLICK WEATHER", action: "Refresh the forecast" },
+		{ category: "Bar", chord: "RIGHT-CLICK STATUS", action: "Energy use (jolt)" },
+		{ category: "Bar", chord: "CLICK EMPTY BAR", action: "Close the panel or special workspace" },
+
+		{ category: "Panels", chord: "ESC / Q", action: "Close (or go back a page)" },
+		{ category: "Panels", chord: "J / K  ↓ / ↑", action: "Move the selection" },
+		{ category: "Panels", chord: "?", action: "The keys of the open panel" },
+
+		{ category: "Launcher", chord: "2+2", action: "Calculate; Enter copies the result" },
+		{ category: "Launcher", chord: ">", action: "Every command; Enter runs it in a terminal" },
+		{ category: "Launcher", chord: "TAB", action: "Complete the command" },
+		{ category: "Launcher", chord: "CTRL + J / K", action: "Move the selection" },
+		{ category: "Launcher", chord: "ENTER, ENTER", action: "Log out, reboot or power off" },
+
+		{ category: "Quick actions", chord: "H / L", action: "Volume or brightness down / up" },
+		{ category: "Quick actions", chord: "ENTER", action: "Open the tile's page" },
+		{ category: "Quick actions", chord: "SPACE", action: "Switch the tile on or off" },
+		{ category: "Quick actions", chord: "W / B", action: "Wi-Fi / Bluetooth page" },
+		{ category: "Quick actions", chord: "SHIFT + W / B", action: "Turn Wi-Fi / Bluetooth on or off" },
+		{ category: "Quick actions", chord: "S / A / D", action: "Battery saver / Keep awake / Do not disturb" },
+		{ category: "Quick actions", chord: "C", action: "Capture: screenshot, recording, OCR, color" },
+		{ category: "Quick actions", chord: "P", action: "Power: lock, suspend, reboot, power off" },
+		{ category: "Quick actions", chord: "M", action: "Mute" },
+
+		{ category: "Wi-Fi & Bluetooth", chord: "ENTER", action: "Connect or disconnect" },
+		{ category: "Wi-Fi & Bluetooth", chord: "SPACE", action: "Turn the radio on or off" },
+		{ category: "Wi-Fi & Bluetooth", chord: "R", action: "Scan again" },
+		{ category: "Wi-Fi & Bluetooth", chord: "X, X", action: "Forget the network or device" },
+		{ category: "Wi-Fi & Bluetooth", chord: "H / BACKSPACE", action: "Back" },
+
+		{ category: "Notifications", chord: "ENTER", action: "Open the selected one (center)" },
+		{ category: "Notifications", chord: "X", action: "Dismiss the selected one (center)" },
+
+		{ category: "Weather", chord: "E / ENTER", action: "Change the location" }
+	].map((e, i) => Object.assign({ order: i }, e))
+
+	readonly property var swapEntry: ({ category: "Keyboard", chord: "LEFT ALT", action: "Works as SUPER (Alt and Super swapped)", order: -1 })
 
 	readonly property var categoryRules: [
 		{ cat: "Capture & OCR", match: ["screenshot", "dictation"] },
-		{ cat: "Essential", match: ["terminal", "browser", "keybindings"] },
+		{ cat: "Essential", match: ["terminal", "browser", "keybindings", "launcher"] },
 		{ cat: "Notifications", match: ["notification"] },
-		{ cat: "Clipboard & Selection", match: ["clipboard"] },
 		// hyprland.lua describes every special workspace toggle as "Show <app>".
 		{ cat: "Special Workspaces", match: ["show "] },
-		{ cat: "System & Tools", match: ["lock system", "emoji", "quick actions", "weather"] },
-		{ cat: "Window Management", match: ["close window", "fullscreen", "split", "floating", "swap window", "resize window"] },
+		{ cat: "System & Tools", match: ["lock system", "emoji", "quick actions", "weather", "clipboard", "wallpaper"] },
+		{ cat: "Window Management", match: ["close window", "fullscreen", "split", "swap window", "resize window"] },
 		{ cat: "Navigation & Workspaces", match: ["focus", "workspace"] }
 	]
 
-	function getCategory(desc) {
-		var d = (desc || "").toLowerCase();
+	function categoryOf(bind) {
+		if (bind.mouse)
+			return "Mouse";
+		var d = bind.action.toLowerCase();
 		for (var i = 0; i < categoryRules.length; i++) {
 			var rule = categoryRules[i];
 			for (var j = 0; j < rule.match.length; j++) {
@@ -100,171 +133,113 @@ OverlayWindow {
 					return rule.cat;
 			}
 		}
-		return "Essential";
+		return "System & Tools";
 	}
 
 	readonly property var rankPriorities: ({
 		"Essential": { "Terminal": 1, "Browser": 2, "Launcher": 3, "Keybindings": 4 },
 		"Capture & OCR": { "Screenshot (region)": 1, "Screenshot (full)": 2, "Dictation": 3 },
-		"Clipboard & Selection": { "Clipboard history": 1 },
-		"Notifications": { "Close latest notification": 1, "Toggle notification center": 2 }
+		"Notifications": { "Toggle notification center": 1, "Close latest notification": 2 }
 	})
 
 	function itemRank(item) {
-		var catIdx = categoryOrder.indexOf(item.category);
-		if (catIdx === -1) catIdx = 999;
+		if (item.order !== undefined)
+			return item.order;
 		var act = item.action || "";
-		var subRank = 50;
-
-		if (item.category === "Gestures" || item.category === "Mouse") {
-			subRank = item.order || 50;
-		} else if (rankPriorities[item.category] && rankPriorities[item.category][act]) {
-			subRank = rankPriorities[item.category][act];
-		} else if (item.category === "Window Management") {
-			if (act.indexOf("Close") === 0) subRank = 1;
-			else if (act.indexOf("Toggle fullscreen") === 0) subRank = 2;
-			else if (act.indexOf("Swap") === 0) subRank = 10;
-			else if (act.indexOf("Resize") === 0) subRank = 20;
+		if (rankPriorities[item.category] && rankPriorities[item.category][act])
+			return rankPriorities[item.category][act];
+		if (item.category === "Window Management") {
+			if (act.indexOf("Close") === 0) return 1;
+			if (act.indexOf("Toggle fullscreen") === 0) return 2;
+			if (act.indexOf("Swap") === 0) return 10;
+			if (act.indexOf("Resize") === 0) return 20;
 		} else if (item.category === "Navigation & Workspaces") {
-			if (act.indexOf("Focus") === 0) subRank = 1;
-			else if (act.indexOf("Switch to workspace") !== -1) subRank = 10;
-			else if (act.indexOf("Move window to workspace") !== -1) subRank = 20;
+			if (act.indexOf("Focus") === 0) return 1;
+			if (act.indexOf("Switch to workspace") !== -1) return 10;
+			if (act.indexOf("Move window to workspace") !== -1) return 20;
 		}
+		return 50;
+	}
 
-		return (catIdx * 1000) + subRank;
+	// The binds of Hyprland folded for the sheet: the nine workspace binds of
+	// each kind become one line.
+	readonly property var entries: {
+		var list = [];
+		var folded = {};
+		var binds = Keybinds.binds;
+		for (var i = 0; i < binds.length; i++) {
+			var b = binds[i];
+			var action = b.action;
+			var chord = b.chord;
+			var m = action.match(/^(Switch to workspace|Move window to workspace) \d$/);
+			if (m) {
+				if (folded[m[1]])
+					continue;
+				folded[m[1]] = true;
+				action = m[1] + " 1..9";
+				chord = chord.replace(/\d$/, "1..9");
+			}
+			list.push({ category: categoryOf(b), chord: chord, action: action });
+		}
+		list = list.concat(staticEntries);
+		if (Keybinds.altSwapped)
+			list.push(swapEntry);
+		list.sort((a, b) => {
+			var ca = categoryOrder.indexOf(a.category);
+			var cb = categoryOrder.indexOf(b.category);
+			if (ca !== cb)
+				return ca - cb;
+			var ra = itemRank(a);
+			var rb = itemRank(b);
+			if (ra !== rb)
+				return ra - rb;
+			return a.chord.localeCompare(b.chord);
+		});
+		return list;
+	}
+
+	onEntriesChanged: rebuildColumns()
+
+	function matches(e, q) {
+		return e.category.toLowerCase().indexOf(q) !== -1
+			|| e.action.toLowerCase().indexOf(q) !== -1
+			|| e.chord.toLowerCase().indexOf(q) !== -1;
 	}
 
 	function rebuildColumns() {
+		var q = query.trim().toLowerCase();
 		var map = {};
+		var order = [];
 		for (var i = 0; i < entries.length; i++) {
 			var e = entries[i];
-			var cat = e.category || "Essential";
-			if (!map[cat])
-				map[cat] = [];
-			map[cat].push(e);
-		}
-		var groups = [];
-		for (var g = 0; g < categoryOrder.length; g++) {
-			var c = categoryOrder[g];
-			if (map[c] && map[c].length > 0)
-				groups.push({ category: c, items: map[c] });
-		}
-		for (var k in map) {
-			if (categoryOrder.indexOf(k) === -1 && map[k].length > 0)
-				groups.push({ category: k, items: map[k] });
+			if (q !== "" && !matches(e, q))
+				continue;
+			if (!map[e.category]) {
+				map[e.category] = [];
+				order.push(e.category);
+			}
+			map[e.category].push(e);
 		}
 		var cols = [[], [], []];
 		var heights = [0, 0, 0];
-		for (var n = 0; n < groups.length; n++) {
+		for (var n = 0; n < order.length; n++) {
 			var shortest = 0;
 			if (heights[1] < heights[shortest]) shortest = 1;
 			if (heights[2] < heights[shortest]) shortest = 2;
-			cols[shortest].push(groups[n]);
-			heights[shortest] += groups[n].items.length + 1;
+			cols[shortest].push({ category: order[n], items: map[order[n]] });
+			heights[shortest] += map[order[n]].length + 2;
 		}
 		columns = cols;
 	}
 
+	readonly property int shownCount: columns.reduce((sum, col) => sum + col.reduce((s, g) => s + g.items.length, 0), 0)
+
 	function statusText() {
-		if (loading) return "Loading keybindings...";
-		var gestureCount = 0;
-		var mouseCount = 0;
-		for (var i = 0; i < entries.length; i++) {
-			if (entries[i].category === "Gestures") gestureCount++;
-			else if (entries[i].category === "Mouse") mouseCount++;
-		}
-		return entries.length + " items (" + (entries.length - gestureCount - mouseCount) + " keys, " + gestureCount + " gestures, " + mouseCount + " mouse)";
-	}
-
-	Process {
-		id: loader
-		command: ["hyprctl", "-j", "binds"]
-		running: true
-		stdout: StdioCollector {
-			onStreamFinished: {
-				try {
-					var binds = JSON.parse(this.text);
-					var seen = {};
-					var list = [];
-
-					for (var g = 0; g < window.staticGestures.length; g++)
-						list.push(window.staticGestures[g]);
-
-					for (var m = 0; m < window.staticMouse.length; m++)
-						list.push(window.staticMouse[m]);
-
-					var keyMap = {
-						"comma": ",", "period": ".", "slash": "/", "space": "SPACE",
-						"return": "RETURN", "escape": "ESC", "print": "PRINT",
-						"[1..9]": "[1..9]", "fn + f10": "Fn + F10"
-					};
-
-					var workspaceSwitchSeen = false;
-					var workspaceMoveSeen = false;
-
-					for (var i = 0; i < binds.length; i++) {
-						var b = binds[i];
-						var desc = (b.description || "").trim();
-						if (!desc) continue;
-
-						var mask = b.modmask || 0;
-						var rawKey = (b.key || "").trim();
-						var rawLower = rawKey.toLowerCase();
-
-						if (rawLower.indexOf("xf86") !== -1 || rawLower.indexOf("switch:") !== -1) {
-							continue;
-						}
-
-						if (desc.indexOf("Switch to workspace ") === 0) {
-							if (workspaceSwitchSeen) continue;
-							workspaceSwitchSeen = true;
-							desc = "Switch to workspace 1..9";
-							rawKey = "[1..9]";
-						} else if (desc.indexOf("Move window to workspace ") === 0) {
-							if (workspaceMoveSeen) continue;
-							workspaceMoveSeen = true;
-							desc = "Move window to workspace 1..9";
-							rawKey = "[1..9]";
-						}
-
-						var mods = [];
-						if (mask & 64) mods.push("SUPER");
-						if (mask & 4) mods.push("CTRL");
-						if (mask & 8) mods.push("ALT");
-						if (mask & 1) mods.push("SHIFT");
-
-						var keyLabel = keyMap[rawKey.toLowerCase()] || keyMap[rawKey] || rawKey.toUpperCase();
-						var chord = mods.concat([keyLabel]).join(" + ");
-						var keyId = chord + ":" + desc;
-
-						if (!seen[keyId]) {
-							seen[keyId] = true;
-							var cat = window.getCategory(desc);
-							list.push({
-								category: cat,
-								chord: chord,
-								action: desc
-							});
-						}
-					}
-
-					list.sort(function(a, b) {
-						var rankA = window.itemRank(a);
-						var rankB = window.itemRank(b);
-						if (rankA !== rankB) return rankA - rankB;
-						var cComp = (a.chord || "").localeCompare(b.chord || "");
-						if (cComp !== 0) return cComp;
-						return (a.action || "").localeCompare(b.action || "");
-					});
-
-					window.entries = list;
-				} catch (e) {
-					window.entries = [].concat(window.staticGestures, window.staticMouse);
-				}
-				window.loading = false;
-				window.rebuildColumns();
-			}
-		}
+		if (!Keybinds.loaded)
+			return "Loading keybindings...";
+		if (query.trim() !== "")
+			return shownCount + " of " + entries.length;
+		return entries.length + " entries";
 	}
 
 	Rectangle {
@@ -292,28 +267,34 @@ OverlayWindow {
 				Layout.fillWidth: true
 				spacing: 16
 
-				Text {
-					text: "Keybindings"
-					font.family: Theme.fontFamily
-					font.pixelSize: Theme.fontSize + 2
-					font.bold: true
-					color: Theme.textMain
+				SearchBar {
+					id: search
+					Layout.preferredWidth: 420
+					Layout.preferredHeight: 44
+					icon: "keyboard"
+					placeholder: "Search keys..."
+					onTextChanged: {
+						window.query = text;
+						window.rebuildColumns();
+					}
+					onStepped: delta => flick.contentY = Math.max(0, Math.min(flick.contentHeight - flick.height, flick.contentY + delta * 80))
+					onCancelled: window.dismissRequested()
 				}
 
 				Text {
 					Layout.fillWidth: true
 					text: window.statusText()
 					font.family: Theme.fontMono
-					font.pointSize: Theme.fontSizeSmall
+					font.pixelSize: Theme.fontSizeSmall + 1
 					color: Theme.textDim
 					elide: Text.ElideRight
 				}
 
 				Text {
-					text: "esc closes"
+					text: "? in a panel shows its keys"
 					font.family: Theme.fontMono
-					font.pointSize: Theme.fontSizeSmall
-					color: Theme.textMuted
+					font.pixelSize: Theme.fontSizeSmall + 1
+					color: Theme.textDim
 				}
 			}
 
@@ -324,6 +305,7 @@ OverlayWindow {
 			}
 
 			Flickable {
+				id: flick
 				Layout.fillWidth: true
 				Layout.fillHeight: true
 				clip: true
@@ -346,6 +328,7 @@ OverlayWindow {
 						delegate: ColumnLayout {
 							required property var modelData
 							Layout.fillWidth: true
+							Layout.preferredWidth: 1
 							Layout.alignment: Qt.AlignTop
 							spacing: 20
 
@@ -353,7 +336,10 @@ OverlayWindow {
 								model: modelData
 
 								delegate: ColumnLayout {
+									id: group
 									required property var modelData
+									// The shell's own handling, set apart from Hyprland's binds.
+									readonly property bool shellSide: window.categoryOrder.indexOf(modelData.category) >= window.categoryOrder.indexOf("Keyboard")
 									Layout.fillWidth: true
 									spacing: 6
 
@@ -362,11 +348,11 @@ OverlayWindow {
 										spacing: 12
 
 										Text {
-											text: modelData.category.toUpperCase()
+											text: group.modelData.category.toUpperCase()
 											font.family: Theme.fontMono
-											font.pointSize: 11.5
+											font.pixelSize: Theme.fontSizeSmall + 1
 											font.bold: true
-											color: modelData.category === "Gestures" || modelData.category === "Mouse" ? Theme.accentGreen : Theme.accentPurple
+											color: group.shellSide ? Theme.accentGreen : Theme.accentPurple
 										}
 
 										Rectangle {
@@ -378,7 +364,7 @@ OverlayWindow {
 									}
 
 									Repeater {
-										model: modelData.items
+										model: group.modelData.items
 
 										delegate: RowLayout {
 											required property var modelData
@@ -386,12 +372,12 @@ OverlayWindow {
 											spacing: 12
 
 											Text {
-												Layout.preferredWidth: 200
+												Layout.preferredWidth: 240
 												Layout.alignment: Qt.AlignTop
 												font.family: Theme.fontMono
-												font.pointSize: 12
+												font.pixelSize: Theme.fontSizeSmall + 2
 												font.bold: true
-												color: modelData.category === "Gestures" || modelData.category === "Mouse" ? Theme.accentGreen : Theme.accentBlue
+												color: group.shellSide ? Theme.accentGreen : Theme.accentBlue
 												elide: Text.ElideRight
 												text: modelData.chord || ""
 											}
@@ -400,7 +386,7 @@ OverlayWindow {
 												Layout.fillWidth: true
 												Layout.alignment: Qt.AlignTop
 												font.family: Theme.fontMono
-												font.pointSize: 12
+												font.pixelSize: Theme.fontSizeSmall + 2
 												color: Theme.textMain
 												wrapMode: Text.WrapAtWordBoundaryOrAnywhere
 												maximumLineCount: 2
@@ -417,12 +403,12 @@ OverlayWindow {
 			}
 
 			Text {
-				visible: !window.loading && window.entries.length === 0
+				visible: Keybinds.loaded && window.shownCount === 0
 				Layout.alignment: Qt.AlignCenter
 				font.family: Theme.fontMono
-				font.pointSize: 14
+				font.pixelSize: Theme.fontSize + 2
 				color: Theme.textDim
-				text: "No keybindings found (is Hyprland running?)"
+				text: Keybinds.binds.length === 0 ? "No keybindings found (is Hyprland running?)" : "Nothing matches"
 			}
 		}
 	}
