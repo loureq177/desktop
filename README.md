@@ -23,7 +23,7 @@ Everything in the package lists is in `core`, `extra` or the AUR; nothing needs 
 
 ### After the first run
 
-- `~/.config/hypr/local.lua` holds what belongs to one machine: GPU order, monitor layout, startup commands. Start from `local.lua.example`.
+- `~/.config/hypr/local.lua` holds what belongs to one machine: keyboard layout (`us` without it), GPU order, monitor layout, startup commands. Start from `local.lua.example`.
 - Firefox gets its defaults (`firefox-defaults/user.js`) at the first login after it has run once.
 - The lock screen accepts a fingerprint if one is enrolled (`fprintd-enroll`).
 
@@ -57,18 +57,23 @@ Ghostty, Neovim, bat, delta and opencode use their upstream GitHub Dark themes a
 
 ### Key binds
 
-`SUPER + /` shows every key bind. The ones to know first:
+`SUPER + /` shows every key bind, and `?` inside a panel shows the keys of that panel. The launcher finds every action of the desktop as well as the apps, with the keys that do the same. The ones to know first:
 
 | Keys | Action |
 | --- | --- |
 | `SUPER + Return` | Terminal |
-| `SUPER + Space` | Launcher (apps, `>` commands, calculator, power menu) |
-| `SUPER + A` | Quick settings (Wi-Fi, Bluetooth, capture, power-save) |
+| `SUPER + Space` | Launcher: apps and actions, `2+2` calculates, `>` lists commands to run |
+| `SUPER + A` | Quick actions (Wi-Fi, Bluetooth, capture, battery saver, power) |
 | `SUPER + N` | Notification center |
-| `SUPER + C` / `SUPER + E` | Clipboard history / emoji |
+| `SUPER + V` / `SUPER + E` | Clipboard history / emoji |
+| `SUPER + Tab` | Back to the previous window |
 | `SUPER + D` | Dictation: press, speak, press again |
 | `Print` | Screenshot of a region |
 | `SUPER + Escape` | Lock |
+
+Caps Lock is Esc when tapped and Ctrl when held (keyd). With `keyboard.options = "altwin:swap_lalt_lwin"` in `local.lua`, SUPER is the left Alt key.
+
+Everything also works with the mouse: the grid icon at the left of the bar opens the launcher, the quick actions header has the power page and the keybindings sheet, and the bar's tooltips say what a right or middle click does.
 
 ### Good to know
 
