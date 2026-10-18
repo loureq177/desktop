@@ -19,9 +19,6 @@ ShellRoot {
 	LauncherView {
 	}
 
-	KeybindingsView {
-	}
-
 	NotificationToasts {
 	}
 

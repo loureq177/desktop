@@ -12,13 +12,17 @@ Rectangle {
 	property alias text: input.text
 	property bool completeOnTab: false
 	property bool leftRightNavigate: false
-	property bool showScopeHints: false
+	// { name, prefix } of the other lists, to switch to.
+	property var scopes: []
 
 	signal accepted()
 	signal cancelled()
 	signal stepped(int delta)
 	signal steppedColumn(int delta)
 	signal completed()
+	// Backspace in an empty field.
+	signal erased()
+	signal scopeChosen(string name)
 
 	function focusInput() {
 		input.focus = true;
@@ -110,6 +114,9 @@ Rectangle {
 					if (!event.isAutoRepeat)
 						bar.accepted();
 					event.accepted = true;
+				} else if (event.key === Qt.Key_Backspace && input.text === "") {
+					bar.erased();
+					event.accepted = true;
 				} else if (event.key === Qt.Key_Escape) {
 					if (!event.isAutoRepeat)
 						bar.cancelled();
@@ -134,25 +141,24 @@ Rectangle {
 			}
 		}
 
-		// What else the field takes, while it is empty; a click types the prefix.
-		RowLayout {
-			visible: bar.showScopeHints && input.text === ""
+		// The other lists, while the field is empty; a click goes there, and so
+		// does typing the prefix.
+		Row {
+			visible: bar.scopes.length > 0 && input.text === ""
 			spacing: 2
 			Layout.alignment: Qt.AlignVCenter
 
 			Repeater {
-				model: [
-					{ prefix: "=", word: "calc", insert: "=" },
-					{ prefix: ">", word: "run", insert: ">" }
-				]
+				model: bar.scopes
 
 				delegate: Rectangle {
 					id: chip
 					required property var modelData
+					readonly property bool lit: chipArea.containsMouse
 					implicitWidth: chipRow.implicitWidth + 12
 					implicitHeight: 26
 					radius: Theme.roundingSubtle
-					color: chipArea.containsMouse ? Theme.bgHover : "transparent"
+					color: chip.lit ? Theme.bgHover : "transparent"
 
 					Behavior on color { ColorAnimation { duration: 120 } }
 
@@ -162,18 +168,19 @@ Rectangle {
 						spacing: 5
 
 						Text {
+							visible: chip.modelData.prefix !== ""
 							text: chip.modelData.prefix
 							font.family: Theme.fontMono
 							font.pixelSize: Theme.fontSizeSmall
 							font.bold: true
-							color: chipArea.containsMouse ? Theme.accentBlue : Theme.textMain
+							color: chip.lit ? Theme.accentBlue : Theme.textMain
 						}
 
 						Text {
-							text: chip.modelData.word
+							text: chip.modelData.name
 							font.family: Theme.fontMono
 							font.pixelSize: Theme.fontSizeSmall
-							color: chipArea.containsMouse ? Theme.textMain : Theme.textDim
+							color: chip.lit ? Theme.textMain : Theme.textDim
 						}
 					}
 
@@ -183,7 +190,7 @@ Rectangle {
 						hoverEnabled: true
 						cursorShape: Qt.PointingHandCursor
 						onClicked: {
-							bar.complete(chip.modelData.insert);
+							bar.scopeChosen(chip.modelData.name);
 							bar.focusInput();
 						}
 					}

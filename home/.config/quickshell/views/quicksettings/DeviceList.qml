@@ -287,6 +287,10 @@ Item {
 
 				ScrollBar.vertical: ThinScrollBar {}
 
+				WheelScroll {
+					flickable: listView
+				}
+
 				delegate: Rectangle {
 					id: row
 
@@ -299,8 +303,8 @@ Item {
 					width: listView.width - (listView.ScrollBar.vertical.visible ? 10 : 0)
 					height: 50
 					radius: Theme.roundingElement
-					color: rowArea.containsMouse ? Theme.bgHover : (connected ? Theme.alpha(Theme.accent, 0.08) : Theme.inset(Theme.bgMain))
-					border.color: connected ? Theme.selectionBorder : (rowArea.containsMouse ? Theme.tileBorderHover : Theme.tileBorder)
+					color: connected ? Theme.alpha(Theme.accent, 0.08) : Theme.inset(Theme.bgMain)
+					border.color: connected ? Theme.selectionBorder : Theme.tileBorder
 					border.width: 1
 
 					Behavior on color { ColorAnimation { duration: 100 } }
@@ -311,10 +315,13 @@ Item {
 						color: row.connected ? Theme.alpha(Theme.accent, 0.20) : Theme.selectionBg
 					}
 
+					HoverSelect {
+						enabled: !listView.moving
+						onSelected: root.currentKey = row.modelData.key
+					}
+
 					MouseArea {
-						id: rowArea
 						anchors.fill: parent
-						hoverEnabled: true
 						cursorShape: Qt.PointingHandCursor
 						onClicked: {
 							root.currentKey = row.modelData.key;

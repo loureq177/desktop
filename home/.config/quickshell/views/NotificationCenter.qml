@@ -8,7 +8,6 @@ SideDrawer {
 	id: win
 
 	panel: "notifications"
-	helpTopic: "Notifications"
 	cardHeight: Math.min(680, win.height - Theme.notifTopMargin - 20)
 	property int currentIndex: 0
 
@@ -151,11 +150,20 @@ SideDrawer {
 
 			ScrollBar.vertical: ThinScrollBar {}
 
+			WheelScroll {
+				flickable: centerList
+			}
+
 			delegate: NotificationCard {
 				required property int index
 
 				width: ListView.view.width - (centerList.ScrollBar.vertical.visible ? 10 : 0)
 				isSelected: index === win.currentIndex
+
+				HoverSelect {
+					enabled: !centerList.moving
+					onSelected: win.currentIndex = index
+				}
 				onActivated: {
 					win.currentIndex = index;
 					Notifications.activate(nid);

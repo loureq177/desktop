@@ -13,6 +13,8 @@ Rectangle {
 	property bool muted: false
 	property real value: 0
 	property bool iconInteractive: false
+	// The key that does what a click on the icon does.
+	property string hotkey: ""
 	signal selectRequested()
 	signal iconClicked()
 	signal scrubbed(real v)
@@ -31,6 +33,10 @@ Rectangle {
 
 	SelectionHighlight {
 		selected: row.current
+	}
+
+	HoverSelect {
+		onSelected: row.selectRequested()
 	}
 
 	MouseArea {
@@ -61,6 +67,15 @@ Rectangle {
 				name: row.icon
 				size: 22
 				color: row.muted ? Theme.textDim : Theme.accentBlue
+			}
+
+			HotkeyHint {
+				anchors.right: parent.right
+				anchors.bottom: parent.bottom
+				anchors.rightMargin: 3
+				anchors.bottomMargin: 1
+				key: row.hotkey
+				lit: row.current
 			}
 
 			MouseArea {

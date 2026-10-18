@@ -590,13 +590,6 @@ hl.layer_rule({
 	-- above the backdrop dim, so only the panels themselves get frosted
 	ignore_alpha = 0.5,
 })
-hl.layer_rule({
-	name = "blur-keybindings-cheatsheet",
-	match = { namespace = "^quickshell-keybindings$" },
-	blur = true,
-	no_anim = true,
-	ignore_alpha = 0.2,
-})
 hl.window_rule({
 	name = "suppress-maximize-events",
 	match = { class = ".*" },
@@ -793,14 +786,14 @@ local cmds = {
 	["SUPER + B"] = { programs.browser, "Browser" },
 
 	["SUPER + space"] = { programs.launcher, "Launcher" },
-	["SUPER + A"] = { "qs ipc call shell toggle quicksettings ''", "Quick actions" },
+	["SUPER + A"] = { "qs ipc call shell toggle quicksettings ''", "Quick settings" },
 	["SUPER + N"] = { "qs ipc call shell toggle notifications ''", "Toggle notification center" },
 	["SUPER + comma"] = { "qs ipc call notifications dismissLatest", "Close latest notification" },
 	["SUPER + W"] = { "qs ipc call shell toggle weather ''", "Weather" },
 	["SUPER + E"] = { "qs ipc call shell toggle launcher emoji", "Emoji picker" },
 	["SUPER + V"] = { "qs ipc call shell toggle clipboard ''", "Clipboard history" },
 	["SUPER + escape"] = { "qs ipc call session lock", "Lock system" },
-	["SUPER + slash"] = { "qs ipc call shell toggle keybindings ''", "Keybindings" },
+	["SUPER + slash"] = { "qs ipc call shell toggle launcher actions", "Actions and keys" },
 
 	["SUPER + D"] = { "~/.local/bin/dictation", "Dictation" },
 	["SUPER + P"] = { "~/.local/bin/wallpaper next", "Next wallpaper" },
@@ -814,7 +807,7 @@ end
 
 for name, app in pairs(programs.special) do
 	if app.key then
-		-- "Show ...": the keybindings sheet files these under special workspaces.
+		-- "Show ...": the launcher's actions file these under special workspaces.
 		b("SUPER + SHIFT + " .. app.key, "Show " .. app.desc, hl.dsp.workspace.toggle_special(name))
 	end
 end

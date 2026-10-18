@@ -11,7 +11,6 @@ SideDrawer {
 	id: win
 
 	panel: "quicksettings"
-	helpTopic: subView === "wifi" || subView === "bluetooth" ? "Wi-Fi & Bluetooth" : "Quick actions"
 	// "main", the page of one tile ("wifi", "bluetooth", "capture"), or "power".
 	property string subView: "main"
 	dismissOnEsc: subView === "main"
@@ -186,12 +185,10 @@ SideDrawer {
 			return mx >= 0 && mx < badgeRight;
 		}
 
+		// The badge of a tile with a page switches it, the rest opens the page.
 		property bool badgeHovered: (stile.hasDetails && stile.hasToggleBadge)
 			? (tileArea.containsMouse && stile.isOverBadge(tileArea.mouseX, tileArea.mouseY))
 			: false
-		property bool bodyHovered: (stile.hasDetails && stile.hasToggleBadge)
-			? (tileArea.containsMouse && !stile.isOverBadge(tileArea.mouseX, tileArea.mouseY))
-			: tileArea.containsMouse
 
 		signal iconClicked()
 		signal bodyClicked()
@@ -200,13 +197,8 @@ SideDrawer {
 		Layout.preferredHeight: 76
 		radius: Theme.roundingElement
 
-		color: (stile.active
-			? Theme.alpha(stile.activeColor, stile.bodyHovered ? 0.26 : 0.18)
-			: (stile.bodyHovered ? Theme.bgHover : Theme.inset(Theme.bgMain)))
-
-		border.color: stile.active
-			? Theme.alpha(stile.activeColor, stile.bodyHovered ? 0.5 : 0.3)
-			: (stile.bodyHovered ? Theme.tileBorderHover : Theme.tileBorder)
+		color: stile.active ? Theme.alpha(stile.activeColor, 0.18) : Theme.inset(Theme.bgMain)
+		border.color: stile.active ? Theme.alpha(stile.activeColor, 0.3) : Theme.tileBorder
 		border.width: 1
 
 		Behavior on color { ColorAnimation { duration: 120 } }
@@ -215,6 +207,10 @@ SideDrawer {
 		SelectionHighlight {
 			selected: stile.isSelected
 			color: stile.active ? Theme.alpha(stile.activeColor, 0.3) : Theme.selectionBg
+		}
+
+		HoverSelect {
+			onSelected: win.select(stile.itemRow, stile.itemCol)
 		}
 
 		MouseArea {
@@ -265,7 +261,7 @@ SideDrawer {
 					size: 22
 					color: (stile.hasDetails && stile.hasToggleBadge)
 						? (stile.active ? Theme.bgMain : (stile.badgeHovered ? Theme.textMain : Theme.textDim))
-						: (stile.active ? stile.activeColor : (stile.bodyHovered ? Theme.textMain : Theme.textDim))
+						: (stile.active ? stile.activeColor : (stile.isSelected ? Theme.textMain : Theme.textDim))
 				}
 			}
 
@@ -306,18 +302,13 @@ SideDrawer {
 			}
 		}
 
-		Text {
-			visible: stile.hotkey !== ""
+		HotkeyHint {
 			anchors.right: parent.right
 			anchors.bottom: parent.bottom
 			anchors.rightMargin: 10
 			anchors.bottomMargin: 6
-			text: stile.hotkey
-			font.family: Theme.fontMono
-			font.pixelSize: 10
-			font.bold: true
-			color: stile.isSelected ? Theme.accentBlue : Theme.textDim
-			opacity: stile.isSelected ? 0.9 : 0.6
+			key: stile.hotkey
+			lit: stile.isSelected
 			z: 2
 		}
 	}
@@ -434,7 +425,7 @@ SideDrawer {
 
 			Text {
 				Layout.fillWidth: true
-				text: "Quick actions"
+				text: "Quick settings"
 				font.family: Theme.fontFamily
 				font.pixelSize: Theme.fontSize + 1
 				font.bold: true
@@ -442,12 +433,8 @@ SideDrawer {
 			}
 
 			IconButton {
-				icon: "keyboard"
-				onClicked: win.showHelp()
-			}
-
-			IconButton {
 				icon: "power"
+				hotkey: "P"
 				onClicked: win.subView = "power"
 			}
 
@@ -460,6 +447,7 @@ SideDrawer {
 			id: volRow
 			current: win.isCurrent(win.rowVolume)
 			icon: win.volIcon
+			hotkey: "M"
 			label: win.volReady ? (win.volMuted ? "Muted" : win.volPct + "%") : "…"
 			ready: win.volReady
 			muted: win.volMuted

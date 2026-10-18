@@ -87,6 +87,7 @@ Item {
 		}
 
 		ListView {
+			id: actionList
 			Layout.fillWidth: true
 			Layout.fillHeight: true
 			clip: true
@@ -94,6 +95,12 @@ Item {
 			model: root.actions
 			currentIndex: root.currentIndex
 			boundsBehavior: Flickable.DragAndOvershootBounds
+			flickDeceleration: Theme.flickDecel
+			maximumFlickVelocity: Theme.maxFlickVel
+
+			WheelScroll {
+				flickable: actionList
+			}
 
 			delegate: Rectangle {
 				id: actionRow
@@ -105,13 +112,10 @@ Item {
 				width: ListView.view.width
 				implicitHeight: actionCol.implicitHeight + 20
 				radius: Theme.roundingElement
-				color: modelData.alert
-					? Theme.alpha(Theme.critical, 0.18)
-					: (rowHover.containsMouse ? Theme.bgHover : Theme.inset(Theme.bgMain))
-				border.color: modelData.alert
-					? Theme.critical
+				color: modelData.alert ? Theme.alpha(Theme.critical, 0.18) : Theme.inset(Theme.bgMain)
+				border.color: modelData.alert ? Theme.critical
 					: actionRow.pending ? Theme.warning
-					: (rowHover.containsMouse ? Theme.tileBorderHover : Theme.tileBorder)
+					: Theme.tileBorder
 				border.width: 1
 
 				Behavior on color { ColorAnimation { duration: 120 } }
@@ -121,10 +125,13 @@ Item {
 					selected: actionRow.isSelected
 				}
 
+				HoverSelect {
+					enabled: !actionList.moving
+					onSelected: root.currentIndex = actionRow.index
+				}
+
 				MouseArea {
-					id: rowHover
 					anchors.fill: parent
-					hoverEnabled: true
 					cursorShape: Qt.PointingHandCursor
 					z: 1
 					onClicked: mouse => {

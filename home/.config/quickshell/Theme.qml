@@ -45,6 +45,9 @@ Singleton {
 	// The launcher, clipboard and other centred windows.
 	readonly property int windowWidth: 960
 	readonly property int windowHeight: 600
+	// A row of their lists, and the icon at its start.
+	readonly property int rowHeight: 56
+	readonly property int rowIcon: 32
 
 	readonly property string fontFamily: ui.font.family
 	readonly property string fontMono: ui.font.mono
@@ -99,6 +102,8 @@ Singleton {
 	readonly property int animSmooth: 280
 	readonly property int flickDecel: 1500
 	readonly property int maxFlickVel: 6000
+	// Pixels a wheel turn of 120 (one notch, before input:scroll_factor) scrolls.
+	readonly property int wheelStep: 160
 
 	// Cubic bezier control points matching Hyprland:
 	// easeOutQuint = { { 0.23, 1 }, { 0.32, 1 } }

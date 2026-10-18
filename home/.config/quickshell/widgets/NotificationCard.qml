@@ -33,11 +33,13 @@ Rectangle {
 	signal replyFocused(bool focused)
 
 	implicitHeight: Math.max(bodyCol.implicitHeight, notifPic.size) + Theme.notifPadV * 2
-	color: hoverArea.containsMouse ? Theme.bgHover : (isToast ? Theme.panel(Theme.bgCard) : Theme.inset(Theme.bgMain))
+	// A toast lights up under the pointer; in the center the pointer moves the
+	// selection instead (HoverSelect there).
+	color: isToast ? (hoverArea.containsMouse ? Theme.bgHover : Theme.panel(Theme.bgCard)) : Theme.inset(Theme.bgMain)
 	border.color: critical ? Theme.critical
 		: isToast ? Theme.border
 		: isSelected ? Theme.selectionBorder
-		: (hoverArea.containsMouse ? Theme.tileBorderHover : Theme.tileBorder)
+		: Theme.tileBorder
 	border.width: isToast ? Theme.borderSize : 1
 	radius: Theme.roundingElement
 	clip: true

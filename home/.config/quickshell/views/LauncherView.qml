@@ -11,21 +11,27 @@ CenterModal {
 	id: window
 
 	panel: "launcher"
-	searchIcon: window.mode === "emoji" ? "smile" : "search"
-	searchPlaceholder: window.mode === "emoji" ? "Search emoji..." : "Search apps and actions..."
+	searchIcon: window.mode === "emoji" ? "smile" : window.mode === "actions" ? "keyboard" : "search"
+	searchPlaceholder: window.mode === "emoji" ? "Search emoji..." : window.mode === "actions" ? "Search actions and keys..." : "Search apps and actions..."
 	searchCompleteOnTab: window.isCommandQuery()
 	searchLeftRightNavigate: window.mode === "emoji"
-	searchScopeHints: window.mode === "apps"
+	scope: window.mode
 	statusText: window.statusText()
 	errorText: window.lastError
 	showFooter: window.mode === "emoji" || window.lastError !== ""
 
-	readonly property int rowHeight: 48
+	readonly property int rowHeight: Theme.rowHeight
 	contentHeight: window.filtered.length === 0 ? 72
 		: window.mode === "emoji" ? Math.ceil(window.filtered.length / window.gridColumns()) * 76
 		: window.filtered.length * window.rowHeight
 
 	onSearchQueryChanged: {
+		// Typed into an empty field, the prefix of another list goes there.
+		var other = searchQuery === "" ? null : window.scopes.find(s => s.prefix === searchQuery);
+		if (window.mode === "apps" && other) {
+			window.openScope(other.name);
+			return;
+		}
 		window.query = searchQuery;
 		window.refilter();
 	}
@@ -39,6 +45,7 @@ CenterModal {
 		}
 	}
 
+	// "apps" (with the actions, calc and commands), "emoji" or "actions".
 	property string mode: "apps"
 	property string query: ""
 	property var filtered: []
@@ -68,33 +75,39 @@ CenterModal {
 
 	// Everything the desktop does besides starting apps. `bind` is the
 	// description of the key bind that does the same (its chord shows on the
-	// tile); `run` returns whether the launcher closes afterwards.
+	// row, and the actions list files it in that bind's place); without one,
+	// `category` is the section of Keybinds it goes in. `run` returns whether
+	// the launcher closes afterwards.
 	readonly property var toolActions: [
 		{ label: "Clipboard history", desc: "Paste something copied before", icon: "edit-paste", bind: "Clipboard history", keywords: "clipboard paste copy schowek historia wklej", run: () => window.openPanel("clipboard") },
 		{ label: "Emoji", desc: "Insert an emoji", icon: "accessories-character-map", bind: "Emoji picker", keywords: "emoji emotki smiley picker", run: () => window.openPanel("launcher", "emoji") },
-		{ label: "Keybindings", desc: "Every key bind and gesture", icon: "preferences-desktop-keyboard-shortcuts", bind: "Keybindings", keywords: "keybindings shortcuts keys help cheatsheet skróty klawisze pomoc", run: () => window.openPanel("keybindings") },
-		{ label: "Quick actions", desc: "Volume, brightness, Wi-Fi, Bluetooth", icon: "preferences-system", bind: "Quick actions", keywords: "quick actions settings volume brightness ustawienia głośność jasność dźwięk", run: () => window.openPanel("quicksettings") },
-		{ label: "Wi-Fi", desc: "Networks", icon: "network-wireless", keywords: "wifi wi-fi network wireless internet sieć", run: () => window.openPanel("quicksettings", "wifi") },
-		{ label: "Bluetooth", desc: "Devices", icon: "bluetooth", keywords: "bluetooth headphones devices słuchawki urządzenia", run: () => window.openPanel("quicksettings", "bluetooth") },
+		{ label: "Actions and keys", desc: "Everything the desktop does, with its keys", icon: "preferences-desktop-keyboard-shortcuts", bind: "Actions and keys", keywords: "actions keybindings shortcuts keys help cheatsheet akcje skróty klawisze pomoc", run: () => window.openPanel("launcher", "actions") },
+		{ label: "Quick settings", desc: "Volume, brightness, Wi-Fi, Bluetooth", icon: "preferences-system", bind: "Quick settings", keywords: "quick settings actions volume brightness ustawienia głośność jasność dźwięk", run: () => window.openPanel("quicksettings") },
+		{ label: "Wi-Fi", desc: "Networks", icon: "network-wireless", category: "System & Tools", keywords: "wifi wi-fi network wireless internet sieć", run: () => window.openPanel("quicksettings", "wifi") },
+		{ label: "Bluetooth", desc: "Devices", icon: "bluetooth", category: "System & Tools", keywords: "bluetooth headphones devices słuchawki urządzenia", run: () => window.openPanel("quicksettings", "bluetooth") },
 		{ label: "Notifications", desc: "Notification history", icon: "preferences-desktop-notification", bind: "Toggle notification center", keywords: "notifications history powiadomienia", run: () => window.openPanel("notifications") },
-		{ label: Notifications.dnd ? "Turn off Do not disturb" : "Do not disturb", desc: "Silence notifications", icon: "notification-disabled", keywords: "dnd do not disturb quiet silence nie przeszkadzać cisza", run: () => {
+		{ label: Notifications.dnd ? "Turn off Do not disturb" : "Do not disturb", desc: "Silence notifications", icon: "notification-disabled", category: "Notifications", keywords: "dnd do not disturb quiet silence nie przeszkadzać cisza", run: () => {
 				Notifications.dnd = !Notifications.dnd;
 				return true;
 			} },
 		{ label: "Weather", desc: "Forecast", icon: "indicator-weather", bind: "Weather", keywords: "weather forecast pogoda prognoza", run: () => window.openPanel("weather") },
-		{ label: SystemStatus.powerSaveActive ? "Turn off Battery saver" : "Battery saver", desc: "60 Hz, dimmer, fewer effects", icon: "battery", keywords: "battery saver power save 60hz oszczędzanie bateria", run: () => window.script("power-save") },
-		{ label: SystemStatus.awakeActive ? "Turn off Keep awake" : "Keep awake", desc: "The screen stays on", icon: "caffeine", keywords: "keep awake caffeine inhibit idle sleep nie usypiaj", run: () => window.script("awake-toggle") },
+		{ label: SystemStatus.powerSaveActive ? "Turn off Battery saver" : "Battery saver", desc: "60 Hz, dimmer, fewer effects", icon: "battery", category: "System & Tools", keywords: "battery saver power save 60hz oszczędzanie bateria", run: () => window.script("power-save") },
+		{ label: SystemStatus.awakeActive ? "Turn off Keep awake" : "Keep awake", desc: "The screen stays on", icon: "caffeine", category: "System & Tools", keywords: "keep awake caffeine inhibit idle sleep nie usypiaj", run: () => window.script("awake-toggle") },
 		{ label: "Next wallpaper", desc: "Change the background", icon: "preferences-desktop-wallpaper", bind: "Next wallpaper", keywords: "wallpaper background tapeta tło", run: () => window.script("wallpaper next") },
 		{ label: "Screenshot", desc: "An area or a window", icon: "accessories-screenshot", bind: "Screenshot (region)", keywords: "screenshot capture region window zrzut ekranu", run: () => window.capture("screenshot region") },
 		{ label: "Screenshot of the screen", desc: "The whole screen", icon: "applets-screenshooter", bind: "Screenshot (full)", keywords: "screenshot full fullscreen capture zrzut cały ekran", run: () => window.capture("screenshot fullscreen") },
-		{ label: SystemStatus.recording ? "Stop recording" : "Record screen", desc: SystemStatus.recording ? "Save the recording" : "An area or a window", icon: "simplescreenrecorder", keywords: "record screen video recording nagraj ekran wideo nagrywanie", run: () => window.capture("record-screen") },
-		{ label: "Record screen with microphone", desc: "Your voice mixed in", icon: "audio-recorder", hidden: SystemStatus.recording, keywords: "record screen microphone mic audio nagraj mikrofon", run: () => window.capture("record-screen --mic") },
-		{ label: "Record screen with microphone and camera", desc: "Your voice and a camera overlay", icon: "camera-web", hidden: SystemStatus.recording, keywords: "record screen microphone camera webcam kamera nagraj mikrofon", run: () => window.capture("record-screen --mic --cam") },
-		{ label: "Color picker", desc: "Copies the hex value", icon: "color-picker", keywords: "color colour picker pipette hex kolor pipeta", run: () => window.capture("hyprpicker -a --notify", true) },
-		{ label: "Copy text from screen", desc: "Recognises text in an area (OCR)", icon: "ocrfeeder", keywords: "ocr text recognize scan tekst rozpoznaj", run: () => window.capture("ocr") },
+		{ label: SystemStatus.recording ? "Stop recording" : "Record screen", desc: SystemStatus.recording ? "Save the recording" : "An area or a window", icon: "simplescreenrecorder", category: "Capture & OCR", keywords: "record screen video recording nagraj ekran wideo nagrywanie", run: () => window.capture("record-screen") },
+		{ label: "Record screen with microphone", desc: "Your voice mixed in", icon: "audio-recorder", hidden: SystemStatus.recording, category: "Capture & OCR", keywords: "record screen microphone mic audio nagraj mikrofon", run: () => window.capture("record-screen --mic") },
+		{ label: "Record screen with microphone and camera", desc: "Your voice and a camera overlay", icon: "camera-web", hidden: SystemStatus.recording, category: "Capture & OCR", keywords: "record screen microphone camera webcam kamera nagraj mikrofon", run: () => window.capture("record-screen --mic --cam") },
+		{ label: "Color picker", desc: "Copies the hex value", icon: "color-picker", category: "Capture & OCR", keywords: "color colour picker pipette hex kolor pipeta", run: () => window.capture("hyprpicker -a --notify", true) },
+		{ label: "Copy text from screen", desc: "Recognises text in an area (OCR)", icon: "ocrfeeder", category: "Capture & OCR", keywords: "ocr text recognize scan tekst rozpoznaj", run: () => window.capture("ocr") },
 		{ label: "Dictation", desc: "Type by speaking", icon: "audio-input-microphone", bind: "Dictation", keywords: "dictation voice speech whisper dyktowanie mowa głos", run: () => window.script("dictation") },
-		{ label: "System update", desc: "Upgrade the packages", icon: "system-software-update", keywords: "update sysupdate upgrade aktualizacja pacman paru system", run: () => {
+		{ label: "System update", desc: "Upgrade the packages", icon: "system-software-update", category: "System & Tools", keywords: "update sysupdate upgrade aktualizacja pacman paru system", run: () => {
 				window.spawn(["ghostty", "+new-window", "-e", window.bin + "sysupdate"]);
+				return true;
+			} },
+		{ label: "System cleanup", desc: "Caches, orphaned packages, the trash", icon: "sweeper", category: "System & Tools", keywords: "clean cleanup sysclean cache orphans trash czyszczenie sprzątanie kosz", run: () => {
+				window.spawn(["ghostty", "+new-window", "-e", window.bin + "sysclean"]);
 				return true;
 			} }
 	].filter(a => !a.hidden)
@@ -105,6 +118,7 @@ CenterModal {
 		icon: sp.appIcon,
 		lineIcon: sp.icon,
 		bind: Specials.bindName(sp),
+		category: "Special Workspaces",
 		keywords: sp.name + " " + sp.keywords,
 		run: () => {
 			Quickshell.execDetached(["hyprctl", "dispatch", "hl.dsp.workspace.toggle_special('" + sp.name + "')"]);
@@ -120,7 +134,8 @@ CenterModal {
 		verb: a.verb,
 		confirm: a.confirm,
 		keywords: a.keywords,
-		bind: a.id === "lock" ? "Lock system" : ""
+		bind: a.id === "lock" ? "Lock system" : "",
+		category: "Session"
 	}))
 
 	// Kinds the grid tells apart: "app", "action", "power", "calc".
@@ -149,6 +164,8 @@ CenterModal {
 	function chordOf(item) {
 		if (!item)
 			return "";
+		if (item.kind === "key")
+			return item.chord;
 		if (item.kind === "app")
 			return Keybinds.chord(appBinds[item.entry?.id ?? ""] ?? "");
 		return Keybinds.chord(item.bind ?? "");
@@ -203,7 +220,7 @@ CenterModal {
 	}
 
 	onOpened: newMode => {
-		var next = newMode === "emoji" ? "emoji" : "apps";
+		var next = newMode === "emoji" || newMode === "actions" ? newMode : "apps";
 		if (window.shown && !window.animating && next !== window.mode)
 			window.crossfade();
 		window.mode = next;
@@ -274,11 +291,75 @@ CenterModal {
 		return scored;
 	}
 
+	// The line icon of a key: what it is pressed with.
+	function keyIcon(category) {
+		if (category === "Mouse" || category === "Bar")
+			return "mouse";
+		if (category === "Gestures")
+			return "hand";
+		return "keyboard";
+	}
+
+	// The actions list: every key bind and key of the shell (Keybinds), the
+	// ones an action does too as that action, so Enter runs it, then the
+	// actions no key does, each in its section. Under the section, the row
+	// says nothing more, as the apps' search does.
+	readonly property var actionEntries: {
+		var rows = [];
+		var bound = {};
+		var entries = Keybinds.entries;
+		for (var i = 0; i < entries.length; i++) {
+			var e = entries[i];
+			var same = allActions.find(a => a.bind && a.bind === e.action);
+			if (same)
+				bound[same.label] = true;
+			rows.push(same ? Object.assign({}, same, { desc: e.category })
+				: { kind: "key", label: e.action, desc: e.category, chord: e.chord, lineIcon: keyIcon(e.category) });
+		}
+		rows = rows.concat(allActions.filter(a => !bound[a.label]).map(a => Object.assign({}, a, { desc: a.category ?? "System & Tools" })));
+		var order = Keybinds.categoryOrder;
+		return rows.map((r, n) => ({ r: r, n: n }))
+			.sort((x, y) => order.indexOf(x.r.desc) - order.indexOf(y.r.desc) || x.n - y.n)
+			.map(x => x.r);
+	}
+
+	// The actions list matching ql: by name first, then by keyword, chord and
+	// section, in actionEntries' order among equals (V4's sort is not stable).
+	function matchActionEntries(ql) {
+		var scored = [];
+		for (var i = 0; i < actionEntries.length; i++) {
+			var e = actionEntries[i];
+			var s = ql === "" ? 0 : fieldScore(e.label, ql);
+			if (s === -1 && e.keywords) {
+				s = fieldScore(e.keywords, ql);
+				s = s === -1 ? -1 : 1 + s;
+			}
+			if (s === -1) {
+				s = fieldScore(chordOf(e), ql);
+				s = s === -1 ? -1 : 4 + s;
+			}
+			if (s === -1) {
+				s = fieldScore(e.desc, ql);
+				s = s === -1 ? -1 : 7 + s;
+			}
+			if (s !== -1)
+				scored.push({ score: s, order: i, item: e });
+		}
+		scored.sort((x, y) => x.score - y.score || x.order - y.order);
+		return scored.map(x => x.item);
+	}
+
 	function refilter() {
 		lastError = "";
 		powerConfirmTimer.stop();
 		pendingPower = "";
 		var q = query.trim();
+
+		if (mode === "actions") {
+			filtered = matchActionEntries(q.toLowerCase());
+			currentIndex = 0;
+			return;
+		}
 
 		if (mode === "apps") {
 			if (q.startsWith(">")) {
@@ -319,6 +400,8 @@ CenterModal {
 			var apps = DesktopEntries.applications.values || [];
 			var scoredApps = [];
 			for (var i = 0; i < apps.length; i++) {
+				if (Specials.byDesktopEntry(apps[i].id))
+					continue;
 				var s = appMatchScore(apps[i], q);
 				if (q === "" || s !== -1)
 					scoredApps.push({ score: s, item: apps[i] });
@@ -418,6 +501,9 @@ CenterModal {
 		}
 		if (item.kind === "action")
 			return item.run();
+		// A key no action does is only there to be read.
+		if (item.kind === "key")
+			return false;
 		lastError = "Unknown item type";
 		return false;
 	}
@@ -450,6 +536,7 @@ CenterModal {
 		if (isCommandQuery())
 			return query.trim() === ">" ? "Loading commands..." : "No matching command — Enter runs it anyway";
 		if (mode === "emoji") return emojis.length === 0 ? "Loading emojis..." : "No matching emojis";
+		if (mode === "actions") return Keybinds.loaded ? "No matching actions or keys" : "Loading keys...";
 		if (query.trim().startsWith("="))
 			return "Type an expression, like 2+2 or 15% * 80";
 		return "No matching apps or actions";
@@ -547,6 +634,12 @@ CenterModal {
 		}
 	}
 
+	// Keybinds, or the actions' labels (Turn off ...), changed.
+	onActionEntriesChanged: {
+		if (window.shown && window.mode === "actions")
+			window.refilter();
+	}
+
 	Process {
 		id: runLoader
 		running: false
@@ -575,13 +668,17 @@ CenterModal {
 
 		ListView {
 			id: list
-			visible: window.mode === "apps"
+			visible: window.mode !== "emoji"
 			anchors.fill: parent
 			clip: true
 			boundsBehavior: Flickable.StopAtBounds
 			flickDeceleration: Theme.flickDecel
 			maximumFlickVelocity: Theme.maxFlickVel
 			model: window.filtered
+
+			WheelScroll {
+				flickable: list
+			}
 
 			delegate: Rectangle {
 				id: row
@@ -606,14 +703,14 @@ CenterModal {
 					spacing: 12
 
 					Item {
-						Layout.preferredWidth: 28
-						Layout.preferredHeight: 28
+						Layout.preferredWidth: Theme.rowIcon
+						Layout.preferredHeight: Theme.rowIcon
 
 						IconImage {
 							readonly property string iconName: row.modelData.entry?.icon ?? row.modelData.icon ?? ""
 							visible: window.lineIconOf(row.modelData) === ""
 							anchors.fill: parent
-							implicitSize: 28
+							implicitSize: Theme.rowIcon
 							source: iconName ? Quickshell.iconPath(iconName, true) : ""
 							asynchronous: true
 						}
@@ -621,7 +718,7 @@ CenterModal {
 						LineIcon {
 							anchors.centerIn: parent
 							name: window.lineIconOf(row.modelData)
-							size: 20
+							size: 22
 							color: row.modelData.kind === "calc" ? Theme.accentGreen
 								: row.selected ? Theme.accentBlue : Theme.textDim
 						}
@@ -630,7 +727,7 @@ CenterModal {
 					Text {
 						Layout.maximumWidth: row.width * 0.55
 						font.family: Theme.fontFamily
-						font.pixelSize: Theme.fontSize - 1
+						font.pixelSize: Theme.fontSize
 						font.bold: row.modelData.kind === "calc"
 						color: row.modelData.kind === "calc" ? Theme.accentGreen : Theme.textMain
 						elide: Text.ElideRight
@@ -640,51 +737,26 @@ CenterModal {
 					Text {
 						Layout.fillWidth: true
 						font.family: Theme.fontFamily
-						font.pixelSize: Theme.fontSizeSmall
+						font.pixelSize: Theme.fontSizeSmall + 1
 						color: row.warn ? Theme.warning : Theme.textDim
 						elide: Text.ElideRight
 						text: row.subtitle
 					}
 
 					// The bind that does the same, as key caps.
-					Row {
-						visible: row.chord !== ""
-						spacing: 4
-
-						Repeater {
-							model: row.chord.split(" + ")
-
-							delegate: Rectangle {
-								required property string modelData
-								width: Math.max(22, capText.implicitWidth + 12)
-								height: 22
-								radius: Theme.roundingSubtle + 1
-								color: Theme.alpha(Theme.textMain, row.selected ? 0.1 : 0.05)
-								border.color: Theme.tileBorder
-								border.width: 1
-
-								Text {
-									id: capText
-									anchors.centerIn: parent
-									font.family: Theme.fontMono
-									font.pixelSize: Theme.fontSizeSmall - 3
-									font.bold: true
-									color: row.selected ? Theme.textMain : Theme.textDim
-									text: modelData
-								}
-							}
-						}
+					KeyCaps {
+						chord: row.chord
+						highlighted: row.selected
 					}
 				}
 
+				HoverSelect {
+					enabled: !list.moving
+					onSelected: window.currentIndex = row.index
+				}
+
 				MouseArea {
-					id: rowMouse
 					anchors.fill: parent
-					hoverEnabled: true
-					onPositionChanged: mouse => {
-						if (window.pointerMoved(rowMouse, mouse) && !list.moving && !list.flicking)
-							window.currentIndex = row.index;
-					}
 					onClicked: {
 						window.currentIndex = row.index;
 						window.activate();
@@ -708,33 +780,39 @@ CenterModal {
 			cellHeight: 76
 			model: window.mode === "emoji" ? window.filtered : []
 
+			WheelScroll {
+				flickable: grid
+			}
+
 			delegate: Item {
+				id: cell
+				required property var modelData
+				required property int index
 				width: grid.cellWidth
 				height: grid.cellHeight
+
+				HoverSelect {
+					enabled: !grid.moving
+					onSelected: window.currentIndex = cell.index
+				}
 
 				Rectangle {
 					anchors.fill: parent
 					anchors.margins: 3
-					color: index === window.currentIndex ? Theme.selectionBg : "transparent"
+					color: cell.index === window.currentIndex ? Theme.selectionBg : "transparent"
 					radius: Theme.roundingElement
 
 					Text {
 						anchors.centerIn: parent
-						text: modelData.char || ""
+						text: cell.modelData.char || ""
 						font.pixelSize: 46
 					}
 				}
 
 				MouseArea {
 					anchors.fill: parent
-					id: gridMouse
-					hoverEnabled: true
-					onPositionChanged: mouse => {
-						if (window.pointerMoved(gridMouse, mouse) && !grid.moving && !grid.flicking)
-							window.currentIndex = index;
-					}
 					onClicked: {
-						window.currentIndex = index;
+						window.currentIndex = cell.index;
 						window.activate();
 					}
 				}

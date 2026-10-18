@@ -66,9 +66,12 @@ PanelWindow {
 
 	readonly property var players: Mpris.players.values
 
-	// "A · B" of the parts that are not empty.
-	function hint(first, second) {
-		return [first, second].filter(p => p).join("  ·  ");
+	// A click on a module puts the open panel away, as a click anywhere else
+	// does, unless it is that module's own (`except`). A module that opens a
+	// panel replaces the open one instead, with Panels.toggle.
+	function leavePanels(except: string): void {
+		if (Panels.active !== "" && Panels.active !== except)
+			Panels.close();
 	}
 
 	function toggleSpecial(name: string): void {
@@ -147,12 +150,12 @@ PanelWindow {
 	readonly property color hoverColor: Theme.alpha(Theme.textMain, 0.1)
 
 	property Item tooltipTarget: null
+	// What a module reads out, nothing about its clicks or keys (those are in
+	// the launcher's actions).
 	property string tooltipText: ""
-	// A dimmer line under the text: what else the module does, and its keys.
-	property string tooltipHint: ""
 	property bool tooltipVisible: false
 
-	function showTooltip(item: Item, text: string, hint: string): void {
+	function showTooltip(item: Item, text: string): void {
 		if (!text) {
 			hideTooltip(item);
 			return;
@@ -160,7 +163,6 @@ PanelWindow {
 		hideTimer.stop();
 		tooltipTarget = item;
 		tooltipText = text;
-		tooltipHint = hint ?? "";
 		if (tooltipVisible) {
 			tipPop.visible = true;
 			tipPop.anchor.updateAnchor();
@@ -184,10 +186,9 @@ PanelWindow {
 		tipPop.visible = false;
 	}
 
-	function updateTooltip(item: Item, text: string, hint: string): void {
+	function updateTooltip(item: Item, text: string): void {
 		if (tooltipTarget === item) {
 			tooltipText = text;
-			tooltipHint = hint ?? "";
 			if (tipPop.visible)
 				tipPop.anchor.updateAnchor();
 		}
@@ -244,33 +245,20 @@ PanelWindow {
 
 		Rectangle {
 			id: tipBox
-			implicitWidth: tipColumn.implicitWidth + 20
-			implicitHeight: tipColumn.implicitHeight + 10
+			implicitWidth: tipText.implicitWidth + 20
+			implicitHeight: tipText.implicitHeight + 10
 			color: Theme.alpha(Theme.bgCard, 0.96)
 			border.color: Theme.border
 			border.width: 1
 			radius: Theme.roundingElement
 
-			Column {
-				id: tipColumn
+			Text {
+				id: tipText
 				anchors.centerIn: parent
-				spacing: 3
-
-				Text {
-					text: bar.tooltipText
-					color: Theme.textMain
-					font.family: Theme.fontFamily
-					font.pixelSize: Theme.fontSizeSmall
-					font.bold: false
-				}
-
-				Text {
-					visible: bar.tooltipHint !== ""
-					text: bar.tooltipHint
-					color: Theme.textDim
-					font.family: Theme.fontFamily
-					font.pixelSize: Theme.fontSizeSmall - 1
-				}
+				text: bar.tooltipText
+				color: Theme.textMain
+				font.family: Theme.fontFamily
+				font.pixelSize: Theme.fontSizeSmall
 			}
 		}
 	}
@@ -284,7 +272,8 @@ PanelWindow {
 		property color textColor: Theme.textMain
 		property bool isActive: false
 		property string tooltipText: ""
-		property string tooltipHint: ""
+		// The panel this module opens, if any.
+		property string panel: ""
 		property bool custom: false
 		default property alias content: pillRow.data
 		property alias containsMouse: pillArea.containsMouse
@@ -294,7 +283,7 @@ PanelWindow {
 
 		onTooltipTextChanged: {
 			if (pillArea.containsMouse && pill.tooltipText !== "")
-				bar.updateTooltip(pill, pill.tooltipText, pill.tooltipHint);
+				bar.updateTooltip(pill, pill.tooltipText);
 		}
 
 		Layout.alignment: Qt.AlignVCenter
@@ -349,13 +338,15 @@ PanelWindow {
 			acceptedButtons: Qt.LeftButton | Qt.MiddleButton | Qt.RightButton
 			onEntered: {
 				if (pill.tooltipText !== "" && !pill.isActive)
-					bar.showTooltip(pill, pill.tooltipText, pill.tooltipHint);
+					bar.showTooltip(pill, pill.tooltipText);
 			}
 			onExited: {
 				bar.hideTooltip(pill);
 			}
 			onPressed: mouse => {
 				bar.hideTooltipNow();
+				if (pill.panel === "" || mouse.button !== Qt.LeftButton)
+					bar.leavePanels(pill.panel);
 				if (mouse.button === Qt.RightButton) {
 					pill.rightClicked();
 				} else if (mouse.button === Qt.MiddleButton) {
@@ -393,8 +384,7 @@ PanelWindow {
 				icon: "layout-grid"
 				textColor: Panels.active === "launcher" ? Theme.accentBlue : Theme.textDim
 				isActive: Panels.active === "launcher"
-				tooltipText: "Apps and actions"
-				tooltipHint: Keybinds.chord("Launcher")
+				panel: "launcher"
 				onActivated: Panels.toggle("launcher", "apps")
 			}
 
@@ -442,10 +432,8 @@ PanelWindow {
 								anchors.fill: parent
 								hoverEnabled: true
 								cursorShape: Qt.PointingHandCursor
-								onEntered: bar.showTooltip(wsButton, "Workspace " + wsButton.modelData.name, Keybinds.chord("Switch to workspace " + wsButton.modelData.name))
-								onExited: bar.hideTooltip(wsButton)
 								onClicked: {
-									bar.hideTooltip(wsButton);
+									bar.leavePanels("");
 									Quickshell.execDetached([
 										"hyprctl", "dispatch", "hl.dsp.focus({workspace=" + wsButton.modelData.id + "})"
 									]);
@@ -485,7 +473,6 @@ PanelWindow {
 						textColor: Number(SystemStatus.memPercent) >= 90 ? Theme.critical : (Number(SystemStatus.memPercent) >= 75 ? Theme.warning : (bar.visibleSpecial === "btop" ? Theme.accentBlue : Theme.textDim))
 						isActive: bar.visibleSpecial === "btop"
 						tooltipText: SystemStatus.memTooltip
-						tooltipHint: bar.hint("Click: Activity Monitor", Keybinds.chord("Show Activity Monitor"))
 						onActivated: bar.toggleSpecial("btop")
 						onRightClicked: bar.closeSpecial("btop")
 					}
@@ -509,9 +496,8 @@ PanelWindow {
 								var track = bar.trackLabel(player);
 								return track !== "" ? title + "\n" + track : title;
 							}
-							readonly property string tipHint: bar.hint("Right-click: close", special ? Keybinds.chord(Specials.bindName(special)) : "")
 
-							onTipChanged: bar.updateTooltip(sp, tip, tipHint)
+							onTipChanged: bar.updateTooltip(sp, tip)
 
 							height: Theme.barHeight
 							width: 30
@@ -546,10 +532,11 @@ PanelWindow {
 								hoverEnabled: true
 								cursorShape: Qt.PointingHandCursor
 								acceptedButtons: Qt.LeftButton | Qt.RightButton
-								onEntered: bar.showTooltip(sp, sp.tip, sp.tipHint)
+								onEntered: bar.showTooltip(sp, sp.tip)
 								onExited: bar.hideTooltip(sp)
 								onPressed: mouse => {
 									bar.hideTooltipNow();
+									bar.leavePanels("");
 									if (mouse.button === Qt.RightButton)
 										bar.closeSpecial(sp.modelData);
 									else
@@ -574,8 +561,7 @@ PanelWindow {
 				visible: SystemStatus.powerSaveActive
 				icon: "leaf"
 				textColor: Theme.textMain
-				tooltipText: "Battery saver: On (60 Hz)"
-				tooltipHint: "Click: turn off"
+				tooltipText: "Battery saver (60 Hz)"
 				onActivated: Quickshell.execDetached(["sh", "-c", "~/.local/bin/power-save"])
 			}
 		}
@@ -591,7 +577,6 @@ PanelWindow {
 				value: valid ? Qt.formatDateTime(clockSource.date, "hh:mm") : Qt.formatDateTime(new Date(), "hh:mm")
 				textColor: Theme.textMain
 				tooltipText: Qt.formatDateTime(clock.valid ? clockSource.date : new Date(), "dddd, MMMM d, yyyy")
-				tooltipHint: bar.hint("Click: Calendar", Keybinds.chord("Show Calendar"))
 				onActivated: Quickshell.execDetached([
 					"hyprctl", "dispatch", "hl.dsp.workspace.toggle_special('calendar')"
 				])
@@ -610,7 +595,7 @@ PanelWindow {
 				textColor: Theme.textMain
 				isActive: Panels.active === "weather"
 				tooltipText: Weather.tooltipText
-				tooltipHint: bar.hint("Middle-click: refresh", Keybinds.chord("Weather"))
+				panel: "weather"
 				onActivated: Panels.toggle("weather")
 				onMiddleClicked: Weather.refresh()
 			}
@@ -627,7 +612,7 @@ PanelWindow {
 				text: SystemStatus.dictationState === "transcribing" ? "…" : "●"
 				textColor: SystemStatus.dictationState === "transcribing" ? Theme.warning : Theme.critical
 				isActive: true
-				tooltipText: SystemStatus.dictationState === "transcribing" ? "Transcribing audio..." : "Dictation active (Click to stop)"
+				tooltipText: SystemStatus.dictationState === "transcribing" ? "Transcribing..." : "Dictation"
 				onActivated: Quickshell.execDetached(["sh", "-c", "~/.local/bin/dictation stop"])
 			}
 
@@ -637,7 +622,7 @@ PanelWindow {
 				value: "REC"
 				textColor: Theme.critical
 				isActive: true
-				tooltipText: "Recording screen (Click to stop)"
+				tooltipText: "Recording the screen"
 				onActivated: Quickshell.execDetached(["sh", "-c", "~/.local/bin/record-screen"])
 			}
 
@@ -646,15 +631,14 @@ PanelWindow {
 				icon: "screen-share"
 				textColor: Theme.accentPurple
 				isActive: true
-				tooltipText: "Screen sharing active (" + SystemStatus.screencasts + (SystemStatus.screencasts === 1 ? " stream)" : " streams)")
+				tooltipText: "Sharing the screen" + (SystemStatus.screencasts > 1 ? " (" + SystemStatus.screencasts + " streams)" : "")
 			}
 
 			Pill {
 				visible: SystemStatus.awakeActive
 				icon: "coffee"
 				textColor: Theme.textMain
-				tooltipText: "Keep awake: On"
-				tooltipHint: "Click: turn off"
+				tooltipText: "Keep awake"
 				onActivated: Quickshell.execDetached(["sh", "-c", "~/.local/bin/awake-toggle"])
 			}
 
@@ -714,11 +698,8 @@ PanelWindow {
 				custom: true
 				isActive: Panels.active === "quicksettings"
 				tooltipText: [btInfo, netInfo, batteryInfo].filter(s => s !== "").join("\n")
-				tooltipHint: bar.hint("Right-click: energy use", Keybinds.chord("Quick actions"))
+				panel: "quicksettings"
 				onActivated: Panels.toggle("quicksettings")
-				onRightClicked: Quickshell.execDetached([
-					"hyprctl", "dispatch", "hl.dsp.workspace.toggle_special('jolt')"
-				])
 
 				LineIcon {
 					anchors.verticalCenter: parent.verticalCenter
@@ -758,12 +739,12 @@ PanelWindow {
 				isActive: isOpen
 				tooltipText: {
 					if (dnd)
-						return "Notifications: Do not disturb";
+						return "Do not disturb";
 					if (historyCount > 0)
-						return "Notifications: " + historyCount + (historyCount === 1 ? " notification" : " notifications");
-					return "Notifications: None";
+						return historyCount + (historyCount === 1 ? " notification" : " notifications");
+					return "No notifications";
 				}
-				tooltipHint: Keybinds.chord("Toggle notification center")
+				panel: "notifications"
 				onActivated: Panels.toggle("notifications")
 			}
 		}

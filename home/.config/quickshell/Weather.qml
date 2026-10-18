@@ -55,10 +55,9 @@ Singleton {
 	readonly property string tooltipText: {
 		if (!current)
 			return reportLocation || "Weather";
-		var s = (reportLocation ? reportLocation + ": " : "") + current.tempNum + "°C";
-		if (today.high && today.low)
-			s += " (↑" + today.high + " ↓" + today.low + ")";
-		return s + ", Feels like " + current.feelsLike + " · Wind " + current.wind;
+		// The bar shows the temperature already; the panel has the rest.
+		var range = today.high && today.low ? "↑" + today.high + " ↓" + today.low : "";
+		return [reportLocation, range].filter(p => p).join(" · ") || "Weather";
 	}
 
 	function refresh() {

@@ -110,7 +110,7 @@ Singleton {
 			if (total > 0 && avail >= 0) {
 				var usedGb = ((total - avail) / 1048576).toFixed(1);
 				var totalGb = (total / 1048576).toFixed(1);
-				root.memTooltip = "Memory: " + usedGb + " / " + totalGb + " GiB (" + root.memPercent + "%)";
+				root.memTooltip = usedGb + " / " + totalGb + " GiB";
 			} else {
 				root.memTooltip = "";
 			}

@@ -34,15 +34,6 @@ PanelWindow {
 	property real exitScale: 0.97
 	property int offscreenSlide: 0
 	property int slide: offscreenSlide
-	// The keybindings sheet section "?" opens on ("" for none).
-	property string helpTopic: ""
-
-	function showHelp(): bool {
-		if (helpTopic === "")
-			return false;
-		Panels.open("keybindings", helpTopic);
-		return true;
-	}
 
 	readonly property bool sliding: style === "slide"
 	readonly property Animation enterAnimation: sliding ? slideIn : fadeIn

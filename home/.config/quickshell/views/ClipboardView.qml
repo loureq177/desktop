@@ -12,6 +12,7 @@ CenterModal {
 	panel: "clipboard"
 	searchIcon: "clipboard"
 	searchPlaceholder: "Search clipboard..."
+	scope: "clipboard"
 
 	onSearchQueryChanged: {
 		win.query = searchQuery;
@@ -210,6 +211,10 @@ CenterModal {
 			maximumFlickVelocity: Theme.maxFlickVel
 			model: win.filtered
 
+			WheelScroll {
+				flickable: list
+			}
+
 			delegate: Rectangle {
 				id: row
 				required property var modelData
@@ -222,7 +227,7 @@ CenterModal {
 				readonly property string thumbPath: row.isImage ? (Quickshell.env("XDG_RUNTIME_DIR") || "/run/user/1000") + "/clipboard-thumbs/" + String(row.modelData.id) : ""
 
 				width: list.width
-				height: 48
+				height: Theme.rowHeight
 				clip: true
 				color: row.index === win.currentIndex ? Theme.selectionBg : "transparent"
 				radius: Theme.roundingElement
@@ -255,8 +260,8 @@ CenterModal {
 
 					Rectangle {
 						visible: row.isImage
-						Layout.preferredWidth: 42
-						Layout.preferredHeight: 28
+						Layout.preferredWidth: 48
+						Layout.preferredHeight: Theme.rowIcon
 						Layout.alignment: Qt.AlignVCenter
 						radius: Theme.roundingSubtle
 						color: Theme.bgHover
@@ -276,13 +281,13 @@ CenterModal {
 
 					Item {
 						visible: !row.isImage
-						Layout.preferredWidth: 28
-						Layout.preferredHeight: 28
+						Layout.preferredWidth: Theme.rowIcon
+						Layout.preferredHeight: Theme.rowIcon
 
 						LineIcon {
 							anchors.centerIn: parent
-							name: "type"
-							size: 18
+							name: "text"
+							size: 20
 							color: row.index === win.currentIndex ? Theme.accentBlue : Theme.textDim
 						}
 					}
@@ -308,14 +313,13 @@ CenterModal {
 					}
 				}
 
+				HoverSelect {
+					enabled: !list.moving
+					onSelected: win.currentIndex = row.index
+				}
+
 				MouseArea {
 					anchors.fill: parent
-					id: listMouse
-					hoverEnabled: true
-					onPositionChanged: mouse => {
-						if (win.pointerMoved(listMouse, mouse) && !list.moving && !list.flicking)
-							win.currentIndex = row.index;
-					}
 					onClicked: {
 						win.currentIndex = row.index;
 						win.activate();
@@ -369,6 +373,10 @@ CenterModal {
 				maximumFlickVelocity: Theme.maxFlickVel
 
 				ScrollBar.vertical: ThinScrollBar {}
+
+				WheelScroll {
+					flickable: previewFlick
+				}
 
 				Text {
 					id: previewText

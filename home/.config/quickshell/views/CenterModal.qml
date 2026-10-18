@@ -19,7 +19,8 @@ OverlayWindow {
 	property string searchPlaceholder: ""
 	property bool searchCompleteOnTab: false
 	property bool searchLeftRightNavigate: false
-	property bool searchScopeHints: false
+	// Which of `scopes` this window shows now.
+	property string scope: ""
 	property alias searchQuery: search.text
 	readonly property alias searchBar: search
 
@@ -31,6 +32,24 @@ OverlayWindow {
 	signal searchStepped(int delta)
 	signal searchSteppedColumn(int delta)
 	signal searchCompleted()
+
+	// The lists of the launcher and the clipboard, one family: the empty field
+	// offers the other three, its prefix typed there goes to one, Backspace
+	// back to the apps. Calc and run are not lists of their own but the apps
+	// searched with "=" or ">".
+	readonly property var scopes: [
+		{ name: "apps", prefix: "" },
+		{ name: "emoji", prefix: ":" },
+		{ name: "clipboard", prefix: "" },
+		{ name: "actions", prefix: "?" }
+	]
+
+	function openScope(name): void {
+		if (name === "clipboard")
+			Panels.open("clipboard");
+		else
+			Panels.open("launcher", name);
+	}
 
 	default property alias body: contentSlot.data
 
@@ -67,20 +86,6 @@ OverlayWindow {
 		search.focusInput();
 	}
 	onDismissRequested: Panels.close(root.panel)
-
-	// Scene position of the last pointer event. Rows scrolling or animating
-	// under a resting cursor also emit hover events, which must not steal the
-	// keyboard selection, so only a real movement counts.
-	property point lastPointer: Qt.point(-1, -1)
-
-	function pointerMoved(item, mouse) {
-		var p = item.mapToItem(null, mouse.x, mouse.y);
-		var moved = lastPointer.x >= 0 && (Math.abs(p.x - lastPointer.x) > 0.5 || Math.abs(p.y - lastPointer.y) > 0.5);
-		lastPointer = p;
-		return moved;
-	}
-
-	onShownChanged: lastPointer = Qt.point(-1, -1)
 
 	Rectangle {
 		id: dialogCard
@@ -119,7 +124,7 @@ OverlayWindow {
 				Layout.preferredHeight: 48
 				icon: root.searchIcon
 				placeholder: root.searchPlaceholder
-				showScopeHints: root.searchScopeHints
+				scopes: root.scopes.filter(s => s.name !== root.scope)
 				completeOnTab: root.searchCompleteOnTab
 				leftRightNavigate: root.searchLeftRightNavigate
 
@@ -128,6 +133,11 @@ OverlayWindow {
 				onStepped: delta => root.searchStepped(delta)
 				onSteppedColumn: delta => root.searchSteppedColumn(delta)
 				onCompleted: root.searchCompleted()
+				onErased: {
+					if (root.scope !== "apps")
+						root.openScope("apps");
+				}
+				onScopeChosen: name => root.openScope(name)
 			}
 
 			Rectangle {
