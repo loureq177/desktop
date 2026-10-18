@@ -23,9 +23,10 @@ local programs = {
 	browser = "firefox",
 	launcher = "qs ipc call shell toggle launcher apps",
 
-	-- special workspace name -> app; `key` binds SUPER + SHIFT + key to toggle it
+	-- special workspace name -> app; `key` binds SUPER + SHIFT + key to toggle it.
+	-- The shell lists them too (quickshell/Specials.js), by name and desc.
 	special = {
-		claude = webapp("claude", "https://claude.ai", "Claude", "A", "AI (Claude)"),
+		claude = webapp("claude", "https://claude.ai", "Claude", "A"),
 		calendar = webapp("calendar", "https://calendar.google.com", "Calendar", "C"),
 		mail = webapp("gmail", "https://mail.google.com", "Gmail", "E", "Mail"),
 		tasks = webapp("tasks", "https://tasks.google.com", "Tasks", "T"),
@@ -37,7 +38,7 @@ local programs = {
 			desc = "Spotify",
 		},
 		btop = { exe = "ghostty +new-window -e btop", key = "B", desc = "Activity Monitor" },
-		yazi = { exe = "ghostty +new-window -e yazi", key = "F", desc = "File manager (yazi)" },
+		yazi = { exe = "ghostty +new-window -e yazi", key = "F", desc = "Files" },
 		jolt = { exe = "ghostty +new-window -e jolt" },
 	},
 }
@@ -278,10 +279,13 @@ if not local_cfg.custom_lid_switch then
 	end)
 end
 
+-- The layout belongs to the machine (local.lua), like the Alt/Super swap.
+local keyboard = type(local_cfg.keyboard) == "table" and local_cfg.keyboard or {}
+
 hl.config({
 	input = {
-		kb_layout = "pl",
-		kb_options = "altwin:swap_lalt_lwin",
+		kb_layout = keyboard.layout or "us",
+		kb_options = keyboard.options or "",
 		repeat_delay = 200,
 		repeat_rate = 20,
 		sensitivity = 0.2,
@@ -571,6 +575,12 @@ hl.layer_rule({
 	no_anim = true,
 })
 hl.layer_rule({
+	-- the dim under the launcher and clipboard fades on its own
+	name = "no-anim-shell-dim",
+	match = { namespace = "^quickshell-dim$" },
+	no_anim = true,
+})
+hl.layer_rule({
 	name = "blur-shell-panels",
 	match = { namespace = "^quickshell(-bar|-polkit)?$" },
 	blur = true,
@@ -666,6 +676,9 @@ end
 b("SUPER + Q", "Close window", hl.dsp.window.close())
 b("SUPER + F", "Toggle fullscreen", hl.dsp.window.fullscreen())
 b("SUPER + T", "Toggle window split", hl.dsp.layout("togglesplit"))
+b("SUPER + M", "Toggle floating", hl.dsp.window.float({ action = "toggle" }))
+-- Alt+Tab in place: with Alt and Super swapped, SUPER is the key labelled Alt.
+b("SUPER + TAB", "Focus previous window", hl.dsp.focus({ last = true }))
 
 local directions = { H = "left", L = "right", K = "up", J = "down" }
 local mon_short = { left = "l", right = "r", up = "u", down = "d" }
@@ -783,13 +796,9 @@ local cmds = {
 	["SUPER + A"] = { "qs ipc call shell toggle quicksettings ''", "Quick actions" },
 	["SUPER + N"] = { "qs ipc call shell toggle notifications ''", "Toggle notification center" },
 	["SUPER + comma"] = { "qs ipc call notifications dismissLatest", "Close latest notification" },
-	["SUPER + SHIFT + comma"] = {
-		"qs ipc call notifications invokeDefault",
-		"Activate latest notification",
-	},
 	["SUPER + W"] = { "qs ipc call shell toggle weather ''", "Weather" },
 	["SUPER + E"] = { "qs ipc call shell toggle launcher emoji", "Emoji picker" },
-	["SUPER + C"] = { "qs ipc call shell toggle clipboard ''", "Clipboard history" },
+	["SUPER + V"] = { "qs ipc call shell toggle clipboard ''", "Clipboard history" },
 	["SUPER + escape"] = { "qs ipc call session lock", "Lock system" },
 	["SUPER + slash"] = { "qs ipc call shell toggle keybindings ''", "Keybindings" },
 

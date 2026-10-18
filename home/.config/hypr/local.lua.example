@@ -3,6 +3,13 @@
 -- This file is gitignored and stow-ignored. Copy to ~/.config/hypr/local.lua to use.
 
 return {
+	-- Keyboard layout and XKB options (default: "us", none). The shell's
+	-- keybindings sheet notes when Alt and Super are swapped.
+	-- keyboard = {
+	-- 	layout = "pl",
+	-- 	options = "altwin:swap_lalt_lwin",
+	-- },
+
 	-- Hardware / GPU environment variables
 	env = function()
 		-- Example for hybrid graphics (AMD iGPU + NVIDIA dGPU on Lenovo Legion):
