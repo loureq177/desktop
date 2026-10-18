@@ -31,6 +31,14 @@ UNITS="archlinux/.config/systemd/user"
     [[ "$bad" -eq 0 ]]
 }
 
+@test "the shell's own icons that Specials.js names are in the repo" {
+    local bad=0 icon
+    while IFS= read -r icon; do
+        [[ -f "$REPO/$QS/$icon" ]] || { echo "Specials.js: missing $icon" >&2; bad=1; }
+    done < <(grep -oE '"icons/[^"]+"' "$REPO/$QS/Specials.js" | tr -d '"')
+    [[ "$bad" -eq 0 ]]
+}
+
 # --- script references -------------------------------------------------------
 
 @test "every referenced ~/.local/bin script exists and is executable" {
