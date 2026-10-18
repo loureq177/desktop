@@ -34,15 +34,14 @@ OverlayWindow {
 	signal searchCompleted()
 
 	// The lists of the launcher and the clipboard, one family: the empty field
-	// offers the other three, its prefix typed there goes to one, Backspace
-	// back to the apps. Calc and run are not lists of their own but the apps
-	// searched with "=" or ">".
-	readonly property var scopes: [
-		{ name: "apps", prefix: "" },
-		{ name: "emoji", prefix: ":" },
-		{ name: "clipboard", prefix: "" },
-		{ name: "actions", prefix: "?" }
-	]
+	// offers the other three, and Backspace there goes back to the apps. Calc
+	// ("=", "2+2") and run (">") are the apps searched another way, not lists.
+	readonly property var scopes: ["apps", "emoji", "clipboard", "keys"]
+
+	// "Search 63 apps...": how long the list is, said where it costs nothing.
+	function placeholderFor(count, noun): string {
+		return "Search " + (count > 0 ? count + " " : "") + noun + "...";
+	}
 
 	function openScope(name): void {
 		if (name === "clipboard")
@@ -124,7 +123,7 @@ OverlayWindow {
 				Layout.preferredHeight: 48
 				icon: root.searchIcon
 				placeholder: root.searchPlaceholder
-				scopes: root.scopes.filter(s => s.name !== root.scope)
+				scopes: root.scopes.filter(name => name !== root.scope)
 				completeOnTab: root.searchCompleteOnTab
 				leftRightNavigate: root.searchLeftRightNavigate
 

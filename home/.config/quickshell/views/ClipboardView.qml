@@ -11,7 +11,7 @@ CenterModal {
 
 	panel: "clipboard"
 	searchIcon: "clipboard"
-	searchPlaceholder: "Search clipboard..."
+	searchPlaceholder: win.placeholderFor(win.entries.length, "copied items")
 	scope: "clipboard"
 
 	onSearchQueryChanged: {

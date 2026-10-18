@@ -12,7 +12,7 @@ Rectangle {
 	property alias text: input.text
 	property bool completeOnTab: false
 	property bool leftRightNavigate: false
-	// { name, prefix } of the other lists, to switch to.
+	// The names of the other lists, to switch to.
 	property var scopes: []
 
 	signal accepted()
@@ -141,8 +141,7 @@ Rectangle {
 			}
 		}
 
-		// The other lists, while the field is empty; a click goes there, and so
-		// does typing the prefix.
+		// The other lists, while the field is empty; a click goes there.
 		Row {
 			visible: bar.scopes.length > 0 && input.text === ""
 			spacing: 2
@@ -153,35 +152,22 @@ Rectangle {
 
 				delegate: Rectangle {
 					id: chip
-					required property var modelData
+					required property string modelData
 					readonly property bool lit: chipArea.containsMouse
-					implicitWidth: chipRow.implicitWidth + 12
+					implicitWidth: chipText.implicitWidth + 12
 					implicitHeight: 26
 					radius: Theme.roundingSubtle
 					color: chip.lit ? Theme.bgHover : "transparent"
 
 					Behavior on color { ColorAnimation { duration: 120 } }
 
-					Row {
-						id: chipRow
+					Text {
+						id: chipText
 						anchors.centerIn: parent
-						spacing: 5
-
-						Text {
-							visible: chip.modelData.prefix !== ""
-							text: chip.modelData.prefix
-							font.family: Theme.fontMono
-							font.pixelSize: Theme.fontSizeSmall
-							font.bold: true
-							color: chip.lit ? Theme.accentBlue : Theme.textMain
-						}
-
-						Text {
-							text: chip.modelData.name
-							font.family: Theme.fontMono
-							font.pixelSize: Theme.fontSizeSmall
-							color: chip.lit ? Theme.textMain : Theme.textDim
-						}
+						text: chip.modelData
+						font.family: Theme.fontMono
+						font.pixelSize: Theme.fontSizeSmall
+						color: chip.lit ? Theme.textMain : Theme.textDim
 					}
 
 					MouseArea {
@@ -190,7 +176,7 @@ Rectangle {
 						hoverEnabled: true
 						cursorShape: Qt.PointingHandCursor
 						onClicked: {
-							bar.scopeChosen(chip.modelData.name);
+							bar.scopeChosen(chip.modelData);
 							bar.focusInput();
 						}
 					}

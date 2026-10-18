@@ -408,10 +408,6 @@ SideDrawer {
 			} else if (event.key === Qt.Key_P) {
 				win.subView = "power";
 				event.accepted = true;
-			} else if (event.key === Qt.Key_M) {
-				win.toggleMute();
-				win.select(win.rowVolume, 0);
-				event.accepted = true;
 			} else if (event.key === Qt.Key_Escape || event.key === Qt.Key_Q) {
 				Panels.close("quicksettings");
 				event.accepted = true;
@@ -425,7 +421,7 @@ SideDrawer {
 
 			Text {
 				Layout.fillWidth: true
-				text: "Quick settings"
+				text: "Quick actions"
 				font.family: Theme.fontFamily
 				font.pixelSize: Theme.fontSize + 1
 				font.bold: true
@@ -447,7 +443,6 @@ SideDrawer {
 			id: volRow
 			current: win.isCurrent(win.rowVolume)
 			icon: win.volIcon
-			hotkey: "M"
 			label: win.volReady ? (win.volMuted ? "Muted" : win.volPct + "%") : "…"
 			ready: win.volReady
 			muted: win.volMuted

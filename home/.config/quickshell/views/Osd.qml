@@ -18,7 +18,7 @@ PanelWindow {
 		: kind === "mic" ? (muted ? "mic-off" : "mic")
 		: (muted ? "volume-x" : value <= 1 ? "volume" : value <= 50 ? "volume-1" : "volume-2")
 
-	// Quick settings has sliders for both, which show the change already.
+	// Quick actions has sliders for both, which show the change already.
 	function show(newKind, newValue, newMuted) {
 		if ((newKind === "volume" || newKind === "brightness") && Panels.active === "quicksettings")
 			return;
