@@ -14,7 +14,7 @@ if is_active; then
     rm -f "$PID_FILE"
 else
     systemd-run --user --unit="${UNIT%.service}" --collect \
-        systemd-inhibit --what=idle:sleep:handle-lid-switch --who=awake \
+        systemd-inhibit --what=idle:handle-lid-switch --who=awake \
         --why="Awake mode" --mode=block \
         sleep infinity >/dev/null 2>&1
     systemctl --user show -p MainPID --value "$UNIT" >"$PID_FILE"
