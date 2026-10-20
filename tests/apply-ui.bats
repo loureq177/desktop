@@ -130,6 +130,17 @@ lua_value() {
     assert_call "gsettings set org.gnome.desktop.interface gtk-theme $(toml theme.gtk)"
     assert_call "gsettings set org.gnome.desktop.interface font-name $(toml font.ui)"
     assert_call "gsettings set org.gnome.desktop.interface monospace-font-name $(toml font.mono) 12"
+    assert_call "gsettings set org.gnome.desktop.interface color-scheme prefer-dark"
+}
+
+@test "apply-ui --gtk: only updates GTK settings" {
+    rm -f "$CFG/ui/ui.sh"
+    apply_ui --gtk
+    assert_status 0
+    assert_call "gsettings set org.gnome.desktop.interface cursor-theme $(toml theme.cursor)"
+    [[ ! -e "$CFG/ui/ui.sh" ]]
+    refute_call_like "hyprctl"
+    refute_call_like "power-save"
 }
 
 @test "apply-ui: leaves Hyprland alone when it is not running" {

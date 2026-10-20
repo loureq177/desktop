@@ -62,10 +62,6 @@ end
 hl.env("ELECTRON_OZONE_PLATFORM_HINT", "auto")
 hl.env("SAL_USE_VCLPLUGIN", "gtk3")
 
-local function gset(key, val)
-	return string.format("gsettings set org.gnome.desktop.interface %s '%s'", key, val)
-end
-
 hl.on("hyprland.start", function()
 	-- Xwayland is off in Hyprland: xwayland-satellite.socket owns :0 and starts
 	-- it for the first X11 client. Hyprland drops DISPLAY when it loads the
@@ -77,12 +73,8 @@ hl.on("hyprland.start", function()
 		-- First, so the session it locks on startup has nothing on screen yet.
 		"~/.local/bin/quickshell-session",
 
-		gset("cursor-theme", ui.theme.cursor),
-		gset("icon-theme", ui.theme.icon),
-		gset("font-name", ui.font.ui),
-		gset("color-scheme", "prefer-dark"),
-		gset("gtk-theme", ui.theme.gtk),
-		gset("monospace-font-name", ui.font.mono .. " 12"),
+		-- The GTK settings of ui.toml, which apply-ui keeps.
+		"~/.local/bin/apply-ui --gtk",
 
 		"dbus-update-activation-environment --systemd WAYLAND_DISPLAY DISPLAY XDG_CURRENT_DESKTOP HYPRLAND_INSTANCE_SIGNATURE AQ_DRM_DEVICES VK_DRIVER_FILES VK_ICD_FILENAMES LIBVA_DRIVER_NAME GSK_RENDERER GTK_A11Y GDK_BACKEND GDK_WAYLAND_DISABLE XCURSOR_THEME XCURSOR_SIZE HYPRCURSOR_THEME HYPRCURSOR_SIZE QT_QPA_PLATFORM SDL_VIDEODRIVER ELECTRON_OZONE_PLATFORM_HINT",
 		-- Nothing stops the target when Hyprland exits, so after a restart a plain
@@ -289,7 +281,6 @@ hl.config({
 		repeat_delay = 200,
 		repeat_rate = 20,
 		sensitivity = 0.2,
-		scroll_factor = 0.5,
 		touchpad = {
 			natural_scroll = true,
 			tap_to_click = true,

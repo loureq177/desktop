@@ -50,9 +50,28 @@ def write(path, content):
     print(f"  \033[32m✓\033[0m Generated: {path}")
 
 
+# GTK and the portals read these from dconf. Hyprland sets them again at every
+# start (--gtk): dconf needs the session bus, which install.sh may not have.
+def apply_gtk(cfg):
+    gsettings = {
+        "cursor-theme": cfg["theme"]["cursor"],
+        "icon-theme": cfg["theme"]["icon"],
+        "font-name": cfg["font"]["ui"],
+        "gtk-theme": cfg["theme"]["gtk"],
+        "monospace-font-name": f"{cfg['font']['mono']} 12",
+        "color-scheme": "prefer-dark",
+    }
+    for key, value in gsettings.items():
+        subprocess.run(["gsettings", "set", "org.gnome.desktop.interface", key, value], capture_output=True)
+
+
 def main():
     with open(CONFIG_DIR / "ui" / "ui.toml", "rb") as f:
         cfg = tomllib.load(f)
+
+    if "--gtk" in sys.argv:
+        apply_gtk(cfg)
+        return
 
     values = {f"{section}_{key}": v for section, table in cfg.items() for key, v in table.items()}
     values |= cfg["colors"]
@@ -76,15 +95,7 @@ def main():
         subprocess.run([str(Path.home() / ".local/bin/power-save"), "--reapply"], capture_output=True)
         print("  \033[32m✓\033[0m Hyprland reloaded")
 
-    gsettings = {
-        "cursor-theme": cfg["theme"]["cursor"],
-        "icon-theme": cfg["theme"]["icon"],
-        "font-name": cfg["font"]["ui"],
-        "gtk-theme": cfg["theme"]["gtk"],
-        "monospace-font-name": f"{cfg['font']['mono']} 12",
-    }
-    for key, value in gsettings.items():
-        subprocess.run(["gsettings", "set", "org.gnome.desktop.interface", key, value], capture_output=True)
+    apply_gtk(cfg)
     print("  \033[32m✓\033[0m GNOME/GTK settings updated")
 
 

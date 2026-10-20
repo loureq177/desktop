@@ -130,11 +130,10 @@ records() { awk -F'\t' -v kind="$1" '$1 == kind { sub(/^[^\t]*\t/, ""); print }'
     records EXEC | grep -qxF "~/.local/bin/wallpaper init"
 }
 
-@test "GTK settings at startup come from ui.lua" {
+@test "GTK settings at startup come from apply-ui" {
     mock_run
-    local cursor
-    cursor="$(lua -e "print(dofile('$HOME/.config/hypr/ui.lua').theme.cursor)")"
-    records EXEC | grep -qxF "gsettings set org.gnome.desktop.interface cursor-theme '$cursor'" || fail "$(records EXEC)"
+    records EXEC | grep -qxF "~/.local/bin/apply-ui --gtk" || fail "$(records EXEC)"
+    ! records EXEC | grep -q "gsettings" || fail "hyprland.lua sets GTK settings itself: $(records EXEC)"
 }
 
 @test "the shell lists the same special workspaces as hyprland.lua" {
