@@ -15,7 +15,7 @@ Rectangle {
 
 	Behavior on opacity {
 		NumberAnimation {
-			duration: 140
+			duration: Theme.animFast
 			easing.type: Easing.OutCubic
 		}
 	}

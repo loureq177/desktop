@@ -51,7 +51,7 @@ RowLayout {
 		Text {
 			text: root.title
 			font.family: Theme.fontFamily
-			font.pixelSize: Theme.fontSize + 1
+			font.pixelSize: Theme.fontSizeLarge
 			font.bold: true
 			color: Theme.textMain
 		}
@@ -60,7 +60,7 @@ RowLayout {
 			visible: root.subtitle !== ""
 			text: root.subtitle
 			font.family: Theme.fontMono
-			font.pixelSize: Theme.fontSizeSmall - 2
+			font.pixelSize: Theme.fontSizeTiny
 			color: root.isScanning ? Theme.accentBlue : Theme.textDim
 		}
 	}
@@ -113,8 +113,8 @@ RowLayout {
 		border.color: root.enabledState ? Theme.accentBlue : Theme.border
 		border.width: 1
 
-		Behavior on color { ColorAnimation { duration: 140 } }
-		Behavior on border.color { ColorAnimation { duration: 120 } }
+		Behavior on color { ColorAnimation { duration: Theme.animFast } }
+		Behavior on border.color { ColorAnimation { duration: Theme.animFast } }
 
 		Rectangle {
 			id: switchThumb
@@ -125,8 +125,8 @@ RowLayout {
 			anchors.verticalCenter: parent.verticalCenter
 			color: root.enabledState ? Theme.bgMain : Theme.textDim
 
-			Behavior on x { NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
-			Behavior on color { ColorAnimation { duration: 140 } }
+			Behavior on x { NumberAnimation { duration: Theme.animFast; easing.type: Easing.OutCubic } }
+			Behavior on color { ColorAnimation { duration: Theme.animFast } }
 		}
 
 		MouseArea {

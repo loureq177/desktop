@@ -51,14 +51,13 @@ Singleton {
 
 	readonly property string fontFamily: ui.font.family
 	readonly property string fontMono: ui.font.mono
-	// Pixels, like every font size in the shell.
-	readonly property int fontSize: 17
+	// Pixels, like every font size in the shell. Only the big numbers and
+	// glyphs (clock, temperature, emoji) have sizes of their own.
+	readonly property int fontSizeTiny: 12
 	readonly property int fontSizeSmall: 14
-	readonly property int fontSizeGrid: 13
-	// Search fields and the rows of the centred windows.
-	readonly property int fontSizeLarge: 20
-	readonly property int fontSizeBar: 15
-	readonly property int fontSizeBarIcon: 18
+	readonly property int fontSize: 16
+	// Titles and the search field.
+	readonly property int fontSizeLarge: 18
 
 	// Bar geometry: a single translucent strip with hover-highlighted modules.
 	readonly property int barHeight: 30
@@ -85,25 +84,16 @@ Singleton {
 	readonly property color tileBorder: alpha(textMain, 0.08)
 	readonly property color tileBorderHover: alpha(textMain, 0.18)
 
-	// Panels turn to frosted glass exactly when ghostty does (power-save's
-	// ghostty_perf); Hyprland blurs whatever lies underneath them. Tiles are
-	// denser than the panel so they still read as separate without frames.
-	function panel(c) {
+	// Panels (bgCard) and the tiles and fields on them (bgMain) turn to
+	// frosted glass exactly when ghostty does (power-save's ghostty_perf);
+	// Hyprland blurs whatever lies underneath them.
+	function glass(c) {
 		return alpha(c, SystemStatus.glass ? 0.68 : 1);
 	}
-	// Tiles and fields lying on a panel.
-	function inset(c) {
-		return alpha(c, SystemStatus.glass ? 0.7 : 1);
-	}
 
-	// Animation durations & physics matching Hyprland curves.
+	// Hover, selection and fades; movement (cards, lists, scrolling).
 	readonly property int animFast: 150
 	readonly property int animNormal: 250
-	readonly property int animSmooth: 280
-	readonly property int flickDecel: 1500
-	readonly property int maxFlickVel: 6000
-	// Pixels a wheel turn of 120 (one notch, before input:scroll_factor) scrolls.
-	readonly property int wheelStep: 160
 
 	// Cubic bezier control points matching Hyprland:
 	// easeOutQuint = { { 0.23, 1 }, { 0.32, 1 } }

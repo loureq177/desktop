@@ -264,7 +264,7 @@ Item {
 					Layout.topMargin: 4
 					text: "Press [space] to turn on"
 					font.family: Theme.fontMono
-					font.pixelSize: Theme.fontSizeSmall - 2
+					font.pixelSize: Theme.fontSizeTiny
 					color: Theme.textMuted
 				}
 			}
@@ -280,9 +280,6 @@ Item {
 				anchors.fill: parent
 				clip: true
 				spacing: 6
-				boundsBehavior: Flickable.DragAndOvershootBounds
-				flickDeceleration: Theme.flickDecel
-				maximumFlickVelocity: Theme.maxFlickVel
 				model: root.items
 
 				ScrollBar.vertical: ThinScrollBar {}
@@ -303,12 +300,12 @@ Item {
 					width: listView.width - (listView.ScrollBar.vertical.visible ? 10 : 0)
 					height: 50
 					radius: Theme.roundingElement
-					color: connected ? Theme.alpha(Theme.accent, 0.08) : Theme.inset(Theme.bgMain)
+					color: connected ? Theme.alpha(Theme.accent, 0.08) : Theme.glass(Theme.bgMain)
 					border.color: connected ? Theme.selectionBorder : Theme.tileBorder
 					border.width: 1
 
-					Behavior on color { ColorAnimation { duration: 100 } }
-					Behavior on border.color { ColorAnimation { duration: 100 } }
+					Behavior on color { ColorAnimation { duration: Theme.animFast } }
+					Behavior on border.color { ColorAnimation { duration: Theme.animFast } }
 
 					SelectionHighlight {
 						selected: row.selected
@@ -355,7 +352,7 @@ Item {
 									Layout.fillWidth: true
 									text: row.modelData.name
 									font.family: Theme.fontFamily
-									font.pixelSize: Theme.fontSizeSmall + 1
+									font.pixelSize: Theme.fontSize
 									font.bold: row.connected || row.selected
 									color: row.connected ? Theme.accentBlue : Theme.textMain
 									elide: Text.ElideRight
@@ -376,7 +373,7 @@ Item {
 								Text {
 									text: row.busy ? root.pendingStatus : (row.connected ? "Connected" : row.modelData.detail)
 									font.family: Theme.fontMono
-									font.pixelSize: Theme.fontSizeSmall - 2
+									font.pixelSize: Theme.fontSizeTiny
 									color: row.busy ? Theme.warning : (row.connected ? Theme.accentBlue : Theme.textDim)
 								}
 
@@ -392,7 +389,7 @@ Item {
 										anchors.verticalCenter: parent.verticalCenter
 										text: "·"
 										font.family: Theme.fontMono
-										font.pixelSize: Theme.fontSizeSmall - 2
+										font.pixelSize: Theme.fontSizeTiny
 										color: battery.tint
 									}
 
@@ -407,7 +404,7 @@ Item {
 										anchors.verticalCenter: parent.verticalCenter
 										text: Math.round(battery.level * 100) + "%"
 										font.family: Theme.fontMono
-										font.pixelSize: Theme.fontSizeSmall - 2
+										font.pixelSize: Theme.fontSizeTiny
 										color: battery.tint
 									}
 								}
@@ -428,7 +425,7 @@ Item {
 								anchors.centerIn: parent
 								text: "Disconnect"
 								font.family: Theme.fontFamily
-								font.pixelSize: Theme.fontSizeSmall - 2
+								font.pixelSize: Theme.fontSizeTiny
 								color: Theme.textMain
 							}
 
@@ -470,7 +467,7 @@ Item {
 							visible: !row.connected && !row.busy
 							text: "›"
 							font.family: Theme.fontFamily
-							font.pixelSize: 18
+							font.pixelSize: Theme.fontSizeLarge
 							color: row.selected ? Theme.accentBlue : Theme.textMuted
 						}
 					}
@@ -494,7 +491,7 @@ Item {
 					Layout.alignment: Qt.AlignHCenter
 					text: root.emptyHint
 					font.family: Theme.fontMono
-					font.pixelSize: Theme.fontSizeSmall - 2
+					font.pixelSize: Theme.fontSizeTiny
 					color: Theme.textMuted
 				}
 			}

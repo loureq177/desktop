@@ -27,7 +27,7 @@ Rectangle {
 			Layout.fillWidth: true
 			text: message
 			font.family: Theme.fontMono
-			font.pixelSize: Theme.fontSizeSmall - 1
+			font.pixelSize: Theme.fontSizeTiny
 			color: Theme.critical
 			elide: Text.ElideRight
 		}

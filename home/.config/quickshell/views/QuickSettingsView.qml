@@ -197,12 +197,12 @@ SideDrawer {
 		Layout.preferredHeight: 76
 		radius: Theme.roundingElement
 
-		color: stile.active ? Theme.alpha(stile.activeColor, 0.18) : Theme.inset(Theme.bgMain)
+		color: stile.active ? Theme.alpha(stile.activeColor, 0.18) : Theme.glass(Theme.bgMain)
 		border.color: stile.active ? Theme.alpha(stile.activeColor, 0.3) : Theme.tileBorder
 		border.width: 1
 
-		Behavior on color { ColorAnimation { duration: 120 } }
-		Behavior on border.color { ColorAnimation { duration: 120 } }
+		Behavior on color { ColorAnimation { duration: Theme.animFast } }
+		Behavior on border.color { ColorAnimation { duration: Theme.animFast } }
 
 		SelectionHighlight {
 			selected: stile.isSelected
@@ -243,7 +243,7 @@ SideDrawer {
 				color: (stile.hasDetails && stile.hasToggleBadge)
 					? (stile.active
 						? (stile.badgeHovered ? Qt.lighter(stile.activeColor, 1.15) : stile.activeColor)
-						: (stile.badgeHovered ? Theme.bgHover : Theme.inset(Theme.bgCard)))
+						: (stile.badgeHovered ? Theme.bgHover : Theme.glass(Theme.bgCard)))
 					: "transparent"
 				border.color: (stile.hasDetails && stile.hasToggleBadge)
 					? (stile.active
@@ -252,8 +252,8 @@ SideDrawer {
 					: "transparent"
 				border.width: 0
 
-				Behavior on color { ColorAnimation { duration: 140 } }
-				Behavior on border.color { ColorAnimation { duration: 120 } }
+				Behavior on color { ColorAnimation { duration: Theme.animFast } }
+				Behavior on border.color { ColorAnimation { duration: Theme.animFast } }
 
 				LineIcon {
 					anchors.centerIn: parent
@@ -274,7 +274,7 @@ SideDrawer {
 					Layout.fillWidth: true
 					text: stile.title
 					font.family: Theme.fontFamily
-					font.pixelSize: Theme.fontSizeSmall + 2
+					font.pixelSize: Theme.fontSize
 					font.bold: true
 					color: Theme.textMain
 					elide: Text.ElideRight
@@ -296,7 +296,7 @@ SideDrawer {
 				Layout.alignment: Qt.AlignVCenter
 				text: "›"
 				font.family: Theme.fontFamily
-				font.pixelSize: 16
+				font.pixelSize: Theme.fontSize
 				font.bold: true
 				color: stile.isSelected ? Theme.accentBlue : Theme.textDim
 			}
@@ -423,7 +423,7 @@ SideDrawer {
 				Layout.fillWidth: true
 				text: "Quick actions"
 				font.family: Theme.fontFamily
-				font.pixelSize: Theme.fontSize + 1
+				font.pixelSize: Theme.fontSizeLarge
 				font.bold: true
 				color: Theme.textMain
 			}

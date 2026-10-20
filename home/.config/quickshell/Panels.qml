@@ -23,6 +23,9 @@ Singleton {
 	// place when one replaces another.
 	property string previous: ""
 
+	// Where the panels, the OSD and the toasts show: the focused monitor.
+	readonly property var screen: Quickshell.screens.find(s => s.name === Hyprland.focusedMonitor?.name) ?? Quickshell.screens[0] ?? null
+
 	// The windows in the middle of the screen that share size, place and one
 	// dim (CenterModal, CenterBackdrop).
 	readonly property var centered: ["launcher", "clipboard"]

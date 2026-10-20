@@ -1,5 +1,6 @@
 import "../.."
 import "../../widgets"
+import "../../widgets/ListNav.js" as ListNav
 import "."
 import QtQuick
 import QtQuick.Layouts
@@ -50,11 +51,9 @@ Item {
 	}
 
 	Keys.onPressed: event => {
-		if (event.key === Qt.Key_J || event.key === Qt.Key_Down) {
-			root.currentIndex = Math.min(root.actions.length - 1, root.currentIndex + 1);
-			event.accepted = true;
-		} else if (event.key === Qt.Key_K || event.key === Qt.Key_Up) {
-			root.currentIndex = Math.max(0, root.currentIndex - 1);
+		var next = ListNav.step(event, root.actions.length, root.currentIndex);
+		if (next !== -1) {
+			root.currentIndex = next;
 			event.accepted = true;
 		} else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Space) {
 			if (!event.isAutoRepeat)
@@ -94,9 +93,6 @@ Item {
 			spacing: 6
 			model: root.actions
 			currentIndex: root.currentIndex
-			boundsBehavior: Flickable.DragAndOvershootBounds
-			flickDeceleration: Theme.flickDecel
-			maximumFlickVelocity: Theme.maxFlickVel
 
 			WheelScroll {
 				flickable: actionList
@@ -112,14 +108,14 @@ Item {
 				width: ListView.view.width
 				implicitHeight: actionCol.implicitHeight + 20
 				radius: Theme.roundingElement
-				color: modelData.alert ? Theme.alpha(Theme.critical, 0.18) : Theme.inset(Theme.bgMain)
+				color: modelData.alert ? Theme.alpha(Theme.critical, 0.18) : Theme.glass(Theme.bgMain)
 				border.color: modelData.alert ? Theme.critical
 					: actionRow.pending ? Theme.warning
 					: Theme.tileBorder
 				border.width: 1
 
-				Behavior on color { ColorAnimation { duration: 120 } }
-				Behavior on border.color { ColorAnimation { duration: 120 } }
+				Behavior on color { ColorAnimation { duration: Theme.animFast } }
+				Behavior on border.color { ColorAnimation { duration: Theme.animFast } }
 
 				SelectionHighlight {
 					selected: actionRow.isSelected
@@ -170,7 +166,7 @@ Item {
 						Text {
 							text: actionRow.pending ? "Press again to " + (modelData.verb ?? "confirm") : modelData.desc
 							font.family: Theme.fontMono
-							font.pixelSize: Theme.fontSizeSmall - 2
+							font.pixelSize: Theme.fontSizeTiny
 							color: actionRow.pending ? Theme.warning : Theme.textDim
 							elide: Text.ElideRight
 							Layout.fillWidth: true

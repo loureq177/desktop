@@ -17,12 +17,6 @@ Rectangle {
 	signal iconClicked()
 	signal scrubbed(real v)
 
-	// A notch of the wheel is 5%, like H / L.
-	function wheel(w) {
-		if (row.ready && w.angleDelta.y !== 0)
-			row.scrubbed(Math.max(0, Math.min(100, Math.round(row.value) + (w.angleDelta.y > 0 ? 5 : -5))));
-	}
-
 	Layout.fillWidth: true
 	Layout.preferredHeight: 48
 	radius: Theme.roundingElement
@@ -41,7 +35,6 @@ Rectangle {
 		anchors.fill: parent
 		z: 0
 		onClicked: row.selectRequested()
-		onWheel: w => row.wheel(w)
 	}
 
 	RowLayout {
@@ -97,10 +90,10 @@ Rectangle {
 				clip: true
 
 				Behavior on height {
-					NumberAnimation { duration: 100 }
+					NumberAnimation { duration: Theme.animFast }
 				}
 				Behavior on border.color {
-					ColorAnimation { duration: 120 }
+					ColorAnimation { duration: Theme.animFast }
 				}
 
 				Rectangle {
@@ -112,7 +105,7 @@ Rectangle {
 					color: row.muted ? Theme.textDim : Theme.accentBlue
 
 					Behavior on color {
-						ColorAnimation { duration: 120 }
+						ColorAnimation { duration: Theme.animFast }
 					}
 				}
 
@@ -122,7 +115,6 @@ Rectangle {
 					hoverEnabled: true
 					cursorShape: Qt.PointingHandCursor
 					preventStealing: true
-					onWheel: w => row.wheel(w)
 					onPressed: mouse => row.scrubbed(Math.max(0, Math.min(100, mouse.x / track.width * 100)))
 					onPositionChanged: mouse => {
 						if (pressed)
@@ -137,9 +129,18 @@ Rectangle {
 			horizontalAlignment: Text.AlignRight
 			text: row.label
 			font.family: Theme.fontMono
-			font.pixelSize: Theme.fontSizeSmall + 1
+			font.pixelSize: Theme.fontSizeSmall
 			font.bold: true
 			color: Theme.textMain
+		}
+	}
+
+	// A notch of the wheel is 5%, like H / L.
+	WheelSteps {
+		z: 1
+		onStepped: delta => {
+			if (row.ready)
+				row.scrubbed(Math.max(0, Math.min(100, Math.round(row.value) - 5 * delta)));
 		}
 	}
 }

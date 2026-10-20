@@ -174,7 +174,7 @@ DeviceList {
 		Layout.fillWidth: true
 		visible: root.prompting
 		radius: Theme.roundingElement
-		color: Theme.inset(Theme.bgMain)
+		color: Theme.glass(Theme.bgMain)
 		border.color: Theme.accentBlue
 		border.width: 1
 		implicitHeight: passCol.implicitHeight + 20
@@ -209,7 +209,7 @@ DeviceList {
 				Layout.fillWidth: true
 				Layout.preferredHeight: 36
 				radius: Theme.roundingSubtle
-				color: Theme.inset(Theme.bgCard)
+				color: Theme.glass(Theme.bgCard)
 				border.color: passInput.activeFocus ? Theme.accentBlue : Theme.border
 				border.width: 1
 
@@ -269,7 +269,7 @@ DeviceList {
 				Layout.fillWidth: true
 				text: root.errorMessage !== "" ? root.errorMessage : root.pendingStatus
 				font.family: Theme.fontMono
-				font.pixelSize: Theme.fontSizeSmall - 2
+				font.pixelSize: Theme.fontSizeTiny
 				color: root.errorMessage !== "" ? Theme.critical : Theme.warning
 			}
 
@@ -292,7 +292,7 @@ DeviceList {
 						anchors.centerIn: parent
 						text: "Cancel (Esc)"
 						font.family: Theme.fontFamily
-						font.pixelSize: Theme.fontSizeSmall - 1
+						font.pixelSize: Theme.fontSizeTiny
 						color: Theme.textDim
 					}
 
@@ -318,7 +318,7 @@ DeviceList {
 						anchors.centerIn: parent
 						text: parent.connecting ? "Connecting…" : "Connect (Enter)"
 						font.family: Theme.fontFamily
-						font.pixelSize: Theme.fontSizeSmall - 1
+						font.pixelSize: Theme.fontSizeTiny
 						font.bold: true
 						color: Theme.bgMain
 					}

@@ -159,7 +159,7 @@ Rectangle {
 					radius: Theme.roundingSubtle
 					color: chip.lit ? Theme.bgHover : "transparent"
 
-					Behavior on color { ColorAnimation { duration: 120 } }
+					Behavior on color { ColorAnimation { duration: Theme.animFast } }
 
 					Text {
 						id: chipText

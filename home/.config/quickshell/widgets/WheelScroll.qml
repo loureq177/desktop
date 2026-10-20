@@ -2,11 +2,11 @@ import ".."
 import QtQuick
 
 // Wheel and touchpad scrolling for the Flickable it is declared in, the way
-// the rest of the desktop scrolls. Flickable turns every wheel notch into a
-// short flick, and its touchpad scrolling stops dead when the fingers lift,
-// as Wayland sends no momentum to carry on with. Here a notch glides a fixed
-// distance, and the touchpad follows the fingers and then keeps going at the
-// speed they left it.
+// the rest of the desktop scrolls, and the same in every list of the shell.
+// Flickable turns every wheel notch into a short flick, and its touchpad
+// scrolling stops dead when the fingers lift, as Wayland sends no momentum to
+// carry on with. Here a notch glides a fixed distance, and the touchpad
+// follows the fingers and then keeps going at the speed they left it.
 MouseArea {
 	id: root
 
@@ -14,9 +14,18 @@ MouseArea {
 	// The wheel scrolls it sideways: the hourly forecast.
 	property bool horizontal: false
 
+	// Pixels a notch scrolls: a wheel turn of 120, which Hyprland's
+	// input:scroll_factor (0.5) makes 60 before it gets here, so 80 on screen.
+	readonly property int notchStep: 160
+
 	// Over the contents, not inside them (where Flickable puts its children),
 	// so it gets the wheel before the rows do. Clicks and hover pass through.
-	Component.onCompleted: parent = flickable
+	Component.onCompleted: {
+		parent = flickable;
+		flickable.boundsBehavior = Flickable.DragAndOvershootBounds;
+		flickable.flickDeceleration = 1500;
+		flickable.maximumFlickVelocity = 6000;
+	}
 	anchors.fill: parent
 	z: 1
 	acceptedButtons: Qt.NoButton
@@ -79,7 +88,7 @@ MouseArea {
 			var from = glide.running ? glide.to : position();
 			flickable.cancelFlick();
 			glide.stop();
-			glide.to = Math.max(start, Math.min(end, from - notches * Theme.wheelStep));
+			glide.to = Math.max(start, Math.min(end, from - notches * root.notchStep));
 			glide.start();
 		}
 		wheel.accepted = true;

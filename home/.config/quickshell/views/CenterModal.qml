@@ -101,7 +101,7 @@ OverlayWindow {
 				easing.type: Easing.OutCubic
 			}
 		}
-		color: Theme.panel(Theme.bgMain)
+		color: Theme.glass(Theme.bgCard)
 		border.color: Theme.border
 		border.width: Theme.borderSize
 		radius: Theme.roundingWindow
@@ -171,7 +171,7 @@ OverlayWindow {
 					anchors.fill: parent
 					verticalAlignment: Text.AlignVCenter
 					font.family: Theme.fontMono
-					font.pixelSize: Theme.fontSize + 1
+					font.pixelSize: Theme.fontSize
 					color: root.errorText !== "" ? Theme.critical : Theme.textDim
 					elide: Text.ElideRight
 					text: root.errorText || root.statusText

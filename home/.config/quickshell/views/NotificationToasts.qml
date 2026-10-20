@@ -1,7 +1,6 @@
 import ".."
 import "../widgets"
 import Quickshell
-import Quickshell.Hyprland
 import Quickshell.Wayland
 import QtQuick
 
@@ -26,7 +25,7 @@ PanelWindow {
 	WlrLayershell.keyboardFocus: replying ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
 	WlrLayershell.namespace: "quickshell"
 
-	screen: Quickshell.screens.find(s => s.name === Hyprland.focusedMonitor?.name) ?? Quickshell.screens[0] ?? null
+	screen: Panels.screen
 
 	anchors {
 		top: true
@@ -70,7 +69,7 @@ PanelWindow {
 		target: win
 		property: "slide"
 		to: 0
-		duration: Theme.animSmooth
+		duration: Theme.animNormal
 		easing.type: Easing.BezierSpline
 		easing.bezierCurve: Theme.easeOutQuint
 	}
@@ -103,15 +102,15 @@ PanelWindow {
 		}
 
 		add: Transition {
-			NumberAnimation { property: "opacity"; from: 0; to: 1; duration: 200; easing.type: Easing.OutCubic }
-			NumberAnimation { property: "x"; from: 60; to: 0; duration: 220; easing.type: Easing.OutCubic }
+			NumberAnimation { property: "opacity"; from: 0; to: 1; duration: Theme.animNormal; easing.type: Easing.OutCubic }
+			NumberAnimation { property: "x"; from: 60; to: 0; duration: Theme.animNormal; easing.type: Easing.OutCubic }
 		}
 		remove: Transition {
-			NumberAnimation { property: "opacity"; to: 0; duration: 200; easing.type: Easing.OutCubic }
-			NumberAnimation { property: "x"; to: 60; duration: 220; easing.type: Easing.OutCubic }
+			NumberAnimation { property: "opacity"; to: 0; duration: Theme.animNormal; easing.type: Easing.OutCubic }
+			NumberAnimation { property: "x"; to: 60; duration: Theme.animNormal; easing.type: Easing.OutCubic }
 		}
 		displaced: Transition {
-			NumberAnimation { property: "y"; duration: 240; easing.type: Easing.OutCubic }
+			NumberAnimation { property: "y"; duration: Theme.animNormal; easing.type: Easing.OutCubic }
 		}
 	}
 }

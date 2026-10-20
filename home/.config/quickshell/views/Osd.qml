@@ -1,7 +1,6 @@
 import ".."
 import "../widgets"
 import Quickshell
-import Quickshell.Hyprland
 import Quickshell.Io
 import Quickshell.Wayland
 import QtQuick
@@ -48,7 +47,7 @@ PanelWindow {
 	WlrLayershell.layer: WlrLayer.Overlay
 	WlrLayershell.namespace: "quickshell"
 
-	screen: Quickshell.screens.find(s => s.name === Hyprland.focusedMonitor?.name) ?? Quickshell.screens[0] ?? null
+	screen: Panels.screen
 
 	anchors {
 		top: true
@@ -71,7 +70,7 @@ PanelWindow {
 		target: card
 		property: "opacity"
 		to: 1
-		duration: 140
+		duration: Theme.animFast
 	}
 
 	SequentialAnimation {
@@ -81,7 +80,7 @@ PanelWindow {
 			target: card
 			property: "opacity"
 			to: 0
-			duration: 140
+			duration: Theme.animFast
 		}
 
 		ScriptAction {
@@ -97,7 +96,7 @@ PanelWindow {
 		anchors.centerIn: parent
 		width: 380
 		implicitHeight: 68
-		color: Theme.panel(Theme.bgCard)
+		color: Theme.glass(Theme.bgCard)
 		border.color: Theme.border
 		border.width: Theme.borderSize
 		radius: Theme.roundingElement

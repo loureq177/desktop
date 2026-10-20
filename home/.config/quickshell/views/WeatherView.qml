@@ -43,7 +43,7 @@ OverlayWindow {
 		y: Theme.notifTopMargin - root.slide
 		width: Math.min(576, root.width - 32)
 		height: weatherCol.implicitHeight + Theme.paddingCard * 2
-		color: Theme.panel(Theme.bgCard)
+		color: Theme.glass(Theme.bgCard)
 		border.color: Theme.border
 		border.width: Theme.borderSize
 		radius: Theme.roundingWindow
@@ -129,7 +129,7 @@ OverlayWindow {
 								text: Weather.current ? "°C" : ""
 								color: Theme.textDim
 								font.family: Theme.fontFamily
-								font.pixelSize: 18
+								font.pixelSize: Theme.fontSizeLarge
 								anchors.top: tempBig.top
 								anchors.topMargin: 6
 							}
@@ -143,7 +143,7 @@ OverlayWindow {
 								text: "↑" + (Weather.today.high || "—")
 								color: Theme.textMain
 								font.family: Theme.fontFamily
-								font.pixelSize: 13
+								font.pixelSize: Theme.fontSizeSmall
 								font.bold: true
 							}
 
@@ -151,7 +151,7 @@ OverlayWindow {
 								text: "↓" + (Weather.today.low || "—")
 								color: Theme.textMuted
 								font.family: Theme.fontFamily
-								font.pixelSize: 13
+								font.pixelSize: Theme.fontSizeSmall
 								font.bold: true
 							}
 						}
@@ -198,13 +198,9 @@ OverlayWindow {
 								anchors.verticalCenter: parent.verticalCenter
 							}
 
-							Text {
-								text: "E"
-								color: locationArea.containsMouse ? Theme.accentBlue : Theme.textDim
-								font.family: Theme.fontMono
-								font.pixelSize: 10
-								font.bold: true
-								opacity: locationArea.containsMouse ? 0.9 : 0.4
+							HotkeyHint {
+								key: "E"
+								lit: locationArea.containsMouse
 								anchors.verticalCenter: parent.verticalCenter
 							}
 						}
@@ -328,14 +324,14 @@ OverlayWindow {
 								text: "FEELS"
 								color: Theme.textMuted
 								font.family: Theme.fontFamily
-								font.pixelSize: Theme.fontSizeGrid
+								font.pixelSize: Theme.fontSizeTiny
 								font.letterSpacing: 1
 							}
 							Text {
 								text: Weather.current?.feelsLike ?? ""
 								color: Theme.textMain
 								font.family: Theme.fontFamily
-								font.pixelSize: 16
+								font.pixelSize: Theme.fontSize
 								font.bold: true
 							}
 						}
@@ -346,14 +342,14 @@ OverlayWindow {
 								text: "WIND"
 								color: Theme.textMuted
 								font.family: Theme.fontFamily
-								font.pixelSize: Theme.fontSizeGrid
+								font.pixelSize: Theme.fontSizeTiny
 								font.letterSpacing: 1
 							}
 							Text {
 								text: Weather.current?.wind ?? ""
 								color: Theme.textMain
 								font.family: Theme.fontFamily
-								font.pixelSize: 16
+								font.pixelSize: Theme.fontSize
 								font.bold: true
 							}
 						}
@@ -364,14 +360,14 @@ OverlayWindow {
 								text: "HUMID"
 								color: Theme.textMuted
 								font.family: Theme.fontFamily
-								font.pixelSize: Theme.fontSizeGrid
+								font.pixelSize: Theme.fontSizeTiny
 								font.letterSpacing: 1
 							}
 							Text {
 								text: Weather.current?.humidity ?? ""
 								color: Theme.textMain
 								font.family: Theme.fontFamily
-								font.pixelSize: 16
+								font.pixelSize: Theme.fontSize
 								font.bold: true
 							}
 						}
@@ -393,9 +389,11 @@ OverlayWindow {
 						width: parent.width
 						height: 34
 						radius: Theme.roundingElement
-						color: index === Weather.suggestionIndex ? Theme.selectionBg : "transparent"
-						border.color: index === Weather.suggestionIndex ? Theme.selectionBorder : "transparent"
-						border.width: 1
+						color: "transparent"
+
+						SelectionHighlight {
+							selected: index === Weather.suggestionIndex
+						}
 
 						Row {
 							anchors.fill: parent
@@ -418,7 +416,7 @@ OverlayWindow {
 								text: modelData && modelData.description ? modelData.description : ""
 								color: Theme.textDim
 								font.family: Theme.fontFamily
-								font.pixelSize: Theme.fontSizeGrid
+								font.pixelSize: Theme.fontSizeTiny
 								elide: Text.ElideRight
 							}
 						}
@@ -466,7 +464,7 @@ OverlayWindow {
 						anchors.centerIn: parent
 						text: "Retry"
 						font.family: Theme.fontFamily
-						font.pixelSize: Theme.fontSizeSmall - 1
+						font.pixelSize: Theme.fontSizeTiny
 						color: Theme.accentBlue
 					}
 
@@ -498,9 +496,6 @@ OverlayWindow {
 				contentWidth: Math.max(width, (Weather.hourlyForecast ? Weather.hourlyForecast.length : 0) * 54)
 				contentHeight: height
 				flickableDirection: Flickable.HorizontalFlick
-				boundsBehavior: Flickable.DragAndOvershootBounds
-				flickDeceleration: Theme.flickDecel
-				maximumFlickVelocity: Theme.maxFlickVel
 				clip: true
 
 				WheelScroll {
@@ -625,7 +620,7 @@ OverlayWindow {
 									y: 2
 									text: modelData.time
 									font.family: Theme.fontFamily
-									font.pixelSize: 13
+									font.pixelSize: Theme.fontSizeTiny
 									font.bold: index === 0
 									color: index === 0 ? Theme.accentBlue : Theme.textDim
 								}
@@ -649,7 +644,7 @@ OverlayWindow {
 										anchors.centerIn: parent
 										text: modelData.temp
 										font.family: Theme.fontFamily
-										font.pixelSize: 15
+										font.pixelSize: Theme.fontSize
 										font.bold: true
 										color: Theme.textMain
 									}
@@ -660,7 +655,7 @@ OverlayWindow {
 										anchors.topMargin: -1
 										text: "°"
 										font.family: Theme.fontFamily
-										font.pixelSize: 12
+										font.pixelSize: Theme.fontSizeTiny
 										font.bold: true
 										color: Theme.textDim
 									}
@@ -681,7 +676,7 @@ OverlayWindow {
 									Text {
 										text: modelData.pop + "%"
 										font.family: Theme.fontFamily
-										font.pixelSize: 11
+										font.pixelSize: Theme.fontSizeTiny
 										color: Theme.accentBlue
 										anchors.verticalCenter: parent.verticalCenter
 									}
@@ -731,7 +726,7 @@ OverlayWindow {
 									text: modelData.dayName.toUpperCase()
 									color: Theme.textDim
 									font.family: Theme.fontFamily
-									font.pixelSize: 14
+									font.pixelSize: Theme.fontSizeSmall
 									font.letterSpacing: 1
 								}
 
@@ -742,7 +737,7 @@ OverlayWindow {
 										text: modelData.maxTemp
 										color: Theme.textMain
 										font.family: Theme.fontFamily
-										font.pixelSize: 15
+										font.pixelSize: Theme.fontSize
 										font.bold: true
 									}
 
@@ -750,7 +745,7 @@ OverlayWindow {
 										text: modelData.minTemp
 										color: Theme.textMuted
 										font.family: Theme.fontFamily
-										font.pixelSize: 15
+										font.pixelSize: Theme.fontSize
 									}
 								}
 							}

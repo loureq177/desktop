@@ -35,23 +35,17 @@ Rectangle {
 	implicitHeight: Math.max(bodyCol.implicitHeight, notifPic.size) + Theme.notifPadV * 2
 	// A toast lights up under the pointer; in the center the pointer moves the
 	// selection instead (HoverSelect there).
-	color: isToast ? (hoverArea.containsMouse ? Theme.bgHover : Theme.panel(Theme.bgCard)) : Theme.inset(Theme.bgMain)
-	border.color: critical ? Theme.critical
-		: isToast ? Theme.border
-		: isSelected ? Theme.selectionBorder
-		: Theme.tileBorder
+	color: isToast ? (hoverArea.containsMouse ? Theme.bgHover : Theme.glass(Theme.bgCard)) : Theme.glass(Theme.bgMain)
+	border.color: critical ? Theme.critical : isToast ? Theme.border : Theme.tileBorder
 	border.width: isToast ? Theme.borderSize : 1
 	radius: Theme.roundingElement
 	clip: true
 
-	Behavior on color { ColorAnimation { duration: 100 } }
-	Behavior on border.color { ColorAnimation { duration: 100 } }
+	Behavior on color { ColorAnimation { duration: Theme.animFast } }
+	Behavior on border.color { ColorAnimation { duration: Theme.animFast } }
 
-	Rectangle {
-		anchors.fill: parent
-		visible: root.isSelected && !root.isToast
-		color: Theme.selectionBg
-		radius: Theme.roundingElement
+	SelectionHighlight {
+		selected: root.isSelected && !root.isToast
 	}
 
 	MouseArea {
@@ -90,7 +84,7 @@ Rectangle {
 				Layout.fillWidth: true
 				text: root.appName
 				font.family: Theme.fontMono
-				font.pixelSize: Theme.fontSizeSmall + 2
+				font.pixelSize: Theme.fontSize
 				font.bold: true
 				color: Theme.textDim
 				elide: Text.ElideRight
@@ -101,7 +95,7 @@ Rectangle {
 				visible: !root.isToast
 				text: Qt.formatTime(new Date(root.time), "hh:mm")
 				font.family: Theme.fontMono
-				font.pixelSize: Theme.fontSizeSmall + 1
+				font.pixelSize: Theme.fontSizeSmall
 				color: Theme.textMuted
 			}
 		}
@@ -121,7 +115,7 @@ Rectangle {
 			Layout.fillWidth: true
 			text: root.body
 			font.family: Theme.fontFamily
-			font.pixelSize: Theme.fontSizeSmall + 2
+			font.pixelSize: Theme.fontSize
 			color: Theme.textDim
 			wrapMode: Text.Wrap
 			maximumLineCount: 3
@@ -134,7 +128,7 @@ Rectangle {
 			Layout.topMargin: 4
 			visible: root.canReply
 			implicitHeight: 30
-			color: Theme.inset(Theme.bgMain)
+			color: Theme.glass(Theme.bgMain)
 			border.color: replyField.activeFocus ? Theme.selectionBorder : Theme.border
 			border.width: 1
 			radius: Theme.roundingElement
@@ -146,7 +140,7 @@ Rectangle {
 				anchors.rightMargin: 8
 				verticalAlignment: TextInput.AlignVCenter
 				font.family: Theme.fontMono
-				font.pixelSize: Theme.fontSizeSmall + 2
+				font.pixelSize: Theme.fontSize
 				color: Theme.textMain
 				clip: true
 				selectByMouse: true
@@ -174,7 +168,7 @@ Rectangle {
 				elide: Text.ElideRight
 				text: root.replyPlaceholder || "Reply…"
 				font.family: Theme.fontMono
-				font.pixelSize: Theme.fontSizeSmall + 2
+				font.pixelSize: Theme.fontSize
 				color: Theme.textMuted
 			}
 		}
@@ -200,7 +194,7 @@ Rectangle {
 					border.width: 1
 					radius: Theme.roundingElement
 
-					Behavior on color { ColorAnimation { duration: 120 } }
+					Behavior on color { ColorAnimation { duration: Theme.animFast } }
 
 					Text {
 						anchors.fill: parent
@@ -211,7 +205,7 @@ Rectangle {
 						elide: Text.ElideRight
 						text: actionButton.text
 						font.family: Theme.fontMono
-						font.pixelSize: Theme.fontSizeSmall + 2
+						font.pixelSize: Theme.fontSize
 						color: Theme.textMain
 					}
 

@@ -28,7 +28,6 @@ OverlayWindow {
 
 	shown: agent.isActive && !cancelled
 	card: dialogCard
-	namespace: "quickshell-polkit"
 	dismissOnClick: false
 
 	onDismissRequested: cancelRequest()
@@ -212,7 +211,7 @@ OverlayWindow {
 		anchors.centerIn: parent
 		width: Math.min(460, root.width - 40)
 		implicitHeight: cardLayout.implicitHeight + 48
-		color: Theme.panel(Theme.bgCard)
+		color: Theme.glass(Theme.bgCard)
 		border.color: Theme.border
 		border.width: Theme.borderSize
 		radius: Theme.roundingWindow
@@ -235,7 +234,7 @@ OverlayWindow {
 				text: root.displayCommand
 				color: Theme.textMain
 				font.family: Theme.fontMono
-				font.pixelSize: 16
+				font.pixelSize: Theme.fontSize
 				font.bold: true
 				wrapMode: Text.WrapAnywhere
 				maximumLineCount: 3
@@ -249,7 +248,7 @@ OverlayWindow {
 				Layout.fillWidth: true
 				Layout.preferredHeight: 46
 				focus: true
-				fillColor: Theme.inset(Theme.bgMain)
+				fillColor: Theme.glass(Theme.bgMain)
 				masked: !root.responseVisible
 				readOnly: root.submitted
 				busy: root.submitted

@@ -20,7 +20,7 @@ PanelWindow {
 	screen: modelData
 	color: "transparent"
 	WlrLayershell.layer: WlrLayer.Overlay
-	WlrLayershell.namespace: "quickshell-bar"
+	WlrLayershell.namespace: "quickshell"
 
 	readonly property bool hasFullscreen: {
 		var ws = Hyprland.workspaces.values.find(w => w.monitor?.name === bar.screenName && w.active);
@@ -247,7 +247,7 @@ PanelWindow {
 			id: tipBox
 			implicitWidth: tipText.implicitWidth + 20
 			implicitHeight: tipText.implicitHeight + 10
-			color: Theme.alpha(Theme.bgCard, 0.96)
+			color: Theme.bgCard
 			border.color: Theme.border
 			border.width: 1
 			radius: Theme.roundingElement
@@ -295,7 +295,7 @@ PanelWindow {
 		radius: Theme.roundingElement
 
 		Behavior on color {
-			ColorAnimation { duration: 120 }
+			ColorAnimation { duration: Theme.animFast }
 		}
 
 		Row {
@@ -314,7 +314,7 @@ PanelWindow {
 				visible: pill.text !== ""
 				text: pill.text
 				font.family: Theme.fontFamily
-				font.pixelSize: Theme.fontSizeBarIcon
+				font.pixelSize: Theme.fontSizeLarge
 				font.bold: true
 				color: pill.textColor
 			}
@@ -324,7 +324,7 @@ PanelWindow {
 				visible: pill.value !== ""
 				text: pill.value
 				font.family: Theme.fontMono
-				font.pixelSize: Theme.fontSizeBar
+				font.pixelSize: Theme.fontSizeSmall
 				font.bold: true
 				color: pill.textColor
 			}
@@ -424,7 +424,7 @@ PanelWindow {
 								Behavior on width {
 									NumberAnimation { duration: Theme.animNormal; easing.type: Easing.OutCubic }
 								}
-								Behavior on color { ColorAnimation { duration: 120 } }
+								Behavior on color { ColorAnimation { duration: Theme.animFast } }
 							}
 
 							MouseArea {
@@ -443,15 +443,9 @@ PanelWindow {
 					}
 				}
 
-				MouseArea {
-					anchors.fill: parent
-					acceptedButtons: Qt.NoButton
-					onWheel: w => {
-						if (w.angleDelta.y > 0)
-							Quickshell.execDetached(["hyprctl", "dispatch", "hl.dsp.focus({workspace='+1'})"]);
-						else if (w.angleDelta.y < 0)
-							Quickshell.execDetached(["hyprctl", "dispatch", "hl.dsp.focus({workspace='-1'})"]);
-					}
+				// The way SUPER + the wheel goes (hyprland.lua).
+				WheelSteps {
+					onStepped: delta => Quickshell.execDetached(["hyprctl", "dispatch", "hl.dsp.focus({workspace='e" + (delta > 0 ? "+1" : "-1") + "'})"])
 				}
 			}
 
@@ -507,7 +501,7 @@ PanelWindow {
 								color: spArea.containsMouse ? bar.hoverColor : (sp.shown ? Theme.alpha(Theme.accent, 0.18) : "transparent")
 								radius: Theme.roundingElement
 
-								Behavior on color { ColorAnimation { duration: 120 } }
+								Behavior on color { ColorAnimation { duration: Theme.animFast } }
 							}
 
 							LineIcon {
@@ -521,7 +515,7 @@ PanelWindow {
 								visible: sp.icon === ""
 								text: sp.modelData.charAt(0).toUpperCase()
 								font.family: Theme.fontMono
-								font.pixelSize: Theme.fontSizeBar
+								font.pixelSize: Theme.fontSizeSmall
 								font.bold: true
 								color: sp.tint
 							}
@@ -547,13 +541,8 @@ PanelWindow {
 					}
 				}
 
-				MouseArea {
-					anchors.fill: parent
-					acceptedButtons: Qt.NoButton
-					onWheel: w => {
-						if (w.angleDelta.y !== 0)
-							bar.cycleSpecial(w.angleDelta.y > 0 ? -1 : 1);
-					}
+				WheelSteps {
+					onStepped: delta => bar.cycleSpecial(delta)
 				}
 			}
 
@@ -718,7 +707,7 @@ PanelWindow {
 					visible: statusPill.battery !== null
 					text: statusPill.pct + "%"
 					font.family: Theme.fontMono
-					font.pixelSize: Theme.fontSizeBar
+					font.pixelSize: Theme.fontSizeSmall
 					font.bold: true
 					color: statusPill.charging ? Theme.accentGreen
 						: statusPill.pct <= 10 ? Theme.critical

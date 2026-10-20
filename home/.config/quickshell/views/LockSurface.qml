@@ -136,7 +136,7 @@ Item {
 					anchors.verticalCenter: parent.verticalCenter
 					name: "lock"
 					color: Theme.textMain
-					size: Theme.fontSizeBarIcon
+					size: Theme.fontSizeLarge
 				}
 
 				Text {
@@ -144,7 +144,7 @@ Item {
 					text: Quickshell.env("USER")
 					color: Theme.textMain
 					font.family: Theme.fontMono
-					font.pixelSize: Theme.fontSizeBar
+					font.pixelSize: Theme.fontSize
 					font.bold: true
 				}
 			}
@@ -161,7 +161,7 @@ Item {
 					anchors.verticalCenter: parent.verticalCenter
 					name: wifiUp ? "wifi" : (wiredUp ? "ethernet-port" : "wifi-off")
 					color: wifiUp || wiredUp ? Theme.accentBlue : Theme.textDim
-					size: Theme.fontSizeBarIcon
+					size: Theme.fontSizeLarge
 				}
 
 				Text {
@@ -179,7 +179,7 @@ Item {
 						: pct <= 20 ? Theme.warning
 						: Theme.textMain
 					font.family: Theme.fontMono
-					font.pixelSize: Theme.fontSizeBar
+					font.pixelSize: Theme.fontSize
 					font.bold: true
 				}
 
@@ -195,7 +195,7 @@ Item {
 						anchors.verticalCenter: parent.verticalCenter
 						name: Notifications.dnd ? "bell-off" : "bell"
 						color: Notifications.dnd ? Theme.warning : Theme.accentBlue
-						size: Theme.fontSizeBarIcon
+						size: Theme.fontSizeLarge
 					}
 
 					Text {
@@ -204,7 +204,7 @@ Item {
 						text: parent.count
 						color: Notifications.dnd ? Theme.warning : Theme.accentBlue
 						font.family: Theme.fontMono
-						font.pixelSize: Theme.fontSizeBar
+						font.pixelSize: Theme.fontSize
 						font.bold: true
 					}
 				}

@@ -15,7 +15,7 @@ Rectangle {
 	radius: Theme.roundingElement
 	color: area.containsMouse ? Theme.bgHover : "transparent"
 
-	Behavior on color { ColorAnimation { duration: 120 } }
+	Behavior on color { ColorAnimation { duration: Theme.animFast } }
 
 	LineIcon {
 		anchors.centerIn: parent

@@ -36,10 +36,14 @@ CenterModal {
 	property bool listFailed: false
 
 	readonly property var currentEntry: filtered.length > 0 && currentIndex < filtered.length ? filtered[currentIndex] : null
-	readonly property bool currentIsImage: {
-		if (!currentEntry)
-			return false;
-		return / binary data (\d+(?:\.\d+)?) [KMG]?i?B (png|jpe?g|webp|gif|bmp) (\d+x\d+)/.test(currentEntry.preview || "");
+	readonly property bool currentIsImage: currentEntry !== null && imageInfo(currentEntry.preview) !== null
+	readonly property string runDir: Quickshell.env("XDG_RUNTIME_DIR")
+
+	// cliphist lists an image as "[[ binary data 12 KiB png 640x480 ]]":
+	// [size, unit, format, dimensions], or null for text.
+	function imageInfo(preview) {
+		var m = (preview || "").match(/binary data (\d+(?:\.\d+)?) ([KMG]?i?B) (png|jpe?g|webp|gif|bmp) (\d+x\d+)/);
+		return m ? m.slice(1) : null;
 	}
 
 	function refilter() {
@@ -59,19 +63,12 @@ CenterModal {
 	function paste(entry) {
 		if (!entry)
 			return;
-		var mime = "";
-		var m = (entry.preview || "").match(/binary data \d+(?:\.\d+)? [KMG]?i?B (png|jpe?g|webp|gif|bmp) \d+x\d+/);
-		if (m) {
-			var ext = m[1].toLowerCase();
-			if (ext === "jpg")
-				ext = "jpeg";
-			mime = "image/" + ext;
-		}
+		var img = imageInfo(entry.preview);
+		var args = [Quickshell.env("HOME") + "/.local/bin/clipboard-insert", String(entry.id)];
+		if (img)
+			args.push("image/" + img[2].toLowerCase().replace("jpg", "jpeg"));
 		Panels.close("clipboard");
-		if (mime !== "")
-			Quickshell.execDetached([Quickshell.env("HOME") + "/.local/bin/clipboard-insert", String(entry.id), mime]);
-		else
-			Quickshell.execDetached([Quickshell.env("HOME") + "/.local/bin/clipboard-insert", String(entry.id)]);
+		Quickshell.execDetached(args);
 	}
 
 	function activate() {
@@ -87,7 +84,7 @@ CenterModal {
 		if (shown)
 			return;
 		decodeProc.running = false;
-		Quickshell.execDetached(["rm", "-f", Quickshell.env("XDG_RUNTIME_DIR") + "/clipboard-preview"]);
+		Quickshell.execDetached(["rm", "-f", win.runDir + "/clipboard-preview"]);
 		win.decodedText = "";
 		win.decodedId = "";
 		win.textReqId = "";
@@ -206,9 +203,6 @@ CenterModal {
 			anchors.left: parent.left
 			width: parent.width * 0.42 - Theme.paddingItem
 			clip: true
-			boundsBehavior: Flickable.DragAndOvershootBounds
-			flickDeceleration: Theme.flickDecel
-			maximumFlickVelocity: Theme.maxFlickVel
 			model: win.filtered
 
 			WheelScroll {
@@ -221,20 +215,21 @@ CenterModal {
 				required property int index
 
 				readonly property string preview: row.modelData?.preview ?? ""
-				readonly property bool isImage: {
-					return / binary data (\d+(?:\.\d+)?) [KMG]?i?B (png|jpe?g|webp|gif|bmp) (\d+x\d+)/.test(row.preview);
-				}
-				readonly property string thumbPath: row.isImage ? (Quickshell.env("XDG_RUNTIME_DIR") || "/run/user/1000") + "/clipboard-thumbs/" + String(row.modelData.id) : ""
+				readonly property var image: win.imageInfo(row.preview)
+				readonly property bool isImage: image !== null
+				readonly property string thumbPath: row.isImage ? win.runDir + "/clipboard-thumbs/" + String(row.modelData.id) : ""
 
 				width: list.width
 				height: Theme.rowHeight
 				clip: true
-				color: row.index === win.currentIndex ? Theme.selectionBg : "transparent"
+				color: "transparent"
 				radius: Theme.roundingElement
 
 				property bool thumbReady: false
 
-				Behavior on color { ColorAnimation { duration: 90 } }
+				SelectionHighlight {
+					selected: row.index === win.currentIndex
+				}
 
 				Process {
 					id: thumbLoader
@@ -244,7 +239,7 @@ CenterModal {
 						'f="$1"; [ -s "$f" ] || { mkdir -p "$2" && cliphist decode "$3" | magick - -thumbnail 120x80 "$f"; }',
 						"sh",
 						row.thumbPath,
-						(Quickshell.env("XDG_RUNTIME_DIR") || "/run/user/1000") + "/clipboard-thumbs",
+						win.runDir + "/clipboard-thumbs",
 						String(row.modelData.id)
 					]
 					onExited: function (exitCode) {
@@ -297,19 +292,11 @@ CenterModal {
 						Layout.alignment: Qt.AlignVCenter
 						textFormat: Text.PlainText
 						font.family: Theme.fontFamily
-						font.pixelSize: Theme.fontSizeSmall + 1
+						font.pixelSize: Theme.fontSize
 						color: Theme.textMain
 						elide: Text.ElideRight
-						text: {
-							var p = row.preview;
-							if (row.isImage) {
-								var m = p.match(/binary data (\d+(?:\.\d+)?) ([KMG]?i?B) (png|jpe?g|webp|gif|bmp) (\d+x\d+)/);
-								if (m)
-									return "Image (" + m[3].toUpperCase() + " " + m[4] + ", " + m[1] + " " + m[2] + ")";
-								return "Image";
-							}
-							return p.replace(/\s+/g, " ");
-						}
+						text: row.isImage ? "Image (" + row.image[2].toUpperCase() + " " + row.image[3] + ", " + row.image[0] + " " + row.image[1] + ")"
+							: row.preview.replace(/\s+/g, " ")
 					}
 				}
 
@@ -332,7 +319,7 @@ CenterModal {
 			visible: win.filtered.length === 0
 			anchors.centerIn: list
 			font.family: Theme.fontFamily
-			font.pixelSize: Theme.fontSizeSmall + 1
+			font.pixelSize: Theme.fontSizeSmall
 			color: Theme.textDim
 			text: win.listFailed ? "cliphist failed — is it installed?" : (win.entries.length === 0 ? "No clipboard entries" : "No match")
 		}
@@ -343,7 +330,9 @@ CenterModal {
 			anchors.bottom: parent.bottom
 			anchors.right: parent.right
 			width: parent.width * 0.58 - Theme.paddingItem
-			color: Theme.alpha(Theme.textMain, 0.04)
+			color: Theme.glass(Theme.bgMain)
+			border.color: Theme.tileBorder
+			border.width: 1
 			radius: Theme.roundingElement
 			clip: true
 
@@ -352,7 +341,7 @@ CenterModal {
 				anchors.fill: parent
 				anchors.margins: 12
 				visible: win.currentIsImage && win.decodedId === (win.currentEntry ? win.currentEntry.id : "")
-				source: visible ? "file://" + (Quickshell.env("XDG_RUNTIME_DIR") || "/run/user/1000") + "/clipboard-preview" : ""
+				source: visible ? "file://" + win.runDir + "/clipboard-preview" : ""
 				fillMode: Image.PreserveAspectFit
 				asynchronous: true
 				cache: false
@@ -367,10 +356,7 @@ CenterModal {
 				contentWidth: width
 				contentHeight: previewText.implicitHeight
 				clip: true
-				boundsBehavior: Flickable.DragAndOvershootBounds
 				flickableDirection: Flickable.VerticalFlick
-				flickDeceleration: Theme.flickDecel
-				maximumFlickVelocity: Theme.maxFlickVel
 
 				ScrollBar.vertical: ThinScrollBar {}
 
@@ -392,7 +378,7 @@ CenterModal {
 						return e.preview;
 					}
 					font.family: Theme.fontMono
-					font.pixelSize: Theme.fontSizeSmall + 1
+					font.pixelSize: Theme.fontSizeSmall
 					color: Theme.textMain
 				}
 			}

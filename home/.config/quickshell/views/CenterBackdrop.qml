@@ -1,6 +1,5 @@
 import ".."
 import Quickshell
-import Quickshell.Hyprland
 import Quickshell.Wayland
 import QtQuick
 
@@ -22,7 +21,7 @@ PanelWindow {
 	WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
 	WlrLayershell.namespace: "quickshell-dim"
 
-	screen: Quickshell.screens.find(s => s.name === Hyprland.focusedMonitor?.name) ?? Quickshell.screens[0] ?? null
+	screen: Panels.screen
 
 	anchors {
 		top: true

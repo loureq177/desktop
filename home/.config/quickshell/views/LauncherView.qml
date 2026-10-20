@@ -539,9 +539,6 @@ CenterModal {
 			visible: window.mode !== "emoji"
 			anchors.fill: parent
 			clip: true
-			boundsBehavior: Flickable.StopAtBounds
-			flickDeceleration: Theme.flickDecel
-			maximumFlickVelocity: Theme.maxFlickVel
 			model: window.filtered
 
 			WheelScroll {
@@ -559,9 +556,11 @@ CenterModal {
 				width: ListView.view.width
 				height: window.rowHeight
 				radius: Theme.roundingElement
-				color: selected ? Theme.selectionBg : "transparent"
+				color: "transparent"
 
-				Behavior on color { ColorAnimation { duration: 90 } }
+				SelectionHighlight {
+					selected: row.selected
+				}
 
 				RowLayout {
 					anchors.fill: parent
@@ -606,7 +605,7 @@ CenterModal {
 					Text {
 						Layout.fillWidth: true
 						font.family: Theme.fontFamily
-						font.pixelSize: Theme.fontSizeSmall + 1
+						font.pixelSize: Theme.fontSizeSmall
 						color: Theme.textDim
 						elide: Text.ElideRight
 						text: row.subtitle
@@ -642,9 +641,6 @@ CenterModal {
 			anchors.horizontalCenter: parent.horizontalCenter
 			width: window.gridColumns() * 76
 			clip: true
-			boundsBehavior: Flickable.DragAndOvershootBounds
-			flickDeceleration: Theme.flickDecel
-			maximumFlickVelocity: Theme.maxFlickVel
 			cellWidth: 76
 			cellHeight: 76
 			model: window.mode === "emoji" ? window.filtered : []
@@ -668,8 +664,12 @@ CenterModal {
 				Rectangle {
 					anchors.fill: parent
 					anchors.margins: 3
-					color: cell.index === window.currentIndex ? Theme.selectionBg : "transparent"
+					color: "transparent"
 					radius: Theme.roundingElement
+
+					SelectionHighlight {
+						selected: cell.index === window.currentIndex
+					}
 
 					Text {
 						anchors.centerIn: parent
@@ -692,7 +692,7 @@ CenterModal {
 			visible: window.filtered.length === 0
 			anchors.centerIn: parent
 			font.family: Theme.fontFamily
-			font.pixelSize: Theme.fontSizeSmall + 1
+			font.pixelSize: Theme.fontSizeSmall
 			color: Theme.textDim
 			text: window.emptyText()
 		}

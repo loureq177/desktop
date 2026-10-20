@@ -13,7 +13,7 @@ Rectangle {
 	radius: size >= 24 ? Theme.roundingElement : Theme.roundingSubtle
 	color: mouseArea.containsMouse ? Theme.bgHover : "transparent"
 
-	Behavior on color { ColorAnimation { duration: 120 } }
+	Behavior on color { ColorAnimation { duration: Theme.animFast } }
 
 	LineIcon {
 		anchors.centerIn: parent

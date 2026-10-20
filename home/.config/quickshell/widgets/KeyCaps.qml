@@ -38,7 +38,7 @@ Row {
 				visible: parent.modelData.cap
 				anchors.centerIn: parent
 				font.family: Theme.fontMono
-				font.pixelSize: Theme.fontSizeSmall - 2
+				font.pixelSize: Theme.fontSizeTiny
 				font.bold: true
 				color: root.highlighted ? Theme.textMain : Theme.textDim
 				text: parent.modelData.text
@@ -49,7 +49,7 @@ Row {
 				visible: !parent.modelData.cap
 				anchors.centerIn: parent
 				font.family: Theme.fontMono
-				font.pixelSize: Theme.fontSizeSmall - 2
+				font.pixelSize: Theme.fontSizeTiny
 				color: Theme.textMuted
 				text: parent.modelData.text
 			}

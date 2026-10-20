@@ -27,7 +27,6 @@ PanelWindow {
 	property bool swapOut: false
 	property bool dismissOnEsc: true
 	property bool dismissOnClick: true
-	property string namespace: "quickshell"
 	property color backdropColor: Theme.backdropColor
 	property real backdropOpacity: 0.0
 	property real enterScale: 0.96
@@ -59,9 +58,9 @@ PanelWindow {
 
 	WlrLayershell.layer: sliding ? WlrLayer.Top : WlrLayer.Overlay
 	WlrLayershell.keyboardFocus: !shown ? WlrKeyboardFocus.None : sliding ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.Exclusive
-	WlrLayershell.namespace: root.namespace
+	WlrLayershell.namespace: "quickshell"
 
-	screen: Quickshell.screens.find(s => s.name === Hyprland.focusedMonitor?.name) ?? Quickshell.screens[0] ?? null
+	screen: Panels.screen
 
 	anchors {
 		top: true
@@ -184,7 +183,7 @@ PanelWindow {
 			property: "slide"
 			from: root.slide
 			to: 0
-			duration: Theme.animSmooth
+			duration: Theme.animNormal
 			easing.type: Easing.BezierSpline
 			easing.bezierCurve: Theme.easeOutQuint
 		}
@@ -193,7 +192,7 @@ PanelWindow {
 			property: "backdropOpacity"
 			from: root.backdropOpacity
 			to: 1.0
-			duration: Theme.animSmooth
+			duration: Theme.animNormal
 			easing.type: Easing.BezierSpline
 			easing.bezierCurve: Theme.easeOutQuint
 		}
@@ -254,7 +253,7 @@ PanelWindow {
 			property: "backdropOpacity"
 			from: root.backdropOpacity
 			to: 0.0
-			duration: Theme.animSmooth
+			duration: Theme.animNormal
 			easing.type: Easing.BezierSpline
 			easing.bezierCurve: Theme.easeOutQuint
 		}

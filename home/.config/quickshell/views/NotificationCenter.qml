@@ -1,5 +1,6 @@
 import ".."
 import "../widgets"
+import "../widgets/ListNav.js" as ListNav
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -8,7 +9,6 @@ SideDrawer {
 	id: win
 
 	panel: "notifications"
-	cardHeight: Math.min(680, win.height - Theme.notifTopMargin - 20)
 	property int currentIndex: 0
 
 	onOpened: {
@@ -30,7 +30,7 @@ SideDrawer {
 			Text {
 				text: "Notifications"
 				font.family: Theme.fontFamily
-				font.pixelSize: Theme.fontSize + 1
+				font.pixelSize: Theme.fontSizeLarge
 				font.bold: true
 				color: Theme.textMain
 			}
@@ -49,7 +49,7 @@ SideDrawer {
 					anchors.centerIn: parent
 					text: String(Notifications.history.count)
 					font.family: Theme.fontMono
-					font.pixelSize: Theme.fontSizeSmall - 1
+					font.pixelSize: Theme.fontSizeTiny
 					font.bold: true
 					color: Theme.accentBlue
 				}
@@ -68,7 +68,7 @@ SideDrawer {
 				border.color: clearArea.containsMouse ? Theme.tileBorderHover : Theme.tileBorder
 				border.width: 1
 
-				Behavior on color { ColorAnimation { duration: 120 } }
+				Behavior on color { ColorAnimation { duration: Theme.animFast } }
 
 				RowLayout {
 					id: clearRow
@@ -115,12 +115,8 @@ SideDrawer {
 			Layout.fillWidth: true
 			Layout.fillHeight: true
 			clip: true
-			boundsBehavior: Flickable.DragAndOvershootBounds
-			flickDeceleration: Theme.flickDecel
-			maximumFlickVelocity: Theme.maxFlickVel
 			spacing: 8
 			model: Notifications.history
-			currentIndex: win.currentIndex
 			focus: true
 
 			onCountChanged: {
@@ -130,10 +126,9 @@ SideDrawer {
 
 			Keys.onPressed: event => {
 				var current = win.currentIndex < count ? Notifications.history.get(win.currentIndex).nid : -1;
-				if (event.key === Qt.Key_J || event.key === Qt.Key_Down) {
-					win.currentIndex = Math.min(count - 1, win.currentIndex + 1);
-				} else if (event.key === Qt.Key_K || event.key === Qt.Key_Up) {
-					win.currentIndex = Math.max(0, win.currentIndex - 1);
+				var next = ListNav.step(event, count, win.currentIndex);
+				if (next !== -1) {
+					win.currentIndex = next;
 				} else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
 					if (!event.isAutoRepeat && current !== -1)
 						Notifications.activate(current);
@@ -172,10 +167,10 @@ SideDrawer {
 			}
 
 			remove: Transition {
-				NumberAnimation { property: "opacity"; to: 0; duration: 180; easing.type: Easing.OutCubic }
+				NumberAnimation { property: "opacity"; to: 0; duration: Theme.animNormal; easing.type: Easing.OutCubic }
 			}
 			displaced: Transition {
-				NumberAnimation { property: "y"; duration: 200; easing.type: Easing.OutCubic }
+				NumberAnimation { property: "y"; duration: Theme.animNormal; easing.type: Easing.OutCubic }
 			}
 		}
 

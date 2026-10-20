@@ -36,7 +36,7 @@ OverlayWindow {
 		y: Theme.notifTopMargin
 		width: root.cardWidth
 		height: root.cardHeight
-		color: Theme.panel(Theme.bgCard)
+		color: Theme.glass(Theme.bgCard)
 		border.color: Theme.border
 		border.width: Theme.borderSize
 		radius: Theme.roundingWindow
