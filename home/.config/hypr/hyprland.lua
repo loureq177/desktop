@@ -582,7 +582,7 @@ hl.layer_rule({
 })
 hl.layer_rule({
 	name = "blur-shell-panels",
-	match = { namespace = "^quickshell(-bar|-polkit)?$" },
+	match = { namespace = "^quickshell$" },
 	blur = true,
 	-- the shell animates its own panels; Hyprland's fade on top shows the
 	-- card unblurred for a moment and freezes its last frame on the way out
@@ -686,32 +686,10 @@ b("SUPER + M", "Toggle floating", hl.dsp.window.float({ action = "toggle" }))
 b("SUPER + TAB", "Focus previous window", hl.dsp.focus({ last = true }))
 
 local directions = { H = "left", L = "right", K = "up", J = "down" }
-local mon_short = { left = "l", right = "r", up = "u", down = "d" }
 local step = 25
 
 local function overlap(a1, a2, b1, b2)
 	return a1 < b2 and a2 > b1
-end
-
-local function monitor_in_direction(dir)
-	local win = hl.get_active_window()
-	local cur = (win ~= nil and win.monitor) or hl.get_active_monitor()
-	if cur == nil then
-		return false
-	end
-	for _, m in ipairs(hl.get_monitors()) do
-		if
-			m.name ~= cur.name
-			and overlap(m.y, m.y + m.height, cur.y, cur.y + cur.height)
-			and (
-				(dir == "left" and m.x + m.width <= cur.x)
-				or (dir == "right" and m.x >= cur.x + cur.width)
-			)
-		then
-			return true
-		end
-	end
-	return false
 end
 
 local function same_workspace_neighbor(dir)
@@ -747,26 +725,97 @@ local function same_workspace_neighbor(dir)
 	return false
 end
 
+-- Workspaces are numbered left to right across the monitors
+-- (compact_workspaces), so past the side of a screen lies the workspace one
+-- number away, on this monitor or the next: H and L go through the windows
+-- of all of them as one row.
+-- A special workspace is not in the row: nothing lies past its sides.
+local function workspace_beyond(dir)
+	local win = hl.get_active_window()
+	if win ~= nil and win.workspace ~= nil and win.workspace.id < 0 then
+		return nil
+	end
+	local active = hl.get_active_workspace()
+	if active == nil or not is_compactable_ws(active) then
+		return nil
+	end
+	local id = active.id + (dir == "left" and -1 or 1)
+	for _, ws in ipairs(hl.get_workspaces()) do
+		if ws.id == id and is_compactable_ws(ws) then
+			return ws
+		end
+	end
+	return nil
+end
+
+-- The tiled window of a workspace nearest its `side`, the top one of a column.
+local function window_at_side(ws, side)
+	local best, best_key
+	for _, w in ipairs(hl.get_windows()) do
+		if w.workspace ~= nil and w.workspace.id == ws.id and w.mapped and not w.hidden and not w.floating then
+			local key = side == "left" and w.at.x or -(w.at.x + w.size.x)
+			if best == nil or key < best_key or (key == best_key and w.at.y < best.at.y) then
+				best, best_key = w, key
+			end
+		end
+	end
+	return best
+end
+
+local function opposite(dir)
+	return dir == "left" and "right" or "left"
+end
+
+local function focus_or_step(dir)
+	if same_workspace_neighbor(dir) then
+		hl.dispatch(hl.dsp.focus({ direction = dir }))
+		return
+	end
+	local ws = workspace_beyond(dir)
+	if ws == nil then
+		return
+	end
+	hl.dispatch(hl.dsp.focus({ workspace = ws.id }))
+	local entry = window_at_side(ws, opposite(dir))
+	if entry ~= nil then
+		hl.dispatch(hl.dsp.focus({ window = entry }))
+	end
+end
+
 local function swap_or_throw(dir)
 	if same_workspace_neighbor(dir) then
 		pcall(hl.dispatch, hl.dsp.window.swap({ direction = dir }))
 		return
 	end
-	-- At the screen edge: sideways goes to the neighbouring monitor, or to the
-	-- previous/next workspace when there is none (workspaces slide horizontally).
-	local mon = mon_short[dir]
-	if mon ~= "l" and mon ~= "r" then
+	local win = hl.get_active_window()
+	if win == nil or win.workspace == nil or win.workspace.id < 0 or (dir ~= "left" and dir ~= "right") then
 		return
 	end
-	if monitor_in_direction(dir) then
-		pcall(hl.dispatch, hl.dsp.window.move({ monitor = mon }))
-	else
-		pcall(hl.dispatch, hl.dsp.window.move({ workspace = dir == "left" and "r-1" or "r+1" }))
+	-- Past the last workspace: a new one.
+	local ws = workspace_beyond(dir)
+	local target = ws ~= nil and ws.id or (dir == "left" and "r-1" or "r+1")
+	-- Dwindle puts a window that arrives next to the one nearest the pointer,
+	-- on the pointer's side of it. Point at the side it comes in at, so it
+	-- lands first in the row there (last, coming from the right) instead of
+	-- wherever the pointer happens to be.
+	local entry = ws ~= nil and window_at_side(ws, opposite(dir)) or nil
+	if entry ~= nil then
+		pcall(hl.dispatch, hl.dsp.cursor.move({
+			x = dir == "right" and entry.at.x + 1 or entry.at.x + entry.size.x - 1,
+			y = entry.at.y + entry.size.y * (dir == "right" and 0.25 or 0.75),
+		}))
 	end
+	pcall(hl.dispatch, hl.dsp.window.move({ workspace = target, window = win }))
 end
 
 for key, dir in pairs(directions) do
-	b("SUPER + " .. key, "Focus " .. dir, hl.dsp.focus({ direction = dir }))
+	if dir == "left" or dir == "right" then
+		b("SUPER + " .. key, "Focus " .. dir, function()
+			focus_or_step(dir)
+		end)
+	else
+		b("SUPER + " .. key, "Focus " .. dir, hl.dsp.focus({ direction = dir }))
+	end
 	b("SUPER + SHIFT + " .. key, "Swap window " .. dir, function()
 		swap_or_throw(dir)
 	end)
