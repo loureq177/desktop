@@ -3,8 +3,8 @@ set -euo pipefail
 
 WALL_DIR="${WALL_DIR:-$HOME/Pictures/Wallpapers}"
 STATE_FILE="${XDG_CACHE_HOME:-$HOME/.cache}/wallpaper/current"
-DEFAULT_WALLPAPER="$WALL_DIR/hyprland.png"
-[[ -f "$DEFAULT_WALLPAPER" ]] || DEFAULT_WALLPAPER="$HOME/.config/hypr/wallpapers/hyprland.png"
+DEFAULT_WALLPAPER="$WALL_DIR/hyprland.webp"
+[[ -f "$DEFAULT_WALLPAPER" ]] || DEFAULT_WALLPAPER="$HOME/.config/hypr/wallpapers/hyprland.webp"
 
 die() {
     echo "wallpaper: $*" >&2

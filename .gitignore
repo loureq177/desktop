@@ -22,7 +22,7 @@ local.lua
 config.local
 *.local
 archlinux/.config/hypr/wallpapers/*
-!archlinux/.config/hypr/wallpapers/hyprland.png
+!archlinux/.config/hypr/wallpapers/hyprland.webp
 
 !**/.local/
 

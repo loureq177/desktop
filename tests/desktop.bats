@@ -26,23 +26,23 @@ walls() {
     assert_output_like "usage: wallpaper next|init"
 }
 
-@test "wallpaper init: picks hyprland.png from the wallpaper dir" {
-    walls a.png hyprland.png
+@test "wallpaper init: picks hyprland.webp from the wallpaper dir" {
+    walls a.png hyprland.webp
     sut "$BIN/wallpaper" init
     assert_status 0
-    [[ "$(<"$WALL_STATE")" == "$WALLS/hyprland.png" ]]
+    [[ "$(<"$WALL_STATE")" == "$WALLS/hyprland.webp" ]]
 }
 
 @test "wallpaper init: falls back to the wallpaper shipped with the hypr config" {
     mkdir -p "$HOME/.config/hypr/wallpapers"
-    : >"$HOME/.config/hypr/wallpapers/hyprland.png"
+    : >"$HOME/.config/hypr/wallpapers/hyprland.webp"
     sut "$BIN/wallpaper" init
     assert_status 0
-    [[ "$(<"$WALL_STATE")" == "$HOME/.config/hypr/wallpapers/hyprland.png" ]]
+    [[ "$(<"$WALL_STATE")" == "$HOME/.config/hypr/wallpapers/hyprland.webp" ]]
 }
 
 @test "wallpaper init: keeps an already chosen wallpaper" {
-    walls a.png hyprland.png
+    walls a.png hyprland.webp
     mkdir -p "${WALL_STATE%/*}"
     echo "$WALLS/a.png" >"$WALL_STATE"
     sut "$BIN/wallpaper" init
