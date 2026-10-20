@@ -51,19 +51,19 @@ sysclean
 
 ### Theme
 
-`~/.config/ui/ui.toml` holds the colors, fonts and sizes the desktop's programs share. `apply-ui` renders it through the templates in `~/.config/ui/templates` into Hyprland, the fallback lock screen, slurp, yazi, btop and lazygit, and hands it to quickshell as `ui.js`; the generated files are committed, and the tests fail when they are stale. What only the shell uses (its sizes and animation timing) is set in `quickshell/Theme.qml`, and the fzf colors are written out in `.zshrc` because macOS has no `apply-ui`.
+`~/.config/ui/ui.toml` holds the colors, fonts and sizes the desktop's programs share. `apply-ui` renders it through the templates in `~/.config/ui/templates` into Hyprland, the fallback lock screen, slurp, yazi, btop and lazygit, hands it to quickshell as `ui.js` and sets the GTK settings (Hyprland sets them again at every start with `apply-ui --gtk`); the generated files are committed, and the tests fail when they are stale. What only the shell uses (its sizes and animation timing) is set in `quickshell/Theme.qml`, and the fzf colors are written out in `.zshrc` because macOS has no `apply-ui`.
 
 Ghostty, Neovim, bat, delta and opencode use their upstream GitHub Dark themes and do not follow `ui.toml`.
 
 ### Key binds
 
-The desktop's actions are in Quick actions (`SUPER + A`): its tiles, the Capture page and the power menu (`P`). The launcher is for apps, the web apps and the other special workspaces among them. `SUPER + /` lists the keys, leaving out the ones a panel prints on its tiles and buttons. The ones to know first:
+The launcher finds apps, the web apps and the other special workspaces among them, and the desktop's actions by name: capture, battery saver, update, lock, suspend, reboot and power off (the last three on a second Enter). `2+2` calculates on the spot; after `=`, or for anything that starts like a number (`10 km to mi`, `100 eur to pln`), qalc works it out. `/` and a name finds files and folders in `~` with fd, and Enter opens one. Quick actions (`SUPER + A`) has the tiles and the Capture page. `SUPER + /` lists the keys, leaving out the ones a panel prints on its tiles and buttons. The ones to know first:
 
 | Keys | Action |
 | --- | --- |
 | `SUPER + Return` | Terminal |
-| `SUPER + Space` | Launcher: apps, `2+2` calculates, `>` lists commands to run |
-| `SUPER + A` | Quick actions (Wi-Fi, Bluetooth, capture, battery saver, power) |
+| `SUPER + Space` | Launcher: apps and actions, `2+2` calculates, `/` finds files, `>` lists commands to run |
+| `SUPER + A` | Quick actions (Wi-Fi, Bluetooth, capture, battery saver) |
 | `SUPER + N` | Notification center |
 | `SUPER + V` / `SUPER + E` | Clipboard history / emoji |
 | `SUPER + Tab` | Back to the previous window |
@@ -73,7 +73,7 @@ The desktop's actions are in Quick actions (`SUPER + A`): its tiles, the Capture
 
 Caps Lock is Esc when tapped and Ctrl when held (keyd). With `keyboard.options = "altwin:swap_lalt_lwin"` in `local.lua`, SUPER is the left Alt key.
 
-Everything also works with the mouse: the grid icon at the left of the bar opens the launcher, the Quick actions header has the power menu, the empty field of the launcher offers its other lists (apps, emoji, clipboard, keys), and a right click on a special workspace's icon in the bar closes it.
+Everything also works with the mouse: the grid icon at the left of the bar opens the launcher, the empty field of the launcher offers its other lists (apps, emoji, clipboard, keys), and a right click on a special workspace's icon in the bar closes it.
 
 ### Good to know
 
