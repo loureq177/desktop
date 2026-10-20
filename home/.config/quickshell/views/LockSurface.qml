@@ -97,22 +97,18 @@ Item {
 		anchors.fill: parent
 		opacity: root.reveal
 
-		Text {
+		StyledText {
 			anchors.centerIn: parent
 			anchors.verticalCenterOffset: -160
 			text: Qt.formatDateTime(clock.date, "HH:mm")
-			color: Theme.textMain
-			font.family: Theme.fontFamily
 			font.pixelSize: 128
 			font.bold: true
 		}
 
-		Text {
+		StyledText {
 			anchors.centerIn: parent
 			anchors.verticalCenterOffset: -80
 			text: clock.date.toLocaleDateString(Qt.locale(), "dddd, dd MMMM yyyy")
-			color: Theme.textMain
-			font.family: Theme.fontFamily
 			font.pixelSize: 24
 		}
 
@@ -139,12 +135,10 @@ Item {
 					size: Theme.fontSizeLarge
 				}
 
-				Text {
+				StyledText {
 					anchors.verticalCenter: parent.verticalCenter
 					text: Quickshell.env("USER")
-					color: Theme.textMain
-					font.family: Theme.fontMono
-					font.pixelSize: Theme.fontSize
+					mono: true
 					font.bold: true
 				}
 			}
@@ -164,7 +158,7 @@ Item {
 					size: Theme.fontSizeLarge
 				}
 
-				Text {
+				StyledText {
 					readonly property var device: SystemStatus.batteryDevice
 					readonly property int pct: device ? Math.round(device.percentage * 100) : 0
 					readonly property bool full: device && device.state === UPowerDeviceState.FullyCharged
@@ -178,8 +172,7 @@ Item {
 						: pct <= 10 ? Theme.critical
 						: pct <= 20 ? Theme.warning
 						: Theme.textMain
-					font.family: Theme.fontMono
-					font.pixelSize: Theme.fontSize
+					mono: true
 					font.bold: true
 				}
 
@@ -198,13 +191,12 @@ Item {
 						size: Theme.fontSizeLarge
 					}
 
-					Text {
+					StyledText {
 						anchors.verticalCenter: parent.verticalCenter
 						visible: parent.count > 0
 						text: parent.count
 						color: Notifications.dnd ? Theme.warning : Theme.accentBlue
-						font.family: Theme.fontMono
-						font.pixelSize: Theme.fontSize
+						mono: true
 						font.bold: true
 					}
 				}

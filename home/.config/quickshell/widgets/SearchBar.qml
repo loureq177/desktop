@@ -161,11 +161,11 @@ Rectangle {
 
 					Behavior on color { ColorAnimation { duration: Theme.animFast } }
 
-					Text {
+					StyledText {
 						id: chipText
 						anchors.centerIn: parent
 						text: chip.modelData
-						font.family: Theme.fontMono
+						mono: true
 						font.pixelSize: Theme.fontSizeSmall
 						color: chip.lit ? Theme.textMain : Theme.textDim
 					}

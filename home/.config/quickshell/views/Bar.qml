@@ -2,9 +2,7 @@ import ".."
 import "../widgets"
 import "../Specials.js" as Specials
 import Quickshell
-import Quickshell.Bluetooth
 import Quickshell.Hyprland
-import Quickshell.Networking
 import Quickshell.Services.Mpris
 import Quickshell.Services.UPower
 import Quickshell.Wayland
@@ -44,10 +42,6 @@ PanelWindow {
 	Component.onCompleted: Bars.add(bar)
 	Component.onDestruction: Bars.remove(bar)
 
-	readonly property var batteryDevice: SystemStatus.batteryDevice
-	readonly property var wifiDevice: SystemStatus.wifiDevice
-	readonly property var wiredDevice: SystemStatus.wiredDevice
-
 	// Hyprland only reports the visible special through events; the monitor
 	// snapshot covers the time before the first one arrives.
 	property var specialEvent: null
@@ -72,12 +66,6 @@ PanelWindow {
 	function leavePanels(except: string): void {
 		if (Panels.active !== "" && Panels.active !== except)
 			Panels.close();
-	}
-
-	function toggleSpecial(name: string): void {
-		Quickshell.execDetached([
-			"hyprctl", "dispatch", "hl.dsp.workspace.toggle_special('" + name + "')"
-		]);
 	}
 
 	// Right-click closes a special: closing its windows removes the workspace
@@ -112,7 +100,7 @@ PanelWindow {
 		if (target === visibleSpecial)
 			return;
 		cycleThrottle.start();
-		toggleSpecial(target);
+		Actions.toggleSpecial(target);
 	}
 
 	function playerFor(special: string): var {
@@ -252,12 +240,10 @@ PanelWindow {
 			border.width: 1
 			radius: Theme.roundingElement
 
-			Text {
+			StyledText {
 				id: tipText
 				anchors.centerIn: parent
 				text: bar.tooltipText
-				color: Theme.textMain
-				font.family: Theme.fontFamily
 				font.pixelSize: Theme.fontSizeSmall
 			}
 		}
@@ -309,21 +295,20 @@ PanelWindow {
 				color: pill.textColor
 			}
 
-			Text {
+			StyledText {
 				anchors.verticalCenter: parent.verticalCenter
 				visible: pill.text !== ""
 				text: pill.text
-				font.family: Theme.fontFamily
 				font.pixelSize: Theme.fontSizeLarge
 				font.bold: true
 				color: pill.textColor
 			}
 
-			Text {
+			StyledText {
 				anchors.verticalCenter: parent.verticalCenter
 				visible: pill.value !== ""
 				text: pill.value
-				font.family: Theme.fontMono
+				mono: true
 				font.pixelSize: Theme.fontSizeSmall
 				font.bold: true
 				color: pill.textColor
@@ -370,7 +355,7 @@ PanelWindow {
 				if (Panels.active !== "")
 					Panels.close();
 				else
-					bar.toggleSpecial(bar.visibleSpecial);
+					Actions.toggleSpecial(bar.visibleSpecial);
 			}
 		}
 
@@ -467,7 +452,7 @@ PanelWindow {
 						textColor: Number(SystemStatus.memPercent) >= 90 ? Theme.critical : (Number(SystemStatus.memPercent) >= 75 ? Theme.warning : (bar.visibleSpecial === "btop" ? Theme.accentBlue : Theme.textDim))
 						isActive: bar.visibleSpecial === "btop"
 						tooltipText: SystemStatus.memTooltip
-						onActivated: bar.toggleSpecial("btop")
+						onActivated: Actions.toggleSpecial("btop")
 						onRightClicked: bar.closeSpecial("btop")
 					}
 
@@ -510,11 +495,11 @@ PanelWindow {
 								color: sp.tint
 							}
 
-							Text {
+							StyledText {
 								anchors.centerIn: parent
 								visible: sp.icon === ""
 								text: sp.modelData.charAt(0).toUpperCase()
-								font.family: Theme.fontMono
+								mono: true
 								font.pixelSize: Theme.fontSizeSmall
 								font.bold: true
 								color: sp.tint
@@ -534,7 +519,7 @@ PanelWindow {
 									if (mouse.button === Qt.RightButton)
 										bar.closeSpecial(sp.modelData);
 									else
-										bar.toggleSpecial(sp.modelData);
+										Actions.toggleSpecial(sp.modelData);
 								}
 							}
 						}
@@ -551,7 +536,7 @@ PanelWindow {
 				icon: "leaf"
 				textColor: Theme.textMain
 				tooltipText: "Battery saver (60 Hz)"
-				onActivated: Quickshell.execDetached(["sh", "-c", "~/.local/bin/power-save"])
+				onActivated: Actions.togglePowerSave()
 			}
 		}
 
@@ -566,9 +551,7 @@ PanelWindow {
 				value: valid ? Qt.formatDateTime(clockSource.date, "hh:mm") : Qt.formatDateTime(new Date(), "hh:mm")
 				textColor: Theme.textMain
 				tooltipText: Qt.formatDateTime(clock.valid ? clockSource.date : new Date(), "dddd, MMMM d, yyyy")
-				onActivated: Quickshell.execDetached([
-					"hyprctl", "dispatch", "hl.dsp.workspace.toggle_special('calendar')"
-				])
+				onActivated: Actions.toggleSpecial("calendar")
 
 				SystemClock {
 					id: clockSource
@@ -602,7 +585,7 @@ PanelWindow {
 				textColor: SystemStatus.dictationState === "transcribing" ? Theme.warning : Theme.critical
 				isActive: true
 				tooltipText: SystemStatus.dictationState === "transcribing" ? "Transcribing..." : "Dictation"
-				onActivated: Quickshell.execDetached(["sh", "-c", "~/.local/bin/dictation stop"])
+				onActivated: Actions.script("dictation stop")
 			}
 
 			Pill {
@@ -612,7 +595,7 @@ PanelWindow {
 				textColor: Theme.critical
 				isActive: true
 				tooltipText: "Recording the screen"
-				onActivated: Quickshell.execDetached(["sh", "-c", "~/.local/bin/record-screen"])
+				onActivated: Actions.script("record-screen")
 			}
 
 			Pill {
@@ -628,31 +611,27 @@ PanelWindow {
 				icon: "coffee"
 				textColor: Theme.textMain
 				tooltipText: "Keep awake"
-				onActivated: Quickshell.execDetached(["sh", "-c", "~/.local/bin/awake-toggle"])
+				onActivated: Actions.toggleAwake()
 			}
 
 			Pill {
 				id: statusPill
-				readonly property var adapter: Bluetooth.defaultAdapter
-				readonly property var btConnected: (adapter?.devices?.values ?? []).filter(d => d.connected)
-				readonly property bool wifiUp: bar.wifiDevice?.connected ?? false
-				readonly property bool wiredUp: bar.wiredDevice?.connected ?? false
-				readonly property var wifiNetwork: (bar.wifiDevice?.networks?.values ?? []).find(n => n && n.connected) ?? null
-				readonly property var battery: bar.batteryDevice
+				readonly property bool online: SystemStatus.wifiUp || SystemStatus.wiredUp
+				readonly property var battery: SystemStatus.batteryDevice
 				readonly property int pct: battery ? Math.round(battery.percentage * 100) : 0
 				readonly property bool full: battery && battery.state === UPowerDeviceState.FullyCharged
 				readonly property bool charging: battery && (battery.state === UPowerDeviceState.Charging
 					|| battery.state === UPowerDeviceState.PendingCharge)
 
 				readonly property string btInfo: {
-					if (!adapter)
+					if (!SystemStatus.btAdapter)
 						return "Bluetooth: Unavailable";
-					if (!adapter.enabled)
+					if (!SystemStatus.btEnabled)
 						return "Bluetooth: Off";
-					if (btConnected.length === 0)
+					if (SystemStatus.btConnected.length === 0)
 						return "Bluetooth: Disconnected";
-					return "Bluetooth: " + btConnected.map(d => {
-						var name = d.name || d.deviceName || d.address;
+					return "Bluetooth: " + SystemStatus.btConnected.map(d => {
+						var name = SystemStatus.deviceName(d);
 						if (d.batteryAvailable && d.battery >= 0)
 							name += " (" + Math.round(d.battery * 100) + "%)";
 						return name;
@@ -660,13 +639,12 @@ PanelWindow {
 				}
 
 				readonly property string netInfo: {
-					if (wifiUp) {
-						// Reported as a 0..1 fraction.
-						var strength = wifiNetwork?.signalStrength ?? 0;
-						var signal = Math.round(strength > 1.0 ? strength : strength * 100);
-						return "Wi-Fi: " + (wifiNetwork?.name || "Connected") + (signal > 0 ? " (" + signal + "%)" : "");
+					if (SystemStatus.wifiUp) {
+						var net = SystemStatus.wifiNetwork;
+						var signal = Math.round(SystemStatus.signalPercent(net));
+						return "Wi-Fi: " + (net?.name || "Connected") + (signal > 0 ? " (" + signal + "%)" : "");
 					}
-					if (wiredUp)
+					if (SystemStatus.wiredUp)
 						return "Ethernet: Connected";
 					return "Network: Disconnected";
 				}
@@ -674,14 +652,11 @@ PanelWindow {
 				readonly property string batteryInfo: {
 					if (!battery)
 						return "";
-					if (charging) {
-						var fullTime = battery.timeToFull > 0 ? (Math.floor(battery.timeToFull / 3600) + "h " + Math.floor((battery.timeToFull % 3600) / 60) + "m to full") : "";
-						return "Battery: " + pct + "% (Charging" + (fullTime !== "" ? ", " + fullTime : "") + ")";
-					}
+					if (charging)
+						return "Battery: " + pct + "% (Charging" + (battery.timeToFull > 0 ? ", " + SystemStatus.duration(battery.timeToFull) + " to full" : "") + ")";
 					if (full)
 						return "Battery: " + pct + "% (Fully charged)";
-					var remTime = battery.timeToEmpty > 0 ? (Math.floor(battery.timeToEmpty / 3600) + "h " + Math.floor((battery.timeToEmpty % 3600) / 60) + "m remaining") : "";
-					return "Battery: " + pct + "%" + (remTime !== "" ? " (" + remTime + ")" : "");
+					return "Battery: " + pct + "%" + (battery.timeToEmpty > 0 ? " (" + SystemStatus.duration(battery.timeToEmpty) + " remaining)" : "");
 				}
 
 				custom: true
@@ -692,21 +667,21 @@ PanelWindow {
 
 				LineIcon {
 					anchors.verticalCenter: parent.verticalCenter
-					name: !statusPill.adapter?.enabled ? "bluetooth-off" : (statusPill.btConnected.length > 0 ? "bluetooth-connected" : "bluetooth")
-					color: statusPill.adapter?.enabled ? Theme.textMain : Theme.textDim
+					name: SystemStatus.btIcon
+					color: SystemStatus.btEnabled ? Theme.textMain : Theme.textDim
 				}
 
 				LineIcon {
 					anchors.verticalCenter: parent.verticalCenter
-					name: statusPill.wifiUp ? "wifi" : (statusPill.wiredUp ? "ethernet-port" : "wifi-off")
-					color: (statusPill.wifiUp || statusPill.wiredUp) ? Theme.textMain : Theme.textDim
+					name: SystemStatus.wifiUp ? "wifi" : (SystemStatus.wiredUp ? "ethernet-port" : "wifi-off")
+					color: statusPill.online ? Theme.textMain : Theme.textDim
 				}
 
-				Text {
+				StyledText {
 					anchors.verticalCenter: parent.verticalCenter
 					visible: statusPill.battery !== null
 					text: statusPill.pct + "%"
-					font.family: Theme.fontMono
+					mono: true
 					font.pixelSize: Theme.fontSizeSmall
 					font.bold: true
 					color: statusPill.charging ? Theme.accentGreen

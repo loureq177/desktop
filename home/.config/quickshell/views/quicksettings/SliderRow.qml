@@ -124,14 +124,13 @@ Rectangle {
 			}
 		}
 
-		Text {
+		StyledText {
 			Layout.preferredWidth: 56
 			horizontalAlignment: Text.AlignRight
 			text: row.label
-			font.family: Theme.fontMono
+			mono: true
 			font.pixelSize: Theme.fontSizeSmall
 			font.bold: true
-			color: Theme.textMain
 		}
 	}
 

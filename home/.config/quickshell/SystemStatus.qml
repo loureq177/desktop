@@ -1,5 +1,6 @@
 pragma Singleton
 import Quickshell
+import Quickshell.Bluetooth
 import Quickshell.Hyprland
 import Quickshell.Io
 import Quickshell.Networking
@@ -32,6 +33,15 @@ Singleton {
 	readonly property var batteryDevice: UPower.devices.values.find(d => d.isLaptopBattery && d.isPresent) ?? null
 	readonly property var wifiDevice: networkDevice(DeviceType.Wifi)
 	readonly property var wiredDevice: networkDevice(DeviceType.Wired)
+	readonly property bool wifiUp: wifiDevice?.connected ?? false
+	readonly property bool wiredUp: wiredDevice?.connected ?? false
+	// The network the Wi-Fi is on, or null.
+	readonly property var wifiNetwork: (wifiDevice?.networks?.values ?? []).find(n => n?.connected) ?? null
+
+	readonly property var btAdapter: Bluetooth.defaultAdapter
+	readonly property bool btEnabled: btAdapter?.enabled ?? false
+	readonly property var btConnected: (btAdapter?.devices?.values ?? []).filter(d => d.connected)
+	readonly property string btIcon: !btEnabled ? "bluetooth-off" : (btConnected.length > 0 ? "bluetooth-connected" : "bluetooth")
 
 	// The default output and input. Their `audio` has the volume (0..1) and
 	// mute; it holds real values once the node is `ready`.
@@ -40,6 +50,23 @@ Singleton {
 
 	function networkDevice(type): var {
 		return Networking.devices.values.find(d => d.type === type) ?? null;
+	}
+
+	// A network's signal in percent. NetworkManager reports a 0..1
+	// fraction, some backends already a percentage.
+	function signalPercent(net): real {
+		var s = net?.signalStrength ?? 0;
+		return s > 1 ? s : s * 100;
+	}
+
+	// What a Bluetooth device calls itself, falling back to its address.
+	function deviceName(d): string {
+		return d.name || d.deviceName || d.address;
+	}
+
+	// How long until `seconds` run out: "1h 5m".
+	function duration(seconds: real): string {
+		return Math.floor(seconds / 3600) + "h " + Math.floor((seconds % 3600) / 60) + "m";
 	}
 
 	function readBrightness(): void {
@@ -88,7 +115,7 @@ Singleton {
 		id: powerSync
 		interval: 1000
 		running: true
-		onTriggered: Quickshell.execDetached([Quickshell.env("HOME") + "/.local/bin/power-save", "--sync"])
+		onTriggered: Quickshell.execDetached([Actions.bin + "power-save", "--sync"])
 	}
 
 	Timer {

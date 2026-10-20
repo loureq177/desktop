@@ -48,18 +48,16 @@ RowLayout {
 	ColumnLayout {
 		spacing: 0
 
-		Text {
+		StyledText {
 			text: root.title
-			font.family: Theme.fontFamily
 			font.pixelSize: Theme.fontSizeLarge
 			font.bold: true
-			color: Theme.textMain
 		}
 
-		Text {
+		StyledText {
 			visible: root.subtitle !== ""
 			text: root.subtitle
-			font.family: Theme.fontMono
+			mono: true
 			font.pixelSize: Theme.fontSizeTiny
 			color: root.isScanning ? Theme.accentBlue : Theme.textDim
 		}

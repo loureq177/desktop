@@ -23,10 +23,10 @@ Rectangle {
 			font.pixelSize: Theme.fontSizeSmall
 			color: Theme.critical
 		}
-		Text {
+		StyledText {
 			Layout.fillWidth: true
 			text: message
-			font.family: Theme.fontMono
+			mono: true
 			font.pixelSize: Theme.fontSizeTiny
 			color: Theme.critical
 			elide: Text.ElideRight

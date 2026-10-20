@@ -132,7 +132,7 @@ FocusScope {
 			}
 		}
 
-		Text {
+		StyledText {
 			anchors.centerIn: parent
 			width: parent.width
 			text: input.length > 0 ? input.text : field.message
@@ -141,7 +141,6 @@ FocusScope {
 			color: field.failed || input.length > 0 ? Theme.textMain : Theme.textDim
 			horizontalAlignment: Text.AlignHCenter
 			elide: Text.ElideRight
-			font.family: Theme.fontFamily
 			font.pixelSize: Theme.fontSizeSmall
 		}
 	}

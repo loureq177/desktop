@@ -1,13 +1,12 @@
 import "../.."
 import "."
 import Quickshell
-import Quickshell.Bluetooth
 import QtQuick
 
 DeviceList {
 	id: root
 
-	readonly property var btAdapter: Bluetooth.defaultAdapter
+	readonly property var btAdapter: SystemStatus.btAdapter
 
 	title: "Bluetooth"
 	subtitle: !radioOn ? "Off" : (scanning ? "Scanning for nearby devices…" : items.filter(i => i.saved).length + " paired devices")
@@ -29,12 +28,11 @@ DeviceList {
 		var nearby = [];
 		for (const d of root.btAdapter?.devices?.values ?? []) {
 			var isPaired = d.paired || d.connected;
-			var name = d.name || d.deviceName;
-			if (!isPaired && !name)
+			if (!isPaired && !d.name && !d.deviceName)
 				continue;
 			(isPaired ? paired : nearby).push({
 				key: d.address,
-				name: name || d.address,
+				name: SystemStatus.deviceName(d),
 				device: d,
 				icon: root.deviceIcon(d),
 				connected: d.connected,
@@ -64,22 +62,21 @@ DeviceList {
 		}
 	}
 
+	// The line icon for a device: by the icon BlueZ gives it, else by words
+	// in its name. The first rule that matches wins.
+	readonly property var iconRules: [
+		{ icon: "headphones", bluez: /head/, name: /airpods|px8|headphone|buds/ },
+		{ icon: "speaker", bluez: /audio/, name: /charge|speaker|sound|jbl/ },
+		{ icon: "mouse", bluez: /mouse/, name: /mouse/ },
+		{ icon: "keyboard", bluez: /keyboard/, name: /keyboard/ },
+		{ icon: "smartphone", bluez: /phone/, name: /phone/ },
+		{ icon: "gamepad-2", bluez: /gamepad/, name: /controller/ }
+	]
+
 	function deviceIcon(d) {
-		var iconName = (d.icon || "").toLowerCase();
+		var bluez = (d.icon || "").toLowerCase();
 		var name = (d.name || d.deviceName || "").toLowerCase();
-		if (iconName.indexOf("head") !== -1 || name.indexOf("airpods") !== -1 || name.indexOf("px8") !== -1 || name.indexOf("headphone") !== -1 || name.indexOf("buds") !== -1)
-			return "headphones";
-		if (iconName.indexOf("audio") !== -1 || name.indexOf("charge") !== -1 || name.indexOf("speaker") !== -1 || name.indexOf("sound") !== -1 || name.indexOf("jbl") !== -1)
-			return "speaker";
-		if (iconName.indexOf("mouse") !== -1 || name.indexOf("mouse") !== -1)
-			return "mouse";
-		if (iconName.indexOf("keyboard") !== -1 || name.indexOf("keyboard") !== -1)
-			return "keyboard";
-		if (iconName.indexOf("phone") !== -1 || name.indexOf("phone") !== -1)
-			return "smartphone";
-		if (iconName.indexOf("gamepad") !== -1 || name.indexOf("controller") !== -1)
-			return "gamepad-2";
-		return "bluetooth";
+		return iconRules.find(r => r.bluez.test(bluez) || r.name.test(name))?.icon ?? "bluetooth";
 	}
 
 	onScanRequested: {

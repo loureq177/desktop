@@ -229,12 +229,10 @@ OverlayWindow {
 			anchors.margins: 24
 			spacing: 20
 
-			Text {
+			StyledText {
 				Layout.fillWidth: true
 				text: root.displayCommand
-				color: Theme.textMain
-				font.family: Theme.fontMono
-				font.pixelSize: Theme.fontSize
+				mono: true
 				font.bold: true
 				wrapMode: Text.WrapAnywhere
 				maximumLineCount: 3
@@ -263,7 +261,7 @@ OverlayWindow {
 				}
 			}
 
-			Text {
+			StyledText {
 				Layout.fillWidth: true
 				Layout.topMargin: -8
 				visible: text !== ""
@@ -276,7 +274,6 @@ OverlayWindow {
 				}
 				textFormat: Text.PlainText
 				color: root.supplementaryError && !root.queued ? Theme.critical : Theme.textDim
-				font.family: Theme.fontFamily
 				font.pixelSize: Theme.fontSizeSmall
 				wrapMode: Text.Wrap
 			}

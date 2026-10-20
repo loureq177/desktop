@@ -80,42 +80,36 @@ Rectangle {
 			Layout.fillWidth: true
 			spacing: 8
 
-			Text {
+			StyledText {
 				Layout.fillWidth: true
 				text: root.appName
-				font.family: Theme.fontMono
-				font.pixelSize: Theme.fontSize
+				mono: true
 				font.bold: true
 				color: Theme.textDim
 				elide: Text.ElideRight
 				visible: text !== ""
 			}
 
-			Text {
+			StyledText {
 				visible: !root.isToast
 				text: Qt.formatTime(new Date(root.time), "hh:mm")
-				font.family: Theme.fontMono
+				mono: true
 				font.pixelSize: Theme.fontSizeSmall
 				color: Theme.textMuted
 			}
 		}
 
-		Text {
+		StyledText {
 			Layout.fillWidth: true
 			text: root.summary
-			font.family: Theme.fontFamily
-			font.pixelSize: Theme.fontSize
 			font.bold: true
-			color: Theme.textMain
 			elide: Text.ElideRight
 			visible: text !== ""
 		}
 
-		Text {
+		StyledText {
 			Layout.fillWidth: true
 			text: root.body
-			font.family: Theme.fontFamily
-			font.pixelSize: Theme.fontSize
 			color: Theme.textDim
 			wrapMode: Text.Wrap
 			maximumLineCount: 3
@@ -159,7 +153,7 @@ Rectangle {
 				Keys.onEscapePressed: focus = false
 			}
 
-			Text {
+			StyledText {
 				visible: replyField.text === "" && !replyField.activeFocus
 				anchors.fill: parent
 				anchors.leftMargin: 8
@@ -167,8 +161,7 @@ Rectangle {
 				verticalAlignment: Text.AlignVCenter
 				elide: Text.ElideRight
 				text: root.replyPlaceholder || "Reply…"
-				font.family: Theme.fontMono
-				font.pixelSize: Theme.fontSize
+				mono: true
 				color: Theme.textMuted
 			}
 		}
@@ -196,7 +189,7 @@ Rectangle {
 
 					Behavior on color { ColorAnimation { duration: Theme.animFast } }
 
-					Text {
+					StyledText {
 						anchors.fill: parent
 						anchors.leftMargin: 10
 						anchors.rightMargin: 10
@@ -204,9 +197,7 @@ Rectangle {
 						verticalAlignment: Text.AlignVCenter
 						elide: Text.ElideRight
 						text: actionButton.text
-						font.family: Theme.fontMono
-						font.pixelSize: Theme.fontSize
-						color: Theme.textMain
+						mono: true
 					}
 
 					MouseArea {

@@ -118,15 +118,14 @@ PanelWindow {
 				width: parent.width - 36 - Theme.paddingItem
 				height: parent.height
 
-				Text {
+				StyledText {
 					anchors.fill: parent
 					horizontalAlignment: Text.AlignHCenter
 					verticalAlignment: Text.AlignVCenter
 					text: win.kind === "mic" ? (win.muted ? "Muted" : "On") : win.value + "%"
-					font.family: Theme.fontMono
+					mono: true
 					font.pixelSize: Theme.fontSizeSmall
 					font.bold: true
-					color: Theme.textMain
 				}
 
 				Rectangle {

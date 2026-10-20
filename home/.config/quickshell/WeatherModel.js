@@ -193,6 +193,19 @@ function parseOpenMeteoDaily(report, todayString) {
   return result;
 }
 
+// Where each hour of the temperature chart sits: x in the middle of its
+// column, y from `top` (the warmest hour) down to `top + height` (the coldest).
+// A spread under 3° is drawn as 3°, so a steady day stays a flat line.
+function chartPoints(hours, columnWidth, top, height) {
+  if (!hours || !hours.length) return [];
+  var temps = hours.map(function (h) { return h.temp; });
+  var maxT = Math.max.apply(null, temps);
+  var range = Math.max(3, maxT - Math.min.apply(null, temps));
+  return hours.map(function (h, i) {
+    return { x: i * columnWidth + columnWidth / 2, y: top + (maxT - h.temp) / range * height };
+  });
+}
+
 if (typeof module !== "undefined") {
   module.exports = {
     parseLocationFile: parseLocationFile,
@@ -203,6 +216,7 @@ if (typeof module !== "undefined") {
     parseOpenMeteoCurrent: parseOpenMeteoCurrent,
     parseOpenMeteoHourly: parseOpenMeteoHourly,
     parseTodayHighLow: parseTodayHighLow,
-    parseOpenMeteoDaily: parseOpenMeteoDaily
+    parseOpenMeteoDaily: parseOpenMeteoDaily,
+    chartPoints: chartPoints
   };
 }

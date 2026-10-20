@@ -33,7 +33,7 @@ DeviceList {
 		for (const net of root.wifiDevice?.networks?.values ?? []) {
 			if (!net || !net.name || net.name.trim() === "")
 				continue;
-			var strength = net.signalStrength > 1.0 ? net.signalStrength : net.signalStrength * 100;
+			var strength = SystemStatus.signalPercent(net);
 			var best = byName[net.name];
 			if (best && (best.connected || (!net.connected && best.strength >= strength)))
 				continue;
@@ -189,13 +189,11 @@ DeviceList {
 				Layout.fillWidth: true
 				spacing: 8
 
-				Text {
+				StyledText {
 					Layout.fillWidth: true
 					text: "Enter password for \"" + (root.promptItem?.name ?? "") + "\""
-					font.family: Theme.fontFamily
 					font.pixelSize: Theme.fontSizeSmall
 					font.bold: true
-					color: Theme.textMain
 					elide: Text.ElideRight
 				}
 
@@ -229,9 +227,9 @@ DeviceList {
 						clip: true
 						onAccepted: root.submitPassword()
 
-						Text {
+						StyledText {
 							text: "Wi-Fi password…"
-							font.family: Theme.fontMono
+							mono: true
 							font.pixelSize: Theme.fontSizeSmall
 							color: Theme.textMuted
 							visible: !passInput.text && !passInput.activeFocus
@@ -263,12 +261,12 @@ DeviceList {
 				}
 			}
 
-			Text {
+			StyledText {
 				readonly property bool connecting: root.isPending(root.promptItem)
 				visible: root.errorMessage !== "" || connecting
 				Layout.fillWidth: true
 				text: root.errorMessage !== "" ? root.errorMessage : root.pendingStatus
-				font.family: Theme.fontMono
+				mono: true
 				font.pixelSize: Theme.fontSizeTiny
 				color: root.errorMessage !== "" ? Theme.critical : Theme.warning
 			}
@@ -279,57 +277,17 @@ DeviceList {
 
 				Item { Layout.fillWidth: true }
 
-				Rectangle {
-					implicitWidth: cancelLabel.implicitWidth + 18
-					implicitHeight: 30
-					radius: Theme.roundingSubtle
-					color: cancelArea.containsMouse ? Theme.bgHover : "transparent"
-					border.color: Theme.border
-					border.width: 1
-
-					Text {
-						id: cancelLabel
-						anchors.centerIn: parent
-						text: "Cancel (Esc)"
-						font.family: Theme.fontFamily
-						font.pixelSize: Theme.fontSizeTiny
-						color: Theme.textDim
-					}
-
-					MouseArea {
-						id: cancelArea
-						anchors.fill: parent
-						hoverEnabled: true
-						cursorShape: Qt.PointingHandCursor
-						onClicked: root.closePrompt()
-					}
+				TextButton {
+					text: "Cancel (Esc)"
+					onClicked: root.closePrompt()
 				}
 
-				Rectangle {
+				TextButton {
 					readonly property bool connecting: root.isPending(root.promptItem)
-					implicitWidth: connectLabel.implicitWidth + 20
-					implicitHeight: 30
-					radius: Theme.roundingSubtle
+					primary: true
 					opacity: connecting ? 0.6 : 1.0
-					color: connectArea.containsMouse ? Qt.lighter(Theme.accentBlue, 1.15) : Theme.accentBlue
-
-					Text {
-						id: connectLabel
-						anchors.centerIn: parent
-						text: parent.connecting ? "Connecting…" : "Connect (Enter)"
-						font.family: Theme.fontFamily
-						font.pixelSize: Theme.fontSizeTiny
-						font.bold: true
-						color: Theme.bgMain
-					}
-
-					MouseArea {
-						id: connectArea
-						anchors.fill: parent
-						hoverEnabled: true
-						cursorShape: Qt.PointingHandCursor
-						onClicked: root.submitPassword()
-					}
+					text: connecting ? "Connecting…" : "Connect (Enter)"
+					onClicked: root.submitPassword()
 				}
 			}
 		}

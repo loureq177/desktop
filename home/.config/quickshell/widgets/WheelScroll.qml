@@ -14,9 +14,8 @@ MouseArea {
 	// The wheel scrolls it sideways: the hourly forecast.
 	property bool horizontal: false
 
-	// Pixels a notch scrolls: a wheel turn of 120, which Hyprland's
-	// input:scroll_factor (0.5) makes 60 before it gets here, so 80 on screen.
-	readonly property int notchStep: 160
+	// Pixels a notch (a wheel turn of 120) scrolls.
+	readonly property int notchStep: 80
 
 	// Over the contents, not inside them (where Flickable puts its children),
 	// so it gets the wheel before the rows do. Clicks and hover pass through.

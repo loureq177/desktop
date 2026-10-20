@@ -3,13 +3,13 @@ import QtQuick
 
 // The key that does what a tile or button does, small in its corner, lit
 // while that tile is selected (or the button under the pointer).
-Text {
+StyledText {
 	property string key: ""
 	property bool lit: false
 
 	visible: key !== ""
 	text: key
-	font.family: Theme.fontMono
+	mono: true
 	font.pixelSize: 10
 	font.bold: true
 	color: lit ? Theme.accentBlue : Theme.textDim

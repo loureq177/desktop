@@ -33,22 +33,22 @@ Row {
 				border.width: 1
 			}
 
-			Text {
+			StyledText {
 				id: capText
 				visible: parent.modelData.cap
 				anchors.centerIn: parent
-				font.family: Theme.fontMono
+				mono: true
 				font.pixelSize: Theme.fontSizeTiny
 				font.bold: true
 				color: root.highlighted ? Theme.textMain : Theme.textDim
 				text: parent.modelData.text
 			}
 
-			Text {
+			StyledText {
 				id: sepText
 				visible: !parent.modelData.cap
 				anchors.centerIn: parent
-				font.family: Theme.fontMono
+				mono: true
 				font.pixelSize: Theme.fontSizeTiny
 				color: Theme.textMuted
 				text: parent.modelData.text

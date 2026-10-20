@@ -215,55 +215,33 @@ Item {
 					color: Theme.textMuted
 				}
 
-				Text {
+				StyledText {
 					Layout.alignment: Qt.AlignHCenter
 					text: root.noun + " is turned off"
-					font.family: Theme.fontFamily
-					font.pixelSize: Theme.fontSize
 					font.bold: true
-					color: Theme.textMain
 				}
 
-				Text {
+				StyledText {
 					Layout.alignment: Qt.AlignHCenter
 					text: "Turn on " + root.noun + " to scan and connect to " + root.things
-					font.family: Theme.fontMono
+					mono: true
 					font.pixelSize: Theme.fontSizeSmall
 					color: Theme.textDim
 				}
 
-				Rectangle {
+				TextButton {
 					Layout.alignment: Qt.AlignHCenter
 					Layout.topMargin: 8
-					implicitWidth: enableText.implicitWidth + 24
-					implicitHeight: 34
-					radius: Theme.roundingElement
-					color: enableArea.containsMouse ? Qt.lighter(Theme.accentBlue, 1.15) : Theme.accentBlue
-
-					Text {
-						id: enableText
-						anchors.centerIn: parent
-						text: "Turn On " + root.noun
-						font.family: Theme.fontFamily
-						font.pixelSize: Theme.fontSizeSmall
-						font.bold: true
-						color: Theme.bgMain
-					}
-
-					MouseArea {
-						id: enableArea
-						anchors.fill: parent
-						hoverEnabled: true
-						cursorShape: Qt.PointingHandCursor
-						onClicked: root.radioToggled()
-					}
+					primary: true
+					text: "Turn On " + root.noun
+					onClicked: root.radioToggled()
 				}
 
-				Text {
+				StyledText {
 					Layout.alignment: Qt.AlignHCenter
 					Layout.topMargin: 4
 					text: "Press [space] to turn on"
-					font.family: Theme.fontMono
+					mono: true
 					font.pixelSize: Theme.fontSizeTiny
 					color: Theme.textMuted
 				}
@@ -348,11 +326,9 @@ Item {
 								Layout.fillWidth: true
 								spacing: 6
 
-								Text {
+								StyledText {
 									Layout.fillWidth: true
 									text: row.modelData.name
-									font.family: Theme.fontFamily
-									font.pixelSize: Theme.fontSize
 									font.bold: row.connected || row.selected
 									color: row.connected ? Theme.accentBlue : Theme.textMain
 									elide: Text.ElideRight
@@ -370,9 +346,9 @@ Item {
 								Layout.fillWidth: true
 								spacing: 6
 
-								Text {
+								StyledText {
 									text: row.busy ? root.pendingStatus : (row.connected ? "Connected" : row.modelData.detail)
-									font.family: Theme.fontMono
+									mono: true
 									font.pixelSize: Theme.fontSizeTiny
 									color: row.busy ? Theme.warning : (row.connected ? Theme.accentBlue : Theme.textDim)
 								}
@@ -385,10 +361,10 @@ Item {
 									visible: level >= 0
 									spacing: 4
 
-									Text {
+									StyledText {
 										anchors.verticalCenter: parent.verticalCenter
 										text: "·"
-										font.family: Theme.fontMono
+										mono: true
 										font.pixelSize: Theme.fontSizeTiny
 										color: battery.tint
 									}
@@ -400,10 +376,10 @@ Item {
 										color: battery.tint
 									}
 
-									Text {
+									StyledText {
 										anchors.verticalCenter: parent.verticalCenter
 										text: Math.round(battery.level * 100) + "%"
-										font.family: Theme.fontMono
+										mono: true
 										font.pixelSize: Theme.fontSizeTiny
 										color: battery.tint
 									}
@@ -411,31 +387,11 @@ Item {
 							}
 						}
 
-						Rectangle {
+						TextButton {
 							visible: row.connected
-							implicitWidth: disconnectLabel.implicitWidth + 14
 							implicitHeight: 26
-							radius: Theme.roundingSubtle
-							color: disconnectArea.containsMouse ? Theme.bgCard : "transparent"
-							border.color: disconnectArea.containsMouse ? Theme.tileBorderHover : Theme.tileBorder
-							border.width: 1
-
-							Text {
-								id: disconnectLabel
-								anchors.centerIn: parent
-								text: "Disconnect"
-								font.family: Theme.fontFamily
-								font.pixelSize: Theme.fontSizeTiny
-								color: Theme.textMain
-							}
-
-							MouseArea {
-								id: disconnectArea
-								anchors.fill: parent
-								hoverEnabled: true
-								cursorShape: Qt.PointingHandCursor
-								onClicked: root.disconnectRequested(row.modelData)
-							}
+							text: "Disconnect"
+							onClicked: root.disconnectRequested(row.modelData)
 						}
 
 						Rectangle {
@@ -463,10 +419,9 @@ Item {
 							}
 						}
 
-						Text {
+						StyledText {
 							visible: !row.connected && !row.busy
 							text: "›"
-							font.family: Theme.fontFamily
 							font.pixelSize: Theme.fontSizeLarge
 							color: row.selected ? Theme.accentBlue : Theme.textMuted
 						}
@@ -479,18 +434,17 @@ Item {
 				visible: root.items.length === 0 && !root.scanning
 				spacing: 8
 
-				Text {
+				StyledText {
 					Layout.alignment: Qt.AlignHCenter
 					text: root.emptyTitle
-					font.family: Theme.fontFamily
 					font.pixelSize: Theme.fontSizeSmall
 					color: Theme.textDim
 				}
 
-				Text {
+				StyledText {
 					Layout.alignment: Qt.AlignHCenter
 					text: root.emptyHint
-					font.family: Theme.fontMono
+					mono: true
 					font.pixelSize: Theme.fontSizeTiny
 					color: Theme.textMuted
 				}

@@ -23,8 +23,6 @@ CenterModal {
 
 	property string query: ""
 	property var entries: []
-	property var filtered: []
-	property int currentIndex: 0
 	property string decodedText: ""
 	property string textReqId: ""
 	property string imgReqId: ""
@@ -64,7 +62,7 @@ CenterModal {
 		if (!entry)
 			return;
 		var img = imageInfo(entry.preview);
-		var args = [Quickshell.env("HOME") + "/.local/bin/clipboard-insert", String(entry.id)];
+		var args = [Actions.bin + "clipboard-insert", String(entry.id)];
 		if (img)
 			args.push("image/" + img[2].toLowerCase().replace("jpg", "jpeg"));
 		Panels.close("clipboard");
@@ -89,15 +87,6 @@ CenterModal {
 		win.decodedId = "";
 		win.textReqId = "";
 		win.imgReqId = "";
-	}
-
-	function move(delta) {
-		var n = filtered.length;
-		if (n === 0) {
-			currentIndex = 0;
-			return;
-		}
-		currentIndex = Math.max(0, Math.min(n - 1, currentIndex + delta));
 	}
 
 	onCurrentIndexChanged: {
@@ -287,13 +276,10 @@ CenterModal {
 						}
 					}
 
-					Text {
+					StyledText {
 						Layout.fillWidth: true
 						Layout.alignment: Qt.AlignVCenter
 						textFormat: Text.PlainText
-						font.family: Theme.fontFamily
-						font.pixelSize: Theme.fontSize
-						color: Theme.textMain
 						elide: Text.ElideRight
 						text: row.isImage ? "Image (" + row.image[2].toUpperCase() + " " + row.image[3] + ", " + row.image[0] + " " + row.image[1] + ")"
 							: row.preview.replace(/\s+/g, " ")
@@ -315,10 +301,9 @@ CenterModal {
 			}
 		}
 
-		Text {
+		StyledText {
 			visible: win.filtered.length === 0
 			anchors.centerIn: list
-			font.family: Theme.fontFamily
 			font.pixelSize: Theme.fontSizeSmall
 			color: Theme.textDim
 			text: win.listFailed ? "cliphist failed — is it installed?" : (win.entries.length === 0 ? "No clipboard entries" : "No match")
@@ -364,7 +349,7 @@ CenterModal {
 					flickable: previewFlick
 				}
 
-				Text {
+				StyledText {
 					id: previewText
 					width: previewFlick.width - ((previewFlick.ScrollBar.vertical && previewFlick.ScrollBar.vertical.visible) ? 10 : 0)
 					wrapMode: Text.WrapAtWordBoundaryOrAnywhere
@@ -377,9 +362,8 @@ CenterModal {
 							return win.decodedText;
 						return e.preview;
 					}
-					font.family: Theme.fontMono
+					mono: true
 					font.pixelSize: Theme.fontSizeSmall
-					color: Theme.textMain
 				}
 			}
 		}

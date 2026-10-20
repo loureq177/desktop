@@ -27,12 +27,10 @@ SideDrawer {
 			Layout.preferredHeight: 32
 			spacing: 10
 
-			Text {
+			StyledText {
 				text: "Notifications"
-				font.family: Theme.fontFamily
 				font.pixelSize: Theme.fontSizeLarge
 				font.bold: true
-				color: Theme.textMain
 			}
 
 			Rectangle {
@@ -44,11 +42,11 @@ SideDrawer {
 				border.color: Theme.selectionBorder
 				border.width: 1
 
-				Text {
+				StyledText {
 					id: countLabel
 					anchors.centerIn: parent
 					text: String(Notifications.history.count)
-					font.family: Theme.fontMono
+					mono: true
 					font.pixelSize: Theme.fontSizeTiny
 					font.bold: true
 					color: Theme.accentBlue
@@ -59,43 +57,11 @@ SideDrawer {
 				Layout.fillWidth: true
 			}
 
-			Rectangle {
+			TextButton {
 				visible: Notifications.history.count > 0
-				implicitWidth: clearRow.implicitWidth + 16
-				implicitHeight: 28
-				radius: Theme.roundingElement
-				color: clearArea.containsMouse ? Theme.bgHover : "transparent"
-				border.color: clearArea.containsMouse ? Theme.tileBorderHover : Theme.tileBorder
-				border.width: 1
-
-				Behavior on color { ColorAnimation { duration: Theme.animFast } }
-
-				RowLayout {
-					id: clearRow
-					anchors.centerIn: parent
-					spacing: 5
-
-					LineIcon {
-						name: "list-x"
-						size: 14
-						color: clearArea.containsMouse ? Theme.textMain : Theme.textDim
-					}
-
-					Text {
-						text: "Clear all"
-						font.family: Theme.fontMono
-						font.pixelSize: Theme.fontSizeSmall
-						color: clearArea.containsMouse ? Theme.textMain : Theme.textDim
-					}
-				}
-
-				MouseArea {
-					id: clearArea
-					anchors.fill: parent
-					hoverEnabled: true
-					cursorShape: Qt.PointingHandCursor
-					onClicked: Notifications.clear()
-				}
+				icon: "list-x"
+				text: "Clear all"
+				onClicked: Notifications.clear()
 			}
 
 			CloseButton {
@@ -190,11 +156,9 @@ SideDrawer {
 					color: Theme.textMuted
 				}
 
-				Text {
+				StyledText {
 					Layout.alignment: Qt.AlignHCenter
 					text: "No notifications"
-					font.family: Theme.fontFamily
-					font.pixelSize: Theme.fontSize
 					font.bold: true
 					color: Theme.textDim
 				}

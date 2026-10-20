@@ -229,3 +229,19 @@ test("parseOpenMeteoDaily: without a date for today starts at the first day; no 
     assert.deepEqual(m.parseOpenMeteoDaily(empty, "2026-10-12"), []);
   }
 });
+
+test("chartPoints: the warmest hour on top, the coldest at the bottom", () => {
+  const pts = m.chartPoints([{ temp: 10 }, { temp: 20 }, { temp: 15 }], 54, 78, 50);
+  assert.deepEqual(pts.map((p) => p.x), [27, 81, 135]);
+  assert.deepEqual(pts.map((p) => p.y), [128, 78, 103]);
+});
+
+test("chartPoints: a spread under 3 degrees is drawn as 3", () => {
+  const pts = m.chartPoints([{ temp: 10 }, { temp: 11 }], 54, 0, 30);
+  assert.deepEqual(pts.map((p) => p.y), [10, 0]);
+});
+
+test("chartPoints: no hours, no points", () => {
+  assert.deepEqual(m.chartPoints([], 54, 78, 50), []);
+  assert.deepEqual(m.chartPoints(null, 54, 78, 50), []);
+});
