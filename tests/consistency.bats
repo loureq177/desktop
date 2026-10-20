@@ -77,7 +77,8 @@ UNITS="archlinux/.config/systemd/user"
 @test "sourced shell libraries exist" {
     local bad=0 file name
     while IFS=: read -r file name; do
-        [[ -f "$REPO/archlinux/.local/lib/$name" ]] || { echo "$file sources missing .local/lib/$name" >&2; bad=1; }
+        [[ -f "$REPO/archlinux/.local/lib/$name" || -f "$REPO/common/.local/lib/$name" ]] ||
+            { echo "$file sources missing .local/lib/$name" >&2; bad=1; }
     done < <(cd "$REPO" && grep -IoE '\.local/lib/[A-Za-z0-9_./-]+' -r archlinux common install.sh | sed -E 's|:\.local/lib/|:|' | sort -u)
     [[ "$bad" -eq 0 ]]
 }
@@ -336,7 +337,7 @@ listed_packages() {
 }
 
 @test "the default wallpaper that 'wallpaper init' falls back to is in the repo" {
-    [[ -s "$REPO/archlinux/.config/hypr/wallpapers/hyprland.png" ]]
+    [[ -s "$REPO/archlinux/.config/hypr/wallpapers/hyprland.webp" ]]
 }
 
 @test "example files keep their real counterparts out of git" {

@@ -1,18 +1,26 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-source "$HOME/.local/lib/dotfiles/log.sh"
+source "$HOME/.local/lib/dotfiles/common.sh"
 
-section() {
-    printf '\n%s\n' "$*"
-}
-
+# step MSG TOOL CMD...: run CMD under a heading when TOOL is installed; a
+# failing step does not stop the others.
 step() {
     local msg=$1 tool=$2
     shift 2
     command -v "$tool" >/dev/null 2>&1 || return 0
-    section "==> $msg"
+    _log_info "$msg"
     "$@" || true
+}
+
+notify() {
+    command -v notify-send >/dev/null 2>&1 || return 0
+    notify-send --app-name="System Update" --icon="$1" --urgency="$2" "$3" "$4" || true
+}
+
+abort() {
+    echo "operation aborted" >&2
+    exit "$1"
 }
 
 # Zinit prints a line for every plugin it checks; real changes (git output)
@@ -43,97 +51,74 @@ update_nvim_plugins() {
     fi
 }
 
+sync_aur_votes() {
+    if python3 -c "import keyring, sys; sys.exit(0 if keyring.get_credential('aur-sync-vote', None) else 1)" >/dev/null 2>&1; then
+        aur-sync-vote
+    else
+        echo "Skipping vote sync: no saved AUR credentials."
+        echo "Run 'aur-sync-vote --remember' once to enable it."
+    fi
+}
+
+update_firmware() {
+    fwupdmgr refresh || true
+    fwupdmgr update -y
+}
+
+# Merges what pacdiff can do alone, then lists what needs a human.
+check_pacnew() {
+    yes s | pacdiff -s >/dev/null 2>&1 || true
+    local pacnew_files
+    pacnew_files=$(pacdiff -o 2>/dev/null || true)
+    if [ -z "$pacnew_files" ]; then
+        _log_ok "No pending .pacnew files."
+        return
+    fi
+    _log_warn "Detected .pacnew/.pacsave files requiring attention:"
+    echo "$pacnew_files"
+    echo "Run 'DIFFPROG=\"nvim -d\" pacdiff -s' to review and merge."
+    notify dialog-warning normal "Pacnew Files Detected" "Configuration merge needed for:\n$pacnew_files"
+}
+
 pacman_log_start=0
 if [ -f /var/log/pacman.log ]; then
     pacman_log_start=$(wc -l < /var/log/pacman.log 2>/dev/null || echo 0)
 fi
 
-abort() {
-    echo "operation aborted" >&2
-    exit "$1"
-}
+root=$(as_root)
 
-# In the Hyprland session root goes through the quickshell polkit dialog. In a
-# tty or over ssh there is no dialog, and pkexec's own text agent fails on
-# polkit 127 (polkit-org/polkit#686): sudo asks in the terminal there.
-if [ -n "${WAYLAND_DISPLAY:-}" ]; then
-    as_root=pkexec
-else
-    as_root=sudo
-fi
-
-echo "==> Updating system packages..."
+_log_info "Updating system packages..."
 if command -v paru >/dev/null 2>&1; then
-    paru -Syu --repo --noconfirm --sudo "$as_root" || abort $?
+    paru -Syu --repo --noconfirm --sudo "$root" || abort $?
 
     # AUR build scripts run as this user and come from strangers: paru shows
     # what changed and asks before building, so this part needs a terminal.
-    section "==> Updating AUR packages..."
+    _log_info "Updating AUR packages..."
     if [[ -z "$(paru -Qua --devel 2>/dev/null || true)" ]]; then
-        echo "✓ Nothing to update."
+        _log_ok "Nothing to update."
     elif [[ -t 0 ]]; then
-        paru -Sua --devel --sudo "$as_root" || abort $?
+        paru -Sua --devel --sudo "$root" || abort $?
     else
         echo "Skipped: AUR updates are reviewed before they are built. Run 'sysupdate' in a terminal."
     fi
 elif command -v pacman >/dev/null 2>&1; then
-    "$as_root" pacman -Syu --noconfirm || abort $?
+    "$root" pacman -Syu --noconfirm || abort $?
 fi
 
-section "==> Updating Zsh plugins (zinit)..."
+_log_info "Updating Zsh plugins (zinit)..."
 update_zsh_plugins
 
-if command -v aur-sync-vote >/dev/null 2>&1; then
-    section "==> Syncing AUR votes..."
-    if python3 -c "import keyring, sys; sys.exit(0 if keyring.get_credential('aur-sync-vote', None) else 1)" >/dev/null 2>&1; then
-        aur-sync-vote || true
-    else
-        echo "Skipping vote sync: no saved AUR credentials."
-        echo "Run 'aur-sync-vote --remember' once to enable it."
-    fi
-fi
-
-if command -v fwupdmgr >/dev/null 2>&1; then
-    section "==> Checking firmware updates..."
-    fwupdmgr refresh || true
-    fwupdmgr update -y || true
-fi
-
+step "Syncing AUR votes..." aur-sync-vote sync_aur_votes
+step "Checking firmware updates..." fwupdmgr update_firmware
 step "Updating Flatpak packages..." flatpak flatpak update -y
-
 step "Updating tldr cache..." tldr tldr --update
-
-if command -v uv >/dev/null 2>&1; then
-    section "==> Updating uv tools..."
-    uv tool upgrade --all || true
-fi
-
+step "Updating uv tools..." uv uv tool upgrade --all
 step "Updating Neovim plugins (LazyVim)..." nvim update_nvim_plugins
+step "Checking and cleaning .pacnew / .pacsave files..." pacdiff check_pacnew
 
-if command -v pacdiff >/dev/null 2>&1; then
-    section "==> Checking and cleaning .pacnew / .pacsave files..."
-    yes s | pacdiff -s >/dev/null 2>&1 || true
-
-    pacnew_files=$(pacdiff -o 2>/dev/null || true)
-    if [ -n "$pacnew_files" ]; then
-        echo "⚠️  Detected .pacnew/.pacsave files requiring attention:"
-        echo "$pacnew_files"
-        section "Run 'DIFFPROG=\"nvim -d\" pacdiff -s' to review and merge."
-        command -v notify-send >/dev/null 2>&1 && notify-send \
-            --app-name="System Update" \
-            --icon="dialog-warning" \
-            --urgency=normal \
-            "Pacnew Files Detected" "Configuration merge needed for:\n$pacnew_files" || true
-    else
-        echo "✓ No pending .pacnew files."
-    fi
-fi
-
-reboot_needed=false
 reboot_reasons=()
 
 if [ ! -d "/usr/lib/modules/$(uname -r)" ]; then
-    reboot_needed=true
     reboot_reasons+=("Running kernel ($(uname -r)) modules not found on disk")
 fi
 
@@ -144,28 +129,17 @@ if [ -f /var/log/pacman.log ] && [ "$pacman_log_start" -gt 0 ]; then
         | sort -u \
         | tr '\n' ' ' || true)
     if [ -n "$upgraded_critical" ]; then
-        reboot_needed=true
         reboot_reasons+=("Updated core packages: ${upgraded_critical% }")
     fi
 fi
 
-if [ "$reboot_needed" = true ]; then
-    section "⚠️  A system restart is recommended:"
-    for reason in "${reboot_reasons[@]}"; do
-        echo "   • $reason"
-    done
-    command -v notify-send >/dev/null 2>&1 && notify-send \
-        --app-name="System Update" \
-        --icon="system-reboot" \
-        --urgency=critical \
-        "Reboot Recommended" "$(printf '%s\n' "${reboot_reasons[@]}")" || true
+if ((${#reboot_reasons[@]})); then
+    _log_warn "A system restart is recommended:"
+    printf '   • %s\n' "${reboot_reasons[@]}"
+    notify system-reboot critical "Reboot Recommended" "$(printf '%s\n' "${reboot_reasons[@]}")"
 else
-    section "✓ System update complete. No reboot required."
-    command -v notify-send >/dev/null 2>&1 && notify-send \
-        --app-name="System Update" \
-        --icon="archlinux" \
-        --urgency=normal \
-        "Update Complete" "System update completed successfully." || true
+    _log_ok "System update complete. No reboot required."
+    notify archlinux normal "Update Complete" "System update completed successfully."
 fi
 
 sleep 3

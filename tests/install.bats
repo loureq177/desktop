@@ -83,7 +83,7 @@ EOF
     assert_status 0
     assert_output_like "Installation completed successfully."
     # The sudo stub makes every /etc file look changed; any other warning is real.
-    run grep -F '[WARN]' <<<"$(grep -vF 'differs — backing up' <<<"$output")"
+    run grep -F '⚠' <<<"$(grep -vF 'differs — backing up' <<<"$output")"
     [[ -z "$output" ]] || fail "$output"
     assert_call "bat cache --build"
 }

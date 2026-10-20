@@ -31,6 +31,7 @@ sandbox_setup() {
 
     # What stow would give the scripts, but as copies: nothing writes to the repo.
     cp -r "$REPO/archlinux/.local" "$HOME/.local"
+    cp -r "$REPO/common/.local/." "$HOME/.local"
     cp -r "$REPO/archlinux/.config/ui" "$HOME/.config/ui"
 
     local tool path

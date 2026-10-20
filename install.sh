@@ -1,23 +1,9 @@
 #!/usr/bin/env bash
-
-BLUE='\033[0;34m'
-GREEN='\033[0;32m'
-YELLOW='\033[0;33m'
-RED='\033[0;31m'
-NC='\033[0m'
-
-_log() {
-    local color=$1
-    shift
-    echo -e "${color}$*${NC}"
-}
-_log_info() { _log "${BLUE}\n[INFO]" "$@"; }
-_log_ok() { _log "${GREEN}[OK]" "$@"; }
-_log_warn() { _log "${YELLOW}[WARN]" "$@"; }
-_log_error() { _log "${RED}[ERROR]" "$@"; }
-
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]:-$0}")"
+
+# The status lines the installed scripts print too.
+source common/.local/lib/dotfiles/common.sh
 
 NO_UPGRADE=0
 for arg in "$@"; do

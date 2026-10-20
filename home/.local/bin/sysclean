@@ -3,7 +3,9 @@ set -euo pipefail
 shopt -s nullglob
 
 # Next to the script, not under $HOME: the --root run gets root's environment.
-source "$(dirname "$(readlink -f "$0")")/../lib/dotfiles/log.sh"
+# Through ~/.local/bin, not the repo, which keeps the library in common/.
+SELF="$(cd "$(dirname "$0")" && pwd)/${0##*/}"
+source "${SELF%/*}/../lib/dotfiles/common.sh"
 
 AUTO=0
 ROOT=0
@@ -12,22 +14,8 @@ case "${1:-}" in
 --root) ROOT=1 ;;
 esac
 
-section() {
-    _log_info "$*"
-}
-
 skip_sudo() {
     echo "  (skipped in --auto: needs sudo)"
-}
-
-# The tools below report "0 bytes removed" even when there was nothing to do,
-# so their output is dropped; the section's own line says what was cleaned.
-run_if() {
-    command -v "$1" >/dev/null 2>&1 || return 0
-    local tool=$1 rc=0
-    shift
-    timeout 120 "$@" </dev/null >/dev/null 2>&1 || rc=$?
-    [ "$rc" -ne 124 ] || echo "  (skipped $tool - timed out)"
 }
 
 # prune_paccache CMD... [-- EXTRA...]: keep two versions of every package and
@@ -61,16 +49,10 @@ avail_bytes() {
         awk 'NR>1 && !seen[$1]++ {sum+=$2} END {print sum+0}'
 }
 
-print_total() {
-    local green=$'\033[1;32m' reset=$'\033[0m'
-    local line="━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    printf '\n%s%s\n  Total reclaimed space: %s\n%s%s\n' "$green" "$line" "$1" "$line" "$reset"
-}
-
 # What needs root, run as `sysclean --root` (pkexec or sudo). It finds what to
 # remove by itself: nothing it deletes comes from the caller.
 root_steps() {
-    section "Checking for orphaned packages..."
+    _log_info "Checking for orphaned packages..."
     local -a orphans
     mapfile -t orphans < <(pacman -Qdtq || true)
     if [ "${#orphans[@]}" -gt 0 ]; then
@@ -80,12 +62,12 @@ root_steps() {
         _log_ok "No orphaned packages."
     fi
 
-    section "Cleaning cached pacman packages..."
+    _log_info "Cleaning cached pacman packages..."
     if command -v paccache >/dev/null 2>&1; then
         prune_paccache paccache
     fi
 
-    section "Cleaning orphaned kernel modules..."
+    _log_info "Cleaning orphaned kernel modules..."
     local running_kernel dir ver removed_modules=0
     running_kernel=$(uname -r)
     for dir in /usr/lib/modules/*/; do
@@ -106,7 +88,7 @@ root_steps() {
     done
     [ "$removed_modules" = 1 ] || _log_ok "No orphaned modules."
 
-    section "Vacuuming systemd coredumps..."
+    _log_info "Vacuuming systemd coredumps..."
     if [ -d /var/lib/systemd/coredump ]; then
         rm -rf -- /var/lib/systemd/coredump/*
         _log_ok "Coredumps removed."
@@ -114,7 +96,7 @@ root_steps() {
         _log_ok "No coredumps."
     fi
 
-    section "Vacuuming journal..."
+    _log_info "Vacuuming journal..."
     journalctl --vacuum-size=200M --vacuum-time=2weeks --quiet
     _log_ok "Journal trimmed to 200M / 2 weeks."
 }
@@ -137,7 +119,7 @@ AVAIL_BEFORE=$(avail_bytes "${CLEAN_MOUNTS[@]}")
 failed_services=0
 
 if [ "$AUTO" = 1 ]; then
-    section "Checking for orphaned packages..."
+    _log_info "Checking for orphaned packages..."
     orphan_list=$(paru -Qdtq || true)
     if [ -n "$orphan_list" ]; then
         echo "Orphans found (leaving them: removal needs sudo):"
@@ -147,22 +129,15 @@ if [ "$AUTO" = 1 ]; then
     fi
     for step in "Cleaning cached pacman packages..." "Cleaning orphaned kernel modules..." \
         "Vacuuming systemd coredumps..." "Vacuuming journal..."; do
-        section "$step"
+        _log_info "$step"
         skip_sudo
     done
 else
-    # All root steps run in one `sysclean --root`, so there is one prompt: the
-    # quickshell polkit dialog in the Hyprland session, sudo in a tty or over ssh
-    # (pkexec's own text agent fails there on polkit 127, polkit-org/polkit#686).
-    if [ -n "${WAYLAND_DISPLAY:-}" ]; then
-        as_root=pkexec
-    else
-        as_root=sudo
-    fi
-    "$as_root" "$(readlink -f "$0")" --root || _log_warn "Root steps did not finish (exit $?); cleaning the rest."
+    # All root steps run in one `sysclean --root`, so there is one prompt.
+    "$(as_root)" "$SELF" --root || _log_warn "Root steps did not finish (exit $?); cleaning the rest."
 fi
 
-section "Cleaning Paru AUR cache..."
+_log_info "Cleaning Paru AUR cache..."
 if [ -d "$HOME/.cache/paru" ]; then
     rm -rf "$HOME/.cache/paru/clone/"* "$HOME/.cache/paru/diff/"* 2>/dev/null || true
     if [ -d "$HOME/.cache/paru/pkg" ]; then
@@ -175,7 +150,7 @@ else
 fi
 
 if command -v flatpak >/dev/null 2>&1; then
-    section "Cleaning Flatpak leftovers..."
+    _log_info "Cleaning Flatpak leftovers..."
     if [ "$AUTO" = 1 ]; then
         flatpak uninstall --user --unused -y 2>/dev/null || true
     else
@@ -183,11 +158,11 @@ if command -v flatpak >/dev/null 2>&1; then
     fi
 fi
 
-section "Cleaning miscellaneous caches..."
+_log_info "Cleaning miscellaneous caches..."
 rm -rf "$HOME/.cache/thumbnails/"* /tmp/paru/* 2>/dev/null || true
 _log_ok "Thumbnails and temporary build files cleared."
 
-section "Emptying trash..."
+_log_info "Emptying trash..."
 if [ "$AUTO" = 1 ]; then
     echo "  (skipped in --auto: deletes user data)"
 else
@@ -195,14 +170,14 @@ else
     _log_ok "Trash emptied."
 fi
 
-section "Cleaning Python & Node caches..."
+_log_info "Cleaning Python & Node caches..."
 run_if uv uv cache prune
 run_if pip pip cache purge
 run_if bun bun pm cache rm
 run_if npm npm cache clean --force
 _log_ok "Caches pruned."
 
-section "Pruning container engines..."
+_log_info "Pruning container engines..."
 if [ "$AUTO" = 1 ]; then
     echo "  (skipped in --auto: deletes images)"
 else
@@ -214,7 +189,7 @@ else
     _log_ok "Unused images, stopped containers and build cache removed (volumes kept)."
 fi
 
-section "Checking for failed systemd services..."
+_log_info "Checking for failed systemd services..."
 failed_sys=$(systemctl --failed --no-legend --no-pager 2>/dev/null || true)
 failed_user=$(systemctl --user --failed --no-legend --no-pager 2>/dev/null || true)
 
@@ -230,15 +205,12 @@ if [ -n "$failed_user" ]; then
 fi
 if [ "$failed_services" = 0 ]; then
     _log_ok "No failed services."
-fi
-
-if [ "$failed_services" = 0 ]; then
-    section "System is clean."
+    _log_info "System is clean."
 else
-    section "Cleaned, but some services have failed (see above)."
+    _log_info "Cleaned, but some services have failed (see above)."
 fi
 
 AVAIL_AFTER=$(avail_bytes "${CLEAN_MOUNTS[@]}")
 FREED_BYTES=$((AVAIL_AFTER - AVAIL_BEFORE))
 if [ "$FREED_BYTES" -lt 0 ]; then FREED_BYTES=0; fi
-print_total "$(numfmt --to=iec-i --suffix=B -- "$FREED_BYTES")"
+_log_total "$(numfmt --to=iec-i --suffix=B -- "$FREED_BYTES")"
