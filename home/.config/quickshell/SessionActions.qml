@@ -2,9 +2,9 @@ pragma Singleton
 import Quickshell
 import QtQuick
 
-// Lock, suspend, log out, reboot and power off, for the launcher and the
-// quick settings power page. The last three ask first: whoever offers them
-// runs them only on a second press (`confirm`).
+// Lock, suspend, log out, reboot and power off, for the launcher's search.
+// The last three ask first: the launcher runs them only on a second Enter
+// (`confirm`).
 Singleton {
 	id: root
 
@@ -28,7 +28,7 @@ Singleton {
 		var cmd = commands[id];
 		if (!cmd)
 			return false;
-		Quickshell.execDetached(["env", "-u", "__EGL_VENDOR_LIBRARY_FILENAMES", "-u", "MALLOC_CONF"].concat(cmd));
+		Actions.spawn(cmd);
 		return true;
 	}
 }

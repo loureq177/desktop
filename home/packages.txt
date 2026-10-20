@@ -10,6 +10,7 @@ hyprpicker
 hyprshutdown
 hyprsunset
 quickshell
+libqalculate
 qt5-wayland
 qt6-imageformats
 qt6-wayland

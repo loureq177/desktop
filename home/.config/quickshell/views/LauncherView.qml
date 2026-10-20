@@ -1,6 +1,7 @@
 import ".."
 import "../widgets"
 import "../Specials.js" as Specials
+import "../Search.js" as Search
 import Quickshell
 import Quickshell.Widgets
 import Quickshell.Io
@@ -11,7 +12,8 @@ CenterModal {
 	id: window
 
 	panel: "launcher"
-	searchIcon: window.mode === "emoji" ? "smile" : window.mode === "keys" ? "keyboard" : "search"
+	searchIcon: window.mode === "emoji" ? "smile" : window.mode === "keys" ? "keyboard"
+		: window.isFileQuery() ? "folder" : window.query.trim().startsWith("=") ? "calculator" : "search"
 	// Each list says what it is; the apps' search finds the actions too, by
 	// name, and draws them like the tiles of Quick actions.
 	searchPlaceholder: window.mode === "emoji" ? window.placeholderFor(window.emojis.length, "emoji")
@@ -43,16 +45,65 @@ CenterModal {
 		}
 	}
 
-	// "apps" (with the actions, calc and commands), "emoji" or "keys".
+	// "apps" (with the actions, calc, files and commands), "emoji" or "keys".
 	property string mode: "apps"
 	property string query: ""
-	property var filtered: []
-	property int currentIndex: 0
 	property string lastError: ""
 	property var emojis: []
 	property var runCache: []
 	property bool runLoaded: false
+	// The power action waiting for a second Enter, for a few seconds.
+	property string pendingPower: ""
 	readonly property var currentItem: currentIndex >= 0 && currentIndex < filtered.length ? filtered[currentIndex] : null
+
+	Timer {
+		id: powerConfirmTimer
+		interval: 4000
+		onTriggered: window.pendingPower = ""
+	}
+
+	// What the desktop does besides starting apps, found by name in the apps'
+	// search, in the shape of Actions.qml; the chord of `bind` shows on the
+	// row. The launcher closes after `run`, unless it returns false.
+	readonly property var toolActions: [
+		{ label: "Clipboard history", desc: "Paste something copied before", lineIcon: "clipboard", bind: "Clipboard history", keywords: "clipboard paste copy schowek historia wklej", run: () => window.openPanel("clipboard") },
+		{ label: "Emoji", desc: "Insert an emoji", lineIcon: "smile", bind: "Emoji picker", keywords: "emoji emotki smiley picker", run: () => window.openPanel("launcher", "emoji") },
+		{ label: "Keybindings", desc: "Every key and what it does", lineIcon: "keyboard", bind: "Keybindings", keywords: "keys keybindings shortcuts help cheatsheet skróty klawisze pomoc", run: () => window.openPanel("launcher", "keys") },
+		{ label: "Quick actions", desc: "Volume, brightness, Wi-Fi, Bluetooth", lineIcon: "layout-grid", bind: "Quick actions", keywords: "quick settings volume brightness ustawienia głośność jasność dźwięk", run: () => window.openPanel("quicksettings") },
+		{ label: "Wi-Fi", desc: "Networks", lineIcon: "wifi", keywords: "wifi wi-fi network wireless internet sieć", run: () => window.openPanel("quicksettings", "wifi") },
+		{ label: "Bluetooth", desc: "Devices", lineIcon: "bluetooth", keywords: "bluetooth headphones devices słuchawki urządzenia", run: () => window.openPanel("quicksettings", "bluetooth") },
+		{ label: "Notifications", desc: "Notification history", lineIcon: "bell", bind: "Toggle notification center", keywords: "notifications history powiadomienia", run: () => window.openPanel("notifications") },
+		{ label: Notifications.dnd ? "Turn off Do not disturb" : "Do not disturb", desc: "Silence notifications", lineIcon: "bell-off", keywords: "dnd do not disturb quiet silence nie przeszkadzać cisza", run: () => { Notifications.dnd = !Notifications.dnd; } },
+		{ label: "Weather", desc: "Forecast", lineIcon: "cloud-sun", bind: "Weather", keywords: "weather forecast pogoda prognoza", run: () => window.openPanel("weather") },
+		{ label: SystemStatus.powerSaveActive ? "Turn off Battery saver" : "Battery saver", desc: "60 Hz, dimmer, fewer effects", lineIcon: "leaf", keywords: "battery saver power save 60hz oszczędzanie bateria", run: () => Actions.togglePowerSave() },
+		{ label: SystemStatus.awakeActive ? "Turn off Keep awake" : "Keep awake", desc: "The screen stays on", lineIcon: "coffee", keywords: "keep awake caffeine inhibit idle sleep nie usypiaj", run: () => Actions.toggleAwake() },
+		{ label: "Next wallpaper", desc: "Change the background", lineIcon: "image", bind: "Next wallpaper", keywords: "wallpaper background tapeta tło", run: () => Actions.script("wallpaper next") }
+	].concat(Actions.captureActions, [
+		{ label: "System update", desc: "Upgrade the packages", lineIcon: "package", keywords: "update sysupdate upgrade aktualizacja pacman paru system", run: () => Actions.terminal("sysupdate") },
+		{ label: "System cleanup", desc: "Caches, orphaned packages, the trash", lineIcon: "trash", keywords: "clean cleanup sysclean cache orphans trash czyszczenie sprzątanie kosz", run: () => Actions.terminal("sysclean") }
+	])
+
+	// Lock, suspend, log out, reboot, power off; the last three run on a
+	// second Enter (SessionActions.confirm).
+	readonly property var powerActions: SessionActions.actions.map(a => ({
+		kind: "power",
+		label: a.label,
+		desc: a.desc,
+		lineIcon: a.lineIcon,
+		action: a.id,
+		verb: a.verb,
+		confirm: a.confirm,
+		keywords: a.keywords,
+		bind: a.id === "lock" ? "Lock system" : ""
+	}))
+
+	readonly property var actions: toolActions.map(a => Object.assign({ kind: "action" }, a)).concat(powerActions)
+
+	function openPanel(name, newMode) {
+		Panels.open(name, newMode);
+		// Panels replaced the launcher, or reopened it on another mode.
+		return false;
+	}
 
 	// Desktop entries a special workspace stands for are listed as that
 	// special instead (below), which opens the app where it lives.
@@ -69,8 +120,7 @@ CenterModal {
 	})
 
 	// The apps that live in a special workspace (the web apps among them),
-	// listed with the other apps. The desktop's actions are not here: Quick actions has them
-	// all, and the keys list the ones a key does.
+	// listed with the other apps.
 	readonly property var specials: {
 		// Looked up again once the desktop entries are read.
 		void DesktopEntries.applications.values;
@@ -96,14 +146,6 @@ CenterModal {
 		return Keybinds.chord(item.bind ?? "");
 	}
 
-	function spawn(command, workingDirectory) {
-		var clean = ["env", "-u", "__EGL_VENDOR_LIBRARY_FILENAMES", "-u", "MALLOC_CONF"].concat(command);
-		if (workingDirectory)
-			Quickshell.execDetached({ command: clean, workingDirectory: workingDirectory });
-		else
-			Quickshell.execDetached(clean);
-	}
-
 	// A typed command runs where its output can be read, and the window stays
 	// once it is done.
 	function runInTerminal(commandLine) {
@@ -114,34 +156,42 @@ CenterModal {
 		return mode === "apps" && query.trim().startsWith(">");
 	}
 
-	function tryCalculate(raw) {
-		var s = (raw || "").trim();
-		if (s.startsWith("="))
-			s = s.substring(1).trim();
-		if (s === "")
-			return null;
-		if (!/^[0-9+\-*/^().,% xX÷]+$/.test(s))
-			return null;
-		s = s.replace(/(\d),(\d)/g, "$1.$2");
-		if (s.indexOf(",") !== -1)
-			return null;
-		s = s.replace(/x|X/g, "*").replace(/÷/g, "/");
-		if (!/[+\-*/^%]/.test(s))
-			return null;
-		s = s.replace(/\^/g, "**");
-		s = s.replace(/(\d+(?:\.\d+)?)%/g, "($1/100)");
+	function isFileQuery() {
+		return mode === "apps" && query.trim().startsWith("/");
+	}
 
-		try {
-			var fn = new Function("return (" + s + ")");
-			var res = fn();
-			if (typeof res === "number" && isFinite(res) && !isNaN(res)) {
-				var rounded = Math.round(res * 1e10) / 1e10;
-				return String(rounded);
-			}
-		} catch (e) {
-			return null;
-		}
-		return null;
+	// qalc (libqalculate) answers what plain arithmetic cannot: units,
+	// currencies, functions. One runs at a time; what was typed meanwhile is
+	// asked next. qalcFor is the expression qalcAnswer answers.
+	property bool hasQalc: false
+	property string qalcWanted: ""
+	property string qalcFor: ""
+	property string qalcAnswer: ""
+	// When the exchange rates were last fetched, at most once a day.
+	property real ratesFetched: 0
+
+	function askQalc(expr) {
+		qalcWanted = expr;
+		if (qalcProc.running)
+			return;
+		qalcProc.expr = expr;
+		qalcProc.command = ["qalc", "-t", "-set", "update exchange rates 0", "-set", "autoconversion none", expr.replace(/^=/, "")];
+		qalcProc.running = true;
+	}
+
+	// The files found by fd for filesFor (the words typed after "/"), the
+	// same way: one search at a time, the last words typed next.
+	property string filesWanted: ""
+	property string filesFor: ""
+	property var fileResults: []
+
+	function askFiles(terms) {
+		filesWanted = terms.join(" ");
+		if (fileProc.running)
+			return;
+		fileProc.terms = terms;
+		fileProc.command = Search.fdCommand(terms, Quickshell.env("HOME"), 400);
+		fileProc.running = true;
 	}
 
 	onOpened: newMode => {
@@ -151,62 +201,16 @@ CenterModal {
 		window.mode = next;
 		if (!runLoaded && !runLoader.running)
 			runLoader.running = true;
+		if (!hasQalc && !qalcCheck.running)
+			qalcCheck.running = true;
+		else if (hasQalc && Date.now() - ratesFetched > 86400000 && !ratesProc.running) {
+			ratesFetched = Date.now();
+			ratesProc.running = true;
+		}
 		query = "";
 		searchBar.clear();
 		refilter();
 		searchBar.focusInput();
-	}
-
-	function fieldScore(text, ql) {
-		var h = (text || "").toLowerCase();
-		if (h === "" || ql === "")
-			return -1;
-		if (h.startsWith(ql))
-			return 0;
-		var words = h.split(/[^a-z0-9ąćęłńóśźż]+/);
-		for (var i = 0; i < words.length; i++) {
-			if (words[i].startsWith(ql))
-				return 1;
-		}
-		if (h.indexOf(ql) !== -1)
-			return 2;
-		return -1;
-	}
-
-	function appMatchScore(e, q) {
-		var ql = q.toLowerCase().trim();
-		if (ql === "")
-			return 0;
-		var s = fieldScore(e.name, ql);
-		if (s !== -1)
-			return s;
-		s = fieldScore(e.genericName, ql);
-		if (s !== -1)
-			return 3 + s;
-		s = fieldScore(e.keywords ? e.keywords.join(" ") : "", ql);
-		if (s !== -1)
-			return 6 + s;
-		if (((e.id || "").toLowerCase().indexOf(ql)) !== -1)
-			return 9;
-		s = fieldScore(e.comment, ql);
-		if (s !== -1)
-			return 10 + s;
-		return -1;
-	}
-
-	// On appMatchScore's scale: the name, then the description and keywords.
-	function specialMatchScore(sp, q) {
-		var ql = q.toLowerCase().trim();
-		if (ql === "")
-			return 0;
-		var s = fieldScore(sp.label, ql);
-		if (s !== -1)
-			return s;
-		s = fieldScore(sp.desc, ql);
-		if (s !== -1)
-			return 3 + s;
-		s = fieldScore(sp.keywords, ql);
-		return s === -1 ? -1 : 6 + s;
 	}
 
 	// The line icon of a key: what it is pressed with.
@@ -227,34 +231,20 @@ CenterModal {
 		lineIcon: keyIcon(e.category)
 	}))
 
-	// The keys list matching ql: by what the key does first, then by chord and
-	// section, in keyEntries' order among equals (V4's sort is not stable).
-	function matchKeys(ql) {
-		var scored = [];
-		for (var i = 0; i < keyEntries.length; i++) {
-			var e = keyEntries[i];
-			var s = ql === "" ? 0 : fieldScore(e.label, ql);
-			if (s === -1) {
-				s = fieldScore(chordOf(e), ql);
-				s = s === -1 ? -1 : 4 + s;
-			}
-			if (s === -1) {
-				s = fieldScore(e.desc, ql);
-				s = s === -1 ? -1 : 7 + s;
-			}
-			if (s !== -1)
-				scored.push({ score: s, order: i, item: e });
-		}
-		scored.sort((x, y) => x.score - y.score || x.order - y.order);
-		return scored.map(x => x.item);
+	// The keys list matching q: by what the key does first, then by chord and
+	// section, in keyEntries' order among equals.
+	function matchKeys(q) {
+		return Search.rank(keyEntries, e => Search.matchScore([[e.label, 0], [chordOf(e), 4], [e.desc, 7]], q));
 	}
 
 	function refilter() {
 		lastError = "";
+		powerConfirmTimer.stop();
+		pendingPower = "";
 		var q = query.trim();
 
 		if (mode === "keys") {
-			filtered = matchKeys(q.toLowerCase());
+			filtered = matchKeys(q);
 			currentIndex = 0;
 			return;
 		}
@@ -263,77 +253,58 @@ CenterModal {
 			if (q.startsWith(">")) {
 				if (!runLoaded && !runLoader.running)
 					runLoader.running = true;
-				var cmdQuery = q.substring(1).trim().toLowerCase();
-				var cmdResults = [];
 				// A bare ">" lists every command there is.
-				if (cmdQuery === "") {
-					cmdResults = runCache.map(c => ({ kind: "run", label: c }));
-				} else {
-					cmdResults.push({ kind: "run", label: q.substring(1).trim(), isDirect: true });
-					for (var k = 0; k < runCache.length && cmdResults.length < 50; k++) {
-						var cand = runCache[k].toLowerCase();
-						if (cand !== cmdQuery && cand.indexOf(cmdQuery) === 0)
-							cmdResults.push({ kind: "run", label: runCache[k] });
-					}
-					for (var m = 0; m < runCache.length && cmdResults.length < 50; m++) {
-						var cand2 = runCache[m].toLowerCase();
-						if (cand2.indexOf(cmdQuery) > 0)
-							cmdResults.push({ kind: "run", label: runCache[m] });
-					}
+				filtered = Search.matchCommands(runCache, q.substring(1), 50).map(c => ({ kind: "run", label: c }));
+				currentIndex = 0;
+				return;
+			}
+
+			var fileTerms = Search.fileTerms(q);
+			if (fileTerms !== null) {
+				if (fileTerms.length === 0)
+					filtered = [];
+				else if (filesFor === fileTerms.join(" "))
+					filtered = fileResults;
+				else {
+					// The files of the words before, until fd has these.
+					filtered = filtered.filter(it => it.kind === "file");
+					askFiles(fileTerms);
 				}
-				filtered = cmdResults;
 				currentIndex = 0;
 				return;
 			}
 
-			var calcResult = tryCalculate(q);
+			// Arithmetic at once, the rest when qalc has answered.
+			var calcResult = Search.calculate(q);
+			if (calcResult === null && hasQalc && Search.wantsQalc(q)) {
+				if (qalcFor === q)
+					calcResult = qalcAnswer || null;
+				else
+					askQalc(q);
+			}
 			if (q.startsWith("=")) {
-				filtered = calcResult !== null ? [{ kind: "calc", label: calcResult, rawExpr: q }] : [];
+				filtered = calcResult !== null ? [{ kind: "calc", label: calcResult }] : [];
 				currentIndex = 0;
 				return;
 			}
 
-			// The apps and the specials, one list: best match first, then by name.
-			var scored = [];
-			var apps = DesktopEntries.applications.values || [];
-			for (var i = 0; i < apps.length; i++) {
-				if (!listsApp(apps[i]))
-					continue;
-				var s = appMatchScore(apps[i], q);
-				if (s !== -1)
-					scored.push({ score: s, item: { kind: "app", entry: apps[i], label: apps[i].name || apps[i].id } });
-			}
-			for (var k = 0; k < specials.length; k++) {
-				var sk = specialMatchScore(specials[k], q);
-				if (sk !== -1)
-					scored.push({ score: sk, item: specials[k] });
-			}
-			scored.sort((a, b) => a.score - b.score || a.item.label.localeCompare(b.item.label));
+			// The apps, the specials and the actions, one list: best match
+			// first, then by name. The actions only come up when asked for.
+			var apps = (DesktopEntries.applications.values || []).filter(e => listsApp(e))
+				.map(e => ({ kind: "app", entry: e, label: e.name || e.id }));
+			var actionsAsked = q !== "" ? actions : [];
+			var matches = Search.rank(apps.concat(specials, actionsAsked),
+				it => it.kind === "app" ? Search.appScore(it.entry, q) : Search.itemScore(it, q),
+				(a, b) => a.label.localeCompare(b.label));
 
-			var combined = calcResult !== null ? [{ kind: "calc", label: calcResult, rawExpr: q }] : [];
-			filtered = combined.concat(scored.map(x => x.item));
+			var combined = calcResult !== null ? [{ kind: "calc", label: calcResult }] : [];
+			filtered = combined.concat(matches);
 		} else if (mode === "emoji") {
 			var needle = q.toLowerCase();
-			var out = [];
-			for (var j = 0; j < emojis.length; j++) {
-				var item = emojis[j];
-				if (!item || !item.e)
-					continue;
-				if (!needle || String(item.k || "").toLowerCase().indexOf(needle) >= 0)
-					out.push({ kind: "emoji", char: item.e, name: item.k });
-			}
-			filtered = out;
+			filtered = emojis.filter(it => it?.e && String(it.k || "").toLowerCase().includes(needle))
+				.map(it => ({ kind: "emoji", char: it.e, name: it.k }));
 		}
 		currentIndex = 0;
-	}
-
-	function move(delta) {
-		var n = filtered.length;
-		if (n === 0) {
-			currentIndex = 0;
-			return;
-		}
-		currentIndex = Math.max(0, Math.min(n - 1, currentIndex + delta));
 	}
 
 	function moveRows(delta, cols) {
@@ -349,26 +320,42 @@ CenterModal {
 		if (item.kind === "app") {
 			var e = item.entry;
 			if (e.runInTerminal)
-				spawn(["ghostty", "-e"].concat(e.command), e.workingDirectory);
+				Actions.spawn(["ghostty", "-e"].concat(e.command), e.workingDirectory);
 			else
-				spawn(e.command, e.workingDirectory);
+				Actions.spawn(e.command, e.workingDirectory);
 			return true;
 		}
 		if (item.kind === "calc") {
 			Quickshell.execDetached(["wl-copy", String(item.label)]);
 			return true;
 		}
+		if (item.kind === "file") {
+			Actions.spawn(["xdg-open", item.path]);
+			return true;
+		}
+		if (item.kind === "action")
+			return item.run() !== false;
+		if (item.kind === "power") {
+			if (item.confirm && pendingPower !== item.action) {
+				pendingPower = item.action;
+				powerConfirmTimer.restart();
+				return false;
+			}
+			powerConfirmTimer.stop();
+			pendingPower = "";
+			return SessionActions.run(item.action);
+		}
 		if (item.kind === "run") {
-			spawn(runInTerminal(item.label));
+			Actions.spawn(runInTerminal(item.label));
 			return true;
 		}
 		if (item.kind === "emoji") {
 			Panels.close("launcher");
-			Quickshell.execDetached([Quickshell.env("HOME") + "/.local/bin/emoji-insert", item.char]);
+			Quickshell.execDetached([Actions.bin + "emoji-insert", item.char]);
 			return true;
 		}
 		if (item.kind === "special") {
-			Quickshell.execDetached(["hyprctl", "dispatch", "hl.dsp.workspace.toggle_special('" + item.name + "')"]);
+			Actions.toggleSpecial(item.name);
 			return true;
 		}
 		// A key is only there to be read.
@@ -384,7 +371,7 @@ CenterModal {
 			var rawCmd = q.substring(1).trim();
 			if (filtered.length === 0 && rawCmd !== "") {
 				lastError = "";
-				spawn(runInTerminal(rawCmd));
+				Actions.spawn(runInTerminal(rawCmd));
 				Panels.close("launcher");
 				return;
 			}
@@ -407,8 +394,18 @@ CenterModal {
 			return query.trim() === ">" ? "Loading commands..." : "No matching command — Enter runs it anyway";
 		if (mode === "emoji") return emojis.length === 0 ? "Loading emojis..." : "No matching emojis";
 		if (mode === "keys") return Keybinds.loaded ? "No matching keys or actions" : "Loading keys...";
-		if (query.trim().startsWith("="))
-			return "Type an expression, like 2+2 or 15% * 80";
+		var q = query.trim();
+		var terms = Search.fileTerms(q);
+		if (terms !== null) {
+			if (terms.length === 0)
+				return "Type a file or folder name; Enter opens it";
+			return filesFor === terms.join(" ") ? "No file or folder called that in ~" : "Searching...";
+		}
+		if (q.startsWith("=")) {
+			if (q === "=" || !hasQalc)
+				return hasQalc ? "Type an expression, like 10 km to mi or 100 eur to pln" : "Type an expression, like 2+2 or 15% * 80";
+			return qalcFor === q ? "qalc can't work that out" : "Calculating...";
+		}
 		return "Nothing matches";
 	}
 
@@ -427,6 +424,8 @@ CenterModal {
 			var e = item.entry;
 			return [e.genericName, e.comment, categoryName(e.categories ?? [])].find(d => d && d !== item.label) ?? "";
 		}
+		if (item.kind === "power" && pendingPower === item.action)
+			return "Press Enter again to " + item.verb;
 		if (item.kind === "calc")
 			return "Enter copies the result";
 		if (item.kind === "run")
@@ -508,6 +507,68 @@ CenterModal {
 			window.refilter();
 	}
 
+	// Whether qalc is installed (libqalculate); asked again on each open
+	// until it is.
+	Process {
+		id: qalcCheck
+		command: ["sh", "-c", "command -v qalc"]
+		onExited: code => {
+			window.hasQalc = code === 0;
+			if (window.hasQalc && !ratesProc.running) {
+				window.ratesFetched = Date.now();
+				ratesProc.running = true;
+			}
+		}
+	}
+
+	Process {
+		id: ratesProc
+		command: ["qalc", "-e", "-t", "0"]
+	}
+
+	Process {
+		id: qalcProc
+		property string expr: ""
+		stdout: StdioCollector {
+			onStreamFinished: {
+				window.qalcFor = qalcProc.expr;
+				window.qalcAnswer = Search.qalcAnswer(qalcProc.expr, this.text) ?? "";
+				// Only an answer changes the list, or "=" waiting for one.
+				if (window.shown && window.query.trim() === qalcProc.expr && (window.qalcAnswer !== "" || qalcProc.expr.startsWith("=")))
+					window.refilter();
+			}
+		}
+		onExited: {
+			if (window.qalcWanted !== qalcProc.expr)
+				Qt.callLater(() => window.askQalc(window.qalcWanted));
+		}
+	}
+
+	Process {
+		id: fileProc
+		property var terms: []
+		stdout: StdioCollector {
+			onStreamFinished: {
+				var home = Quickshell.env("HOME");
+				window.filesFor = fileProc.terms.join(" ");
+				window.fileResults = Search.rankFiles(String(this.text || "").split("\n"), fileProc.terms, home, 60).map(f => ({
+					kind: "file",
+					label: f.name,
+					desc: f.dir,
+					lineIcon: f.icon,
+					path: f.path
+				}));
+				var now = Search.fileTerms(window.query.trim());
+				if (window.shown && now !== null && now.join(" ") === window.filesFor)
+					window.refilter();
+			}
+		}
+		onExited: {
+			if (window.filesWanted !== fileProc.terms.join(" "))
+				Qt.callLater(() => window.askFiles(window.filesWanted.split(" ")));
+		}
+	}
+
 	Process {
 		id: runLoader
 		running: false
@@ -552,6 +613,7 @@ CenterModal {
 				readonly property bool selected: index === window.currentIndex
 				readonly property string chord: window.chordOf(modelData)
 				readonly property string subtitle: window.subtitleOf(modelData)
+				readonly property bool warn: modelData.kind === "power" && window.pendingPower === modelData.action
 
 				width: ListView.view.width
 				height: window.rowHeight
@@ -588,25 +650,23 @@ CenterModal {
 							name: window.lineIconOf(row.modelData)
 							size: 22
 							color: row.modelData.kind === "calc" ? Theme.accentGreen
+								: row.warn ? Theme.warning
 								: row.selected ? Theme.accentBlue : Theme.textDim
 						}
 					}
 
-					Text {
+					StyledText {
 						Layout.maximumWidth: row.width * 0.55
-						font.family: Theme.fontFamily
-						font.pixelSize: Theme.fontSize
 						font.bold: row.modelData.kind === "calc"
 						color: row.modelData.kind === "calc" ? Theme.accentGreen : Theme.textMain
 						elide: Text.ElideRight
 						text: row.modelData.kind === "calc" ? "= " + row.modelData.label : (row.modelData.label || "")
 					}
 
-					Text {
+					StyledText {
 						Layout.fillWidth: true
-						font.family: Theme.fontFamily
 						font.pixelSize: Theme.fontSizeSmall
-						color: Theme.textDim
+						color: row.warn ? Theme.warning : Theme.textDim
 						elide: Text.ElideRight
 						text: row.subtitle
 					}
@@ -688,10 +748,9 @@ CenterModal {
 			}
 		}
 
-		Text {
+		StyledText {
 			visible: window.filtered.length === 0
 			anchors.centerIn: parent
-			font.family: Theme.fontFamily
 			font.pixelSize: Theme.fontSizeSmall
 			color: Theme.textDim
 			text: window.emptyText()

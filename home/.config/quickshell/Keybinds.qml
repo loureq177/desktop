@@ -73,7 +73,10 @@ Singleton {
 		{ category: "Bar", chord: "MIDDLE-CLICK WEATHER", action: "Refresh the forecast" },
 
 		{ category: "Launcher", chord: "2+2", action: "Calculate; Enter copies the result" },
+		{ category: "Launcher", chord: "= 10 KM TO MI", action: "Units, currencies, functions (qalc)" },
+		{ category: "Launcher", chord: "/", action: "Files and folders in ~; Enter opens one" },
 		{ category: "Launcher", chord: ">", action: "Every command; Enter runs it in a terminal" },
+		{ category: "Launcher", chord: "ENTER, ENTER", action: "Log out, reboot or power off" },
 
 		{ category: "Wi-Fi & Bluetooth", chord: "SPACE", action: "Turn the radio on or off" },
 		{ category: "Wi-Fi & Bluetooth", chord: "R", action: "Scan again" },
