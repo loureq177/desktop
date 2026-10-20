@@ -74,6 +74,7 @@ wtype
 
 # Desktop applications the session binds or opens files with
 firefox
+fuse2
 ghostty
 gnome-calculator
 gnome-clocks

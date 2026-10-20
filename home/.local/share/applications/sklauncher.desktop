@@ -1,0 +1,12 @@
+[Desktop Entry]
+Name=SKlauncher
+GenericName=Game Launcher
+Comment=SKlauncher is a free Minecraft launcher for managing instances, mods, and accounts.
+Exec=/home/mlorenc/Applications/sklauncher.AppImage --no-sandbox %U
+Icon=sklauncher
+Terminal=false
+Type=Application
+Categories=Game;
+Keywords=Minecraft;Launcher;Mojang;Games;
+StartupWMClass=pl.skmedix.sklauncher
+StartupNotify=true
