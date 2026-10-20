@@ -28,6 +28,14 @@ OverlayWindow {
 	property string errorText: ""
 	property bool showFooter: errorText !== "" || statusText !== ""
 
+	// The rows the search found, and the one the keyboard is on.
+	property var filtered: []
+	property int currentIndex: 0
+
+	function move(delta): void {
+		currentIndex = filtered.length === 0 ? 0 : Math.max(0, Math.min(filtered.length - 1, currentIndex + delta));
+	}
+
 	signal searchAccepted()
 	signal searchStepped(int delta)
 	signal searchSteppedColumn(int delta)
@@ -167,11 +175,10 @@ OverlayWindow {
 				visible: root.showFooter
 				color: "transparent"
 
-				Text {
+				StyledText {
 					anchors.fill: parent
 					verticalAlignment: Text.AlignVCenter
-					font.family: Theme.fontMono
-					font.pixelSize: Theme.fontSize
+					mono: true
 					color: root.errorText !== "" ? Theme.critical : Theme.textDim
 					elide: Text.ElideRight
 					text: root.errorText || root.statusText

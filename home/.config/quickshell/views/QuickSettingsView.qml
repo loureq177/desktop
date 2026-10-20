@@ -2,7 +2,6 @@ import ".."
 import "../widgets"
 import "./quicksettings"
 import Quickshell
-import Quickshell.Bluetooth
 import Quickshell.Networking
 import QtQuick
 import QtQuick.Layouts
@@ -11,23 +10,13 @@ SideDrawer {
 	id: win
 
 	panel: "quicksettings"
-	// "main", the page of one tile ("wifi", "bluetooth", "capture"), or "power".
+	// "main", or the page of one tile ("wifi", "bluetooth", "capture").
 	property string subView: "main"
 	dismissOnEsc: subView === "main"
 	cardWidth: 520
 	readonly property int mainContentHeight: Math.min((contentCol.implicitHeight > 0 ? contentCol.implicitHeight : 430) + Theme.paddingCard * 2, win.height - Theme.notifTopMargin - 20)
-	readonly property int currentSubViewHeight: {
-		if (subView === "wifi")
-			return wifiSubView.preferredHeight + Theme.paddingCard * 2;
-		if (subView === "bluetooth")
-			return btSubView.preferredHeight + Theme.paddingCard * 2;
-		if (subView === "capture")
-			return captureSubView.preferredHeight + Theme.paddingCard * 2;
-		if (subView === "power")
-			return powerSubView.preferredHeight + Theme.paddingCard * 2;
-		return 540;
-	}
-	readonly property int subViewHeight: Math.min(currentSubViewHeight, Math.min(680, win.height - Theme.notifTopMargin - 20))
+	readonly property var subViews: ({ wifi: wifiSubView, bluetooth: btSubView, capture: captureSubView })
+	readonly property int subViewHeight: Math.min((subViews[subView]?.preferredHeight ?? 0) + Theme.paddingCard * 2, 680, win.height - Theme.notifTopMargin - 20)
 	cardHeight: subView === "main" ? mainContentHeight : subViewHeight
 
 	readonly property bool brightnessReady: SystemStatus.brightness >= 0
@@ -52,25 +41,11 @@ SideDrawer {
 	}
 
 	function focusSubView(): void {
-		switch (subView) {
-		case "main": contentCol.forceActiveFocus(); break;
-		case "wifi": wifiSubView.forceActiveFocus(); break;
-		case "bluetooth": btSubView.forceActiveFocus(); break;
-		case "capture": captureSubView.forceActiveFocus(); break;
-		case "power": powerSubView.forceActiveFocus(); break;
-		}
+		(subViews[subView] ?? contentCol).forceActiveFocus();
 	}
 
 	function backToMain(): void {
 		subView = "main";
-	}
-
-	function togglePowerSave(): void {
-		Quickshell.execDetached(["sh", "-c", "~/.local/bin/power-save"]);
-	}
-
-	function toggleAwake(): void {
-		Quickshell.execDetached(["sh", "-c", "~/.local/bin/awake-toggle"]);
 	}
 
 	function toggleWifiRadio(): void {
@@ -79,27 +54,34 @@ SideDrawer {
 	}
 
 	function toggleBtRadio(): void {
-		if (win.btAdapter)
-			win.btAdapter.enabled = !win.btAdapter.enabled;
+		if (SystemStatus.btAdapter)
+			SystemStatus.btAdapter.enabled = !SystemStatus.btEnabled;
 	}
 
-	function activateTile(r, c, viaIcon): void {
-		if (r === rowWifiBt) {
-			if (viaIcon)
-				c === 0 ? toggleWifiRadio() : toggleBtRadio();
-			else
-				win.subView = c === 0 ? "wifi" : "bluetooth";
-		} else if (r === rowBatteryCapture) {
-			if (c === 0)
-				togglePowerSave();
-			else
-				win.subView = "capture";
-		} else if (r === rowStayAwakeDnd) {
-			if (c === 0)
-				toggleAwake();
-			else
-				Notifications.dnd = !Notifications.dnd;
-		}
+	// The tile at a place of the grid, or the one a letter is printed on.
+	function tileAt(r, c): Item {
+		return Array.from(tileGrid.children).find(t => t.itemRow === r && t.itemCol === c) ?? null;
+	}
+
+	function tileForKey(key): Item {
+		return Array.from(tileGrid.children).find(t => t.hotkey !== "" && key === t.hotkey.charCodeAt(0)) ?? null;
+	}
+
+	// Up and down through the sliders and the rows of tiles.
+	function moveRow(delta): void {
+		navRow = Math.max(0, Math.min(maxRow, navRow + delta));
+		if (navRow < rowTilesStart)
+			navCol = 0;
+	}
+
+	// Sideways a slider moves by 5%, a row of tiles to its other tile.
+	function moveSide(delta): void {
+		if (navRow === rowVolume)
+			setVolume(volPct + 5 * delta);
+		else if (navRow === rowBrightness)
+			SystemStatus.setBrightness(SystemStatus.brightness + 5 * delta);
+		else
+			navCol = delta > 0 ? 1 : 0;
 	}
 
 	onOpened: mode => {
@@ -140,31 +122,26 @@ SideDrawer {
 			win.audio.muted = !win.audio.muted;
 	}
 
-	readonly property var wifiDevice: SystemStatus.wifiDevice
-	readonly property bool wifiUp: win.wifiDevice?.connected ?? false
-	readonly property string activeSsid: (win.wifiDevice?.networks?.values ?? []).find(n => n?.connected)?.name ?? ""
 	readonly property string wifiSubtitle: {
 		if (!Networking.wifiHardwareEnabled)
 			return "Blocked";
 		if (!Networking.wifiEnabled)
 			return "Off";
-		return win.activeSsid !== "" ? win.activeSsid : (win.wifiUp ? "On" : "No connection");
+		return SystemStatus.wifiNetwork?.name || (SystemStatus.wifiUp ? "On" : "No connection");
 	}
 
-	readonly property var btAdapter: Bluetooth.defaultAdapter
-	readonly property bool btEnabled: win.btAdapter?.enabled ?? false
-	readonly property var btConnected: (win.btAdapter?.devices?.values ?? []).filter(d => d.connected)
 	readonly property string btSubtitle: {
-		if (!win.btAdapter)
+		var connected = SystemStatus.btConnected;
+		if (!SystemStatus.btAdapter)
 			return "No adapter";
-		if (win.btConnected.length > 1)
-			return win.btConnected.length + " connected";
-		if (win.btConnected.length === 1)
-			return win.btConnected[0].name || win.btConnected[0].deviceName || "Connected";
-		return win.btEnabled ? "On" : "Off";
+		if (connected.length > 1)
+			return connected.length + " connected";
+		if (connected.length === 1)
+			return SystemStatus.deviceName(connected[0]);
+		return SystemStatus.btEnabled ? "On" : "Off";
 	}
 
-	component SamsungTile: Rectangle {
+	component QuickTile: Rectangle {
 		id: stile
 
 		property string icon: ""
@@ -270,33 +247,28 @@ SideDrawer {
 				Layout.alignment: Qt.AlignVCenter
 				spacing: 2
 
-				Text {
+				StyledText {
 					Layout.fillWidth: true
 					text: stile.title
-					font.family: Theme.fontFamily
-					font.pixelSize: Theme.fontSize
 					font.bold: true
-					color: Theme.textMain
 					elide: Text.ElideRight
 				}
 
-				Text {
+				StyledText {
 					visible: stile.subtitle !== ""
 					Layout.fillWidth: true
 					text: stile.subtitle
-					font.family: Theme.fontMono
+					mono: true
 					font.pixelSize: Theme.fontSizeSmall
 					color: Theme.textDim
 					elide: Text.ElideRight
 				}
 			}
 
-			Text {
+			StyledText {
 				visible: stile.hasDetails
 				Layout.alignment: Qt.AlignVCenter
 				text: "›"
-				font.family: Theme.fontFamily
-				font.pixelSize: Theme.fontSize
 				font.bold: true
 				color: stile.isSelected ? Theme.accentBlue : Theme.textDim
 			}
@@ -321,97 +293,55 @@ SideDrawer {
 		visible: win.subView === "main"
 		enabled: visible
 
+		// Enter does what a click on a tile does, Space what a click on its
+		// badge does (switching Wi-Fi or Bluetooth), O opens a tile's page.
+		// The letter on a tile does the same as Enter from anywhere, Shift
+		// and the letter the same as Space.
 		Keys.onPressed: event => {
-			if (event.isAutoRepeat) return;
-			if (event.key === Qt.Key_J || event.key === Qt.Key_Down) {
-				var nextRow = win.navRow + 1;
-				if (nextRow === win.rowBrightness && !win.brightnessReady)
-					nextRow++;
-				win.navRow = Math.min(win.maxRow, nextRow);
-				if (win.navRow === win.rowVolume || win.navRow === win.rowBrightness)
-					win.navCol = 0;
-				event.accepted = true;
-			} else if (event.key === Qt.Key_K || event.key === Qt.Key_Up) {
-				var prevRow = win.navRow - 1;
-				if (prevRow === win.rowBrightness && !win.brightnessReady)
-					prevRow--;
-				win.navRow = Math.max(0, prevRow);
-				if (win.navRow === win.rowVolume || win.navRow === win.rowBrightness)
-					win.navCol = 0;
-				event.accepted = true;
-			} else if (event.key === Qt.Key_H || event.key === Qt.Key_Left) {
-				if (win.navRow === win.rowVolume) {
-					win.setVolume(win.volPct - 5);
-				} else if (win.navRow === win.rowBrightness && win.brightnessReady) {
-					SystemStatus.setBrightness(SystemStatus.brightness - 5);
-				} else if (win.navRow >= win.rowTilesStart && win.navRow <= win.maxRow) {
-					win.navCol = 0;
-				}
-				event.accepted = true;
-			} else if (event.key === Qt.Key_L || event.key === Qt.Key_Right) {
-				if (win.navRow === win.rowVolume) {
-					win.setVolume(win.volPct + 5);
-				} else if (win.navRow === win.rowBrightness && win.brightnessReady) {
-					SystemStatus.setBrightness(SystemStatus.brightness + 5);
-				} else if (win.navRow >= win.rowTilesStart) {
-					win.navCol = 1;
-				}
-				event.accepted = true;
-			} else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
+			if (event.isAutoRepeat)
+				return;
+			var tile = win.tileAt(win.navRow, win.navCol);
+			switch (event.key) {
+			case Qt.Key_J:
+			case Qt.Key_Down:
+				win.moveRow(1);
+				break;
+			case Qt.Key_K:
+			case Qt.Key_Up:
+				win.moveRow(-1);
+				break;
+			case Qt.Key_H:
+			case Qt.Key_Left:
+				win.moveSide(-1);
+				break;
+			case Qt.Key_L:
+			case Qt.Key_Right:
+				win.moveSide(1);
+				break;
+			case Qt.Key_Return:
+			case Qt.Key_Enter:
+			case Qt.Key_Space:
 				if (win.navRow === win.rowVolume)
 					win.toggleMute();
-				else
-					win.activateTile(win.navRow, win.navCol, false);
-				event.accepted = true;
-			} else if (event.key === Qt.Key_Space) {
-				if (win.navRow === win.rowVolume)
-					win.toggleMute();
-				else
-					win.activateTile(win.navRow, win.navCol, true);
-				event.accepted = true;
-			} else if (event.key === Qt.Key_O) {
-				if (win.navRow === win.rowWifiBt || (win.navRow === win.rowBatteryCapture && win.navCol === 1))
-					win.activateTile(win.navRow, win.navCol, false);
-				event.accepted = true;
-			} else if (event.key === Qt.Key_C) {
-				win.subView = "capture";
-				win.select(win.rowBatteryCapture, 1);
-				event.accepted = true;
-			} else if (event.key === Qt.Key_W) {
-				if (event.modifiers & Qt.ShiftModifier) {
-					win.toggleWifiRadio();
-					win.select(win.rowWifiBt, 0);
-				} else {
-					win.subView = "wifi";
-				}
-				event.accepted = true;
-			} else if (event.key === Qt.Key_B) {
-				if (event.modifiers & Qt.ShiftModifier) {
-					win.toggleBtRadio();
-					win.select(win.rowWifiBt, 1);
-				} else {
-					win.subView = "bluetooth";
-				}
-				event.accepted = true;
-			} else if (event.key === Qt.Key_S) {
-				win.togglePowerSave();
-				win.select(win.rowBatteryCapture, 0);
-				event.accepted = true;
-			} else if (event.key === Qt.Key_A) {
-				win.toggleAwake();
-				win.select(win.rowStayAwakeDnd, 0);
-				event.accepted = true;
-			} else if (event.key === Qt.Key_D) {
-				Notifications.dnd = !Notifications.dnd;
-				win.select(win.rowStayAwakeDnd, 1);
-				event.accepted = true;
-			} else if (event.key === Qt.Key_P) {
-				win.subView = "power";
-				event.accepted = true;
-			} else if (event.key === Qt.Key_Escape || event.key === Qt.Key_Q) {
+				else if (tile)
+					event.key === Qt.Key_Space ? tile.iconClicked() : tile.bodyClicked();
+				break;
+			case Qt.Key_O:
+				if (tile?.hasDetails)
+					tile.bodyClicked();
+				break;
+			case Qt.Key_Escape:
+			case Qt.Key_Q:
 				Panels.close("quicksettings");
-				event.accepted = true;
+				break;
+			default:
+				tile = win.tileForKey(event.key);
+				if (!tile)
+					return;
+				win.select(tile.itemRow, tile.itemCol);
+				(event.modifiers & Qt.ShiftModifier) ? tile.iconClicked() : tile.bodyClicked();
 			}
+			event.accepted = true;
 		}
 
 		RowLayout {
@@ -419,19 +349,11 @@ SideDrawer {
 			Layout.preferredHeight: 32
 			spacing: 10
 
-			Text {
+			StyledText {
 				Layout.fillWidth: true
 				text: "Quick actions"
-				font.family: Theme.fontFamily
 				font.pixelSize: Theme.fontSizeLarge
 				font.bold: true
-				color: Theme.textMain
-			}
-
-			IconButton {
-				icon: "power"
-				hotkey: "P"
-				onClicked: win.subView = "power"
 			}
 
 			CloseButton {
@@ -466,16 +388,17 @@ SideDrawer {
 		}
 
 		GridLayout {
+			id: tileGrid
 			Layout.fillWidth: true
 			columns: 2
 			columnSpacing: 8
 			rowSpacing: 8
 
-			SamsungTile {
+			QuickTile {
 				itemRow: win.rowWifiBt
 				itemCol: 0
 				hotkey: "W"
-				icon: win.wifiUp ? "wifi" : "wifi-off"
+				icon: SystemStatus.wifiUp ? "wifi" : "wifi-off"
 				title: "Wi-Fi"
 				subtitle: win.wifiSubtitle
 				active: Networking.wifiEnabled
@@ -484,20 +407,20 @@ SideDrawer {
 				onBodyClicked: win.subView = "wifi"
 			}
 
-			SamsungTile {
+			QuickTile {
 				itemRow: win.rowWifiBt
 				itemCol: 1
 				hotkey: "B"
-				icon: !win.btEnabled ? "bluetooth-off" : (win.btConnected.length > 0 ? "bluetooth-connected" : "bluetooth")
+				icon: SystemStatus.btIcon
 				title: "Bluetooth"
 				subtitle: win.btSubtitle
-				active: win.btEnabled
+				active: SystemStatus.btEnabled
 				hasDetails: true
 				onIconClicked: win.toggleBtRadio()
 				onBodyClicked: win.subView = "bluetooth"
 			}
 
-			SamsungTile {
+			QuickTile {
 				itemRow: win.rowBatteryCapture
 				itemCol: 0
 				hotkey: "S"
@@ -507,11 +430,11 @@ SideDrawer {
 				active: SystemStatus.powerSaveActive
 				activeColor: Theme.accentGreen
 				hasDetails: false
-				onIconClicked: win.togglePowerSave()
-				onBodyClicked: win.togglePowerSave()
+				onIconClicked: Actions.togglePowerSave()
+				onBodyClicked: Actions.togglePowerSave()
 			}
 
-			SamsungTile {
+			QuickTile {
 				itemRow: win.rowBatteryCapture
 				itemCol: 1
 				hotkey: "C"
@@ -526,7 +449,7 @@ SideDrawer {
 				onBodyClicked: win.subView = "capture"
 			}
 
-			SamsungTile {
+			QuickTile {
 				itemRow: win.rowStayAwakeDnd
 				itemCol: 0
 				hotkey: "A"
@@ -535,11 +458,11 @@ SideDrawer {
 				subtitle: ""
 				active: SystemStatus.awakeActive
 				hasDetails: false
-				onIconClicked: win.toggleAwake()
-				onBodyClicked: win.toggleAwake()
+				onIconClicked: Actions.toggleAwake()
+				onBodyClicked: Actions.toggleAwake()
 			}
 
-			SamsungTile {
+			QuickTile {
 				itemRow: win.rowStayAwakeDnd
 				itemCol: 1
 				hotkey: "D"
@@ -577,15 +500,6 @@ SideDrawer {
 		id: captureSubView
 		anchors.fill: parent
 		visible: win.subView === "capture"
-		enabled: visible
-		focus: visible
-		onBackRequested: win.backToMain()
-	}
-
-	PowerSubView {
-		id: powerSubView
-		anchors.fill: parent
-		visible: win.subView === "power"
 		enabled: visible
 		focus: visible
 		onBackRequested: win.backToMain()
