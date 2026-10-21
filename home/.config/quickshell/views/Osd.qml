@@ -17,9 +17,9 @@ PanelWindow {
 		: kind === "mic" ? (muted ? "mic-off" : "mic")
 		: (muted ? "volume-x" : value <= 1 ? "volume" : value <= 50 ? "volume-1" : "volume-2")
 
-	// Quick actions has sliders for both, which show the change already.
+	// Actions has sliders for both, which show the change already.
 	function show(newKind, newValue, newMuted) {
-		if ((newKind === "volume" || newKind === "brightness") && Panels.active === "quicksettings")
+		if ((newKind === "volume" || newKind === "brightness") && Panels.active === "actions")
 			return;
 		// Read before the stop: a fade-out caught halfway leaves the card dim.
 		var fading = fadeOut.running;
@@ -150,7 +150,7 @@ PanelWindow {
 		}
 	}
 
-	// Whatever changed the volume: keys, quick settings, another mixer. A node
+	// Whatever changed the volume: keys, Actions, another mixer. A node
 	// that is not ready yet is only filling in its values, not changing.
 	Connections {
 		target: SystemStatus.sink?.audio ?? null

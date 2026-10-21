@@ -5,7 +5,7 @@ import "."
 import QtQuick
 import QtQuick.Layouts
 
-// The Capture page of Quick actions: the capture actions of Actions.qml, the
+// The Capture page of Actions: the capture actions of Actions.qml, the
 // same the launcher finds by name.
 Item {
 	id: root

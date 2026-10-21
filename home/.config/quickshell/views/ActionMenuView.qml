@@ -1,6 +1,6 @@
 import ".."
 import "../widgets"
-import "./quicksettings"
+import "./actionmenu"
 import Quickshell
 import Quickshell.Networking
 import QtQuick
@@ -9,7 +9,7 @@ import QtQuick.Layouts
 SideDrawer {
 	id: win
 
-	panel: "quicksettings"
+	panel: "actions"
 	// "main", or the page of one tile ("wifi", "bluetooth", "capture").
 	property string subView: "main"
 	dismissOnEsc: subView === "main"
@@ -141,7 +141,7 @@ SideDrawer {
 		return SystemStatus.btEnabled ? "On" : "Off";
 	}
 
-	component QuickTile: Rectangle {
+	component ActionTile: Rectangle {
 		id: stile
 
 		property string icon: ""
@@ -332,7 +332,7 @@ SideDrawer {
 				break;
 			case Qt.Key_Escape:
 			case Qt.Key_Q:
-				Panels.close("quicksettings");
+				Panels.close("actions");
 				break;
 			default:
 				tile = win.tileForKey(event.key);
@@ -351,13 +351,13 @@ SideDrawer {
 
 			StyledText {
 				Layout.fillWidth: true
-				text: "Quick actions"
+				text: "Actions"
 				font.pixelSize: Theme.fontSizeLarge
 				font.bold: true
 			}
 
 			CloseButton {
-				onClicked: Panels.close("quicksettings")
+				onClicked: Panels.close("actions")
 			}
 		}
 
@@ -394,7 +394,7 @@ SideDrawer {
 			columnSpacing: 8
 			rowSpacing: 8
 
-			QuickTile {
+			ActionTile {
 				itemRow: win.rowWifiBt
 				itemCol: 0
 				hotkey: "W"
@@ -407,7 +407,7 @@ SideDrawer {
 				onBodyClicked: win.subView = "wifi"
 			}
 
-			QuickTile {
+			ActionTile {
 				itemRow: win.rowWifiBt
 				itemCol: 1
 				hotkey: "B"
@@ -420,7 +420,7 @@ SideDrawer {
 				onBodyClicked: win.subView = "bluetooth"
 			}
 
-			QuickTile {
+			ActionTile {
 				itemRow: win.rowBatteryCapture
 				itemCol: 0
 				hotkey: "S"
@@ -434,7 +434,7 @@ SideDrawer {
 				onBodyClicked: Actions.togglePowerSave()
 			}
 
-			QuickTile {
+			ActionTile {
 				itemRow: win.rowBatteryCapture
 				itemCol: 1
 				hotkey: "C"
@@ -449,7 +449,7 @@ SideDrawer {
 				onBodyClicked: win.subView = "capture"
 			}
 
-			QuickTile {
+			ActionTile {
 				itemRow: win.rowStayAwakeDnd
 				itemCol: 0
 				hotkey: "A"
@@ -462,7 +462,7 @@ SideDrawer {
 				onBodyClicked: Actions.toggleAwake()
 			}
 
-			QuickTile {
+			ActionTile {
 				itemRow: win.rowStayAwakeDnd
 				itemCol: 1
 				hotkey: "D"

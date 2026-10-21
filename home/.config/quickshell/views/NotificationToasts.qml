@@ -9,7 +9,7 @@ import QtQuick
 PanelWindow {
 	id: win
 
-	readonly property bool drawerOpen: Panels.active === "notifications" || Panels.active === "quicksettings" || Panels.active === "weather"
+	readonly property bool drawerOpen: Panels.active === "notifications" || Panels.active === "actions" || Panels.active === "weather"
 	readonly property bool shown: Notifications.toasts.count > 0 && !drawerOpen
 	readonly property int offscreen: Theme.notifWidth + Theme.notifRightMargin
 	property int slide: offscreen

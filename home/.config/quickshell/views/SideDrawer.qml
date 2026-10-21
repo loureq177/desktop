@@ -2,7 +2,7 @@ import ".."
 import "../widgets"
 import QtQuick
 
-// The card under the bar's right end that quick settings and the notification
+// The card under the bar's right end that Actions and the notification
 // center take turns in.
 OverlayWindow {
 	id: root
@@ -14,7 +14,7 @@ OverlayWindow {
 
 	style: "slide"
 	card: drawerCard
-	handoff: Panels.active === "quicksettings" || Panels.active === "notifications"
+	handoff: Panels.active === "actions" || Panels.active === "notifications"
 	// Well past the edge: the exit curve covers its last third in a frame or
 	// two, so the card has to be gone before that or it visibly stops short.
 	offscreenSlide: Math.round((root.cardWidth + Theme.notifRightMargin) * 1.6)

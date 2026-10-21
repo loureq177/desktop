@@ -1,4 +1,4 @@
-// widgets/ListNav.js: vim-style list navigation shared by the quick-settings lists.
+// widgets/ListNav.js: vim-style list navigation shared by the lists of Actions.
 // The file is a QML library (".pragma library", global Qt), so it is loaded
 // into a sandbox that provides the few Qt constants it uses.
 

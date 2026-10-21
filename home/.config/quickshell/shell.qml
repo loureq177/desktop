@@ -28,7 +28,7 @@ ShellRoot {
 	ClipboardView {
 	}
 
-	QuickSettingsView {
+	ActionMenuView {
 	}
 
 	WeatherView {

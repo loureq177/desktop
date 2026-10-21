@@ -91,18 +91,6 @@ PanelWindow {
 		}
 	}
 
-	function cycleSpecial(delta: int): void {
-		if (specials.length === 0 || cycleThrottle.running)
-			return;
-		var count = specials.length;
-		var index = specials.indexOf(visibleSpecial);
-		var target = specials[index < 0 ? (delta > 0 ? 0 : count - 1) : (index + delta + count) % count];
-		if (target === visibleSpecial)
-			return;
-		cycleThrottle.start();
-		Actions.toggleSpecial(target);
-	}
-
 	function playerFor(special: string): var {
 		return players.find(p => ((p?.desktopEntry ?? "") + " " + (p?.identity ?? "")).toLowerCase().includes(special)) ?? null;
 	}
@@ -122,11 +110,6 @@ PanelWindow {
 			if (parts.pop() === bar.screenName)
 				bar.specialEvent = parts.join(",");
 		}
-	}
-
-	Timer {
-		id: cycleThrottle
-		interval: 200
 	}
 
 	// Colour rule: at rest the workspace group on the left is textDim and the
@@ -423,11 +406,6 @@ PanelWindow {
 						}
 					}
 				}
-
-				// The way SUPER + the wheel goes (hyprland.lua).
-				WheelSteps {
-					onStepped: delta => Quickshell.execDetached(["hyprctl", "dispatch", "hl.dsp.focus({workspace='e" + (delta > 0 ? "+1" : "-1") + "'})"])
-				}
 			}
 
 			Item {
@@ -520,10 +498,6 @@ PanelWindow {
 							}
 						}
 					}
-				}
-
-				WheelSteps {
-					onStepped: delta => bar.cycleSpecial(delta)
 				}
 			}
 
@@ -655,10 +629,10 @@ PanelWindow {
 				}
 
 				custom: true
-				isActive: Panels.active === "quicksettings"
+				isActive: Panels.active === "actions"
 				tooltipText: [btInfo, netInfo, batteryInfo].filter(s => s !== "").join("\n")
-				panel: "quicksettings"
-				onActivated: Panels.toggle("quicksettings")
+				panel: "actions"
+				onActivated: Panels.toggle("actions")
 
 				LineIcon {
 					anchors.verticalCenter: parent.verticalCenter

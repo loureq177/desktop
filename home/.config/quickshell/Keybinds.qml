@@ -57,58 +57,48 @@ Singleton {
 	}
 
 	// What the shell does on its own, out of hyprctl's sight, and shown
-	// nowhere else: not the keys printed in the panels (the tiles of Quick
-	// actions, Wi-Fi, Bluetooth, notifications, weather), nor Esc and J / K,
+	// nowhere else: not the keys printed in the panels (the tiles of Actions,
+	// Wi-Fi, Bluetooth, notifications, weather), nor Esc and J / K,
 	// which every panel takes. `order` keeps them in the sequence written here.
-	// Rules come first: what the binds have in common, so that most of the
-	// list below follows from a handful of lines.
+	// The H J K L lines stand for the twelve binds of the direction fold below.
 	readonly property var shellEntries: [
-		{ category: "Rules", chord: "SUPER + LETTER", action: "A tool; the lit letter in its name is the key" },
-		{ category: "Rules", chord: "SUPER + SHIFT + LETTER", action: "An app on its special workspace" },
-		{ category: "Rules", chord: "SHIFT", action: "Takes the window along: moves it, swaps it" },
-		{ category: "Rules", chord: "CTRL", action: "Resizes instead of focusing" },
-		{ category: "Rules", chord: "H J K L", action: "Left, down, up, right, as in Vim" },
+		{ category: "Windows", chord: "SUPER + H J K L", action: "Left, down, up, right" },
+		{ category: "Windows", chord: "SUPER + SHIFT + H J K L", action: "Window move" },
+		{ category: "Windows", chord: "SUPER + CTRL + H J K L", action: "Window resize" },
 
 		{ category: "Gestures", chord: "3 FINGERS ↔", action: "Switch workspace" },
 		{ category: "Gestures", chord: "3 FINGERS ↑", action: "Open the last special workspace" },
 		{ category: "Gestures", chord: "3 FINGERS ↓", action: "Hide the special workspace" },
 
-		{ category: "Bar", chord: "RIGHT-CLICK ICON", action: "Close a special workspace" },
-		{ category: "Bar", chord: "SCROLL DOTS", action: "Switch workspace" },
-		{ category: "Bar", chord: "SCROLL ICONS", action: "Cycle special workspaces" },
+		{ category: "Mouse", chord: "RIGHT-CLICK BAR ICON", action: "Close a special workspace" },
 
-		{ category: "Launcher", chord: "2+2", action: "Calculate; Enter copies the result" },
-		{ category: "Launcher", chord: "/", action: "Files and folders in ~; Enter opens one" },
-		{ category: "Launcher", chord: ">", action: "Every command; Enter runs it in a terminal" },
-		{ category: "Launcher", chord: "ENTER, ENTER", action: "Log out, reboot or power off" }
+		{ category: "Launcher", chord: "2+2", action: "Calculate" },
+		{ category: "Launcher", chord: "/", action: "Files and folders in ~" },
+		{ category: "Launcher", chord: ">", action: "Run every command (in terminal)" }
 	].map((e, i) => Object.assign({ order: i }, e))
 
 	readonly property var categoryOrder: [
-		"Rules",
 		"Essential",
-		"Window Management",
-		"Navigation & Workspaces",
+		"Windows",
 		"Special Workspaces",
 		"System & Tools",
 		"Session",
-		"Capture & OCR",
+		"Capture",
 		"Notifications",
 		"Mouse",
 		"Gestures",
-		"Bar",
 		"Launcher"
 	]
 
 	readonly property var categoryRules: [
-		{ cat: "Capture & OCR", match: ["screenshot", "dictation"] },
-		{ cat: "Essential", match: ["terminal", "browser", "keybindings", "launcher"] },
+		{ cat: "Capture", match: ["screenshot", "dictation"] },
+		{ cat: "Essential", match: ["browser", "terminal", "launcher"] },
 		{ cat: "Notifications", match: ["notification"] },
 		// hyprland.lua describes every special workspace toggle as "Show <app>".
 		{ cat: "Special Workspaces", match: ["show "] },
 		{ cat: "Session", match: ["lock system"] },
-		{ cat: "System & Tools", match: ["emoji", "quick actions", "weather", "clipboard", "wallpaper"] },
-		{ cat: "Window Management", match: ["close window", "fullscreen", "split", "floating", "swap window", "resize window"] },
-		{ cat: "Navigation & Workspaces", match: ["focus", "workspace"] }
+		{ cat: "System & Tools", match: ["emoji", "actions", "weather", "clipboard", "wallpaper"] },
+		{ cat: "Windows", match: ["window", "fullscreen", "floating", "focus", "workspace"] }
 	]
 
 	function categoryOf(bind: var): string {
@@ -126,9 +116,20 @@ Singleton {
 	}
 
 	readonly property var rankPriorities: ({
-		"Essential": { "Terminal": 1, "Browser": 2, "Launcher": 3, "Keybindings": 4 },
-		"Capture & OCR": { "Screenshot (region)": 1, "Screenshot (full)": 2, "Dictation": 3 },
-		"Notifications": { "Toggle notification center": 1, "Close latest notification": 2 }
+		"Essential": { "Browser": 1, "Terminal": 2, "Launcher": 3 },
+		"Capture": { "Screenshot": 1, "Screenshot of the screen": 2, "Dictation": 3 },
+		"Mouse": { "Move window": 1 },
+		"Notifications": { "Toggle notification center": 1, "Close latest notification": 2 },
+		// After the H J K L lines (orders 0..2): moving around, then the window itself.
+		"Windows": {
+			"Focus previous window": 10,
+			"Switch to workspace 1..9": 11,
+			"Move window to workspace 1..9": 12,
+			"Close window": 20,
+			"Toggle fullscreen": 21,
+			"Toggle window split": 22,
+			"Toggle floating": 23
+		}
 	})
 
 	function itemRank(item: var): int {
@@ -137,25 +138,15 @@ Singleton {
 		var act = item.action || "";
 		if (rankPriorities[item.category] && rankPriorities[item.category][act])
 			return rankPriorities[item.category][act];
-		if (item.category === "Window Management") {
-			if (act.indexOf("Close") === 0) return 1;
-			if (act.indexOf("Toggle fullscreen") === 0) return 2;
-			if (act.indexOf("Swap") === 0) return 10;
-			if (act.indexOf("Resize") === 0) return 20;
-		} else if (item.category === "Navigation & Workspaces") {
-			if (act.indexOf("Focus") === 0) return 1;
-			if (act.indexOf("Switch to workspace") !== -1) return 10;
-			if (act.indexOf("Move window to workspace") !== -1) return 20;
-		}
 		return 50;
 	}
 
-	// Binds that differ only in a digit, a direction or which way the wheel
-	// turns: each set folds into one line, `key` standing for all of its keys.
+	// Binds that differ only in a digit or a direction: each set folds into one
+	// line, `key` standing for all of its keys. `rule` ones are left out: the
+	// H J K L lines of shellEntries already say them.
 	readonly property var folds: [
 		{ re: /^(Switch to workspace|Move window to workspace) \d$/, action: m => m[1] + " 1..9", key: "1..9" },
-		{ re: /^(Focus|Swap window|Resize window) (left|down|up|right)$/, action: m => m[1] + " left / down / up / right", key: "H J K L" },
-		{ re: /^(Move window to |)(Next|next|Previous|previous) workspace$/, action: m => (m[1] ? m[1] + "next" : "Next") + " / previous workspace", key: "SCROLL ↓↑" }
+		{ re: /^(Focus|Swap window|Resize window) (left|down|up|right)$/, action: m => m[1] + " left / down / up / right", key: "H J K L", rule: true }
 	]
 
 	// { category, chord, action } of every bind and shell key, in categoryOrder,
@@ -167,14 +158,19 @@ Singleton {
 			var b = binds[i];
 			var action = b.action;
 			var chord = b.chord;
+			var skip = false;
 			for (var j = 0; j < folds.length; j++) {
 				var m = action.match(folds[j].re);
 				if (!m)
 					continue;
 				action = folds[j].action(m);
 				chord = chordOf(b.mask, folds[j].key);
+				skip = folds[j].rule === true;
 				break;
 			}
+			// A mouse twin of a key says nothing new (Toggle floating).
+			if (skip || (b.mouse && binds.some(o => !o.mouse && o.action === b.action)))
+				continue;
 			if (folded[action + chord])
 				continue;
 			folded[action + chord] = true;

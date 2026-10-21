@@ -707,19 +707,19 @@ local cmds = {
 	["SUPER + B"] = { programs.browser, "Browser" },
 
 	["SUPER + space"] = { programs.launcher, "Launcher" },
-	["SUPER + A"] = { "qs ipc call shell toggle quicksettings ''", "Quick actions" },
+	["SUPER + A"] = { "qs ipc call shell toggle actions ''", "Actions" },
 	["SUPER + N"] = { "qs ipc call shell toggle notifications ''", "Toggle notification center" },
 	["SUPER + comma"] = { "qs ipc call notifications dismissLatest", "Close latest notification" },
 	["SUPER + W"] = { "qs ipc call shell toggle weather ''", "Weather" },
-	["SUPER + E"] = { "qs ipc call shell toggle launcher emoji", "Emoji picker" },
+	["SUPER + E"] = { "qs ipc call shell toggle launcher emoji", "Emojis" },
 	["SUPER + V"] = { "qs ipc call shell toggle clipboard ''", "Clipboard history" },
 	["SUPER + escape"] = { "qs ipc call session lock", "Lock system" },
 	["SUPER + slash"] = { "qs ipc call shell toggle launcher keys", "Keybindings" },
 
 	["SUPER + D"] = { "~/.local/bin/dictation", "Dictation" },
 	["SUPER + P"] = { "~/.local/bin/wallpaper next", "Next wallpaper" },
-	["print"] = { "~/.local/bin/screenshot region", "Screenshot (region)" },
-	["SHIFT + print"] = { "~/.local/bin/screenshot fullscreen", "Screenshot (full)" },
+	["print"] = { "~/.local/bin/screenshot region", "Screenshot" },
+	["SHIFT + print"] = { "~/.local/bin/screenshot fullscreen", "Screenshot of the screen" },
 }
 
 for bind, entry in pairs(cmds) do
@@ -771,25 +771,9 @@ for _, m in ipairs(media) do
 end
 
 local function mouse_binds(mod)
-	b(mod .. "mouse_down", "Next workspace", hl.dsp.focus({ workspace = "e+1" }))
-	b(mod .. "mouse_up", "Previous workspace", hl.dsp.focus({ workspace = "e-1" }))
-	b(
-		mod .. "SHIFT + mouse_down",
-		"Move window to next workspace",
-		hl.dsp.window.move({ workspace = "r+1" })
-	)
-	b(
-		mod .. "SHIFT + mouse_up",
-		"Move window to previous workspace",
-		hl.dsp.window.move({ workspace = "r-1" })
-	)
 	b(mod .. "mouse:274", "Toggle floating", hl.dsp.window.float({ action = "toggle" }))
+	-- No resize drag: resize_on_border already does it from any edge.
 	hl.bind(mod .. "mouse:272", hl.dsp.window.drag(), { mouse = true, description = "Move window" })
-	hl.bind(
-		mod .. "mouse:273",
-		hl.dsp.window.resize(),
-		{ mouse = true, description = "Resize window" }
-	)
 end
 
 mouse_binds("SUPER + ")

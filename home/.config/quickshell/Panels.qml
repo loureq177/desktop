@@ -12,10 +12,10 @@ import QtQuick
 Singleton {
 	id: root
 
-	// "launcher", "clipboard", "weather", "quicksettings",
+	// "launcher", "clipboard", "weather", "actions",
 	// "notifications", or "" with nothing open.
 	property string active: ""
-	// What it was opened on: the launcher's mode, the quick settings page.
+	// What it was opened on: the launcher's mode, the Actions page.
 	property string mode: ""
 	// The last close skips the exit animation (see closeInstant).
 	property bool instant: false
