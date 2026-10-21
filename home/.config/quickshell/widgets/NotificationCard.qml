@@ -143,7 +143,9 @@ Rectangle {
 
 				onAccepted: {
 					var n = Notifications.live(root.nid);
-					if (text.trim() !== "" && n && n.sendInlineReply(text)) {
+					// sendInlineReply returns nothing: the reply is out once it is called.
+					if (text.trim() !== "" && n) {
+						n.sendInlineReply(text);
 						text = "";
 						focus = false;
 						root.dismissed();

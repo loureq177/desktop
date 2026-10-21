@@ -107,8 +107,7 @@ DeviceList {
 		item.device.disconnect();
 	}
 	onForgetConfirmed: item => {
-		item.device.unpair();
-		Quickshell.execDetached(["bluetoothctl", "remove", item.key]);
+		item.device.forget();
 	}
 
 	Timer {

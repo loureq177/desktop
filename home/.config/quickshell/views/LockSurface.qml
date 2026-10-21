@@ -178,7 +178,7 @@ Item {
 
 				// Count only: what the notifications say stays behind the lock.
 				Row {
-					readonly property int count: Notifications.history.length
+					readonly property int count: Notifications.history.count
 
 					anchors.verticalCenter: parent.verticalCenter
 					spacing: 6
