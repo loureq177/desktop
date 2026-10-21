@@ -24,11 +24,16 @@ lock_without_shell() {
     fi
 }
 
+# A machine can start the shell through a wrapper of its own (mesa-egl keeps a
+# hybrid laptop's shell off the NVIDIA card's EGL).
+wrap=()
+command -v mesa-egl >/dev/null && wrap=(mesa-egl)
+
 fails=0
 window=$SECONDS
 while true; do
     # A clean exit is a deliberate stop (qs kill).
-    systemd-cat -t quickshell -- ~/.local/bin/mesa-egl quickshell --no-duplicate && exit 0
+    systemd-cat -t quickshell -- "${wrap[@]}" quickshell --no-duplicate && exit 0
 
     # The session is going down, not the shell.
     hyprctl -j monitors >/dev/null 2>&1 || exit 0

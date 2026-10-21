@@ -214,13 +214,22 @@ awake_stubs() {
     refute_call_like "systemd-cat"
 }
 
-@test "quickshell-session: starts quickshell through mesa-egl and stops after a clean exit" {
+@test "quickshell-session: starts quickshell and stops after a clean exit" {
     stub pidof 'exit 1'
     stub systemd-cat 'exit 0'
     sut "$BIN/quickshell-session"
     assert_status 0
-    assert_call "systemd-cat -t quickshell -- $BIN/mesa-egl quickshell --no-duplicate"
+    assert_call "systemd-cat -t quickshell -- quickshell --no-duplicate"
     [[ "$(call_count systemd-cat)" -eq 1 ]]
+}
+
+@test "quickshell-session: starts quickshell through mesa-egl when the machine has it" {
+    stub pidof 'exit 1'
+    stub systemd-cat 'exit 0'
+    stub mesa-egl
+    sut "$BIN/quickshell-session"
+    assert_status 0
+    assert_call "systemd-cat -t quickshell -- mesa-egl quickshell --no-duplicate"
 }
 
 lock_state() {

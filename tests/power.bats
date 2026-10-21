@@ -29,7 +29,6 @@ EOF
     stub pkill
     stub powerprofilesctl
     stub qs
-    stub restore-backlight
 }
 
 # The scripts read the AC adapter straight from /sys, which a test cannot fake.
@@ -60,7 +59,6 @@ display_call() {
     [[ "$(jq -c . "$KV")" == '{"animations_enabled":false}' ]]
     wait_for_call_like "powerprofilesctl set power-saver"
     wait_for_call_like "qs ipc call osd brightness 50"
-    wait_for_call_like "restore-backlight"
 }
 
 @test "power-save: turning it off restores brightness, refresh rate, blur and profile" {

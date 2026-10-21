@@ -14,8 +14,6 @@ Singleton {
 	property int screencasts: 0
 	property string memPercent: ""
 	property string memTooltip: ""
-	property string gpuDevicePath: ""
-	property string gpuRuntimeStatus: ""
 	property string dictationState: "idle"
 	// Backlight in percent: -1 until it is read, and for good without a backlight.
 	property int brightness: -1
@@ -142,67 +140,6 @@ Singleton {
 				root.memTooltip = "";
 			}
 		}
-	}
-
-	Process {
-		id: gpuProbe
-		command: ["sh", "-c", "grep -lx 0x10de /sys/bus/pci/devices/*/vendor 2>/dev/null | head -1"]
-		running: true
-		stdout: StdioCollector {
-			onStreamFinished: {
-				var vendor = this.text.trim();
-				if (vendor !== "")
-					root.gpuDevicePath = vendor.replace(/vendor$/, "") + "power/runtime_status";
-			}
-		}
-	}
-
-	// sysfs sends no change events for this file: poll it.
-	Timer {
-		interval: 2000
-		running: root.gpuDevicePath !== ""
-		repeat: true
-		triggeredOnStart: true
-		onTriggered: gpuStatus.reload()
-	}
-
-	FileView {
-		id: gpuStatus
-		path: root.gpuDevicePath
-		printErrors: false
-		onLoaded: {
-			var before = root.gpuRuntimeStatus;
-			var now = this.text().trim();
-			root.gpuRuntimeStatus = now;
-			// The panel dims when the power is cut, which is the end of
-			// "suspending", not its start.
-			if (before !== "" && before !== "suspended" && now === "suspended")
-				restoreBacklightTimer.restart();
-		}
-	}
-
-	Timer {
-		id: restoreBacklightTimer
-		interval: 400
-		onTriggered: {
-			restoreBacklightProc.running = false;
-			restoreBacklightProc.running = true;
-		}
-	}
-
-	Timer {
-		id: bootBacklightTimer
-		interval: 4000
-		running: true
-		onTriggered: {
-			restoreBacklightProc.running = false;
-			restoreBacklightProc.running = true;
-		}
-	}
-
-	Process {
-		id: restoreBacklightProc
-		command: ["restore-backlight"]
 	}
 
 	Process {

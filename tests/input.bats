@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# brightness, restore-backlight, clipboard-insert, emoji-insert, dictation
+# brightness, clipboard-insert, emoji-insert, dictation
 
 load helpers
 
@@ -50,24 +50,6 @@ backlight() {
     sut "$BIN/brightness" up
     assert_status 0
     refute_call_like "qs ipc"
-}
-
-# --- restore-backlight -------------------------------------------------------
-
-@test "restore-backlight: nudges the level down and back, twice" {
-    stub brightnessctl '[[ "$*" == *get* ]] && echo 100; true'
-    sut "$BIN/restore-backlight"
-    assert_status 0
-    [[ "$(call_count "brightnessctl -q -c backlight set 99")" -eq 2 ]] || fail "$(calls)"
-    [[ "$(call_count "brightnessctl -q -c backlight set 100")" -eq 2 ]] || fail "$(calls)"
-}
-
-@test "restore-backlight: nudges upwards from zero" {
-    stub brightnessctl '[[ "$*" == *get* ]] && echo 0; true'
-    sut "$BIN/restore-backlight"
-    assert_status 0
-    assert_call "brightnessctl -q -c backlight set 1"
-    assert_call "brightnessctl -q -c backlight set 0"
 }
 
 # --- clipboard-insert / emoji-insert ----------------------------------------

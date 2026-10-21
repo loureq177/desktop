@@ -12,8 +12,8 @@ Singleton {
 
 	readonly property string bin: Quickshell.env("HOME") + "/.local/bin/"
 
-	// Without the GPU overrides of the session (mesa-egl, dgpu-run): what
-	// the shell starts picks its own. `env -C` sets the working directory:
+	// Without what the shell itself was started with (an EGL vendor, the
+	// allocator's settings): what the shell starts picks its own. `env -C` sets the working directory:
 	// execDetached takes no { command, workingDirectory } object (quickshell
 	// 0.3.2 refuses it). The directory is untyped: a missing `string`
 	// argument arrives as "undefined".

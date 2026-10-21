@@ -54,13 +54,6 @@ slow_tail() {
     powerprofilesctl set "$1" || true
 }
 
-# Switching the power profile can dim the panel a few seconds later (see
-# restore-backlight); put the brightness back once that has settled.
-restore_later() {
-    sleep 12
-    restore-backlight
-}
-
 apply_display() {
     local fields desc width height pos scale hz blur=true
     fields="$(hyprctl monitors -j | jq -r --arg hz "$1" '
@@ -124,7 +117,6 @@ enable_mode() {
     ghostty_candy || true
     opencode_anims false
     detach slow_tail power-saver
-    detach restore_later
 }
 
 disable_mode() {
@@ -148,7 +140,6 @@ disable_mode() {
     ghostty_candy || true
     opencode_anims true
     detach slow_tail balanced
-    detach restore_later
 }
 
 case "$action" in

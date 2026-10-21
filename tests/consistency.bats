@@ -65,15 +65,6 @@ UNITS="archlinux/.config/systemd/user"
     [[ "$bad" -eq 0 ]]
 }
 
-@test "scripts started by name from quickshell are on the session PATH" {
-    # Process { command: ["restore-backlight", ...] } relies on ~/.local/bin in PATH.
-    grep -q 'PATH="$HOME/.local/bin:' "$REPO/common/.zshenv"
-    local name
-    while IFS= read -r name; do
-        [[ ! -e "$REPO/archlinux/.local/bin/$name" ]] || [[ -x "$REPO/archlinux/.local/bin/$name" ]]
-    done < <(grep -ohE 'command *[:=] *\["[a-z][a-z-]+"' -r "$REPO/$QS" | sed -E 's/.*"([a-z-]+)"/\1/' | sort -u)
-}
-
 @test "sourced shell libraries exist" {
     local bad=0 file name
     while IFS=: read -r file name; do
@@ -128,7 +119,6 @@ UNITS="archlinux/.config/systemd/user"
 @test "every /etc config has its package in the lists" {
     # config under archlinux/etc -> the package that reads it
     local -A owner=(
-        [etc/keyd/default.conf]=keyd
         [etc/systemd/zram-generator.conf]=zram-generator
     )
     local file
@@ -301,7 +291,7 @@ listed_packages() {
         qs notify-send nmcli brightnessctl checkupdates pacdiff paccache cliphist wl-copy wl-paste wtype
         hyprctl Hyprland hypridle hyprsunset hyprpicker pw-record sox whisper-cli flock jq sqlite3 firefox grim slurp
         tesseract canberra-gtk-play satty wf-recorder pactl wpctl v4l2-ctl ffplay powerprofilesctl
-        curl playerctl stow bat nvim zsh python3 gsettings systemd-inhibit xdg-open ghostty keyd flatpak
+        curl playerctl stow bat nvim zsh python3 gsettings systemd-inhibit xdg-open ghostty flatpak
         yazi btop lazygit fzf git
     )
     # Not installable from a list: install.sh builds paru from the AUR,

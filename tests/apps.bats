@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# firefox-apply, firefox-webapp, mesa-egl, dgpu-run
+# firefox-apply, firefox-webapp
 
 load helpers
 
@@ -175,30 +175,4 @@ zoom_rows() {
     sut "$BIN/firefox-webapp" gemini https://gemini.google.com
     assert_status 0
     assert_call_like "firefox --profile"
-}
-
-# --- mesa-egl / dgpu-run -----------------------------------------------------
-
-@test "mesa-egl: runs the command with its arguments and exit status" {
-    sut env -u AQ_DRM_DEVICES -u __EGL_VENDOR_LIBRARY_FILENAMES "$BIN/mesa-egl" sh -c 'echo "$1|$2|${__EGL_VENDOR_LIBRARY_FILENAMES-unset}"; exit 7' _ "a b" c
-    assert_status 7
-    [[ "$output" == "a b|c|unset" ]] || fail "$output"
-}
-
-@test "mesa-egl: keeps an EGL vendor the user chose and ignores unknown cards" {
-    sut env AQ_DRM_DEVICES=/dev/dri/card1 __EGL_VENDOR_LIBRARY_FILENAMES=/custom.json "$BIN/mesa-egl" sh -c 'echo "$__EGL_VENDOR_LIBRARY_FILENAMES"'
-    assert_status 0
-    [[ "$output" == /custom.json ]]
-
-    sut env -u __EGL_VENDOR_LIBRARY_FILENAMES AQ_DRM_DEVICES=/dev/dri/no-such-card "$BIN/mesa-egl" sh -c 'echo "${__EGL_VENDOR_LIBRARY_FILENAMES-unset}"'
-    assert_status 0
-    [[ "$output" == unset ]] || fail "$output"
-}
-
-@test "dgpu-run: drops the iGPU Vulkan pin before handing over to prime-run" {
-    stub prime-run "echo \"prime-env \${VK_DRIVER_FILES-unset} \${VK_ICD_FILENAMES-unset}\" >>'$CALLS'"
-    sut env VK_DRIVER_FILES=/igpu.json VK_ICD_FILENAMES=/igpu.json "$BIN/dgpu-run" game --flag "two words"
-    assert_status 0
-    assert_call "prime-run game --flag two words"
-    assert_call "prime-env unset unset"
 }
