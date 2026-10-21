@@ -270,7 +270,7 @@ if not local_cfg.custom_lid_switch then
 	end)
 end
 
--- The layout belongs to the machine (local.lua), like the Alt/Super swap.
+-- The layout belongs to the machine (local.lua).
 local keyboard = type(local_cfg.keyboard) == "table" and local_cfg.keyboard or {}
 
 hl.config({
@@ -288,6 +288,11 @@ hl.config({
 	cursor = {
 		warp_on_change_workspace = true,
 	},
+	-- H and L past the last window go to the next workspace, not the next
+	-- monitor (focus_or_step).
+	binds = {
+		window_direction_monitor_fallback = false,
+	},
 	gestures = {
 		workspace_swipe_touch = true,
 		workspace_swipe_cancel_ratio = 0.02,
@@ -296,172 +301,49 @@ hl.config({
 
 hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })
 
-local special_gesture_mode = nil
-local special_gesture_name = nil
-local special_history = {}
-local special_cycle_active = false
-
-local function special_short_name(ws)
-	if ws == nil then
-		return nil
-	end
-	local name = (ws.name or ""):gsub("^special:", "")
-	if name == "" then
-		return nil
-	end
-	return name
-end
-
-local function visible_special_workspace()
+-- Three fingers up bring back the special workspace used last, down put away
+-- the one that is showing.
+local function visible_special()
 	local mon = hl.get_active_monitor()
-	if mon ~= nil and mon.active_special_workspace ~= nil then
-		return mon.active_special_workspace
-	end
-	for _, m in ipairs(hl.get_monitors()) do
-		if m.active_special_workspace ~= nil then
-			return m.active_special_workspace
-		end
-	end
-	return nil
+	return mon ~= nil and mon.active_special_workspace or nil
 end
 
-local function set_special_gesture(mode, name)
-	if mode == special_gesture_mode and name == special_gesture_name then
-		return
-	end
-	if special_gesture_mode ~= nil then
-		hl.gesture({ fingers = 3, direction = special_gesture_mode, action = "unset" })
-	end
-	special_gesture_mode = nil
-	special_gesture_name = nil
-	if mode ~= nil and name ~= nil then
-		hl.gesture({ fingers = 3, direction = mode, action = "special", workspace_name = name })
-		special_gesture_mode = mode
-		special_gesture_name = name
-	end
+local function toggle_special(ws)
+	hl.dispatch(hl.dsp.workspace.toggle_special((ws.name:gsub("^special:", ""))))
 end
 
-local function list_open_specials()
-	local seen = {}
-	local ordered = {}
-	local function push(name)
-		if name == nil or seen[name] then
+hl.gesture({
+	fingers = 3,
+	direction = "up",
+	action = function()
+		if visible_special() ~= nil then
 			return
 		end
-		local target = hl.get_workspace("special:" .. name)
-		if target ~= nil and not target.is_empty then
-			seen[name] = true
-			table.insert(ordered, name)
-		end
-	end
-	local wins = hl.get_windows()
-	local function focus_age(w)
-		local id = w.focus_history_id
-		if id == nil or id < 0 then
-			return math.huge
-		end
-		return id
-	end
-	table.sort(wins, function(a, b)
-		return focus_age(a) < focus_age(b)
-	end)
-	for _, w in ipairs(wins) do
-		if w.workspace ~= nil and w.workspace.special then
-			push(special_short_name(w.workspace))
-		end
-	end
-	for _, name in ipairs(special_history) do
-		push(name)
-	end
-	for _, ws in ipairs(hl.get_workspaces()) do
-		if ws.special then
-			push(special_short_name(ws))
-		end
-	end
-	return ordered
-end
-
-local function cycle_special(delta)
-	local visible = special_short_name(visible_special_workspace())
-	if visible == nil then
-		return
-	end
-	local list = list_open_specials()
-	if #list < 2 then
-		return
-	end
-	table.sort(list)
-	local idx = 1
-	for i, name in ipairs(list) do
-		if name == visible then
-			idx = i
-			break
-		end
-	end
-	local target = list[((idx - 1 + delta) % #list) + 1]
-	for i, name in ipairs(special_history) do
-		if name == target then
-			table.remove(special_history, i)
-			break
-		end
-	end
-	table.insert(special_history, 1, target)
-	hl.dispatch(hl.dsp.workspace.toggle_special(target))
-end
-
-local function set_cycle_gestures(enabled)
-	if enabled == special_cycle_active then
-		return
-	end
-	if special_cycle_active then
-		hl.gesture({ fingers = 3, direction = "left", action = "unset" })
-		hl.gesture({ fingers = 3, direction = "right", action = "unset" })
-		hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })
-		special_cycle_active = false
-	end
-	if enabled then
-		hl.gesture({ fingers = 3, direction = "horizontal", action = "unset" })
-		for dir, delta in pairs({ left = 1, right = -1 }) do
-			hl.gesture({
-				fingers = 3,
-				direction = dir,
-				action = function()
-					cycle_special(delta)
-				end,
-			})
-		end
-		special_cycle_active = true
-	end
-end
-
-local function refresh_special_gestures()
-	special_history = list_open_specials()
-	local visible = special_short_name(visible_special_workspace())
-	if visible ~= nil then
-		for i, name in ipairs(special_history) do
-			if name == visible then
-				table.remove(special_history, i)
-				break
+		local last
+		for _, w in ipairs(hl.get_windows()) do
+			local age = w.focus_history_id
+			if w.workspace ~= nil and w.workspace.special and age ~= nil and age >= 0 then
+				if last == nil or age < last.focus_history_id then
+					last = w
+				end
 			end
 		end
-		table.insert(special_history, 1, visible)
-		set_special_gesture("down", visible)
-	else
-		set_special_gesture("up", special_history[1])
-	end
-	set_cycle_gestures(visible ~= nil)
-end
+		if last ~= nil then
+			toggle_special(last.workspace)
+		end
+	end,
+})
 
-for _, ev in ipairs({
-	"workspace.special_active",
-	"workspace.active",
-	"window.active",
-	"window.close",
-}) do
-	hl.on(ev, refresh_special_gestures)
-end
-
-refresh_special_gestures()
+hl.gesture({
+	fingers = 3,
+	direction = "down",
+	action = function()
+		local ws = visible_special()
+		if ws ~= nil then
+			toggle_special(ws)
+		end
+	end,
+})
 
 hl.config({
 	general = {
@@ -676,47 +558,18 @@ b("SUPER + Q", "Close window", hl.dsp.window.close())
 b("SUPER + F", "Toggle fullscreen", hl.dsp.window.fullscreen())
 b("SUPER + T", "Toggle window split", hl.dsp.layout("togglesplit"))
 b("SUPER + M", "Toggle floating", hl.dsp.window.float({ action = "toggle" }))
--- Alt+Tab in place: with Alt and Super swapped, SUPER is the key labelled Alt.
 b("SUPER + TAB", "Focus previous window", hl.dsp.focus({ last = true }))
 
 local directions = { H = "left", L = "right", K = "up", J = "down" }
 local step = 25
 
-local function overlap(a1, a2, b1, b2)
-	return a1 < b2 and a2 > b1
-end
-
-local function same_workspace_neighbor(dir)
-	local active = hl.get_active_window()
-	if active == nil or active.workspace == nil then
+-- Whether `w` lies to the `dir` side of `from`: focus in a direction wraps
+-- around at the edge of the screen instead of stopping.
+local function lies_beyond(from, w, dir)
+	if from == nil or w == nil or w.address == from.address then
 		return false
 	end
-	local ax, ay = active.at.x, active.at.y
-	local aw, ah = active.size.x, active.size.y
-	local acx, acy = ax + aw / 2, ay + ah / 2
-	for _, w in ipairs(hl.get_windows()) do
-		if
-			w.address ~= active.address
-			and w.workspace ~= nil
-			and w.workspace.id == active.workspace.id
-			and not w.floating
-			and w.mapped
-			and not w.hidden
-		then
-			local cx, cy = w.at.x + w.size.x / 2, w.at.y + w.size.y / 2
-			local same_row = overlap(w.at.y, w.at.y + w.size.y, ay, ay + ah)
-			local same_col = overlap(w.at.x, w.at.x + w.size.x, ax, ax + aw)
-			if
-				(dir == "left" and cx < acx and same_row)
-				or (dir == "right" and cx > acx and same_row)
-				or (dir == "up" and cy < acy and same_col)
-				or (dir == "down" and cy > acy and same_col)
-			then
-				return true
-			end
-		end
-	end
-	return false
+	return (dir == "left" and w.at.x < from.at.x) or (dir == "right" and w.at.x > from.at.x)
 end
 
 -- Workspaces are numbered left to right across the monitors
@@ -761,9 +614,14 @@ local function opposite(dir)
 end
 
 local function focus_or_step(dir)
-	if same_workspace_neighbor(dir) then
-		hl.dispatch(hl.dsp.focus({ direction = dir }))
+	local win = hl.get_active_window()
+	hl.dispatch(hl.dsp.focus({ direction = dir }))
+	if lies_beyond(win, hl.get_active_window(), dir) then
 		return
+	end
+	-- It wrapped around: back to where it was, and on to the next workspace.
+	if win ~= nil then
+		hl.dispatch(hl.dsp.focus({ window = win }))
 	end
 	local ws = workspace_beyond(dir)
 	if ws == nil then
@@ -776,13 +634,21 @@ local function focus_or_step(dir)
 	end
 end
 
+-- Swap stays put with nothing on that side; then the window goes on to the
+-- next workspace instead.
 local function swap_or_throw(dir)
-	if same_workspace_neighbor(dir) then
-		pcall(hl.dispatch, hl.dsp.window.swap({ direction = dir }))
+	local win = hl.get_active_window()
+	if win == nil then
 		return
 	end
-	local win = hl.get_active_window()
-	if win == nil or win.workspace == nil or win.workspace.id < 0 or (dir ~= "left" and dir ~= "right") then
+	-- win is live: its position has to be read before the swap.
+	local x, y = win.at.x, win.at.y
+	pcall(hl.dispatch, hl.dsp.window.swap({ direction = dir }))
+	local now = hl.get_active_window()
+	if now == nil or now.at.x ~= x or now.at.y ~= y then
+		return
+	end
+	if win.workspace == nil or win.workspace.id < 0 or (dir ~= "left" and dir ~= "right") then
 		return
 	end
 	-- Past the last workspace: a new one.
