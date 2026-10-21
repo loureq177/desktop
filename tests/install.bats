@@ -211,7 +211,9 @@ EOF
     local conf="$ROOT/etc/systemd/system/getty@tty1.service.d/autologin.conf"
     [[ -f "$conf" ]] || fail "$(calls)"
     grep -qx 'ExecStart=' "$conf"
-    grep -qxF 'ExecStart=-/usr/bin/agetty --noreset --noclear --noissue --autologin tester - ${TERM}' "$conf"
+    grep -qxF 'ExecStart=-/usr/bin/login -f tester' "$conf"
+    grep -qx 'TTYReset=no' "$conf"
+    grep -qx 'TTYVTDisallocate=no' "$conf"
     assert_call "sudo systemctl enable getty@tty1.service"
 }
 

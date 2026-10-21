@@ -134,14 +134,21 @@ if [ "$OS" = "Linux" ]; then
     restow_pkg "Arch Linux" archlinux
 
     _log_info "Configuring autologin on tty1..."
-    # No display manager: getty logs $USER in, the login shell execs Hyprland (.zprofile)
-    # and quickshell locks the session as soon as it starts.
+    # No display manager: getty@tty1 runs login for $USER, the login shell execs Hyprland
+    # (.zprofile) and quickshell locks the session as soon as it starts.
+    # Nothing may write to tty1 on the way: the first byte makes fbcon take the console
+    # over, a ~0.7 s modeset of the laptop panel that login waits for (even with the lid
+    # closed and Hyprland leaving the panel off). agetty always prints a newline, and
+    # TTYReset/TTYVTDisallocate send escape sequences, so login runs directly and both
+    # are off. With ~/.hushlogin, login and PAM print nothing either.
     autologin_conf=$(mktemp)
     cat >"$autologin_conf" <<EOF
 [Service]
 Type=simple
+TTYReset=no
+TTYVTDisallocate=no
 ExecStart=
-ExecStart=-/usr/bin/agetty --noreset --noclear --noissue --autologin $USER - \${TERM}
+ExecStart=-/usr/bin/login -f $USER
 EOF
     sudo mkdir -p /etc/systemd/system/getty@tty1.service.d
     _install_etc_file "$autologin_conf" /etc/systemd/system/getty@tty1.service.d/autologin.conf 644
