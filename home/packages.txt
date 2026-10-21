@@ -10,7 +10,6 @@ hyprpicker
 hyprshutdown
 hyprsunset
 quickshell
-libqalculate
 qt5-wayland
 qt6-imageformats
 qt6-wayland
@@ -20,7 +19,6 @@ xdg-desktop-portal-hyprland
 xorg-xhost
 xwayland-satellite
 gnome-keyring
-keyd
 networkmanager
 zram-generator
 
@@ -117,7 +115,6 @@ git-delta
 github-cli
 lazygit
 opencode
-buf
 bun
 cmake
 nodejs
