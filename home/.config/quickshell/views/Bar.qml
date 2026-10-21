@@ -264,7 +264,6 @@ PanelWindow {
 		default property alias content: pillRow.data
 		property alias containsMouse: pillArea.containsMouse
 		signal activated()
-		signal middleClicked()
 		signal rightClicked()
 
 		onTooltipTextChanged: {
@@ -320,7 +319,7 @@ PanelWindow {
 			anchors.fill: parent
 			hoverEnabled: true
 			cursorShape: Qt.PointingHandCursor
-			acceptedButtons: Qt.LeftButton | Qt.MiddleButton | Qt.RightButton
+			acceptedButtons: Qt.LeftButton | Qt.RightButton
 			onEntered: {
 				if (pill.tooltipText !== "" && !pill.isActive)
 					bar.showTooltip(pill, pill.tooltipText);
@@ -332,13 +331,10 @@ PanelWindow {
 				bar.hideTooltipNow();
 				if (pill.panel === "" || mouse.button !== Qt.LeftButton)
 					bar.leavePanels(pill.panel);
-				if (mouse.button === Qt.RightButton) {
+				if (mouse.button === Qt.RightButton)
 					pill.rightClicked();
-				} else if (mouse.button === Qt.MiddleButton) {
-					pill.middleClicked();
-				} else {
+				else
 					pill.activated();
-				}
 			}
 		}
 	}
@@ -569,7 +565,6 @@ PanelWindow {
 				tooltipText: Weather.tooltipText
 				panel: "weather"
 				onActivated: Panels.toggle("weather")
-				onMiddleClicked: Weather.refresh()
 			}
 		}
 

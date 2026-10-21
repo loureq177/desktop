@@ -11,12 +11,10 @@ import QtQuick
 Singleton {
 	id: root
 
-	// { chord, action, key, mouse }, in Hyprland's order; media keys and
+	// { chord, action, key, mask, mouse }, in Hyprland's order; media keys and
 	// switches left out.
 	property var binds: []
 	property bool loaded: false
-	// input:kb_options swaps left Alt and Super, so SUPER is the key labelled Alt.
-	property bool altSwapped: false
 
 	readonly property var keyNames: ({
 		"comma": ",",
@@ -34,6 +32,10 @@ Singleton {
 	})
 
 	function chordFor(mask: int, key: string): string {
+		return chordOf(mask, keyNames[key.toLowerCase()] ?? key.toUpperCase());
+	}
+
+	function chordOf(mask: int, label: string): string {
 		var mods = [];
 		if (mask & 64)
 			mods.push("SUPER");
@@ -43,7 +45,6 @@ Singleton {
 			mods.push("ALT");
 		if (mask & 1)
 			mods.push("SHIFT");
-		var label = keyNames[key.toLowerCase()] ?? key.toUpperCase();
 		return mods.concat([label]).join(" + ");
 	}
 
@@ -56,40 +57,34 @@ Singleton {
 	}
 
 	// What the shell does on its own, out of hyprctl's sight, and shown
-	// nowhere else: not the keys printed on the tiles of Quick actions, nor
-	// Esc and J / K, which every panel takes. `order` keeps them in the
-	// sequence written here.
+	// nowhere else: not the keys printed in the panels (the tiles of Quick
+	// actions, Wi-Fi, Bluetooth, notifications, weather), nor Esc and J / K,
+	// which every panel takes. `order` keeps them in the sequence written here.
+	// Rules come first: what the binds have in common, so that most of the
+	// list below follows from a handful of lines.
 	readonly property var shellEntries: [
+		{ category: "Rules", chord: "SUPER + LETTER", action: "A tool; the lit letter in its name is the key" },
+		{ category: "Rules", chord: "SUPER + SHIFT + LETTER", action: "An app on its special workspace" },
+		{ category: "Rules", chord: "SHIFT", action: "Takes the window along: moves it, swaps it" },
+		{ category: "Rules", chord: "CTRL", action: "Resizes instead of focusing" },
+		{ category: "Rules", chord: "H J K L", action: "Left, down, up, right, as in Vim" },
+
 		{ category: "Gestures", chord: "3 FINGERS ↔", action: "Switch workspace" },
 		{ category: "Gestures", chord: "3 FINGERS ↑", action: "Open the last special workspace" },
 		{ category: "Gestures", chord: "3 FINGERS ↓", action: "Hide the special workspace" },
-		{ category: "Gestures", chord: "3 FINGERS ↔", action: "Cycle special workspaces (while one is open)" },
-
-		{ category: "Keyboard", chord: "CAPS LOCK", action: "Esc when tapped, Ctrl when held" },
 
 		{ category: "Bar", chord: "RIGHT-CLICK ICON", action: "Close a special workspace" },
 		{ category: "Bar", chord: "SCROLL DOTS", action: "Switch workspace" },
 		{ category: "Bar", chord: "SCROLL ICONS", action: "Cycle special workspaces" },
-		{ category: "Bar", chord: "MIDDLE-CLICK WEATHER", action: "Refresh the forecast" },
 
 		{ category: "Launcher", chord: "2+2", action: "Calculate; Enter copies the result" },
-		{ category: "Launcher", chord: "= 10 KM TO MI", action: "Units, currencies, functions (qalc)" },
 		{ category: "Launcher", chord: "/", action: "Files and folders in ~; Enter opens one" },
 		{ category: "Launcher", chord: ">", action: "Every command; Enter runs it in a terminal" },
-		{ category: "Launcher", chord: "ENTER, ENTER", action: "Log out, reboot or power off" },
-
-		{ category: "Wi-Fi & Bluetooth", chord: "SPACE", action: "Turn the radio on or off" },
-		{ category: "Wi-Fi & Bluetooth", chord: "R", action: "Scan again" },
-		{ category: "Wi-Fi & Bluetooth", chord: "X, X", action: "Forget the network or device" },
-
-		{ category: "Notifications", chord: "X", action: "Dismiss the selected one" },
-
-		{ category: "Weather", chord: "E", action: "Change the location" }
+		{ category: "Launcher", chord: "ENTER, ENTER", action: "Log out, reboot or power off" }
 	].map((e, i) => Object.assign({ order: i }, e))
 
-	readonly property var swapEntry: ({ category: "Keyboard", chord: "LEFT ALT", action: "Works as SUPER (Alt and Super swapped)", order: -1 })
-
 	readonly property var categoryOrder: [
+		"Rules",
 		"Essential",
 		"Window Management",
 		"Navigation & Workspaces",
@@ -98,13 +93,10 @@ Singleton {
 		"Session",
 		"Capture & OCR",
 		"Notifications",
-		"Keyboard",
 		"Mouse",
 		"Gestures",
 		"Bar",
-		"Launcher",
-		"Wi-Fi & Bluetooth",
-		"Weather"
+		"Launcher"
 	]
 
 	readonly property var categoryRules: [
@@ -158,8 +150,16 @@ Singleton {
 		return 50;
 	}
 
-	// { category, chord, action } of every bind and shell key, in categoryOrder.
-	// The nine workspace binds of each kind fold into one line.
+	// Binds that differ only in a digit, a direction or which way the wheel
+	// turns: each set folds into one line, `key` standing for all of its keys.
+	readonly property var folds: [
+		{ re: /^(Switch to workspace|Move window to workspace) \d$/, action: m => m[1] + " 1..9", key: "1..9" },
+		{ re: /^(Focus|Swap window|Resize window) (left|down|up|right)$/, action: m => m[1] + " left / down / up / right", key: "H J K L" },
+		{ re: /^(Move window to |)(Next|next|Previous|previous) workspace$/, action: m => (m[1] ? m[1] + "next" : "Next") + " / previous workspace", key: "SCROLL ↓↑" }
+	]
+
+	// { category, chord, action } of every bind and shell key, in categoryOrder,
+	// with the binds of each fold on one line.
 	readonly property var entries: {
 		var list = [];
 		var folded = {};
@@ -167,19 +167,24 @@ Singleton {
 			var b = binds[i];
 			var action = b.action;
 			var chord = b.chord;
-			var m = action.match(/^(Switch to workspace|Move window to workspace) \d$/);
-			if (m) {
-				if (folded[m[1]])
+			for (var j = 0; j < folds.length; j++) {
+				var m = action.match(folds[j].re);
+				if (!m)
 					continue;
-				folded[m[1]] = true;
-				action = m[1] + " 1..9";
-				chord = chord.replace(/\d$/, "1..9");
+				action = folds[j].action(m);
+				chord = chordOf(b.mask, folds[j].key);
+				break;
 			}
-			list.push({ category: categoryOf(b), chord: chord, action: action });
+			if (folded[action + chord])
+				continue;
+			folded[action + chord] = true;
+			var category = categoryOf(b);
+			// The section already says what "Show" would.
+			if (category === "Special Workspaces")
+				action = action.replace(/^Show /, "");
+			list.push({ category: category, chord: chord, action: action });
 		}
 		list = list.concat(shellEntries);
-		if (altSwapped)
-			list.push(swapEntry);
 		list.sort((a, b) => {
 			var ca = categoryOrder.indexOf(a.category);
 			var cb = categoryOrder.indexOf(b.category);
@@ -196,7 +201,6 @@ Singleton {
 
 	function reload(): void {
 		bindsProc.running = true;
-		optionProc.running = true;
 	}
 
 	Component.onCompleted: reload()
@@ -228,6 +232,7 @@ Singleton {
 							chord: root.chordFor(b.modmask || 0, key),
 							action: action,
 							key: key,
+							mask: b.modmask || 0,
 							mouse: lower.indexOf("mouse") === 0
 						});
 					}
@@ -236,20 +241,6 @@ Singleton {
 				}
 				root.binds = list;
 				root.loaded = true;
-			}
-		}
-	}
-
-	Process {
-		id: optionProc
-		command: ["hyprctl", "-j", "getoption", "input:kb_options"]
-		stdout: StdioCollector {
-			onStreamFinished: {
-				try {
-					root.altSwapped = String(JSON.parse(this.text).str ?? "").indexOf("swap_lalt_lwin") !== -1;
-				} catch (e) {
-					root.altSwapped = false;
-				}
 			}
 		}
 	}
