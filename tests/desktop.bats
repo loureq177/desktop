@@ -190,7 +190,7 @@ awake_stubs() {
     awake_stubs 3
     sut "$BIN/awake-toggle"
     assert_status 0
-    assert_call_like "systemd-run --user --unit=awake-inhibit --collect systemd-inhibit --what=idle:sleep:handle-lid-switch"
+    assert_call_like "systemd-run --user --unit=awake-inhibit --collect systemd-inhibit --what=idle:handle-lid-switch"
     [[ "$(<"$XDG_RUNTIME_DIR/awake_inhibit.pid")" == 4242 ]]
 }
 
