@@ -23,6 +23,7 @@ OverlayWindow {
 	property string scope: ""
 	property alias searchQuery: search.text
 	readonly property alias searchBar: search
+	property alias searchTrailing: search.trailing
 
 	property string statusText: ""
 	property string errorText: ""
@@ -32,8 +33,14 @@ OverlayWindow {
 	property var filtered: []
 	property int currentIndex: 0
 
+	// Up on the first row goes round to the last one, down on the last to the first.
 	function move(delta): void {
-		currentIndex = filtered.length === 0 ? 0 : Math.max(0, Math.min(filtered.length - 1, currentIndex + delta));
+		if (filtered.length > 0 && delta < 0 && currentIndex === 0)
+			currentIndex = filtered.length - 1;
+		else if (filtered.length > 0 && delta > 0 && currentIndex === filtered.length - 1)
+			currentIndex = 0;
+		else
+			currentIndex = filtered.length === 0 ? 0 : Math.max(0, Math.min(filtered.length - 1, currentIndex + delta));
 	}
 
 	signal searchAccepted()

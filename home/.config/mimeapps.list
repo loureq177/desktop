@@ -1,4 +1,5 @@
 [Default Applications]
+inode/directory=yazi.desktop
 text/plain=nvim.desktop
 text/html=firefox.desktop
 x-scheme-handler/http=firefox.desktop

@@ -15,7 +15,7 @@ CenterModal {
 	searchIcon: window.mode === "emoji" ? "smile" : window.mode === "keys" ? "keyboard"
 		: window.isFileQuery() ? "folder" : window.query.trim().startsWith("=") ? "calculator" : "search"
 	// Each list says what it is; the apps' search finds the actions too, by
-	// name, and draws them like the tiles of Quick actions.
+	// name, and draws them like the tiles of Actions.
 	searchPlaceholder: window.mode === "emoji" ? window.placeholderFor(window.emojis.length, "emoji")
 		: window.mode === "keys" ? window.placeholderFor(Keybinds.entries.length, "keys")
 		: window.placeholderFor(window.appCount, "apps")
@@ -84,11 +84,11 @@ CenterModal {
 	// row. The launcher closes after `run`, unless it returns false.
 	readonly property var toolActions: [
 		{ label: "Clipboard history", desc: "Paste something copied before", lineIcon: "clipboard", bind: "Clipboard history", keywords: "clipboard paste copy schowek historia wklej", run: () => window.openPanel("clipboard") },
-		{ label: "Emoji", desc: "Insert an emoji", lineIcon: "smile", bind: "Emoji picker", keywords: "emoji emotki smiley picker", run: () => window.openPanel("launcher", "emoji") },
+		{ label: "Emoji", desc: "Insert an emoji", lineIcon: "smile", bind: "Emojis", keywords: "emoji emotki smiley picker", run: () => window.openPanel("launcher", "emoji") },
 		{ label: "Keybindings", desc: "Every key and what it does", lineIcon: "keyboard", bind: "Keybindings", keywords: "keys keybindings shortcuts help cheatsheet skróty klawisze pomoc", run: () => window.openPanel("launcher", "keys") },
-		{ label: "Quick actions", desc: "Volume, brightness, Wi-Fi, Bluetooth", lineIcon: "layout-grid", bind: "Quick actions", keywords: "quick settings volume brightness ustawienia głośność jasność dźwięk", run: () => window.openPanel("quicksettings") },
-		{ label: "Wi-Fi", desc: "Networks", lineIcon: "wifi", keywords: "wifi wi-fi network wireless internet sieć", run: () => window.openPanel("quicksettings", "wifi") },
-		{ label: "Bluetooth", desc: "Devices", lineIcon: "bluetooth", keywords: "bluetooth headphones devices słuchawki urządzenia", run: () => window.openPanel("quicksettings", "bluetooth") },
+		{ label: "Actions", desc: "Volume, brightness, Wi-Fi, Bluetooth", lineIcon: "layout-grid", bind: "Actions", keywords: "actions quick settings volume brightness ustawienia głośność jasność dźwięk", run: () => window.openPanel("actions") },
+		{ label: "Wi-Fi", desc: "Networks", lineIcon: "wifi", keywords: "wifi wi-fi network wireless internet sieć", run: () => window.openPanel("actions", "wifi") },
+		{ label: "Bluetooth", desc: "Devices", lineIcon: "bluetooth", keywords: "bluetooth headphones devices słuchawki urządzenia", run: () => window.openPanel("actions", "bluetooth") },
 		{ label: "Notifications", desc: "Notification history", lineIcon: "bell", bind: "Toggle notification center", keywords: "notifications history powiadomienia", run: () => window.openPanel("notifications") },
 		{ label: Notifications.dnd ? "Turn off Do not disturb" : "Do not disturb", desc: "Silence notifications", lineIcon: "bell-off", keywords: "dnd do not disturb quiet silence nie przeszkadzać cisza", run: () => { Notifications.dnd = !Notifications.dnd; } },
 		{ label: "Weather", desc: "Forecast", lineIcon: "cloud-sun", bind: "Weather", keywords: "weather forecast pogoda prognoza", run: () => window.openPanel("weather") },
@@ -207,12 +207,10 @@ CenterModal {
 
 	// The line icon of a key: what it is pressed with.
 	function keyIcon(category) {
-		if (category === "Mouse" || category === "Bar")
+		if (category === "Mouse")
 			return "mouse";
 		if (category === "Gestures")
 			return "hand";
-		if (category === "Rules")
-			return "sparkles";
 		return "keyboard";
 	}
 
@@ -222,7 +220,7 @@ CenterModal {
 	function mnemonicOf(item) {
 		var text = item.label || "";
 		var key = item.chord.split(" + ").pop();
-		if (item.desc === "Rules" || !/^[A-Z]$/.test(key))
+		if (!/^[A-Z]$/.test(key))
 			return "";
 		var re = new RegExp("\\b" + key, "gi");
 		var at = -1;
@@ -329,8 +327,9 @@ CenterModal {
 			Quickshell.execDetached(["wl-copy", String(item.label)]);
 			return true;
 		}
+		// Shown in yazi, the file under its cursor, not opened in an app.
 		if (item.kind === "file") {
-			Actions.spawn(["xdg-open", item.path]);
+			Actions.spawn(["ghostty", "+new-window", "-e", "yazi", item.path]);
 			return true;
 		}
 		if (item.kind === "action")
