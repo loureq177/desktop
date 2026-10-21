@@ -18,18 +18,26 @@ fi
 
 trap stop_picker EXIT
 
+# The monitor the pointer is on, or every monitor when it is unknown.
+grab_screen() {
+    local output
+    output=$(focused_output)
+    if [[ -n "$output" ]]; then
+        timeout 5 grim -o "$output" "$FILE" || timeout 5 grim "$FILE"
+    else
+        timeout 5 grim "$FILE"
+    fi
+}
+
+# region: drag an area or click a window; a click on neither takes the
+# monitor (its rect from --outputs).
 if [ "${1:-region}" = "region" ]; then
-    pick_region --freeze --windows || exit 0
+    pick_region --freeze --windows --outputs || exit 0
     is_click "$GEOM" && exit 0
 
     timeout 5 grim -g "$GEOM" "$FILE"
 elif [ "${1:-}" = "fullscreen" ]; then
-    FOCUSED_OUTPUT=$(focused_output)
-    if [[ -n "${FOCUSED_OUTPUT:-}" ]]; then
-        timeout 5 grim -o "$FOCUSED_OUTPUT" "$FILE" || timeout 5 grim "$FILE"
-    else
-        timeout 5 grim "$FILE"
-    fi
+    grab_screen
 else
     echo "screenshot: unknown mode '${1:-}' (want region|fullscreen)" >&2
     exit 2

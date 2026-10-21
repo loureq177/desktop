@@ -3,7 +3,7 @@ import Quickshell
 import QtQuick
 
 // What the desktop does, wherever the shell offers it: the launcher's
-// search, the Capture page of Quick actions, the bar's modules. Each action of
+// search, the Capture page of Actions, the bar's modules. Each action of
 // a list is { label, desc, lineIcon, keywords, bind, alert, tint, run }:
 // `bind` is the description of the key bind that does the same, `alert` draws
 // it in the critical colour.
@@ -52,8 +52,7 @@ Singleton {
 
 	// Screenshots, recordings and the other tools that take from the screen.
 	readonly property var captureActions: [
-		{ label: "Screenshot", desc: "An area or a window", lineIcon: "camera", bind: "Screenshot (region)", keywords: "screenshot capture region window zrzut ekranu", run: () => root.capture(root.bin + "screenshot region") },
-		{ label: "Screenshot of the screen", desc: "The whole screen", lineIcon: "camera", bind: "Screenshot (full)", keywords: "screenshot full fullscreen capture zrzut cały ekran", run: () => root.capture(root.bin + "screenshot fullscreen") }
+		{ label: "Screenshot", desc: "An area, a window, or click for the screen", lineIcon: "camera", bind: "Screenshot", keywords: "screenshot capture region window full fullscreen zrzut ekranu cały", run: () => root.capture(root.bin + "screenshot region") }
 	].concat(SystemStatus.recording ? [
 		{ label: "Stop recording", desc: "Save the screen recording", lineIcon: "circle-stop", alert: true, keywords: "record screen video recording stop nagrywanie zatrzymaj", run: () => root.script("record-screen") }
 	] : [

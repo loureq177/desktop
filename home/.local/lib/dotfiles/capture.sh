@@ -31,18 +31,30 @@ window_rects() {
     ' <<<"$(timeout 5 hyprctl clients -j 2>/dev/null || echo "[]")" 2>/dev/null || true
 }
 
-# pick_region [--freeze] [--windows]: select an area with slurp into $GEOM.
-# --freeze freezes the screen while selecting, --windows offers window rects.
-# Returns 1 when the selection is cancelled.
+# Every monitor as a slurp rect, in logical pixels as slurp counts them.
+output_rects() {
+    timeout 5 hyprctl monitors -j 2>/dev/null | jq -r '
+      .[]? | (if .transform % 2 == 1 then [.height, .width] else [.width, .height] end) as $s |
+      "\(.x),\(.y) \($s[0] / .scale | floor)x\($s[1] / .scale | floor)"
+    ' 2>/dev/null || true
+}
+
+# pick_region [--freeze] [--windows] [--outputs]: select an area with slurp
+# into $GEOM. --freeze freezes the screen while selecting, --windows offers
+# window rects, --outputs whole monitors: slurp takes the smallest rect under
+# a click, so a click on no window takes the monitor. Returns 1 when the
+# selection is cancelled; without rects a click on nothing cancels too.
 # shellcheck disable=SC2034  # GEOM is read by the sourcing script
 pick_region() {
     local arg freeze=false rects=""
     for arg in "$@"; do
         case "$arg" in
         --freeze) freeze=true ;;
-        --windows) rects="$(window_rects)" ;;
+        --windows) rects+="$(window_rects)"$'\n' ;;
+        --outputs) rects+="$(output_rects)"$'\n' ;;
         esac
     done
+    rects="$(sed '/^$/d' <<<"$rects")"
     if $freeze; then
         hyprpicker -r -z &
         HYPRPICKER_PID=$!

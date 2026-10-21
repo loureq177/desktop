@@ -114,19 +114,31 @@ EOF
     assert_call_like "grim -g 100,100 800x600"
 }
 
-@test "screenshot region: cancelling or a stray click takes no screenshot" {
+@test "screenshot region: cancelling takes no screenshot" {
     selection cancel
-    sut "$BIN/screenshot" region
-    assert_status 0
-    refute_call_like "grim"
-
-    selection "640,360 1x1"
     sut "$BIN/screenshot" region
     assert_status 0
     refute_call_like "grim"
     refute_call_like "notify-send"
 }
 
+@test "screenshot region: a stray click takes no screenshot" {
+    selection "640,360 1x1"
+    sut "$BIN/screenshot" region
+    assert_status 0
+    refute_call_like "grim"
+}
+
+@test "screenshot region: slurp offers each monitor, so a click on no window takes it" {
+    echo '[{"name":"eDP-1","x":0,"y":0,"width":2880,"height":1800,"scale":1.5,"transform":0},
+           {"name":"DP-1","x":1920,"y":0,"width":1080,"height":1920,"scale":1,"transform":1}]' >"$SANDBOX/monitors.json"
+    selection "0,0 1920x1200"
+    sut "$BIN/screenshot" region
+    assert_status 0
+    grep -qx "0,0 1920x1200" "$SANDBOX/slurp.stdin"
+    grep -qx "1920,0 1920x1080" "$SANDBOX/slurp.stdin"
+    assert_call "grim -g 0,0 1920x1200 $SHOTS/2026-01-02_03-04-05.png"
+}
 @test "screenshot fullscreen: captures the focused monitor" {
     echo '[{"name":"eDP-1","focused":false},{"name":"DP-1","focused":true}]' >"$SANDBOX/monitors.json"
     sut "$BIN/screenshot" fullscreen
