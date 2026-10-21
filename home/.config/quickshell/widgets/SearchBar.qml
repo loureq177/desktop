@@ -175,9 +175,10 @@ Rectangle {
 						anchors.fill: parent
 						hoverEnabled: true
 						cursorShape: Qt.PointingHandCursor
+						// scopeChosen rebuilds the chips, this one with them: last.
 						onClicked: {
-							bar.scopeChosen(chip.modelData);
 							bar.focusInput();
+							bar.scopeChosen(chip.modelData);
 						}
 					}
 				}
