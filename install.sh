@@ -162,7 +162,7 @@ EOF
         sudo chsh -s /usr/bin/zsh "$USER" || _log_warn "Failed to change the login shell to zsh."
     fi
 
-    _log_info "Installing system configs (keyd, THP, zram, swap sysctls, lid inhibitor)..."
+    _log_info "Installing system configs (THP, zram, swap sysctls, lid inhibitor)..."
     # archlinux/etc mirrors /etc; stow skips it (.stowrc) and the files are copied.
     while IFS= read -r -d '' src; do
         dest="/${src#archlinux/}"
@@ -173,8 +173,6 @@ EOF
     # pacman hook's extra SIGHUP races that reload and times out after 90s.
     sudo mkdir -p /etc/pacman.d/hooks
     sudo ln -sfn /dev/null /etc/pacman.d/hooks/dbus-reload.hook
-    sudo systemctl enable --now keyd 2>/dev/null || _log_warn "Failed to enable keyd."
-    sudo keyd reload 2>/dev/null || true
     sudo systemd-tmpfiles --create /etc/tmpfiles.d/memory.conf || _log_warn "Failed to apply tmpfiles memory settings."
     sudo sysctl --quiet --load /etc/sysctl.d/99-zram.conf || _log_warn "Failed to apply zram sysctls."
     sudo systemctl daemon-reload 2>/dev/null || true

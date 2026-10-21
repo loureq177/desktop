@@ -15,7 +15,7 @@ On Arch the installer changes the system, not only the home directory:
 - upgrades the system and installs `archlinux/packages.txt` (plus `packages-laptop.txt` on a machine with a battery), the flatpaks, and the AUR packages; `paru` is built from the AUR if it is missing
 - links `common/` and `archlinux/` into `~`
 - enables autologin on tty1 for the current user and makes zsh the login shell: the login shell starts Hyprland and the shell locks the session at once
-- copies `archlinux/etc` into `/etc` (keyd, zram, memory tuning, lid-switch inhibitors), backing up files that differ
+- copies `archlinux/etc` into `/etc` (zram, memory tuning, lid-switch inhibitors), backing up files that differ
 - enables the user units of this repo that have an `[Install]` section, and `hypridle`
 - downloads the speech model that `dictation` needs (about 140 MB)
 
@@ -57,7 +57,7 @@ Ghostty, Neovim, bat, delta and opencode use their upstream GitHub Dark themes a
 
 ### Key binds
 
-The launcher finds apps, the web apps and the other special workspaces among them, and the desktop's actions by name: capture, battery saver, update, lock, suspend, reboot and power off (the last three on a second Enter). `2+2` calculates on the spot; after `=`, or for anything that starts like a number (`10 km to mi`, `100 eur to pln`), qalc works it out. `/` and a name finds files and folders in `~` with fd, and Enter opens one. Quick actions (`SUPER + A`) has the tiles and the Capture page. `SUPER + /` lists the keys, leaving out the ones a panel prints on its tiles and buttons. The ones to know first:
+The launcher finds apps, the web apps and the other special workspaces among them, and the desktop's actions by name: capture, battery saver, update, lock, suspend, reboot and power off (the last three on a second Enter). `2+2` calculates on the spot. `/` and a name finds files and folders in `~` with fd, and Enter opens one. Quick actions (`SUPER + A`) has the tiles and the Capture page. `SUPER + /` lists the keys, leaving out the ones a panel prints on its tiles and buttons. The ones to know first:
 
 | Keys | Action |
 | --- | --- |
@@ -70,8 +70,6 @@ The launcher finds apps, the web apps and the other special workspaces among the
 | `SUPER + D` | Dictation: press, speak, press again |
 | `Print` | Screenshot of a region |
 | `SUPER + Escape` | Lock |
-
-Caps Lock is Esc when tapped and Ctrl when held (keyd). With `keyboard.options = "altwin:swap_lalt_lwin"` in `local.lua`, SUPER is the left Alt key.
 
 Everything also works with the mouse: the grid icon at the left of the bar opens the launcher, the empty field of the launcher offers its other lists (apps, emoji, clipboard, keys), and a right click on a special workspace's icon in the bar closes it.
 

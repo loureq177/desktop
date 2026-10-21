@@ -102,13 +102,6 @@ check_each() {
     git config --file "$REPO/common/.config/git/config" --list >/dev/null
 }
 
-@test "keyd config is valid" {
-    need keyd
-    run keyd check "$REPO/archlinux/etc/keyd/default.conf"
-    assert_status 0
-    assert_output_like "No errors found"
-}
-
 @test "ghostty config is valid" {
     need ghostty
     # arch.conf is included from the main config through ~/.config.

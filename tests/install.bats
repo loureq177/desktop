@@ -217,10 +217,10 @@ EOF
     assert_call "sudo systemctl enable getty@tty1.service"
 }
 
-@test "install (Arch): installs keyd and memory tuning into /etc" {
+@test "install (Arch): installs memory tuning into /etc" {
     arch_only
     install --no-upgrade
-    [[ -f "$ROOT/etc/keyd/default.conf" && -f "$ROOT/etc/sysctl.d/99-zram.conf" ]] || fail "$(calls)"
+    [[ -f "$ROOT/etc/sysctl.d/99-zram.conf" ]] || fail "$(calls)"
     [[ -f "$ROOT/etc/systemd/logind.conf.d/lid-inhibit.conf" ]] || fail "$(calls)"
     local f
     while IFS= read -r f; do
@@ -228,7 +228,6 @@ EOF
     done < <(cd "$COPY" && find archlinux/etc -type f)
     # /etc files are copied by root, never linked into the home dir.
     [[ ! -e "$HOME/etc" ]] || fail "stow linked ~/etc"
-    assert_call "sudo systemctl enable --now keyd"
     assert_call "sudo sysctl --quiet --load /etc/sysctl.d/99-zram.conf"
 }
 
