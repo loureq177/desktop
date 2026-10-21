@@ -13,13 +13,13 @@ Singleton {
 	readonly property string bin: Quickshell.env("HOME") + "/.local/bin/"
 
 	// Without the GPU overrides of the session (mesa-egl, dgpu-run): what
-	// the shell starts picks its own.
-	function spawn(command: var, workingDirectory: string): void {
-		var clean = ["env", "-u", "__EGL_VENDOR_LIBRARY_FILENAMES", "-u", "MALLOC_CONF"].concat(command);
-		if (workingDirectory)
-			Quickshell.execDetached({ command: clean, workingDirectory: workingDirectory });
-		else
-			Quickshell.execDetached(clean);
+	// the shell starts picks its own. `env -C` sets the working directory:
+	// execDetached takes no { command, workingDirectory } object (quickshell
+	// 0.3.2 refuses it). The directory is untyped: a missing `string`
+	// argument arrives as "undefined".
+	function spawn(command: var, workingDirectory): void {
+		var dir = workingDirectory ? ["-C", workingDirectory] : [];
+		Quickshell.execDetached(["env", "-u", "__EGL_VENDOR_LIBRARY_FILENAMES", "-u", "MALLOC_CONF"].concat(dir, command));
 	}
 
 	// A script of ~/.local/bin, with its arguments.
