@@ -26,7 +26,6 @@ local programs = {
 	-- special workspace name -> app; `key` binds SUPER + SHIFT + key to toggle it.
 	-- The shell lists them too (quickshell/Specials.js), by name and desc.
 	special = {
-		claude = webapp("claude", "https://claude.ai", "Claude", "A"),
 		calendar = webapp("calendar", "https://calendar.google.com", "Calendar", "C"),
 		mail = webapp("gmail", "https://mail.google.com", "Gmail", "E", "Mail"),
 		tasks = webapp("tasks", "https://tasks.google.com", "Tasks", "T"),
@@ -552,6 +551,10 @@ hl.config({
 		key_press_enables_dpms = true,
 		mouse_move_enables_dpms = true,
 		allow_session_lock_restore = true,
+	},
+	-- Timestamps in hyprland.log, to measure the startup (boot-time work); drop when done.
+	debug = {
+		disable_time = false,
 	},
 })
 

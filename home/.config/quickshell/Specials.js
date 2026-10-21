@@ -8,7 +8,6 @@
 // else a theme icon, after that of `desktop`: the desktop entry of the same
 // app, which the launcher lists as the special instead.
 var list = [
-	{ name: "claude", app: "Claude", title: "Claude", icon: "sparkles", desc: "AI assistant", appIcon: "icons/claude.svg", keywords: "ai chat assistant" },
 	{ name: "calendar", app: "Google Calendar", title: "Calendar", icon: "calendar", desc: "Google Calendar", appIcon: "icons/google-calendar.svg", keywords: "google kalendarz" },
 	{ name: "mail", app: "Gmail", title: "Mail", icon: "mail", desc: "Gmail", appIcon: "icons/gmail.svg", keywords: "gmail email poczta" },
 	{ name: "tasks", app: "Google Tasks", title: "Tasks", icon: "circle-check", desc: "Google Tasks", appIcon: "icons/google-tasks.svg", keywords: "google todo zadania" },
