@@ -30,24 +30,6 @@ test("calculate leaves what is not arithmetic", () => {
     assert.equal(S.calculate(q), null, q);
 });
 
-test("qalc gets expressions, not the apps' names", () => {
-  for (const q of ["10 km to mi", "100 eur to pln", "sqrt(2)", "10!", "= pi", "=now", "(2+3) m"])
-    assert.equal(S.wantsQalc(q), true, q);
-  for (const q of ["firefox", "spotify", "7zip", "2048", "1,5", "=", "", "steam 2"])
-    assert.equal(S.wantsQalc(q), false, q);
-});
-
-test("qalcAnswer keeps a result and drops errors and the expression given back", () => {
-  assert.equal(S.qalcAnswer("10 km to mi", "6.213711922 mi\n"), "6.213711922 mi");
-  assert.equal(S.qalcAnswer("= 100 eur to pln", "zł 437.30"), "zł 437.30");
-  assert.equal(S.qalcAnswer("x+2", "x + 2"), null);
-  assert.equal(S.qalcAnswer("10 kg", "10 kg"), null);
-  assert.equal(S.qalcAnswer("20% of 80", "rem(20, 1 B)"), null);
-  assert.equal(S.qalcAnswer("2+", "error: missing operand\n"), null);
-  assert.equal(S.qalcAnswer("1 = 2", "warning: something\nfalse"), "false");
-  assert.equal(S.qalcAnswer("sqrt(2)", ""), null);
-});
-
 test("fileTerms reads a search that starts with /", () => {
   assert.deepEqual(plain(S.fileTerms("/ faktura  maj ")), ["faktura", "maj"]);
   assert.deepEqual(plain(S.fileTerms("/")), []);

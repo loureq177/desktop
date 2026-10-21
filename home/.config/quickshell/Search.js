@@ -1,9 +1,8 @@
 .pragma library
 
 // What the launcher's search does with the text typed: matching names (the
-// apps, the actions, the keys and the commands), the calculator (here for
-// plain arithmetic, qalc for the rest) and the files ("/" and a name, found by
-// fd).
+// apps, the actions, the keys and the commands), plain arithmetic and the
+// files ("/" and a name, found by fd).
 
 // How well ql (lowercase) matches text: 0 when the text starts with it, 1 when
 // one of its words does, 2 when it is anywhere in it, -1 when it is not.
@@ -111,42 +110,6 @@ function calculate(raw) {
 		return null;
 	}
 	return null;
-}
-
-// Whether qalc should have a go at q: anything after "=", or what starts like
-// a number or a function ("10 km to mi", "100 eur to pln", "sqrt(2)") and is
-// more than one. qalc reads every word as something (a unit, a constant), so
-// the apps' names ("7zip" too) are kept away from it.
-function wantsQalc(raw) {
-	var s = (raw || "").trim();
-	if (s.startsWith("="))
-		return s.substring(1).trim() !== "";
-	if (!/^(-?[0-9.]|\(|[a-z]+\()/i.test(s))
-		return false;
-	return /[^0-9\s.,]/.test(s) && /[\s+\-*/^%!(]/.test(s);
-}
-
-function squash(s) {
-	return String(s).replace(/\s+/g, "").toLowerCase();
-}
-
-// qalc's answer (`qalc -t`) to expr, or null when it has none: an error, the
-// expression given back as it was ("x + 2", "10 kg"), or one it could not
-// work out and left a function of ("rem(20, 1 B)").
-function qalcAnswer(expr, output) {
-	var e = (expr || "").trim();
-	if (e.startsWith("="))
-		e = e.substring(1).trim();
-	var lines = String(output || "").split("\n").map(l => l.trim())
-		.filter(l => l !== "" && !/^(error|warning)\b|unrecognized option/i.test(l));
-	if (lines.length === 0)
-		return null;
-	var answer = lines[lines.length - 1];
-	if (squash(answer) === squash(e))
-		return null;
-	if (/[a-z]{2,}\(/i.test(answer))
-		return null;
-	return answer;
 }
 
 // The words of a file search ("/" and the words of the name), or null when q

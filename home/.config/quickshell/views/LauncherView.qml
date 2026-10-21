@@ -27,9 +27,26 @@ CenterModal {
 	showFooter: window.mode === "emoji" || window.lastError !== ""
 
 	readonly property int rowHeight: Theme.rowHeight
+	readonly property int sectionHeight: 34
 	contentHeight: window.filtered.length === 0 ? 72
 		: window.mode === "emoji" ? Math.ceil(window.filtered.length / window.gridColumns()) * 76
-		: window.filtered.length * window.rowHeight
+		: window.filtered.length * window.rowHeight + window.sectionCount() * window.sectionHeight
+
+	// The keys list with nothing typed comes in sections, each under its
+	// heading instead of with its name after every key. A search mixes them.
+	readonly property bool keySections: mode === "keys" && query.trim() === ""
+
+	// The section that starts at index, or "".
+	function sectionAt(index) {
+		if (!keySections)
+			return "";
+		var item = filtered[index];
+		return index === 0 || filtered[index - 1].desc !== item.desc ? item.desc : "";
+	}
+
+	function sectionCount() {
+		return keySections ? new Set(filtered.map(e => e.desc)).size : 0;
+	}
 
 	onSearchQueryChanged: {
 		window.query = searchQuery;
@@ -160,27 +177,8 @@ CenterModal {
 		return mode === "apps" && query.trim().startsWith("/");
 	}
 
-	// qalc (libqalculate) answers what plain arithmetic cannot: units,
-	// currencies, functions. One runs at a time; what was typed meanwhile is
-	// asked next. qalcFor is the expression qalcAnswer answers.
-	property bool hasQalc: false
-	property string qalcWanted: ""
-	property string qalcFor: ""
-	property string qalcAnswer: ""
-	// When the exchange rates were last fetched, at most once a day.
-	property real ratesFetched: 0
-
-	function askQalc(expr) {
-		qalcWanted = expr;
-		if (qalcProc.running)
-			return;
-		qalcProc.expr = expr;
-		qalcProc.command = ["qalc", "-t", "-set", "update exchange rates 0", "-set", "autoconversion none", expr.replace(/^=/, "")];
-		qalcProc.running = true;
-	}
-
-	// The files found by fd for filesFor (the words typed after "/"), the
-	// same way: one search at a time, the last words typed next.
+	// The files found by fd for filesFor (the words typed after "/"): one
+	// search at a time, the last words typed next.
 	property string filesWanted: ""
 	property string filesFor: ""
 	property var fileResults: []
@@ -201,12 +199,6 @@ CenterModal {
 		window.mode = next;
 		if (!runLoaded && !runLoader.running)
 			runLoader.running = true;
-		if (!hasQalc && !qalcCheck.running)
-			qalcCheck.running = true;
-		else if (hasQalc && Date.now() - ratesFetched > 86400000 && !ratesProc.running) {
-			ratesFetched = Date.now();
-			ratesProc.running = true;
-		}
 		query = "";
 		searchBar.clear();
 		refilter();
@@ -219,7 +211,27 @@ CenterModal {
 			return "mouse";
 		if (category === "Gestures")
 			return "hand";
+		if (category === "Rules")
+			return "sparkles";
 		return "keyboard";
+	}
+
+	// A key's action with the letter of its key lit where a word starts with
+	// it, the last such word first (Show Spotify: the S of Spotify), so the
+	// name says the key. Plain text when no word does.
+	function mnemonicOf(item) {
+		var text = item.label || "";
+		var key = item.chord.split(" + ").pop();
+		if (item.desc === "Rules" || !/^[A-Z]$/.test(key))
+			return "";
+		var re = new RegExp("\\b" + key, "gi");
+		var at = -1;
+		var m;
+		while ((m = re.exec(text)) !== null)
+			at = m.index;
+		if (at === -1)
+			return "";
+		return text.substring(0, at) + "<font color=\"" + Theme.accentBlue + "\"><b>" + text[at] + "</b></font>" + text.substring(at + 1);
 	}
 
 	// The keys list: every key bind and key of the shell (Keybinds), to read.
@@ -274,19 +286,7 @@ CenterModal {
 				return;
 			}
 
-			// Arithmetic at once, the rest when qalc has answered.
 			var calcResult = Search.calculate(q);
-			if (calcResult === null && hasQalc && Search.wantsQalc(q)) {
-				if (qalcFor === q)
-					calcResult = qalcAnswer || null;
-				else
-					askQalc(q);
-			}
-			if (q.startsWith("=")) {
-				filtered = calcResult !== null ? [{ kind: "calc", label: calcResult }] : [];
-				currentIndex = 0;
-				return;
-			}
 
 			// The apps, the specials and the actions, one list: best match
 			// first, then by name. The actions only come up when asked for.
@@ -401,11 +401,6 @@ CenterModal {
 				return "Type a file or folder name; Enter opens it";
 			return filesFor === terms.join(" ") ? "No file or folder called that in ~" : "Searching...";
 		}
-		if (q.startsWith("=")) {
-			if (q === "=" || !hasQalc)
-				return hasQalc ? "Type an expression, like 10 km to mi or 100 eur to pln" : "Type an expression, like 2+2 or 15% * 80";
-			return qalcFor === q ? "qalc can't work that out" : "Calculating...";
-		}
 		return "Nothing matches";
 	}
 
@@ -428,7 +423,7 @@ CenterModal {
 			return "Press Enter again to " + item.verb;
 		if (item.kind === "calc")
 			return "Enter copies the result";
-		if (item.kind === "run")
+		if (item.kind === "run" || (item.kind === "key" && keySections))
 			return "";
 		return item.desc ?? "";
 	}
@@ -507,43 +502,6 @@ CenterModal {
 			window.refilter();
 	}
 
-	// Whether qalc is installed (libqalculate); asked again on each open
-	// until it is.
-	Process {
-		id: qalcCheck
-		command: ["sh", "-c", "command -v qalc"]
-		onExited: code => {
-			window.hasQalc = code === 0;
-			if (window.hasQalc && !ratesProc.running) {
-				window.ratesFetched = Date.now();
-				ratesProc.running = true;
-			}
-		}
-	}
-
-	Process {
-		id: ratesProc
-		command: ["qalc", "-e", "-t", "0"]
-	}
-
-	Process {
-		id: qalcProc
-		property string expr: ""
-		stdout: StdioCollector {
-			onStreamFinished: {
-				window.qalcFor = qalcProc.expr;
-				window.qalcAnswer = Search.qalcAnswer(qalcProc.expr, this.text) ?? "";
-				// Only an answer changes the list, or "=" waiting for one.
-				if (window.shown && window.query.trim() === qalcProc.expr && (window.qalcAnswer !== "" || qalcProc.expr.startsWith("=")))
-					window.refilter();
-			}
-		}
-		onExited: {
-			if (window.qalcWanted !== qalcProc.expr)
-				Qt.callLater(() => window.askQalc(window.qalcWanted));
-		}
-	}
-
 	Process {
 		id: fileProc
 		property var terms: []
@@ -606,88 +564,130 @@ CenterModal {
 				flickable: list
 			}
 
-			delegate: Rectangle {
-				id: row
+			delegate: Item {
+				id: entry
 				required property var modelData
 				required property int index
-				readonly property bool selected: index === window.currentIndex
-				readonly property string chord: window.chordOf(modelData)
-				readonly property string subtitle: window.subtitleOf(modelData)
-				readonly property bool warn: modelData.kind === "power" && window.pendingPower === modelData.action
+				readonly property string section: window.sectionAt(index)
 
 				width: ListView.view.width
-				height: window.rowHeight
-				radius: Theme.roundingElement
-				color: "transparent"
+				height: row.height + (section ? window.sectionHeight : 0)
 
-				SelectionHighlight {
-					selected: row.selected
-				}
+				Item {
+					visible: entry.section !== ""
+					width: parent.width
+					height: window.sectionHeight
 
-				RowLayout {
-					anchors.fill: parent
-					anchors.leftMargin: 12
-					anchors.rightMargin: 12
-					spacing: 12
-
-					Item {
-						Layout.preferredWidth: Theme.rowIcon
-						Layout.preferredHeight: Theme.rowIcon
-
-						IconImage {
-							readonly property string iconName: row.modelData.entry?.icon ?? row.modelData.icon ?? ""
-							visible: window.lineIconOf(row.modelData) === ""
-							anchors.fill: parent
-							implicitSize: Theme.rowIcon
-							// One the shell brings (icons/, the web apps'), or the theme's.
-							source: iconName.startsWith("icons/") ? "file://" + Quickshell.shellDir + "/" + iconName
-								: iconName ? Quickshell.iconPath(iconName, true) : ""
-							asynchronous: true
-						}
-
-						LineIcon {
-							anchors.centerIn: parent
-							name: window.lineIconOf(row.modelData)
-							size: 22
-							color: row.modelData.kind === "calc" ? Theme.accentGreen
-								: row.warn ? Theme.warning
-								: row.selected ? Theme.accentBlue : Theme.textDim
-						}
+					Rectangle {
+						visible: entry.index > 0
+						anchors.left: parent.left
+						anchors.right: parent.right
+						anchors.top: parent.top
+						anchors.margins: 12
+						anchors.topMargin: 6
+						height: 1
+						color: Theme.tileBorder
 					}
 
 					StyledText {
-						Layout.maximumWidth: row.width * 0.55
-						font.bold: row.modelData.kind === "calc"
-						color: row.modelData.kind === "calc" ? Theme.accentGreen : Theme.textMain
-						elide: Text.ElideRight
-						text: row.modelData.kind === "calc" ? "= " + row.modelData.label : (row.modelData.label || "")
-					}
-
-					StyledText {
-						Layout.fillWidth: true
-						font.pixelSize: Theme.fontSizeSmall
-						color: row.warn ? Theme.warning : Theme.textDim
-						elide: Text.ElideRight
-						text: row.subtitle
-					}
-
-					// The bind that does the same, as key caps.
-					KeyCaps {
-						chord: row.chord
-						highlighted: row.selected
+						anchors.left: parent.left
+						anchors.bottom: parent.bottom
+						anchors.leftMargin: 12
+						anchors.bottomMargin: 4
+						text: entry.section.toUpperCase()
+						font.pixelSize: Theme.fontSizeTiny
+						font.bold: true
+						font.letterSpacing: 1
+						color: Theme.textMuted
 					}
 				}
 
-				HoverSelect {
-					enabled: !list.moving
-					onSelected: window.currentIndex = row.index
-				}
+				Rectangle {
+					id: row
+					readonly property var modelData: entry.modelData
+					readonly property int index: entry.index
+					readonly property bool selected: index === window.currentIndex
+					readonly property string chord: window.chordOf(modelData)
+					readonly property string subtitle: window.subtitleOf(modelData)
+					readonly property bool warn: modelData.kind === "power" && window.pendingPower === modelData.action
 
-				MouseArea {
-					anchors.fill: parent
-					onClicked: {
-						window.currentIndex = row.index;
-						window.activate();
+					y: entry.height - height
+					width: parent.width
+					height: window.rowHeight
+					radius: Theme.roundingElement
+					color: "transparent"
+
+					SelectionHighlight {
+						selected: row.selected
+					}
+
+					RowLayout {
+						anchors.fill: parent
+						anchors.leftMargin: 12
+						anchors.rightMargin: 12
+						spacing: 12
+
+						Item {
+							Layout.preferredWidth: Theme.rowIcon
+							Layout.preferredHeight: Theme.rowIcon
+
+							IconImage {
+								readonly property string iconName: row.modelData.entry?.icon ?? row.modelData.icon ?? ""
+								visible: window.lineIconOf(row.modelData) === ""
+								anchors.fill: parent
+								implicitSize: Theme.rowIcon
+								// One the shell brings (icons/, the web apps'), or the theme's.
+								source: iconName.startsWith("icons/") ? "file://" + Quickshell.shellDir + "/" + iconName
+									: iconName ? Quickshell.iconPath(iconName, true) : ""
+								asynchronous: true
+							}
+
+							LineIcon {
+								anchors.centerIn: parent
+								name: window.lineIconOf(row.modelData)
+								size: 22
+								color: row.modelData.kind === "calc" ? Theme.accentGreen
+									: row.warn ? Theme.warning
+									: row.selected ? Theme.accentBlue : Theme.textDim
+							}
+						}
+
+						StyledText {
+							Layout.maximumWidth: row.width * 0.55
+							readonly property string mnemonic: row.modelData.kind === "key" ? window.mnemonicOf(row.modelData) : ""
+							font.bold: row.modelData.kind === "calc"
+							color: row.modelData.kind === "calc" ? Theme.accentGreen : Theme.textMain
+							elide: Text.ElideRight
+							textFormat: mnemonic ? Text.StyledText : Text.PlainText
+							text: mnemonic || (row.modelData.kind === "calc" ? "= " + row.modelData.label : (row.modelData.label || ""))
+						}
+
+						StyledText {
+							Layout.fillWidth: true
+							font.pixelSize: Theme.fontSizeSmall
+							color: row.warn ? Theme.warning : Theme.textDim
+							elide: Text.ElideRight
+							text: row.subtitle
+						}
+
+						// The bind that does the same, as key caps.
+						KeyCaps {
+							chord: row.chord
+							highlighted: row.selected
+						}
+					}
+
+					HoverSelect {
+						enabled: !list.moving
+						onSelected: window.currentIndex = row.index
+					}
+
+					MouseArea {
+						anchors.fill: parent
+						onClicked: {
+							window.currentIndex = row.index;
+							window.activate();
+						}
 					}
 				}
 			}
