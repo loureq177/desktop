@@ -183,6 +183,8 @@ Item {
 			subtitle: root.subtitle
 			enabledState: root.radioOn
 			isScanning: root.scanning
+			scanKey: "R"
+			toggleKey: String.fromCharCode(root.radioKey)
 			onBackClicked: root.backRequested()
 			onScanClicked: root.scanRequested()
 			onToggleClicked: root.radioToggled()

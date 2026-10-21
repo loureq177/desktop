@@ -12,6 +12,9 @@ RowLayout {
 	property bool isScanning: false
 	property bool showPowerSwitch: true
 	property bool showScan: true
+	// The keys that scan and flip the switch, shown beside them.
+	property string scanKey: ""
+	property string toggleKey: ""
 
 	signal backClicked()
 	signal scanClicked()
@@ -67,6 +70,11 @@ RowLayout {
 		Layout.fillWidth: true
 	}
 
+	HotkeyHint {
+		key: root.showScan && root.enabledState ? root.scanKey : ""
+		lit: scanArea.containsMouse
+	}
+
 	Rectangle {
 		Layout.preferredWidth: 32
 		Layout.preferredHeight: 32
@@ -99,6 +107,10 @@ RowLayout {
 			cursorShape: Qt.PointingHandCursor
 			onClicked: root.scanClicked()
 		}
+	}
+
+	HotkeyHint {
+		key: root.showPowerSwitch ? root.toggleKey : ""
 	}
 
 	Rectangle {
