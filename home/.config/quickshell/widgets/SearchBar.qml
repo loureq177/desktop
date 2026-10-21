@@ -14,6 +14,8 @@ Rectangle {
 	property bool leftRightNavigate: false
 	// The names of the other lists, to switch to.
 	property var scopes: []
+	// Buttons of the window, between the field and the scopes (Clear all).
+	property alias trailing: trailingRow.data
 
 	signal accepted()
 	signal cancelled()
@@ -139,6 +141,13 @@ Rectangle {
 				elide: Text.ElideRight
 				visible: input.text === ""
 			}
+		}
+
+		// Before the scopes, so they stay where they are in every window.
+		Row {
+			id: trailingRow
+			spacing: 6
+			Layout.alignment: Qt.AlignVCenter
 		}
 
 		// The other lists, while the field is empty; a click goes there.

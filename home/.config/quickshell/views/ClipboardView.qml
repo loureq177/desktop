@@ -21,7 +21,20 @@ CenterModal {
 	onSearchAccepted: win.activate()
 	onSearchStepped: delta => win.move(delta)
 
+	// The first click arms it, the second wipes the history.
+	searchTrailing: TextButton {
+		visible: win.entries.length > 0
+		icon: win.wipeArmed ? "triangle-alert" : "list-x"
+		text: win.wipeArmed ? "Click again" : "Clear all"
+		danger: win.wipeArmed
+		onClicked: {
+			win.wipe();
+			win.searchBar.focusInput();
+		}
+	}
+
 	property string query: ""
+	property bool wipeArmed: false
 	property var entries: []
 	property string decodedText: ""
 	property string textReqId: ""
@@ -73,6 +86,37 @@ CenterModal {
 		paste(filtered[currentIndex]);
 	}
 
+	// Drops one entry, its thumbnail with it; the row the keyboard is on stays.
+	function remove(entry) {
+		if (!entry)
+			return;
+		Quickshell.execDetached(["sh", "-c", 'printf "%s\\n" "$1" | cliphist delete; rm -f "$2"', "sh",
+			String(entry.id), win.runDir + "/clipboard-thumbs/" + entry.id]);
+		var keep = currentIndex;
+		entries = entries.filter(e => e.id !== entry.id);
+		refilter();
+		currentIndex = Math.max(0, Math.min(keep, filtered.length - 1));
+	}
+
+	function wipe() {
+		if (!wipeArmed) {
+			wipeArmed = true;
+			wipeTimer.restart();
+			return;
+		}
+		wipeTimer.stop();
+		wipeArmed = false;
+		Quickshell.execDetached(["sh", "-c", 'cliphist wipe; rm -rf "$1"', "sh", win.runDir + "/clipboard-thumbs"]);
+		entries = [];
+		refilter();
+	}
+
+	Timer {
+		id: wipeTimer
+		interval: 3000
+		onTriggered: win.wipeArmed = false
+	}
+
 	onOpened: {
 		win.listFailed = false;
 		listLoader.running = true;
@@ -81,6 +125,8 @@ CenterModal {
 	onShownChanged: {
 		if (shown)
 			return;
+		wipeTimer.stop();
+		win.wipeArmed = false;
 		decodeProc.running = false;
 		Quickshell.execDetached(["rm", "-f", win.runDir + "/clipboard-preview"]);
 		win.decodedText = "";
@@ -236,43 +282,87 @@ CenterModal {
 					}
 				}
 
+				// Above the row's click: the icon has a click of its own.
 				RowLayout {
 					anchors.fill: parent
 					anchors.leftMargin: 12
 					anchors.rightMargin: 12
 					spacing: 12
+					z: 1
 
-					Rectangle {
-						visible: row.isImage
-						Layout.preferredWidth: 48
+					// The thumbnail or the text icon; hovered, it turns into the X
+					// that deletes the entry.
+					Item {
+						id: iconSlot
+						readonly property bool armed: deleteArea.containsMouse
+						Layout.preferredWidth: row.isImage ? 48 : Theme.rowIcon
 						Layout.preferredHeight: Theme.rowIcon
 						Layout.alignment: Qt.AlignVCenter
-						radius: Theme.roundingSubtle
-						color: Theme.bgHover
-						clip: true
 
-						Image {
-							id: thumbImg
+						Rectangle {
+							visible: row.isImage
 							anchors.fill: parent
-							visible: row.thumbReady
-							source: row.thumbReady ? "file://" + row.thumbPath : ""
-							fillMode: Image.PreserveAspectCrop
-							asynchronous: true
-							sourceSize.width: 120
-							sourceSize.height: 80
-						}
-					}
+							radius: Theme.roundingSubtle
+							color: Theme.bgHover
+							clip: true
+							opacity: iconSlot.armed ? 0.35 : 1
 
-					Item {
-						visible: !row.isImage
-						Layout.preferredWidth: Theme.rowIcon
-						Layout.preferredHeight: Theme.rowIcon
+							Behavior on opacity { NumberAnimation { duration: Theme.animFast } }
+
+							Image {
+								id: thumbImg
+								anchors.fill: parent
+								visible: row.thumbReady
+								source: row.thumbReady ? "file://" + row.thumbPath : ""
+								fillMode: Image.PreserveAspectCrop
+								asynchronous: true
+								sourceSize.width: 120
+								sourceSize.height: 80
+							}
+						}
 
 						LineIcon {
+							visible: !row.isImage
 							anchors.centerIn: parent
 							name: "text"
 							size: 20
 							color: row.index === win.currentIndex ? Theme.accentBlue : Theme.textDim
+							opacity: iconSlot.armed ? 0 : 1
+							scale: iconSlot.armed ? 0.5 : 1
+							rotation: iconSlot.armed ? -90 : 0
+
+							Behavior on opacity { NumberAnimation { duration: Theme.animFast } }
+							Behavior on scale { NumberAnimation { duration: Theme.animFast; easing.type: Easing.OutCubic } }
+							Behavior on rotation { NumberAnimation { duration: Theme.animFast; easing.type: Easing.OutCubic } }
+						}
+
+						Rectangle {
+							anchors.fill: parent
+							radius: Theme.roundingSubtle
+							color: Theme.alpha(Theme.critical, 0.16)
+							opacity: iconSlot.armed ? 1 : 0
+
+							Behavior on opacity { NumberAnimation { duration: Theme.animFast } }
+
+							LineIcon {
+								anchors.centerIn: parent
+								name: "x"
+								size: 18
+								color: Theme.critical
+								scale: iconSlot.armed ? 1 : 0.5
+								rotation: iconSlot.armed ? 0 : 90
+
+								Behavior on scale { NumberAnimation { duration: Theme.animFast; easing.type: Easing.OutCubic } }
+								Behavior on rotation { NumberAnimation { duration: Theme.animFast; easing.type: Easing.OutCubic } }
+							}
+						}
+
+						MouseArea {
+							id: deleteArea
+							anchors.fill: parent
+							hoverEnabled: true
+							cursorShape: Qt.PointingHandCursor
+							onClicked: win.remove(row.modelData)
 						}
 					}
 
