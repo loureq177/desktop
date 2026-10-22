@@ -150,18 +150,27 @@ records() { awk -F'\t' -v kind="$1" '$1 == kind { sub(/^[^\t]*\t/, ""); print }'
 
 @test "special workspace binds are named after the shell's titles" {
     mock_run
-    local specials="$REPO/archlinux/.config/quickshell/Specials.js" desc bad=0
-    while IFS= read -r desc; do
-        grep -qF "title: \"${desc#Show }\"" "$specials" || { echo "bind '$desc' has no Specials.js entry titled '${desc#Show }'" >&2; bad=1; }
-    done < <(records BIND | cut -f2 | grep '^Show ')
+    local specials="$REPO/archlinux/.config/quickshell/Specials.js" title bad=0 count=0
+    while IFS= read -r title; do
+        count=$((count + 1))
+        grep -qF "title: \"$title\"" "$specials" || { echo "bind '$title' has no Specials.js entry titled so" >&2; bad=1; }
+    done < <(records BIND | cut -f2 | sed -n 's/^Special Workspaces: //p')
+    [[ "$count" -ge 5 ]] || fail "expected special workspace binds, found $count"
     [[ "$bad" -eq 0 ]]
+}
+
+@test "every described bind names its section, for the launcher's keys list" {
+    mock_run
+    local bad
+    bad="$(records BIND | cut -f2 | grep -v '^$' | grep -vE '^[A-Z][A-Za-z &]+: [^ ]' || true)"
+    [[ -z "$bad" ]] || fail "binds without a 'Section: ' description: $bad"
 }
 
 @test "binds the shell looks up by description exist" {
     mock_run
     local qs="$REPO/archlinux/.config/quickshell" desc bad=0
     while IFS= read -r desc; do
-        records BIND | cut -f2 | grep -qxF "$desc" || { echo "the shell names bind '$desc', which hyprland.lua does not have" >&2; bad=1; }
+        records BIND | cut -f2 | sed 's/^[^:]*: //' | grep -qxF "$desc" || { echo "the shell names bind '$desc', which hyprland.lua does not have" >&2; bad=1; }
     done < <(grep -rhoE 'Keybinds\.chord\("[^"]+"\)|bind: "[^"]+"' "$qs" --include='*.qml' | sed -E 's/[^"]*"([^"]+)".*/\1/' | sort -u)
     [[ "$bad" -eq 0 ]]
 }

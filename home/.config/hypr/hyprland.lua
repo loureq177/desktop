@@ -451,12 +451,6 @@ hl.layer_rule({
 	no_anim = true,
 })
 hl.layer_rule({
-	-- the dim under the launcher and clipboard fades on its own
-	name = "no-anim-shell-dim",
-	match = { namespace = "^quickshell-dim$" },
-	no_anim = true,
-})
-hl.layer_rule({
 	name = "blur-shell-panels",
 	match = { namespace = "^quickshell$" },
 	blur = true,
@@ -545,22 +539,24 @@ hl.window_rule({
 	opacity = "1.0 0.97",
 })
 
+-- The launcher's keys list shows the binds in the order they are made here,
+-- each under the section its description starts with ("Windows: Close
+-- window"); binds with the same description and modifiers share one line.
+local section = ""
 local function b(keys, desc, dispatcher, opts)
 	opts = opts or {}
-	opts.description = desc
+	opts.description = section .. ": " .. desc
 	if opts.repeating == nil then
 		opts.repeating = false
 	end
 	hl.bind(keys, dispatcher, opts)
 end
 
-b("SUPER + Q", "Close window", hl.dsp.window.close())
-b("SUPER + F", "Toggle fullscreen", hl.dsp.window.fullscreen())
-b("SUPER + T", "Toggle window split", hl.dsp.layout("togglesplit"))
-b("SUPER + M", "Toggle floating", hl.dsp.window.float({ action = "toggle" }))
-b("SUPER + TAB", "Focus previous window", hl.dsp.focus({ last = true }))
+local function cmd(keys, desc, command)
+	b(keys, desc, hl.dsp.exec_cmd(command))
+end
 
-local directions = { H = "left", L = "right", K = "up", J = "down" }
+local directions = { { "H", "left" }, { "J", "down" }, { "K", "up" }, { "L", "right" } }
 local step = 25
 
 -- Whether `w` lies to the `dir` side of `from`: focus in a direction wraps
@@ -668,21 +664,33 @@ local function swap_or_throw(dir)
 	pcall(hl.dispatch, hl.dsp.window.move({ workspace = target, window = win }))
 end
 
-for key, dir in pairs(directions) do
+section = "Essential"
+cmd("SUPER + B", "Browser", programs.browser)
+cmd("SUPER + RETURN", "Terminal", programs.terminal)
+cmd("SUPER + space", "Launcher", programs.launcher)
+
+section = "Windows"
+for _, d in ipairs(directions) do
+	local key, dir = d[1], d[2]
 	if dir == "left" or dir == "right" then
-		b("SUPER + " .. key, "Focus " .. dir, function()
+		b("SUPER + " .. key, "Focus window", function()
 			focus_or_step(dir)
 		end)
 	else
-		b("SUPER + " .. key, "Focus " .. dir, hl.dsp.focus({ direction = dir }))
+		b("SUPER + " .. key, "Focus window", hl.dsp.focus({ direction = dir }))
 	end
-	b("SUPER + SHIFT + " .. key, "Swap window " .. dir, function()
+end
+for _, d in ipairs(directions) do
+	local dir = d[2]
+	b("SUPER + SHIFT + " .. d[1], "Move window", function()
 		swap_or_throw(dir)
 	end)
-
+end
+for _, d in ipairs(directions) do
+	local dir = d[2]
 	b(
-		"SUPER + CTRL + " .. key,
-		"Resize window " .. dir,
+		"SUPER + CTRL + " .. d[1],
+		"Resize window",
 		hl.dsp.window.resize({
 			x = (dir == "left" and -step) or (dir == "right" and step) or 0,
 			y = (dir == "up" and -step) or (dir == "down" and step) or 0,
@@ -691,51 +699,63 @@ for key, dir in pairs(directions) do
 		{ repeating = true }
 	)
 end
-
+b("SUPER + TAB", "Focus previous window", hl.dsp.focus({ last = true }))
 for i = 1, 9 do
-	b("SUPER + " .. i, "Switch to workspace " .. i, hl.dsp.focus({ workspace = i }))
-	b(
-		"SUPER + SHIFT + " .. i,
-		"Move window to workspace " .. i,
-		hl.dsp.window.move({ workspace = i })
-	)
+	b("SUPER + " .. i, "Switch to workspace", hl.dsp.focus({ workspace = i }))
 end
-
-local cmds = {
-
-	["SUPER + RETURN"] = { programs.terminal, "Terminal" },
-	["SUPER + B"] = { programs.browser, "Browser" },
-
-	["SUPER + space"] = { programs.launcher, "Launcher" },
-	["SUPER + A"] = { "qs ipc call shell toggle actions ''", "Actions" },
-	["SUPER + N"] = { "qs ipc call shell toggle notifications ''", "Toggle notification center" },
-	["SUPER + comma"] = { "qs ipc call notifications dismissLatest", "Close latest notification" },
-	["SUPER + W"] = { "qs ipc call shell toggle weather ''", "Weather" },
-	["SUPER + E"] = { "qs ipc call shell toggle launcher emoji", "Emojis" },
-	["SUPER + V"] = { "qs ipc call shell toggle clipboard ''", "Clipboard history" },
-	["SUPER + escape"] = { "qs ipc call session lock", "Lock system" },
-	["SUPER + slash"] = { "qs ipc call shell toggle launcher keys", "Keybindings" },
-
-	["SUPER + D"] = { "~/.local/bin/dictation", "Dictation" },
-	["SUPER + P"] = { "~/.local/bin/wallpaper next", "Next wallpaper" },
-	["print"] = { "~/.local/bin/screenshot region", "Screenshot" },
-	["SHIFT + print"] = { "~/.local/bin/screenshot fullscreen", "Screenshot of the screen" },
-}
-
-for bind, entry in pairs(cmds) do
-	b(bind, entry[2], hl.dsp.exec_cmd(entry[1]))
+for i = 1, 9 do
+	b("SUPER + SHIFT + " .. i, "Move window to workspace", hl.dsp.window.move({ workspace = i }))
 end
+b("SUPER + Q", "Close window", hl.dsp.window.close())
+b("SUPER + F", "Toggle fullscreen", hl.dsp.window.fullscreen())
+b("SUPER + T", "Toggle window split", hl.dsp.layout("togglesplit"))
+b("SUPER + M", "Toggle floating", hl.dsp.window.float({ action = "toggle" }))
 
+-- Named after the shell's titles of them (quickshell/Specials.js), in the
+-- order of their keys.
+section = "Special Workspaces"
+local specials = {}
 for name, app in pairs(programs.special) do
 	if app.key then
-		-- "Show ...": the launcher's keys file these under special workspaces.
-		b("SUPER + SHIFT + " .. app.key, "Show " .. app.desc, hl.dsp.workspace.toggle_special(name))
+		table.insert(specials, { name = name, app = app })
 	end
 end
+table.sort(specials, function(x, y)
+	return x.app.key < y.app.key
+end)
+for _, sp in ipairs(specials) do
+	b("SUPER + SHIFT + " .. sp.app.key, sp.app.desc, hl.dsp.workspace.toggle_special(sp.name))
+end
+
+section = "System & Tools"
+cmd("SUPER + A", "Actions", "qs ipc call shell toggle actions ''")
+cmd("SUPER + W", "Weather", "qs ipc call shell toggle weather ''")
+cmd("SUPER + E", "Emojis", "qs ipc call shell toggle launcher emoji")
+cmd("SUPER + V", "Clipboard history", "qs ipc call shell toggle launcher clipboard")
+cmd("SUPER + slash", "Keybindings", "qs ipc call shell toggle launcher keys")
+cmd("SUPER + P", "Next wallpaper", "~/.local/bin/wallpaper next")
+
+section = "Session"
+cmd("SUPER + escape", "Lock system", "qs ipc call session lock")
+
+section = "Capture"
+cmd("print", "Screenshot", "~/.local/bin/screenshot region")
+cmd("SHIFT + print", "Screenshot of the screen", "~/.local/bin/screenshot fullscreen")
+cmd("SUPER + D", "Dictation", "~/.local/bin/dictation")
+
+section = "Notifications"
+cmd("SUPER + N", "Toggle notification center", "qs ipc call shell toggle notifications ''")
+cmd("SUPER + comma", "Close latest notification", "qs ipc call notifications dismissLatest")
+
+section = "Mouse"
+-- No resize drag: resize_on_border already does it from any edge.
+hl.bind("SUPER + mouse:272", hl.dsp.window.drag(), { mouse = true, description = section .. ": Move window" })
+b("SUPER + mouse:274", "Toggle floating", hl.dsp.window.float({ action = "toggle" }))
 
 -- The shell shows the new level on its own (Osd.qml follows PipeWire).
-local function audio(cmd)
-	return cmd .. " && canberra-gtk-play -i audio-volume-change"
+section = "Media"
+local function audio(command)
+	return command .. " && canberra-gtk-play -i audio-volume-change"
 end
 
 local media = {
@@ -769,11 +789,3 @@ local media = {
 for _, m in ipairs(media) do
 	b(m[1], m[4], hl.dsp.exec_cmd(m[2]), { locked = true, repeating = m[3] })
 end
-
-local function mouse_binds(mod)
-	b(mod .. "mouse:274", "Toggle floating", hl.dsp.window.float({ action = "toggle" }))
-	-- No resize drag: resize_on_border already does it from any edge.
-	hl.bind(mod .. "mouse:272", hl.dsp.window.drag(), { mouse = true, description = "Move window" })
-end
-
-mouse_binds("SUPER + ")
