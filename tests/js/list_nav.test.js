@@ -1,4 +1,4 @@
-// widgets/ListNav.js: vim-style list navigation shared by the lists of Actions.
+// widgets/ListNav.js: vim-style list navigation shared by the shell's lists.
 // The file is a QML library (".pragma library", global Qt), so it is loaded
 // into a sandbox that provides the few Qt constants it uses.
 
@@ -15,6 +15,7 @@ const source = fs
 const sandbox = vm.createContext({ Qt });
 vm.runInContext(source, sandbox);
 const step = sandbox.step;
+const wrap = sandbox.wrap;
 
 const press = (key, modifiers = 0) => ({ key, modifiers });
 
@@ -49,4 +50,13 @@ test("an empty list never yields a negative or out-of-range row", () => {
 
 test("other keys are reported as not handled", () => {
   assert.equal(step(press(Qt.Key_X), 5, 2), -1);
+});
+
+test("wrap goes round at the ends and stops short of them elsewhere", () => {
+  assert.equal(wrap(0, -1, 5), 4);
+  assert.equal(wrap(4, 1, 5), 0);
+  assert.equal(wrap(2, 1, 5), 3);
+  assert.equal(wrap(3, 4, 5), 4);
+  assert.equal(wrap(1, -4, 5), 0);
+  assert.equal(wrap(0, 1, 0), 0);
 });

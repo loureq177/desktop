@@ -4,14 +4,13 @@ import Quickshell
 import Quickshell.Wayland
 import QtQuick
 
-// The newest notifications, under the right end of the bar. The drawers that
-// open in the same spot hide them.
+// The newest notifications, under the right end of the bar, while no panel
+// is open (Notifications drops them when one opens).
 PanelWindow {
 	id: win
 
-	readonly property bool drawerOpen: Panels.active === "notifications" || Panels.active === "actions" || Panels.active === "weather"
-	readonly property bool shown: Notifications.toasts.count > 0 && !drawerOpen
-	readonly property int offscreen: Theme.notifWidth + Theme.notifRightMargin
+	readonly property bool shown: Notifications.toasts.count > 0 && Panels.active === ""
+	readonly property int offscreen: Theme.drawerWidth + Theme.panelMargin
 	property int slide: offscreen
 	// A reply field has the keyboard.
 	property bool replying: false
@@ -57,8 +56,8 @@ PanelWindow {
 		slideOut.stop();
 		if (shown)
 			slideIn.start();
-		else if (drawerOpen)
-			// A drawer slides into the same spot: leave at once.
+		else if (Panels.active !== "")
+			// A panel opens, maybe a drawer into the same spot: leave at once.
 			win.slide = win.offscreen;
 		else
 			slideOut.start();
@@ -85,9 +84,9 @@ PanelWindow {
 
 	ListView {
 		id: stack
-		x: win.width - width - Theme.notifRightMargin + win.slide
-		y: Theme.notifTopMargin
-		width: Theme.notifWidth
+		x: win.width - width - Theme.panelMargin + win.slide
+		y: Theme.panelTop
+		width: Theme.drawerWidth
 		height: contentHeight
 		interactive: false
 		spacing: 8

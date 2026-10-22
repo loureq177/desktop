@@ -15,32 +15,22 @@ PanelWindow {
 
 	readonly property string icon: kind === "brightness" ? "sun"
 		: kind === "mic" ? (muted ? "mic-off" : "mic")
-		: (muted ? "volume-x" : value <= 1 ? "volume" : value <= 50 ? "volume-1" : "volume-2")
+		: SystemStatus.volumeIcon(value, muted)
 
 	// Actions has sliders for both, which show the change already.
 	function show(newKind, newValue, newMuted) {
 		if ((newKind === "volume" || newKind === "brightness") && Panels.active === "actions")
 			return;
-		// Read before the stop: a fade-out caught halfway leaves the card dim.
-		var fading = fadeOut.running;
-		fadeOut.stop();
-		if (!shown) {
-			card.opacity = 0;
-			shown = true;
-			fadeIn.start();
-		} else if (fading) {
-			fadeIn.start();
-		}
-		if (kind !== newKind)
-			kind = newKind;
-		if (newValue !== undefined && newValue !== null)
+		kind = newKind;
+		if (newValue !== undefined)
 			value = newValue;
-		if (newMuted !== undefined && newMuted !== null)
+		if (newMuted !== undefined)
 			muted = newMuted;
+		shown = true;
 		hideTimer.restart();
 	}
 
-	visible: shown || fadeOut.running
+	visible: shown || card.opacity > 0
 	color: "transparent"
 	exclusiveZone: 0
 
@@ -54,41 +44,14 @@ PanelWindow {
 		left: true
 		right: true
 	}
-	margins.top: Theme.notifTopMargin
+	margins.top: Theme.panelTop
 
 	implicitHeight: 84
 
 	Timer {
 		id: hideTimer
 		interval: 1500
-		onTriggered: fadeOut.start()
-	}
-
-	NumberAnimation {
-		id: fadeIn
-
-		target: card
-		property: "opacity"
-		to: 1
-		duration: Theme.animFast
-	}
-
-	SequentialAnimation {
-		id: fadeOut
-
-		NumberAnimation {
-			target: card
-			property: "opacity"
-			to: 0
-			duration: Theme.animFast
-		}
-
-		ScriptAction {
-			script: {
-				win.shown = false;
-				card.opacity = 1;
-			}
-		}
+		onTriggered: win.shown = false
 	}
 
 	Rectangle {
@@ -96,6 +59,11 @@ PanelWindow {
 		anchors.centerIn: parent
 		width: 380
 		implicitHeight: 68
+		opacity: win.shown ? 1 : 0
+
+		Behavior on opacity {
+			NumberAnimation { duration: Theme.animFast }
+		}
 		color: Theme.glass(Theme.bgCard)
 		border.color: Theme.border
 		border.width: Theme.borderSize
@@ -171,9 +139,8 @@ PanelWindow {
 	}
 
 	function showVolume(): void {
-		var sink = SystemStatus.sink;
-		if (sink.ready)
-			win.show("volume", Math.round(sink.audio.volume * 100), sink.audio.muted);
+		if (SystemStatus.volumeReady)
+			win.show("volume", SystemStatus.volume, SystemStatus.muted);
 	}
 
 	// The brightness keys and power-save report the level they set.

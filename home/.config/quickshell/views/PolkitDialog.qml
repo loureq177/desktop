@@ -4,7 +4,7 @@ import Quickshell.Services.Polkit
 import QtQuick
 import QtQuick.Layouts
 
-OverlayWindow {
+ModalWindow {
 	id: root
 
 	property string currentMessage: ""
@@ -27,11 +27,12 @@ OverlayWindow {
 	property bool cancelled: false
 
 	shown: agent.isActive && !cancelled
-	card: dialogCard
 	dismissOnClick: false
 
 	onDismissRequested: cancelRequest()
-	onFullyClosed: {
+	onVisibleChanged: {
+		if (visible)
+			return;
 		currentMessage = "";
 		displayCommand = "";
 		responseRequired = false;
@@ -206,9 +207,8 @@ OverlayWindow {
 	}
 
 	Rectangle {
-		id: dialogCard
-
 		anchors.centerIn: parent
+		scale: 0.96 + 0.04 * root.progress
 		width: Math.min(460, root.width - 40)
 		implicitHeight: cardLayout.implicitHeight + 48
 		color: Theme.glass(Theme.bgCard)

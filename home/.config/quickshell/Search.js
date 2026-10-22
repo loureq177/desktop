@@ -58,10 +58,10 @@ function appScore(entry, q) {
 	], q);
 }
 
-// A special workspace or an action, on appScore's scale: its name, then its
+// A special workspace or a command, on appScore's scale: its name, then its
 // description and its keywords.
 function itemScore(item, q) {
-	return matchScore([[item.label, 0], [item.desc, 3], [item.keywords, 6]], q);
+	return matchScore([[item.label, 0], [item.subtitle, 3], [item.keywords, 6]], q);
 }
 
 // The commands (compgen -c) for what was typed after ">": all of them for

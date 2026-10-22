@@ -1,7 +1,7 @@
 .pragma library
 
 // The special workspaces of programs.special in hyprland.lua, as the shell
-// shows them: `title` is the app's desc there (its bind reads "Show <title>"),
+// shows them: `title` is the app's desc there (and its bind's description),
 // `app` the program's own name, which the launcher lists with the title (or
 // `desc`, when they are the same) under it, `icon` the bar's line icon and
 // `appIcon` the launcher's icon: the shell's own (icons/, the web apps'), or
@@ -19,22 +19,10 @@ var list = [
 ];
 
 function find(name) {
-	for (var i = 0; i < list.length; i++) {
-		if (list[i].name === name)
-			return list[i];
-	}
-	return null;
+	return list.find(s => s.name === name) ?? null;
 }
 
 // The special workspace that stands for desktop entry `id`, or null.
 function byDesktopEntry(id) {
-	for (var i = 0; i < list.length; i++) {
-		if (list[i].desktop && list[i].desktop === id)
-			return list[i];
-	}
-	return null;
-}
-
-function bindName(special) {
-	return "Show " + special.title;
+	return list.find(s => s.desktop !== undefined && s.desktop === id) ?? null;
 }

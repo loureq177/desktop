@@ -1,58 +1,38 @@
 import "../.."
 import "../../widgets"
-import "../../widgets/ListNav.js" as ListNav
-import "."
 import QtQuick
 import QtQuick.Layouts
 
-// The Capture page of Actions: the capture actions of Actions.qml, the
-// same the launcher finds by name.
-Item {
+// The Capture page of Actions: the capture commands, the same the launcher
+// finds by name.
+FocusScope {
 	id: root
-
-	readonly property var actions: Actions.captureActions
 
 	signal backRequested()
 
-	property int currentIndex: 0
-	focus: true
-
-	readonly property int preferredHeight: 60 + actions.length * 66
+	implicitHeight: 60 + Commands.captureCommands.length * 66
 
 	onVisibleChanged: {
-		if (visible) {
-			currentIndex = 0;
-			root.forceActiveFocus();
-		}
-	}
-
-	function activate(index) {
-		actions[index]?.run();
+		if (visible)
+			list.currentIndex = 0;
 	}
 
 	Keys.onPressed: event => {
-		var next = ListNav.step(event, root.actions.length, root.currentIndex);
-		if (next !== -1) {
-			root.currentIndex = next;
-			event.accepted = true;
-		} else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Space) {
-			if (!event.isAutoRepeat)
-				root.activate(root.currentIndex);
-			event.accepted = true;
-		} else if (event.key === Qt.Key_Escape || event.key === Qt.Key_H || event.key === Qt.Key_Q || event.key === Qt.Key_Back || event.key === Qt.Key_Backspace) {
+		var key = event.key;
+		if (key === Qt.Key_Escape || key === Qt.Key_H || key === Qt.Key_Q || key === Qt.Key_Back || key === Qt.Key_Backspace) {
 			root.backRequested();
 			event.accepted = true;
 		}
 	}
 
 	ColumnLayout {
+		id: column
 		anchors.fill: parent
 		spacing: 12
 
 		SubViewHeader {
 			Layout.fillWidth: true
 			title: "Capture"
-			subtitle: ""
 			enabledState: true
 			showPowerSwitch: false
 			showScan: false
@@ -65,66 +45,39 @@ Item {
 			color: Theme.border
 		}
 
-		ListView {
-			id: actionList
+		SelectList {
+			id: list
+			focus: true
 			Layout.fillWidth: true
 			Layout.fillHeight: true
-			clip: true
 			spacing: 6
-			model: root.actions
-			currentIndex: root.currentIndex
-
-			WheelScroll {
-				flickable: actionList
+			model: Commands.captureCommands
+			onActivated: index => Commands.captureCommands[index].run()
+			Keys.onSpacePressed: event => {
+				event.isAutoRepeat || activate();
 			}
 
-			delegate: Rectangle {
-				id: actionRow
-				required property var modelData
-				required property int index
+			delegate: ListRow {
+				id: row
 
-				width: ListView.view.width
-				implicitHeight: actionCol.implicitHeight + 20
-				radius: Theme.roundingElement
+				required property var modelData
+
+				height: content.implicitHeight + 20
 				color: modelData.alert ? Theme.alpha(Theme.critical, 0.18) : Theme.glass(Theme.bgMain)
 				border.color: modelData.alert ? Theme.critical : Theme.tileBorder
 				border.width: 1
 
-				Behavior on color { ColorAnimation { duration: Theme.animFast } }
-				Behavior on border.color { ColorAnimation { duration: Theme.animFast } }
-
-				SelectionHighlight {
-					selected: actionRow.index === root.currentIndex
-				}
-
-				HoverSelect {
-					enabled: !actionList.moving
-					onSelected: root.currentIndex = actionRow.index
-				}
-
-				MouseArea {
-					anchors.fill: parent
-					cursorShape: Qt.PointingHandCursor
-					z: 1
-					onClicked: mouse => {
-						mouse.accepted = true;
-						root.currentIndex = actionRow.index;
-						root.activate(actionRow.index);
-					}
-				}
-
 				RowLayout {
-					id: actionCol
+					id: content
 					anchors.fill: parent
 					anchors.margins: 10
 					spacing: 12
-					z: 2
 
 					LineIcon {
-						name: actionRow.modelData.lineIcon
-						size: 22
-						color: actionRow.modelData.alert ? Theme.critical : (actionRow.modelData.tint ?? Theme.accentBlue)
 						Layout.preferredWidth: 32
+						name: row.modelData.icon
+						size: 22
+						color: row.modelData.alert ? Theme.critical : (row.modelData.tint ?? Theme.accentBlue)
 					}
 
 					ColumnLayout {
@@ -132,17 +85,17 @@ Item {
 						spacing: 2
 
 						StyledText {
-							text: actionRow.modelData.label
+							text: row.modelData.name
 							font.bold: true
 						}
 
 						StyledText {
-							text: actionRow.modelData.desc
+							Layout.fillWidth: true
+							text: row.modelData.desc
 							mono: true
 							font.pixelSize: Theme.fontSizeTiny
 							color: Theme.textDim
 							elide: Text.ElideRight
-							Layout.fillWidth: true
 						}
 					}
 				}

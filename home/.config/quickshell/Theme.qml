@@ -42,7 +42,7 @@ Singleton {
 	readonly property int roundingSubtle: 3
 	readonly property int paddingCard: 16
 	readonly property int paddingItem: 8
-	// The launcher, clipboard and other centred windows.
+	// The launcher.
 	readonly property int windowWidth: 960
 	readonly property int windowHeight: 600
 	// A row of their lists, and the icon at its start.
@@ -64,10 +64,12 @@ Singleton {
 	readonly property int barMarginX: 20
 	readonly property int barMarginY: 4
 
-	// Notification surfaces: top-right panel below the bar.
-	readonly property int notifWidth: 500
-	readonly property int notifTopMargin: 54
-	readonly property int notifRightMargin: ui.spacing.gaps_out
+	// The drawers, the toasts and the OSD: below the bar, the drawers and the
+	// toasts at its right end.
+	readonly property int drawerWidth: 500
+	readonly property int panelTop: 54
+	readonly property int panelMargin: ui.spacing.gaps_out
+	// Inside a notification card.
 	readonly property int notifPadV: 10
 	readonly property int notifPadH: 14
 

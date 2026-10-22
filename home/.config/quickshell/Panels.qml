@@ -4,45 +4,36 @@ import Quickshell.Hyprland
 import Quickshell.Io
 import QtQuick
 
-// The panel on screen, at most one: opening one closes the one before. Each
-// view shows itself while `active` names it (OverlayWindow.panel). Going
-// anywhere else puts it away: a click outside it (OverlayWindow), on another
-// module of the bar (Bar.leavePanels), or a key that changes the workspace,
-// the special workspace, the window or the monitor (below).
+// The panel on screen, at most one: opening one closes the one before. Going
+// anywhere else puts it away: a click outside it, on another module of the
+// bar (Bar.leavePanels), or a key that changes the workspace, the special
+// workspace, the window or the monitor (below).
 Singleton {
 	id: root
 
-	// "launcher", "clipboard", "weather", "actions",
-	// "notifications", or "" with nothing open.
+	// "launcher", "actions", "notifications", "weather", or "" with nothing open.
 	property string active: ""
-	// What it was opened on: the launcher's mode, the Actions page.
+	// What it was opened on: the launcher's list, the page of Actions.
 	property string mode: ""
 	// The last close skips the exit animation (see closeInstant).
 	property bool instant: false
-	// The panel a newly opened panel replaced: the centred windows swap in
-	// place when one replaces another.
-	property string previous: ""
 
 	// Where the panels, the OSD and the toasts show: the focused monitor.
 	readonly property var screen: Quickshell.screens.find(s => s.name === Hyprland.focusedMonitor?.name) ?? Quickshell.screens[0] ?? null
 
-	// The windows in the middle of the screen that share size, place and one
-	// dim (CenterModal, CenterBackdrop).
-	readonly property var centered: ["launcher", "clipboard"]
-
 	// Also emitted for the panel already open, when it is opened on a new mode.
 	signal opened(string name, string mode)
 
-	function open(name, newMode): void {
+	function open(name: string, newMode): void {
 		root.instant = false;
-		if (root.active !== name)
-			root.previous = root.active;
 		root.mode = newMode || "";
 		root.active = name;
 		root.opened(name, root.mode);
+		pointerRefresh.restart();
 	}
 
-	// Without a name, whatever is open.
+	// Without a name, whatever is open. The arguments that may be left out are
+	// untyped: a missing `string` argument arrives as "undefined".
 	function close(name): void {
 		if (!name || name === root.active)
 			root.active = "";
@@ -52,6 +43,23 @@ Singleton {
 	function closeInstant(): void {
 		root.instant = true;
 		root.active = "";
+	}
+
+	function toggle(name: string, newMode): void {
+		if (root.active === name && (!newMode || newMode === root.mode))
+			root.close();
+		else
+			root.open(name, newMode);
+	}
+
+	// A panel that takes the keyboard takes the pointer off the bar with it,
+	// and the next click would only bring it back: the click that should put
+	// the panel away again. Moving the cursor to where it already is hands the
+	// pointer back to whatever lies under it.
+	Timer {
+		id: pointerRefresh
+		interval: 100
+		onTriggered: Quickshell.execDetached(["sh", "-c", 'p=$(hyprctl cursorpos) && hyprctl dispatch "hl.dsp.cursor.move({ x = ${p%%,*}, y = ${p##*, } })"'])
 	}
 
 	// The window Hyprland last reported focused. A layer taking the keyboard
@@ -73,13 +81,6 @@ Singleton {
 				root.close();
 			}
 		}
-	}
-
-	function toggle(name, newMode): void {
-		if (root.active === name && (!newMode || newMode === root.mode))
-			root.close();
-		else
-			root.open(name, newMode);
 	}
 
 	IpcHandler {

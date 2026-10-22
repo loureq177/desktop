@@ -1,22 +1,19 @@
 import ".."
 import "../widgets"
-import "../widgets/ListNav.js" as ListNav
 import QtQuick
-import QtQuick.Controls
 import QtQuick.Layouts
 
-SideDrawer {
+// Every notification kept, newest first: Enter does what a click on it does,
+// X dismisses it.
+Drawer {
 	id: win
 
-	panel: "notifications"
-	property int currentIndex: 0
+	name: "notifications"
 
 	onOpened: {
-		win.currentIndex = 0;
-		centerList.forceActiveFocus();
+		list.currentIndex = 0;
+		list.forceActiveFocus();
 	}
-
-	onCurrentIndexChanged: centerList.positionViewAtIndex(currentIndex, ListView.Contain)
 
 	ColumnLayout {
 		anchors.fill: parent
@@ -34,7 +31,7 @@ SideDrawer {
 			}
 
 			Rectangle {
-				visible: Notifications.history.count > 0
+				visible: list.count > 0
 				implicitWidth: countLabel.implicitWidth + 12
 				implicitHeight: 20
 				radius: height / 2
@@ -45,7 +42,7 @@ SideDrawer {
 				StyledText {
 					id: countLabel
 					anchors.centerIn: parent
-					text: String(Notifications.history.count)
+					text: list.count
 					mono: true
 					font.pixelSize: Theme.fontSizeTiny
 					font.bold: true
@@ -58,7 +55,7 @@ SideDrawer {
 			}
 
 			TextButton {
-				visible: Notifications.history.count > 0
+				visible: list.count > 0
 				icon: "list-x"
 				text: "Clear all"
 				onClicked: Notifications.clear()
@@ -75,58 +72,35 @@ SideDrawer {
 			color: Theme.border
 		}
 
-		ListView {
-			id: centerList
+		SelectList {
+			id: list
 			visible: count > 0
+			focus: true
 			Layout.fillWidth: true
 			Layout.fillHeight: true
-			clip: true
+			scrollBar: true
 			spacing: 8
 			model: Notifications.history
-			focus: true
-
-			onCountChanged: {
-				if (win.currentIndex >= count)
-					win.currentIndex = Math.max(0, count - 1);
-			}
+			onActivated: index => Notifications.activate(Notifications.history.get(index).nid)
 
 			Keys.onPressed: event => {
-				var current = win.currentIndex < count ? Notifications.history.get(win.currentIndex).nid : -1;
-				var next = ListNav.step(event, count, win.currentIndex);
-				if (next !== -1) {
-					win.currentIndex = next;
-				} else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
-					if (!event.isAutoRepeat && current !== -1)
-						Notifications.activate(current);
-				} else if (event.key === Qt.Key_X) {
-					if (!event.isAutoRepeat && current !== -1)
-						Notifications.dismiss(current);
-				} else if (event.key === Qt.Key_Escape || event.key === Qt.Key_Q) {
+				if (event.key === Qt.Key_X && !event.isAutoRepeat && count > 0)
+					Notifications.dismiss(Notifications.history.get(currentIndex).nid);
+				else if (event.key === Qt.Key_Q)
 					Panels.close("notifications");
-				} else {
-					return;
-				}
-				event.accepted = true;
-			}
-
-			ScrollBar.vertical: ThinScrollBar {}
-
-			WheelScroll {
-				flickable: centerList
 			}
 
 			delegate: NotificationCard {
 				required property int index
-
-				width: ListView.view.width - (centerList.ScrollBar.vertical.visible ? 10 : 0)
-				isSelected: index === win.currentIndex
+				width: ListView.view.rowWidth
+				isSelected: ListView.isCurrentItem
 
 				HoverSelect {
-					enabled: !centerList.moving
-					onSelected: win.currentIndex = index
+					enabled: !list.moving
+					onSelected: list.currentIndex = index
 				}
 				onActivated: {
-					win.currentIndex = index;
+					list.currentIndex = index;
 					Notifications.activate(nid);
 				}
 				onDismissed: Notifications.dismiss(nid)
@@ -141,7 +115,7 @@ SideDrawer {
 		}
 
 		Item {
-			visible: centerList.count === 0
+			visible: list.count === 0
 			Layout.fillWidth: true
 			Layout.fillHeight: true
 

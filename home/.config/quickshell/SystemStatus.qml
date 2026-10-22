@@ -29,22 +29,94 @@ Singleton {
 	readonly property bool glass: !UPower.onBattery && !powerSaveActive
 
 	readonly property var batteryDevice: UPower.devices.values.find(d => d.isLaptopBattery && d.isPresent) ?? null
+	readonly property int batteryPct: batteryDevice ? Math.round(batteryDevice.percentage * 100) : 0
+	readonly property bool batteryFull: batteryDevice?.state === UPowerDeviceState.FullyCharged
+	readonly property bool charging: batteryDevice?.state === UPowerDeviceState.Charging || batteryDevice?.state === UPowerDeviceState.PendingCharge
+	// Green while charging, then warning and critical as it runs down.
+	readonly property color batteryTint: charging ? Theme.accentGreen
+		: batteryPct <= 10 ? Theme.critical
+		: batteryPct <= 20 ? Theme.warning
+		: Theme.textMain
+	readonly property string batterySummary: {
+		if (!batteryDevice)
+			return "";
+		if (charging)
+			return "Battery: " + batteryPct + "% (Charging" + (batteryDevice.timeToFull > 0 ? ", " + duration(batteryDevice.timeToFull) + " to full" : "") + ")";
+		if (batteryFull)
+			return "Battery: " + batteryPct + "% (Fully charged)";
+		return "Battery: " + batteryPct + "%" + (batteryDevice.timeToEmpty > 0 ? " (" + duration(batteryDevice.timeToEmpty) + " remaining)" : "");
+	}
+
 	readonly property var wifiDevice: networkDevice(DeviceType.Wifi)
 	readonly property var wiredDevice: networkDevice(DeviceType.Wired)
 	readonly property bool wifiUp: wifiDevice?.connected ?? false
 	readonly property bool wiredUp: wiredDevice?.connected ?? false
+	readonly property bool online: wifiUp || wiredUp
+	readonly property string netIcon: wifiUp ? "wifi" : (wiredUp ? "ethernet-port" : "wifi-off")
 	// The network the Wi-Fi is on, or null.
 	readonly property var wifiNetwork: (wifiDevice?.networks?.values ?? []).find(n => n?.connected) ?? null
+	readonly property string wifiStatus: !Networking.wifiHardwareEnabled ? "Blocked"
+		: !Networking.wifiEnabled ? "Off"
+		: wifiNetwork?.name || (wifiUp ? "On" : "No connection")
+	readonly property string netSummary: {
+		if (wifiUp) {
+			var signal = Math.round(signalPercent(wifiNetwork));
+			return "Wi-Fi: " + (wifiNetwork?.name || "Connected") + (signal > 0 ? " (" + signal + "%)" : "");
+		}
+		return wiredUp ? "Ethernet: Connected" : "Network: Disconnected";
+	}
 
 	readonly property var btAdapter: Bluetooth.defaultAdapter
 	readonly property bool btEnabled: btAdapter?.enabled ?? false
 	readonly property var btConnected: (btAdapter?.devices?.values ?? []).filter(d => d.connected)
 	readonly property string btIcon: !btEnabled ? "bluetooth-off" : (btConnected.length > 0 ? "bluetooth-connected" : "bluetooth")
+	readonly property string btStatus: !btAdapter ? "No adapter"
+		: btConnected.length > 1 ? btConnected.length + " connected"
+		: btConnected.length === 1 ? deviceName(btConnected[0])
+		: btEnabled ? "On" : "Off"
+	readonly property string btSummary: {
+		if (!btAdapter)
+			return "Bluetooth: Unavailable";
+		if (!btEnabled)
+			return "Bluetooth: Off";
+		if (btConnected.length === 0)
+			return "Bluetooth: Disconnected";
+		return "Bluetooth: " + btConnected.map(d => deviceName(d) + (d.batteryAvailable && d.battery >= 0 ? " (" + Math.round(d.battery * 100) + "%)" : "")).join(", ");
+	}
 
 	// The default output and input. Their `audio` has the volume (0..1) and
 	// mute; it holds real values once the node is `ready`.
 	readonly property PwNode sink: Pipewire.defaultAudioSink
 	readonly property PwNode source: Pipewire.defaultAudioSource
+	readonly property bool volumeReady: sink?.ready ?? false
+	readonly property bool muted: sink?.audio?.muted ?? false
+	readonly property int volume: Math.round(Math.min(1, sink?.audio?.volume ?? 0) * 100)
+
+	function volumeIcon(pct: int, isMuted: bool): string {
+		return isMuted ? "volume-x" : pct <= 1 ? "volume" : pct <= 50 ? "volume-1" : "volume-2";
+	}
+
+	function setVolume(pct: real): void {
+		if (!sink?.audio)
+			return;
+		sink.audio.volume = Math.max(0, Math.min(100, Math.round(pct))) / 100;
+		volumeSound.restart();
+	}
+
+	function toggleMute(): void {
+		if (sink?.audio)
+			sink.audio.muted = !sink.audio.muted;
+	}
+
+	function toggleWifi(): void {
+		if (Networking.wifiHardwareEnabled)
+			Networking.wifiEnabled = !Networking.wifiEnabled;
+	}
+
+	function toggleBluetooth(): void {
+		if (btAdapter)
+			btAdapter.enabled = !btEnabled;
+	}
 
 	function networkDevice(type): var {
 		return Networking.devices.values.find(d => d.type === type) ?? null;
@@ -65,6 +137,16 @@ Singleton {
 	// How long until `seconds` run out: "1h 5m".
 	function duration(seconds: real): string {
 		return Math.floor(seconds / 3600) + "h " + Math.floor((seconds % 3600) / 60) + "m";
+	}
+
+	// One click once a drag or a run of key presses settles.
+	Timer {
+		id: volumeSound
+		interval: 120
+		onTriggered: {
+			if (!root.muted)
+				Quickshell.execDetached(["canberra-gtk-play", "-i", "audio-volume-change"]);
+		}
 	}
 
 	function readBrightness(): void {
@@ -113,7 +195,7 @@ Singleton {
 		id: powerSync
 		interval: 1000
 		running: true
-		onTriggered: Quickshell.execDetached([Actions.bin + "power-save", "--sync"])
+		onTriggered: Quickshell.execDetached([Commands.bin + "power-save", "--sync"])
 	}
 
 	Timer {

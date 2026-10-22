@@ -2,7 +2,7 @@ import ".."
 import QtQuick
 import QtQuick.Layouts
 
-// The field the centred windows open on: no box of its own, an icon saying
+// The launcher's field: no box of its own, an icon saying
 // what it searches, and a line under it that the window draws.
 Rectangle {
 	id: bar
@@ -15,7 +15,7 @@ Rectangle {
 	// The names of the other lists, to switch to.
 	property var scopes: []
 	// Buttons of the window, between the field and the scopes (Clear all).
-	property alias trailing: trailingRow.data
+	default property alias trailing: trailingRow.data
 
 	signal accepted()
 	signal cancelled()
@@ -74,62 +74,31 @@ Rectangle {
 			focus: true
 			clip: true
 
+			// Ctrl with J / K (H / L in a grid) moves like the arrows.
 			Keys.onPressed: event => {
-				var isCtrl = (event.modifiers & Qt.ControlModifier);
-				if (isCtrl && event.key === Qt.Key_J) {
+				var ctrl = event.modifiers & Qt.ControlModifier;
+				var key = event.key;
+				if (key === Qt.Key_Down || (ctrl && key === Qt.Key_J))
 					bar.stepped(1);
-					event.accepted = true;
-					return;
-				} else if (isCtrl && event.key === Qt.Key_K) {
+				else if (key === Qt.Key_Up || (ctrl && key === Qt.Key_K))
 					bar.stepped(-1);
-					event.accepted = true;
-					return;
-				} else if (isCtrl && event.key === Qt.Key_H) {
-					if (bar.leftRightNavigate)
-						bar.steppedColumn(-1);
-					event.accepted = true;
-					return;
-				} else if (isCtrl && event.key === Qt.Key_L) {
-					if (bar.leftRightNavigate)
-						bar.steppedColumn(1);
-					event.accepted = true;
-					return;
-				}
-
-				if (event.key === Qt.Key_Down) {
-					bar.stepped(1);
-					event.accepted = true;
-				} else if (event.key === Qt.Key_Up) {
-					bar.stepped(-1);
-					event.accepted = true;
-				} else if (event.key === Qt.Key_Left) {
-					if (bar.leftRightNavigate) {
-						bar.steppedColumn(-1);
-						event.accepted = true;
-					}
-				} else if (event.key === Qt.Key_Right) {
-					if (bar.leftRightNavigate) {
-						bar.steppedColumn(1);
-						event.accepted = true;
-					}
-				} else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
-					if (!event.isAutoRepeat)
-						bar.accepted();
-					event.accepted = true;
-				} else if (event.key === Qt.Key_Backspace && input.text === "") {
+				else if (bar.leftRightNavigate && (key === Qt.Key_Left || (ctrl && key === Qt.Key_H)))
+					bar.steppedColumn(-1);
+				else if (bar.leftRightNavigate && (key === Qt.Key_Right || (ctrl && key === Qt.Key_L)))
+					bar.steppedColumn(1);
+				else if (key === Qt.Key_Tab && bar.completeOnTab)
+					bar.completed();
+				else if (key === Qt.Key_Tab)
+					bar.stepped(event.modifiers & Qt.ShiftModifier ? -1 : 1);
+				else if (key === Qt.Key_Backspace && input.text === "")
 					bar.erased();
-					event.accepted = true;
-				} else if (event.key === Qt.Key_Escape) {
-					if (!event.isAutoRepeat)
-						bar.cancelled();
-					event.accepted = true;
-				} else if (event.key === Qt.Key_Tab) {
-					if (bar.completeOnTab)
-						bar.completed();
-					else
-						bar.stepped(event.modifiers & Qt.ShiftModifier ? -1 : 1);
-					event.accepted = true;
-				}
+				else if (key === Qt.Key_Return || key === Qt.Key_Enter)
+					event.isAutoRepeat || bar.accepted();
+				else if (key === Qt.Key_Escape)
+					event.isAutoRepeat || bar.cancelled();
+				else if (!ctrl || (key !== Qt.Key_H && key !== Qt.Key_L))
+					return;
+				event.accepted = true;
 			}
 
 			Text {

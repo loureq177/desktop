@@ -1,6 +1,7 @@
 import Quickshell
 import QtQuick
 import "views"
+import "views/launcher"
 
 // Windows created later stack above earlier ones on the same layer.
 ShellRoot {
@@ -13,25 +14,13 @@ ShellRoot {
 		}
 	}
 
-	CenterBackdrop {
+	DrawerWindow {
 	}
 
-	LauncherView {
+	Launcher {
 	}
 
 	NotificationToasts {
-	}
-
-	NotificationCenter {
-	}
-
-	ClipboardView {
-	}
-
-	ActionMenuView {
-	}
-
-	WeatherView {
 	}
 
 	Osd {

@@ -1,7 +1,6 @@
 import ".."
 import "../widgets"
 import Quickshell
-import Quickshell.Services.UPower
 import QtQuick
 import QtQuick.Effects
 
@@ -149,29 +148,17 @@ Item {
 				spacing: 20
 
 				LineIcon {
-					readonly property bool wifiUp: SystemStatus.wifiDevice?.connected ?? false
-					readonly property bool wiredUp: SystemStatus.wiredDevice?.connected ?? false
-
 					anchors.verticalCenter: parent.verticalCenter
-					name: wifiUp ? "wifi" : (wiredUp ? "ethernet-port" : "wifi-off")
-					color: wifiUp || wiredUp ? Theme.accentBlue : Theme.textDim
+					name: SystemStatus.netIcon
+					color: SystemStatus.online ? Theme.accentBlue : Theme.textDim
 					size: Theme.fontSizeLarge
 				}
 
 				StyledText {
-					readonly property var device: SystemStatus.batteryDevice
-					readonly property int pct: device ? Math.round(device.percentage * 100) : 0
-					readonly property bool full: device && device.state === UPowerDeviceState.FullyCharged
-					readonly property bool charging: device && (device.state === UPowerDeviceState.Charging
-						|| device.state === UPowerDeviceState.PendingCharge)
-
 					anchors.verticalCenter: parent.verticalCenter
-					visible: device !== null
-					text: pct + "%"
-					color: charging || full ? Theme.accentGreen
-						: pct <= 10 ? Theme.critical
-						: pct <= 20 ? Theme.warning
-						: Theme.textMain
+					visible: SystemStatus.batteryDevice !== null
+					text: SystemStatus.batteryPct + "%"
+					color: SystemStatus.batteryFull ? Theme.accentGreen : SystemStatus.batteryTint
 					mono: true
 					font.bold: true
 				}
