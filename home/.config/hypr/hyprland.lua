@@ -609,16 +609,32 @@ local function opposite(dir)
 	return dir == "left" and "right" or "left"
 end
 
+-- Whether any window of `from`'s workspace lies to the `dir` side of it.
+local function anything_beyond(from, dir)
+	if from == nil or from.workspace == nil then
+		return false
+	end
+	for _, w in ipairs(hl.get_windows()) do
+		if w.workspace ~= nil and w.workspace.id == from.workspace.id and w.mapped and not w.hidden and lies_beyond(from, w, dir) then
+			return true
+		end
+	end
+	return false
+end
+
 local function focus_or_step(dir)
 	local win = hl.get_active_window()
-	hl.dispatch(hl.dsp.focus({ direction = dir }))
-	if lies_beyond(win, hl.get_active_window(), dir) then
-		return
-	end
-	-- It wrapped around: back to where it was, and on to the next workspace.
-	if win ~= nil then
+	-- Nothing on that side: focus would wrap to the far window and flash it
+	-- before coming back, so it is not asked at all.
+	if anything_beyond(win, dir) then
+		hl.dispatch(hl.dsp.focus({ direction = dir }))
+		if lies_beyond(win, hl.get_active_window(), dir) then
+			return
+		end
+		-- It wrapped around after all: back to where it was.
 		hl.dispatch(hl.dsp.focus({ window = win }))
 	end
+	-- On to the next workspace.
 	local ws = workspace_beyond(dir)
 	if ws == nil then
 		return
