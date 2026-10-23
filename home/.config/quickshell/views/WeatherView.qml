@@ -17,26 +17,6 @@ Drawer {
 		chartCanvas.requestPaint();
 		root.forceActiveFocus();
 	}
-	onShownChanged: {
-		if (!shown && Weather.editingLocation)
-			Weather.cancelEditingLocation();
-	}
-
-	Connections {
-		target: Weather
-		function onEditingLocationChanged() {
-			if (!Weather.editingLocation)
-				root.forceActiveFocus();
-		}
-	}
-
-	// E or Enter edits the location; Esc in its field stops editing.
-	Keys.onPressed: event => {
-		if (!Weather.editingLocation && (event.key === Qt.Key_E || event.key === Qt.Key_Return)) {
-			Weather.startEditingLocation();
-			event.accepted = true;
-		}
-	}
 
 	Column {
 		id: weatherCol
@@ -111,131 +91,25 @@ Drawer {
 				anchors.verticalCenter: parent.verticalCenter
 				spacing: 8
 
-				Item {
-					anchors.right: parent.right
-					visible: !Weather.editingLocation
-					width: locRow.implicitWidth
-					height: locRow.implicitHeight
-
-					Row {
-						id: locRow
-						spacing: 6
-
-						LineIcon {
-							name: "map-pin"
-							color: Theme.accentBlue
-							size: Theme.fontSizeSmall
-							anchors.verticalCenter: parent.verticalCenter
-						}
-
-						StyledText {
-							text: (Weather.reportLocation || "SET LOCATION").toUpperCase()
-							color: locationArea.containsMouse ? Theme.textMain : Theme.textDim
-							font.pixelSize: Theme.fontSizeSmall
-							font.bold: true
-							font.letterSpacing: 1
-							anchors.verticalCenter: parent.verticalCenter
-						}
-
-						LineIcon {
-							name: "pencil"
-							color: locationArea.containsMouse ? Theme.accentBlue : Theme.textMuted
-							size: 12
-							anchors.verticalCenter: parent.verticalCenter
-						}
-
-						HotkeyHint {
-							key: "E"
-							lit: locationArea.containsMouse
-							anchors.verticalCenter: parent.verticalCenter
-						}
-					}
-
-					MouseArea {
-						id: locationArea
-						anchors.fill: parent
-						hoverEnabled: true
-						cursorShape: Qt.PointingHandCursor
-						onClicked: Weather.startEditingLocation()
-					}
-				}
-
 				Row {
-					id: editRow
 					anchors.right: parent.right
-					visible: Weather.editingLocation
+					visible: Weather.location !== ""
 					spacing: 6
 
-					Rectangle {
-						width: 200
-						height: 32
-						color: Theme.bgHover
-						border.color: Theme.border
-						border.width: 1
-						radius: Theme.roundingElement
-
-						TextInput {
-							id: locationInput
-							anchors.fill: parent
-							anchors.leftMargin: 8
-							anchors.rightMargin: 8
-							verticalAlignment: TextInput.AlignVCenter
-							color: Theme.textMain
-							font.family: Theme.fontMono
-							font.pixelSize: Theme.fontSizeSmall
-							selectByMouse: true
-							clip: true
-
-							onVisibleChanged: {
-								if (visible) {
-									text = Weather.configuredLocation;
-									selectAll();
-									forceActiveFocus();
-								}
-							}
-
-							onTextChanged: {
-								if (Weather.editingLocation && !Weather.savingLocation)
-									Weather.requestGeocode(text);
-							}
-
-							Keys.onEscapePressed: event => {
-								Weather.cancelEditingLocation();
-								event.accepted = true;
-							}
-
-							Keys.onDownPressed: event => {
-								if (Weather.suggestionIndex < Weather.locationSuggestions.length - 1)
-									Weather.suggestionIndex++;
-								event.accepted = true;
-							}
-
-							Keys.onUpPressed: event => {
-								if (Weather.suggestionIndex > 0)
-									Weather.suggestionIndex--;
-								event.accepted = true;
-							}
-
-							Keys.onReturnPressed: event => {
-								Weather.commitLocation(text);
-								event.accepted = true;
-							}
-						}
+					LineIcon {
+						name: "map-pin"
+						color: Theme.accentBlue
+						size: Theme.fontSizeSmall
+						anchors.verticalCenter: parent.verticalCenter
 					}
 
-					IconButton {
-						icon: Weather.savingLocation ? "loader-circle" : "x"
-						iconSize: Theme.fontSizeSmall
-						enabled: !Weather.savingLocation
-						onClicked: Weather.clearLocation()
-
-						NumberAnimation on spin {
-							running: Weather.savingLocation
-							from: 0
-							to: 360
-							duration: 800
-							loops: Animation.Infinite
-						}
+					StyledText {
+						text: Weather.location.toUpperCase()
+						color: Theme.textDim
+						font.pixelSize: Theme.fontSizeSmall
+						font.bold: true
+						font.letterSpacing: 1
+						anchors.verticalCenter: parent.verticalCenter
 					}
 				}
 
@@ -266,63 +140,6 @@ Drawer {
 								text: modelData.value ?? ""
 								font.bold: true
 							}
-						}
-					}
-				}
-			}
-		}
-
-		Column {
-			visible: Weather.editingLocation && !Weather.savingLocation && Weather.locationSuggestions && Weather.locationSuggestions.length > 0
-			width: parent.width
-			spacing: 2
-
-			Repeater {
-				model: Weather.locationSuggestions
-
-				Rectangle {
-					required property var modelData
-					required property int index
-					width: parent.width
-					height: 34
-					radius: Theme.roundingElement
-					color: "transparent"
-
-					SelectionHighlight {
-						selected: index === Weather.suggestionIndex
-					}
-
-					Row {
-						anchors.fill: parent
-						anchors.leftMargin: 12
-						anchors.rightMargin: 12
-						spacing: 8
-
-						StyledText {
-							anchors.verticalCenter: parent.verticalCenter
-							text: modelData ? modelData.name : ""
-							font.pixelSize: Theme.fontSizeSmall
-							font.bold: true
-						}
-
-						StyledText {
-							anchors.verticalCenter: parent.verticalCenter
-							visible: !!(modelData && modelData.description)
-							text: modelData && modelData.description ? modelData.description : ""
-							color: Theme.textDim
-							font.pixelSize: Theme.fontSizeTiny
-							elide: Text.ElideRight
-						}
-					}
-
-					MouseArea {
-						anchors.fill: parent
-						hoverEnabled: true
-						cursorShape: Qt.PointingHandCursor
-						onPositionChanged: Weather.suggestionIndex = index
-						onClicked: {
-							if (modelData)
-								Weather.pickSuggestion(modelData);
 						}
 					}
 				}

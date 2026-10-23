@@ -38,52 +38,6 @@ test("parseLocationFile: anything unreadable means no location", () => {
   assert.deepEqual(m.parseLocationFile('{"name":7,"latitude":"x","longitude":null}'), UNSET);
 });
 
-test("parseGeocodingResults: maps the API results to suggestions", () => {
-  const raw = JSON.stringify({
-    results: [
-      { name: "Warsaw", admin1: "Masovian", country: "Poland", latitude: 52.23, longitude: 21.01 },
-      { name: "Warsaw", country: "United States", latitude: 41.24, longitude: -85.85 },
-      { name: "Equator", latitude: 0, longitude: 0 },
-    ],
-  });
-  assert.deepEqual(m.parseGeocodingResults(raw), [
-    { name: "Warsaw", description: "Masovian, Poland", latitude: 52.23, longitude: 21.01 },
-    { name: "Warsaw", description: "United States", latitude: 41.24, longitude: -85.85 },
-    { name: "Equator", description: "", latitude: 0, longitude: 0 },
-  ]);
-});
-
-test("parseGeocodingResults: drops incomplete entries and survives bad input", () => {
-  const raw = JSON.stringify({ results: [null, { name: "NoCoords" }, { latitude: 1, longitude: 2 }, { name: "Ok", latitude: 1, longitude: 2 }] });
-  assert.deepEqual(m.parseGeocodingResults(raw).map((r) => r.name), ["Ok"]);
-  for (const bad of ["", null, "{}", '{"results":[]}', '{"results":null}', "<html>", "[]"]) {
-    assert.deepEqual(m.parseGeocodingResults(bad), [], `input: ${bad}`);
-  }
-});
-
-test("locationCommit: empty text clears the location", () => {
-  assert.deepEqual(m.locationCommit("   ", [{ name: "Warsaw", latitude: 1, longitude: 2 }], 0), UNSET);
-  assert.deepEqual(m.locationCommit(null, null, null), UNSET);
-});
-
-test("locationCommit: takes the highlighted suggestion", () => {
-  const suggestions = [
-    { name: "Warsaw", latitude: 52, longitude: 21 },
-    { name: "Warszawa", latitude: 1, longitude: 2 },
-  ];
-  assert.equal(m.locationCommit("war", suggestions, 1), suggestions[1]);
-  assert.equal(m.locationCommit("war", suggestions, 0), suggestions[0]);
-  // an index outside the list never throws or returns undefined
-  assert.equal(m.locationCommit("war", suggestions, 99), suggestions[1]);
-  assert.equal(m.locationCommit("war", suggestions, -5), suggestions[0]);
-  assert.equal(m.locationCommit("war", suggestions, "x"), suggestions[0]);
-});
-
-test("locationCommit: without suggestions keeps the typed name", () => {
-  assert.deepEqual(m.locationCommit("  Atlantis ", [], 0), { name: "Atlantis", latitude: null, longitude: null });
-  assert.deepEqual(m.locationCommit("Atlantis", undefined, 3), { name: "Atlantis", latitude: null, longitude: null });
-});
-
 test("dayName: names the weekday of an ISO date", () => {
   assert.equal(m.dayName("2026-10-12"), "Monday");
   assert.equal(m.dayName("2026-10-18"), "Sunday");
