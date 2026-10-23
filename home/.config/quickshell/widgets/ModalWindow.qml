@@ -6,12 +6,14 @@ import QtQuick
 // A card in the middle of the screen over a dim: the launcher, the polkit
 // dialog. It has the keyboard while shown; Esc or a click on the dim asks to
 // dismiss it. The card fades in (and grows, scaled by `progress` itself), and
-// after Panels.closeInstant it is gone in the same frame.
+// after Panels.closeInstant a panel is gone in the same frame.
 PanelWindow {
 	id: root
 
 	property bool shown: false
 	property bool dismissOnClick: true
+	// One of Panels (the launcher): Panels.closeInstant takes it at once.
+	property bool panel: false
 	// 0 hidden, 1 on screen.
 	property real progress: 0
 	readonly property bool animating: anim.running
@@ -41,7 +43,7 @@ PanelWindow {
 
 	onShownChanged: {
 		anim.stop();
-		if (!shown && Panels.instant) {
+		if (!shown && panel && Panels.instant) {
 			progress = 0;
 			return;
 		}

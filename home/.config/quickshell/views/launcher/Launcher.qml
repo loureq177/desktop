@@ -8,7 +8,7 @@ import QtQuick.Layouts
 // empty field offers the other three; Backspace there goes back to the apps.
 // Each list (pane) has the same shape: query, icon, placeholder,
 // preferredHeight, step(), activate(), and maybe stepColumn(), complete(),
-// opened() and a footer line.
+// opened(), closed() and a footer line.
 ModalWindow {
 	id: root
 
@@ -16,8 +16,13 @@ ModalWindow {
 	readonly property var panes: ({ apps: apps, emoji: emoji, clipboard: clipboard, keys: keys })
 	readonly property var pane: panes[scope]
 
+	panel: true
 	shown: Panels.active === "launcher"
 	onDismissRequested: Panels.close("launcher")
+	onShownChanged: {
+		if (!shown && root.pane.closed)
+			root.pane.closed();
+	}
 
 	Connections {
 		target: Panels

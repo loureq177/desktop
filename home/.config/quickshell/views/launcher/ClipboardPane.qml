@@ -42,6 +42,17 @@ Item {
 		listProc.running = true;
 	}
 
+	// The window shut, or another list took its place: the decoded preview
+	// goes, and the next time starts at the newest entry.
+	function closed(): void {
+		wipeConfirm.reset();
+		decoder.running = false;
+		decoder.stale = false;
+		decodedId = "";
+		list.currentIndex = 0;
+		Quickshell.execDetached(["rm", "-f", previewPath]);
+	}
+
 	function step(delta: int): void {
 		list.step(delta);
 	}
@@ -69,11 +80,8 @@ Item {
 	onQueryChanged: list.currentIndex = 0
 	onCurrentChanged: Qt.callLater(decoder.decode)
 	onVisibleChanged: {
-		if (visible)
-			return;
-		wipeConfirm.reset();
-		decodedId = "";
-		Quickshell.execDetached(["rm", "-f", previewPath]);
+		if (!visible)
+			closed();
 	}
 
 	Confirm {
@@ -93,15 +101,21 @@ Item {
 	}
 
 	// One decode at a time: one asked for while another runs follows it, and
-	// the output of the one overtaken is dropped.
+	// the output of the one overtaken is dropped. A run is over once it has
+	// exited and its output is in, which come in either order.
 	Process {
 		id: decoder
 
 		property string entryId: ""
 		property bool stale: false
+		property bool busy: false
+		property bool exited: false
+		property bool streamed: false
+		property int exitCode: 0
+		property string output: ""
 
 		function decode(): void {
-			if (running) {
+			if (busy) {
 				stale = true;
 				return;
 			}
@@ -109,25 +123,39 @@ Item {
 			if (!e || e.id === pane.decodedId)
 				return;
 			entryId = e.id;
+			exited = false;
+			streamed = false;
 			command = pane.imageInfo(e.preview)
 				? ["sh", "-c", 'cliphist decode "$1" > "$2"', "sh", e.id, pane.previewPath]
 				: ["cliphist", "decode", e.id];
+			busy = true;
 			running = true;
+		}
+
+		function settle(): void {
+			if (!busy || !exited || !streamed)
+				return;
+			busy = false;
+			if (stale) {
+				stale = false;
+				decode();
+			} else if (exitCode === 0) {
+				pane.decodedText = output;
+				pane.decodedId = entryId;
+			}
 		}
 
 		stdout: StdioCollector {
 			onStreamFinished: {
-				if (!decoder.stale)
-					pane.decodedText = this.text;
+				decoder.output = this.text;
+				decoder.streamed = true;
+				decoder.settle();
 			}
 		}
 		onExited: code => {
-			if (decoder.stale) {
-				decoder.stale = false;
-				decoder.decode();
-			} else if (code === 0) {
-				pane.decodedId = decoder.entryId;
-			}
+			decoder.exitCode = code;
+			decoder.exited = true;
+			decoder.settle();
 		}
 	}
 
