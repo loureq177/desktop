@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 # wallpaper, check-updates, awake-toggle,
-# quickshell-session
+# quickshell.service and lock-fallback
 
 load helpers
 
@@ -204,32 +204,27 @@ awake_stubs() {
     [[ ! -e "$XDG_RUNTIME_DIR/awake_inhibit.pid" ]]
 }
 
-# --- quickshell-session ------------------------------------------------------
+# --- quickshell.service / lock-fallback ------------------------------------
 
-@test "quickshell-session: does nothing when quickshell already runs" {
-    stub pidof 'exit 0'
-    stub systemd-cat
-    sut "$BIN/quickshell-session"
-    assert_status 0
-    refute_call_like "systemd-cat"
+UNIT="$REPO/archlinux/.config/systemd/user/quickshell.service"
+
+@test "quickshell.service: the session target starts the shell without it being enabled" {
+    grep -qE '^Wants=.*\bquickshell\.service\b' "$REPO/archlinux/.config/systemd/user/hyprland-session.target"
+    ! grep -q '^\[Install\]' "$UNIT"
 }
 
-@test "quickshell-session: starts quickshell and stops after a clean exit" {
-    stub pidof 'exit 1'
-    stub systemd-cat 'exit 0'
-    sut "$BIN/quickshell-session"
-    assert_status 0
-    assert_call "systemd-cat -t quickshell -- quickshell --no-duplicate"
-    [[ "$(call_count systemd-cat)" -eq 1 ]]
+@test "quickshell.service: restarts a crashed shell, then gives up" {
+    grep -qx 'Restart=on-failure' "$UNIT"
+    grep -qx 'StartLimitBurst=5' "$UNIT"
 }
 
-@test "quickshell-session: starts quickshell through mesa-egl when the machine has it" {
-    stub pidof 'exit 1'
-    stub systemd-cat 'exit 0'
-    stub mesa-egl
-    sut "$BIN/quickshell-session"
-    assert_status 0
-    assert_call "systemd-cat -t quickshell -- mesa-egl quickshell --no-duplicate"
+@test "quickshell.service: falls back to hyprlock and waits for the password however long it takes" {
+    grep -qx 'ExecStopPost=%h/.local/bin/lock-fallback' "$UNIT"
+    grep -qx 'TimeoutStopSec=infinity' "$UNIT"
+}
+
+@test "quickshell.service: what the shell started outlives a restart" {
+    grep -qx 'KillMode=process' "$UNIT"
 }
 
 lock_state() {
@@ -239,64 +234,53 @@ lock_state() {
     [[ -z "${1:-}" ]] || echo "$1" >"$LOCK_STATE"
 }
 
-@test "quickshell-session: a shell that dies before unlocking leaves the session to hyprlock" {
-    stub pidof 'exit 1'
-    stub systemd-cat 'exit 1'
-    stub hyprctl 'exit 0'
+lock_fallback() {
     stub logger
+    sut env SERVICE_RESULT="$1" "$BIN/lock-fallback"
+}
+
+@test "lock-fallback: a shell that dies before unlocking leaves the session to hyprlock" {
+    stub hyprctl 'exit 0'
     stub hyprlock
     lock_state locked
-    sut "$BIN/quickshell-session"
-    # Unlocked through hyprlock once; the relaunches after that do not lock again.
-    [[ "$(grep -cx "hyprlock " "$CALLS")" -eq 1 ]] || fail "$(calls)"
+    lock_fallback exit-code
+    assert_status 0
+    assert_call "hyprlock "
+    # The restarted shell finds the session open and does not lock it again.
     [[ "$(<"$LOCK_STATE")" == unlocked ]]
 }
 
-@test "quickshell-session: locks with hyprlock when the shell never came up at all" {
-    stub pidof 'exit 1'
-    stub systemd-cat 'exit 1'
+@test "lock-fallback: locks with hyprlock when the shell never came up at all" {
     stub hyprctl 'exit 0'
-    stub logger
     stub hyprlock 'exit 1'
     lock_state
-    sut "$BIN/quickshell-session"
-    assert_status 1
+    lock_fallback signal
     assert_call "hyprlock "
     assert_call_like "THE SESSION IS NOT LOCKED"
     [[ ! -e "$LOCK_STATE" ]]
 }
 
-@test "quickshell-session: a crash in an unlocked session does not lock it" {
-    stub pidof 'exit 1'
-    stub systemd-cat 'exit 1'
+@test "lock-fallback: a crash in an unlocked session does not lock it" {
     stub hyprctl 'exit 0'
-    stub logger
     stub hyprlock
     lock_state unlocked
-    sut "$BIN/quickshell-session"
+    lock_fallback core-dump
     refute_call_like "hyprlock"
 }
 
-@test "quickshell-session: relaunches a crashed shell, then gives up" {
-    stub pidof 'exit 1'
-    stub systemd-cat 'exit 1'
+@test "lock-fallback: a deliberate stop does not lock" {
     stub hyprctl 'exit 0'
-    stub logger
     stub hyprlock
-    lock_state unlocked
-    sut "$BIN/quickshell-session"
-    assert_status 1
-    [[ "$(call_count systemd-cat)" -eq 6 ]]
-    [[ "$(call_count "quickshell died, relaunching")" -eq 5 ]]
-    assert_call_like "giving up after 6 relaunches"
+    lock_state locked
+    lock_fallback success
+    refute_call_like "hyprlock"
 }
 
-@test "quickshell-session: does not relaunch while the session is going down" {
-    stub pidof 'exit 1'
-    stub systemd-cat 'exit 1'
+@test "lock-fallback: does not lock while the session is going down" {
     stub hyprctl 'exit 1'
-    stub logger
-    sut "$BIN/quickshell-session"
+    stub hyprlock
+    lock_state locked
+    lock_fallback exit-code
     assert_status 0
-    [[ "$(call_count systemd-cat)" -eq 1 ]]
+    refute_call_like "hyprlock"
 }
