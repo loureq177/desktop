@@ -36,7 +36,8 @@ Item {
 
 	SystemClock {
 		id: clock
-		precision: SystemClock.Minutes
+		// Seconds, not Minutes: see the clock in Bar.qml.
+		precision: SystemClock.Seconds
 	}
 
 	Image {

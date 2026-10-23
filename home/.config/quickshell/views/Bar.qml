@@ -322,7 +322,10 @@ PanelWindow {
 
 				SystemClock {
 					id: clockSource
-					precision: SystemClock.Minutes
+					// Seconds, not Minutes: the minute timer runs on the monotonic
+					// clock, which stops in suspend, so after resume it kept the
+					// pre-sleep time for up to a minute.
+					precision: SystemClock.Seconds
 				}
 			}
 
