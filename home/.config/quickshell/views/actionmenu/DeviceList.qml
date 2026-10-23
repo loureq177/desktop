@@ -90,7 +90,13 @@ FocusScope {
 		root.forgetConfirmed(item);
 	}
 
-	onItemsChanged: list.currentIndex = Math.max(0, items.findIndex(i => i.key === currentKey))
+	onItemsChanged: {
+		var i = items.findIndex(item => item.key === currentKey);
+		// Gone, or nothing there before: the first row.
+		if (i < 0 && items.length > 0)
+			currentKey = items[0].key;
+		list.currentIndex = Math.max(0, i);
+	}
 	onRadioOnChanged: {
 		if (!radioOn) {
 			clearPending();
@@ -101,6 +107,7 @@ FocusScope {
 		if (visible) {
 			errorMessage = "";
 			currentKey = items[0]?.key ?? "";
+			list.currentIndex = 0;
 			if (radioOn)
 				root.scanRequested();
 		} else {
