@@ -131,6 +131,9 @@ if [ "$OS" = "Linux" ]; then
     for dropin in archlinux/.config/systemd/user/*.service.d; do
         mkdir -p "$HOME/.config/systemd/user/${dropin##*/}"
     done
+    # Real dir too, for the machine's local.lua from a stow package of its own
+    [ -L "$HOME/.config/hypr" ] && rm "$HOME/.config/hypr"
+    mkdir -p "$HOME/.config/hypr"
     restow_pkg "Arch Linux" archlinux
 
     _log_info "Configuring autologin on tty1..."
@@ -214,6 +217,7 @@ EOF
         done < <(grep -l '^\[Install\]' archlinux/.config/systemd/user/*.{timer,service,socket} 2>/dev/null | sort)
         # Shipped by their packages, configured here; the session starts them.
         systemctl --user enable hypridle.service 2>/dev/null || _log_warn "Failed to enable hypridle.service."
+        systemctl --user enable hyprsunset.service 2>/dev/null || _log_warn "Failed to enable hyprsunset.service."
         if command -v wayland-pipewire-idle-inhibit &>/dev/null; then
             systemctl --user enable wayland-pipewire-idle-inhibit.service 2>/dev/null ||
                 _log_warn "Failed to enable wayland-pipewire-idle-inhibit.service."

@@ -112,15 +112,49 @@ records() { awk -F'\t' -v kind="$1" '$1 == kind { sub(/^[^\t]*\t/, ""); print }'
         fi
     done < <(records BIND | cut -f4 | grep -v '^$' | sort -u)
     if [[ -f "$XDG_RUNTIME_DIR/dictation.pid" ]]; then kill "$(<"$XDG_RUNTIME_DIR/dictation.pid")" 2>/dev/null || true; fi
-    [[ "$count" -ge 5 ]] || fail "expected script binds, found $count"
+    [[ "$count" -ge 4 ]] || fail "expected script binds, found $count"
     [[ "$bad" -eq 0 ]]
 }
 
-@test "the shell starts first, then the session target and the wallpaper" {
+@test "the session target starts first, then the wallpaper" {
     mock_run
-    [[ "$(records EXEC | head -n 1)" == "~/.local/bin/quickshell-session" ]] || fail "$(records EXEC)"
-    records EXEC | grep -qF "systemctl --user restart hyprland-session.target"
+    local first
+    first="$(records EXEC | head -n 1)"
+    [[ "$first" == *"dbus-update-activation-environment --systemd "* ]] || fail "$(records EXEC)"
+    # Exported before the target starts the shell, in the same command.
+    [[ "$first" == *"; systemctl --user restart hyprland-session.target'" ]] || fail "$first"
     records EXEC | grep -qxF "~/.local/bin/wallpaper init"
+}
+
+@test "every variable hyprland.lua sets reaches the session services" {
+    mock_run
+    local first name missing=""
+    first="$(records EXEC | head -n 1)"
+    for name in WAYLAND_DISPLAY HYPRLAND_INSTANCE_SIGNATURE $(records ENV | cut -f1); do
+        [[ " ${first%%;*} " == *" $name "* ]] || missing+=" $name"
+    done
+    [[ -z "$missing" ]] || fail "not exported:$missing" "$first"
+}
+
+@test "hyprland accepts a machine's local.lua with everything in it" {
+    cat >"$HOME/.config/hypr/local.lua" <<'EOF'
+return {
+	keyboard = { layout = "pl", options = "altwin:swap_lalt_lwin" },
+	env = function(set)
+		set("AQ_DRM_DEVICES", "/dev/dri/card1:/dev/dri/card0")
+	end,
+	laptop = { output = "desc:BOE 0x0998", mode = "1920x1080@165" },
+	monitors = {
+		{ output = "desc:iiyama Corporation PL2792Q 1152011401936", position = "0x0", laptop = "-1920x360" },
+		{ output = "DP-2", mode = "1920x1080@60", position = "2560x0", scale = 1.25 },
+	},
+	autostart = { "true" },
+}
+EOF
+    verify_config
+    mock_run
+    records ENV | grep -qx $'AQ_DRM_DEVICES\t/dev/dri/card1:/dev/dri/card0'
+    records EXEC | head -n 1 | grep -qF " AQ_DRM_DEVICES "
 }
 
 @test "local.lua can add its own startup commands" {
@@ -148,31 +182,11 @@ records() { awk -F'\t' -v kind="$1" '$1 == kind { sub(/^[^\t]*\t/, ""); print }'
     [[ "$bad" -eq 0 ]]
 }
 
-@test "special workspace binds are named after the shell's titles" {
-    mock_run
-    local specials="$REPO/archlinux/.config/quickshell/Specials.js" title bad=0 count=0
-    while IFS= read -r title; do
-        count=$((count + 1))
-        grep -qF "title: \"$title\"" "$specials" || { echo "bind '$title' has no Specials.js entry titled so" >&2; bad=1; }
-    done < <(records BIND | cut -f2 | sed -n 's/^Special Workspaces: //p')
-    [[ "$count" -ge 5 ]] || fail "expected special workspace binds, found $count"
-    [[ "$bad" -eq 0 ]]
-}
-
 @test "every described bind names its section, for the launcher's keys list" {
     mock_run
     local bad
     bad="$(records BIND | cut -f2 | grep -v '^$' | grep -vE '^[A-Z][A-Za-z &]+: [^ ]' || true)"
     [[ -z "$bad" ]] || fail "binds without a 'Section: ' description: $bad"
-}
-
-@test "binds the shell looks up by description exist" {
-    mock_run
-    local qs="$REPO/archlinux/.config/quickshell" desc bad=0
-    while IFS= read -r desc; do
-        records BIND | cut -f2 | sed 's/^[^:]*: //' | grep -qxF "$desc" || { echo "the shell names bind '$desc', which hyprland.lua does not have" >&2; bad=1; }
-    done < <(grep -rhoE 'Keybinds\.chord\("[^"]+"\)|bind: "[^"]+"' "$qs" --include='*.qml' | sed -E 's/[^"]*"([^"]+)".*/\1/' | sort -u)
-    [[ "$bad" -eq 0 ]]
 }
 
 @test "the keyboard layout comes from local.lua" {

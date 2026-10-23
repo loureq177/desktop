@@ -111,6 +111,8 @@ UNITS="archlinux/.config/systemd/user"
 
 @test "install.sh enables external units that the package lists install" {
     grep -q 'enable hypridle.service' "$REPO/install.sh"
+    grep -q 'enable hyprsunset.service' "$REPO/install.sh"
+    grep -qx hyprsunset "$REPO/archlinux/packages.txt"
     grep -qx hypridle "$REPO/archlinux/packages.txt"
     grep -q 'enable wayland-pipewire-idle-inhibit.service' "$REPO/install.sh"
     grep -qx wayland-pipewire-idle-inhibit "$REPO/archlinux/aur.txt"
@@ -150,6 +152,8 @@ UNITS="archlinux/.config/systemd/user"
     need systemd-analyze
     export HOME="$BATS_TEST_TMPDIR/home"
     export XDG_RUNTIME_DIR="$BATS_TEST_TMPDIR/run"
+    # Not this machine's units and drop-ins.
+    export XDG_CONFIG_HOME="$HOME/.config"
     mkdir -p "$HOME/.config/systemd" "$HOME/.local" "$XDG_RUNTIME_DIR"
     cp -r "$REPO/$UNITS" "$HOME/.config/systemd/user"
     cp -r "$REPO/archlinux/.local/bin" "$HOME/.local/bin"

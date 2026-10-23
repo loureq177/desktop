@@ -3,9 +3,15 @@ local hypr = os.getenv("HOME") .. "/.config/hypr"
 
 local ui = dofile(hypr .. "/ui.lua")
 
-local local_ok, local_cfg = pcall(dofile, hypr .. "/local.lua")
-if not local_ok or type(local_cfg) ~= "table" then
-	local_cfg = {}
+-- What belongs to one machine: keyboard, GPU, monitors, startup commands
+-- (local.lua.example).
+local ok, machine = pcall(dofile, hypr .. "/local.lua")
+if not ok or type(machine) ~= "table" then
+	machine = {}
+end
+
+local function list(t)
+	return type(t) == "table" and t or {}
 end
 
 local function webapp(name, url, title, key, desc)
@@ -18,86 +24,94 @@ local function webapp(name, url, title, key, desc)
 	}
 end
 
-local programs = {
-	terminal = "ghostty",
-	browser = "firefox",
-	launcher = "qs ipc call shell toggle launcher apps",
-
-	-- special workspace name -> app; `key` binds SUPER + SHIFT + key to toggle it.
-	-- The shell lists them too (quickshell/Specials.js), by name and desc.
-	special = {
-		calendar = webapp("calendar", "https://calendar.google.com", "Calendar", "C"),
-		mail = webapp("gmail", "https://mail.google.com", "Gmail", "E", "Mail"),
-		tasks = webapp("tasks", "https://tasks.google.com", "Tasks", "T"),
-		whatsapp = webapp("whatsapp", "https://web.whatsapp.com", "WhatsApp", "W"),
-		spotify = {
-			exe = "flatpak run com.spotify.Client",
-			class = "spotify",
-			key = "S",
-			desc = "Spotify",
-		},
-		btop = { exe = "ghostty +new-window -e btop", key = "B", desc = "Activity Monitor" },
-		yazi = { exe = "ghostty +new-window -e yazi", key = "F", desc = "Files" },
-		jolt = { exe = "ghostty +new-window -e jolt" },
+-- Special workspace name -> the app that lives there, started when the
+-- workspace is opened empty; `key` toggles it with SUPER + SHIFT. The shell
+-- shows them under the same names (quickshell/Specials.js).
+local specials = {
+	calendar = webapp("calendar", "https://calendar.google.com", "Calendar", "C"),
+	mail = webapp("gmail", "https://mail.google.com", "Gmail", "E", "Mail"),
+	tasks = webapp("tasks", "https://tasks.google.com", "Tasks", "T"),
+	whatsapp = webapp("whatsapp", "https://web.whatsapp.com", "WhatsApp", "W"),
+	spotify = {
+		exe = "flatpak run com.spotify.Client",
+		class = "spotify",
+		key = "S",
+		desc = "Spotify",
 	},
+	btop = { exe = "ghostty +new-window -e btop", key = "B", desc = "Activity Monitor" },
+	yazi = { exe = "ghostty +new-window -e yazi", key = "F", desc = "Files" },
+	jolt = { exe = "ghostty +new-window -e jolt" },
 }
 
-if type(local_cfg.env) == "function" then
-	local_cfg.env()
+-- Set for Hyprland and exported to the systemd user session at start, where
+-- the shell and the other session services run.
+local exported = { "WAYLAND_DISPLAY", "XDG_CURRENT_DESKTOP", "HYPRLAND_INSTANCE_SIGNATURE" }
+local function env(name, value)
+	hl.env(name, value)
+	table.insert(exported, name)
 end
 
-hl.env("GSK_RENDERER", "gl")
-hl.env("GTK_A11Y", "none")
-hl.env("XDG_SESSION_DESKTOP", "Hyprland")
-hl.env("GDK_BACKEND", "wayland,x11")
-hl.env("GDK_WAYLAND_DISABLE", "ext_background_effect_manager_v1")
-hl.env("QT_QPA_PLATFORM", "wayland;xcb")
-hl.env("QS_ICON_THEME", ui.theme.icon)
-hl.env("SDL_VIDEODRIVER", "wayland")
-for _, prefix in ipairs({ "XCURSOR", "HYPRCURSOR" }) do
-	hl.env(prefix .. "_THEME", ui.theme.cursor)
-	hl.env(prefix .. "_SIZE", tostring(ui.font.size_cursor))
+if type(machine.env) == "function" then
+	machine.env(env)
 end
-hl.env("ELECTRON_OZONE_PLATFORM_HINT", "auto")
-hl.env("SAL_USE_VCLPLUGIN", "gtk3")
+
+env("GSK_RENDERER", "gl")
+env("GTK_A11Y", "none")
+env("XDG_SESSION_DESKTOP", "Hyprland")
+env("GDK_BACKEND", "wayland,x11")
+env("GDK_WAYLAND_DISABLE", "ext_background_effect_manager_v1")
+env("QT_QPA_PLATFORM", "wayland;xcb")
+env("QS_ICON_THEME", ui.theme.icon)
+env("SDL_VIDEODRIVER", "wayland")
+for _, prefix in ipairs({ "XCURSOR", "HYPRCURSOR" }) do
+	env(prefix .. "_THEME", ui.theme.cursor)
+	env(prefix .. "_SIZE", tostring(ui.font.size_cursor))
+end
+env("ELECTRON_OZONE_PLATFORM_HINT", "auto")
+env("SAL_USE_VCLPLUGIN", "gtk3")
 
 hl.on("hyprland.start", function()
 	-- Xwayland is off in Hyprland: xwayland-satellite.socket owns :0 and starts
 	-- it for the first X11 client. Hyprland drops DISPLAY when it loads the
 	-- config with Xwayland disabled, so it has to be set here, before anything
-	-- is spawned (and before DISPLAY is exported to dbus/systemd below).
-	hl.env("DISPLAY", ":0")
+	-- is spawned or exported.
+	env("DISPLAY", ":0")
 
 	local cmds = {
-		-- First, so the session it locks on startup has nothing on screen yet.
-		"~/.local/bin/quickshell-session",
+		-- First: the session target starts the shell (quickshell.service), which
+		-- locks the session before anything else is on screen. Nothing stops the
+		-- target when Hyprland exits, so after a restart a plain start would be a
+		-- no-op and leave its services bound to the dead compositor.
+		"sh -c 'dbus-update-activation-environment --systemd "
+			.. table.concat(exported, " ")
+			.. "; systemctl --user reset-failed; systemctl --user restart hyprland-session.target'",
 
 		-- The GTK settings of ui.toml, which apply-ui keeps.
 		"~/.local/bin/apply-ui --gtk",
-
-		"dbus-update-activation-environment --systemd WAYLAND_DISPLAY DISPLAY XDG_CURRENT_DESKTOP HYPRLAND_INSTANCE_SIGNATURE AQ_DRM_DEVICES VK_DRIVER_FILES VK_ICD_FILENAMES LIBVA_DRIVER_NAME GSK_RENDERER GTK_A11Y GDK_BACKEND GDK_WAYLAND_DISABLE XCURSOR_THEME XCURSOR_SIZE HYPRCURSOR_THEME HYPRCURSOR_SIZE QT_QPA_PLATFORM SDL_VIDEODRIVER ELECTRON_OZONE_PLATFORM_HINT",
-		-- Nothing stops the target when Hyprland exits, so after a restart a plain
-		-- start is a no-op and its services stay bound to the dead compositor.
-		"sh -c 'systemctl --user reset-failed; systemctl --user restart hyprland-session.target'",
-
 		"~/.local/bin/wallpaper init",
-		"sh -c 'pidof hyprsunset >/dev/null || hyprsunset'",
 		-- install.sh cannot do this before Firefox has made a profile.
 		"sh -c '~/.local/bin/firefox-apply >/dev/null 2>&1'",
 	}
-	-- Machine-specific startup commands (local.lua).
-	if type(local_cfg.autostart) == "table" then
-		for _, cmd in ipairs(local_cfg.autostart) do
-			table.insert(cmds, cmd)
-		end
+	for _, cmd in ipairs(list(machine.autostart)) do
+		table.insert(cmds, cmd)
 	end
-
 	for _, cmd in ipairs(cmds) do
 		hl.exec_cmd(cmd)
 	end
 end)
 
-local function lid_is_closed()
+-- Monitors: the ones local.lua names where it puts them, anything else next
+-- to them. The laptop panel is off while the lid is closed and another screen
+-- is connected, and sits where the connected external monitor wants it.
+local laptop = machine.laptop
+local monitors = list(machine.monitors)
+
+for _, m in ipairs(monitors) do
+	hl.monitor({ output = m.output, mode = m.mode or "preferred", position = m.position or "auto", scale = m.scale or 1 })
+end
+hl.monitor({ output = "", mode = "preferred", position = "auto", scale = 1 })
+
+local function lid_closed()
 	local f = io.popen("cat /proc/acpi/button/lid/*/state 2>/dev/null")
 	if f == nil then
 		return false
@@ -107,171 +121,79 @@ local function lid_is_closed()
 	return out:find("closed", 1, true) ~= nil
 end
 
-local function has_external_monitor()
+-- FALLBACK is Hyprland's stand-in while no real output is left.
+local function has_external()
 	for _, m in ipairs(hl.get_monitors()) do
-		if not (m.name or ""):find("^eDP") then
+		local name = m.name or ""
+		if not name:find("^eDP") and name ~= "FALLBACK" then
 			return true
 		end
 	end
 	return false
 end
 
-local laptop_disabled = nil
-
-local function apply_monitors()
-	laptop_disabled = lid_is_closed() and has_external_monitor()
-	if type(local_cfg.monitors) == "function" then
-		local_cfg.monitors({ laptop_disabled = laptop_disabled })
-	end
-	hl.monitor({
-		output = "",
-		mode = "preferred",
-		position = "auto",
-		scale = 1,
-	})
-end
-
-local function sync_monitors()
-	if (lid_is_closed() and has_external_monitor()) ~= laptop_disabled then
-		apply_monitors()
-		return true
+-- Whether a monitor rule's output ("DP-1", "desc:...") is connected.
+local function connected(output)
+	for _, m in ipairs(hl.get_monitors()) do
+		local desc = "desc:" .. (m.description or "")
+		if output == m.name or desc:sub(1, #output) == output then
+			return true
+		end
 	end
 	return false
 end
 
-apply_monitors()
-
-local compacting = false
-local compact_gen = 0
-
-local function is_compactable_ws(ws)
-	if ws == nil or ws.special then
-		return false
-	end
-	local id = ws.id
-	if type(id) ~= "number" or id < 1 or id ~= math.floor(id) then
-		return false
-	end
-	if not tostring(ws.name or ""):match("^%d+$") then
-		return false
-	end
-	return true
-end
-
-local function compact_workspaces()
-	if compacting then
+-- Applied again only when it changes: a rule for the panel is itself a
+-- monitor change.
+local laptop_applied = nil
+local function place_laptop()
+	if type(laptop) ~= "table" then
 		return
 	end
-	compacting = true
-	pcall(function()
-		local nums = {}
-		for _, ws in ipairs(hl.get_workspaces()) do
-			if is_compactable_ws(ws) then
-				table.insert(nums, ws)
-			end
+	local position = "auto"
+	for _, m in ipairs(monitors) do
+		if m.laptop and connected(m.output) then
+			position = m.laptop
+			break
 		end
-		if #nums == 0 then
-			return
-		end
-		-- Number left to right across monitors, then by id within one. Hyprland
-		-- hands out initial workspaces in monitor id order, not by position.
-		local function pos(ws)
-			local m = ws.monitor
-			return m ~= nil and m.x or math.huge, m ~= nil and m.y or math.huge
-		end
-		table.sort(nums, function(a, b)
-			local ax, ay = pos(a)
-			local bx, by = pos(b)
-			if ax ~= bx then
-				return ax < bx
-			end
-			if ay ~= by then
-				return ay < by
-			end
-			return a.id < b.id
-		end)
-		local active = hl.get_active_workspace()
-		local focused_old = active ~= nil and active.id or nil
-		local focused_new = focused_old
-		-- Two passes through a free id range so swaps (1 <-> 2) never collide.
-		local moved = {}
-		for idx, ws in ipairs(nums) do
-			if ws.id ~= idx then
-				local tmp = 10000 + idx
-				hl.dispatch(hl.dsp.workspace.change_id({ workspace = ws.id, id = tmp }))
-				moved[idx] = tmp
-				if focused_old == ws.id then
-					focused_new = idx
-				end
-			end
-		end
-		for idx, tmp in pairs(moved) do
-			hl.dispatch(hl.dsp.workspace.change_id({ workspace = tmp, id = idx }))
-		end
-		if focused_new ~= nil and focused_new ~= focused_old then
-			pcall(function()
-				hl.dispatch(hl.dsp.focus({ workspace = focused_new }))
-			end)
-		end
-	end)
-	compacting = false
+	end
+	local disabled = lid_closed() and has_external()
+	local state = tostring(disabled) .. " " .. position
+	if state == laptop_applied then
+		return
+	end
+	laptop_applied = state
+	hl.monitor({
+		output = laptop.output,
+		mode = laptop.mode or "preferred",
+		position = position,
+		scale = laptop.scale or 1,
+		disabled = disabled,
+	})
 end
 
-local function schedule_compact(ms)
-	compact_gen = compact_gen + 1
-	local gen = compact_gen
-	hl.timer(function()
-		if gen ~= compact_gen then
-			return
-		end
-		compact_workspaces()
-	end, { timeout = ms or 500, type = "oneshot" })
-end
+place_laptop()
+hl.on("monitor.added", place_laptop)
+hl.on("monitor.removed", place_laptop)
+-- At login the outputs are still coming up when the session starts.
+hl.on("hyprland.start", function()
+	hl.timer(place_laptop, { timeout = 1500, type = "oneshot" })
+end)
 
-if not local_cfg.custom_lid_switch then
-	hl.bind("switch:on:Lid Switch", function()
-		if not sync_monitors() and not has_external_monitor() then
-			hl.dispatch(hl.dsp.dpms({ action = "off" }))
-		end
-		schedule_compact(500)
-	end, { locked = true })
+hl.bind("switch:on:Lid Switch", function()
+	place_laptop()
+	if not has_external() then
+		hl.dispatch(hl.dsp.dpms({ action = "off" }))
+	end
+end, { locked = true })
 
-	hl.bind("switch:off:Lid Switch", function()
-		hl.dispatch(hl.dsp.dpms({ action = "on" }))
-		sync_monitors()
-		schedule_compact(800)
-	end, { locked = true })
-
-	hl.on("hyprland.start", function()
-		hl.timer(function()
-			if sync_monitors() then
-				schedule_compact(500)
-			end
-		end, { timeout = 1500, type = "oneshot" })
-	end)
-
-	hl.on("monitor.added", function()
-		sync_monitors()
-		schedule_compact(500)
-	end)
-	hl.on("monitor.removed", function()
-		sync_monitors()
-		schedule_compact(500)
-	end)
-	-- Monitor positions can move without a monitor coming or going (local.lua).
-	hl.on("monitor.layout_changed", function()
-		schedule_compact(500)
-	end)
-	hl.on("config.reloaded", function()
-		-- --verify-config has no monitors and crashes on the timer.
-		if #hl.get_monitors() > 0 then
-			schedule_compact(500)
-		end
-	end)
-end
+hl.bind("switch:off:Lid Switch", function()
+	hl.dispatch(hl.dsp.dpms({ action = "on" }))
+	place_laptop()
+end, { locked = true })
 
 -- The layout belongs to the machine (local.lua).
-local keyboard = type(local_cfg.keyboard) == "table" and local_cfg.keyboard or {}
+local keyboard = type(machine.keyboard) == "table" and machine.keyboard or {}
 
 hl.config({
 	input = {
@@ -301,22 +223,17 @@ hl.config({
 
 hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })
 
--- Three fingers up bring back the special workspace used last, down put away
--- the one that is showing.
-local function visible_special()
-	local mon = hl.get_active_monitor()
-	return mon ~= nil and mon.active_special_workspace or nil
-end
-
 local function toggle_special(ws)
 	hl.dispatch(hl.dsp.workspace.toggle_special((ws.name:gsub("^special:", ""))))
 end
 
+-- Three fingers up bring back the special workspace used last, down put away
+-- the one that is showing.
 hl.gesture({
 	fingers = 3,
 	direction = "up",
 	action = function()
-		if visible_special() ~= nil then
+		if hl.get_active_special_workspace() ~= nil then
 			return
 		end
 		local last
@@ -338,7 +255,7 @@ hl.gesture({
 	fingers = 3,
 	direction = "down",
 	action = function()
-		local ws = visible_special()
+		local ws = hl.get_active_special_workspace()
 		if ws ~= nil then
 			toggle_special(ws)
 		end
@@ -391,36 +308,33 @@ hl.config({
 	},
 })
 
-local original_animation = hl.animation
-hl.animation = function(config)
-	if config.enabled == nil then
-		config.enabled = true
-	end
-	original_animation(config)
-end
-
 hl.curve("myBezier", { type = "bezier", points = { { 0.05, 0.9 }, { 0.1, 1.05 } } })
 hl.curve("easeOutQuint", { type = "bezier", points = { { 0.23, 1 }, { 0.32, 1 } } })
 hl.curve("almostLinear", { type = "bezier", points = { { 0.5, 0.5 }, { 0.75, 1 } } })
 hl.curve("quick", { type = "bezier", points = { { 0.15, 0 }, { 0.1, 1 } } })
 
-hl.animation({ leaf = "global", speed = 10, bezier = "default" })
-hl.animation({ leaf = "border", speed = 5.39, bezier = "easeOutQuint" })
-hl.animation({ leaf = "windows", speed = 4, bezier = "myBezier" })
-hl.animation({ leaf = "windowsIn", speed = 4, bezier = "myBezier", style = "popin 80%" })
-hl.animation({ leaf = "windowsOut", speed = 5, bezier = "myBezier", style = "popin 85%" })
-hl.animation({ leaf = "fadeIn", speed = 1.73, bezier = "almostLinear" })
-hl.animation({ leaf = "fadeOut", speed = 1.46, bezier = "almostLinear" })
-hl.animation({ leaf = "fade", speed = 4, bezier = "default" })
-hl.animation({ leaf = "layersIn", speed = 1.79, bezier = "almostLinear", style = "fade" })
-hl.animation({ leaf = "layersOut", speed = 1.39, bezier = "almostLinear", style = "fade" })
-hl.animation({ leaf = "fadeLayersIn", speed = 1.79, bezier = "almostLinear" })
-hl.animation({ leaf = "fadeLayersOut", speed = 1.39, bezier = "almostLinear" })
-hl.animation({ leaf = "workspacesIn", speed = 3, bezier = "quick" })
-hl.animation({ leaf = "workspacesOut", speed = 3, bezier = "quick" })
-hl.animation({ leaf = "zoomFactor", speed = 7, bezier = "quick" })
-hl.animation({ leaf = "specialWorkspaceIn", speed = 4, bezier = "default", style = "slide bottom" })
-hl.animation({ leaf = "specialWorkspaceOut", speed = 4, bezier = "default", style = "slide top" })
+for _, animation in ipairs({
+	{ leaf = "global", speed = 10, bezier = "default" },
+	{ leaf = "border", speed = 5.39, bezier = "easeOutQuint" },
+	{ leaf = "windows", speed = 4, bezier = "myBezier" },
+	{ leaf = "windowsIn", speed = 4, bezier = "myBezier", style = "popin 80%" },
+	{ leaf = "windowsOut", speed = 5, bezier = "myBezier", style = "popin 85%" },
+	{ leaf = "fadeIn", speed = 1.73, bezier = "almostLinear" },
+	{ leaf = "fadeOut", speed = 1.46, bezier = "almostLinear" },
+	{ leaf = "fade", speed = 4, bezier = "default" },
+	{ leaf = "layersIn", speed = 1.79, bezier = "almostLinear", style = "fade" },
+	{ leaf = "layersOut", speed = 1.39, bezier = "almostLinear", style = "fade" },
+	{ leaf = "fadeLayersIn", speed = 1.79, bezier = "almostLinear" },
+	{ leaf = "fadeLayersOut", speed = 1.39, bezier = "almostLinear" },
+	{ leaf = "workspacesIn", speed = 3, bezier = "quick" },
+	{ leaf = "workspacesOut", speed = 3, bezier = "quick" },
+	{ leaf = "zoomFactor", speed = 7, bezier = "quick" },
+	{ leaf = "specialWorkspaceIn", speed = 4, bezier = "default", style = "slide bottom" },
+	{ leaf = "specialWorkspaceOut", speed = 4, bezier = "default", style = "slide top" },
+}) do
+	animation.enabled = true
+	hl.animation(animation)
+end
 
 hl.config({
 	xwayland = {
@@ -433,10 +347,6 @@ hl.config({
 		key_press_enables_dpms = true,
 		mouse_move_enables_dpms = true,
 		allow_session_lock_restore = true,
-	},
-	-- Timestamps in hyprland.log, to measure the startup (boot-time work); drop when done.
-	debug = {
-		disable_time = false,
 	},
 })
 
@@ -466,25 +376,9 @@ hl.window_rule({
 	suppress_event = "maximize",
 })
 
-local function autostart_for(exe)
-	local prog = exe:match("^(%S+)")
-	if prog ~= nil and prog:find("/", 1, true) ~= nil then
-		local f = io.open(prog, "r")
-		if f == nil then
-			return nil
-		end
-		f:close()
-	end
-	return exe
-end
-
-for name, app in pairs(programs.special) do
+for name, app in pairs(specials) do
 	local ws = "special:" .. name
-	hl.workspace_rule({
-		workspace = ws,
-		on_created_empty = autostart_for(app.exe),
-		gaps_out = 48,
-	})
+	hl.workspace_rule({ workspace = ws, on_created_empty = app.exe, gaps_out = 48 })
 	if app.class then
 		hl.window_rule({ match = { class = app.class, title = app.title }, workspace = ws })
 	end
@@ -539,56 +433,89 @@ hl.window_rule({
 	opacity = "1.0 0.97",
 })
 
--- The launcher's keys list shows the binds in the order they are made here,
--- each under the section its description starts with ("Windows: Close
--- window"); binds with the same description and modifiers share one line.
-local section = ""
-local function b(keys, desc, dispatcher, opts)
-	opts = opts or {}
-	opts.description = section .. ": " .. desc
-	if opts.repeating == nil then
-		opts.repeating = false
-	end
-	hl.bind(keys, dispatcher, opts)
-end
-
-local function cmd(keys, desc, command)
-	b(keys, desc, hl.dsp.exec_cmd(command))
-end
-
-local directions = { { "H", "left" }, { "J", "down" }, { "K", "up" }, { "L", "right" } }
-local step = 25
-
--- Whether `w` lies to the `dir` side of `from`: focus in a direction wraps
--- around at the edge of the screen instead of stopping.
-local function lies_beyond(from, w, dir)
-	if from == nil or w == nil or w.address == from.address then
-		return false
-	end
-	return (dir == "left" and w.at.x < from.at.x) or (dir == "right" and w.at.x > from.at.x)
-end
-
--- Workspaces are numbered left to right across the monitors
--- (compact_workspaces), so past the side of a screen lies the workspace one
--- number away, on this monitor or the next: H and L go through the windows
--- of all of them as one row.
--- A special workspace is not in the row: nothing lies past its sides.
-local function workspace_beyond(dir)
-	local win = hl.get_active_window()
-	if win ~= nil and win.workspace ~= nil and win.workspace.id < 0 then
-		return nil
-	end
-	local active = hl.get_active_workspace()
-	if active == nil or not is_compactable_ws(active) then
-		return nil
-	end
-	local id = active.id + (dir == "left" and -1 or 1)
+-- The workspaces form one row, left to right across the monitors (by their
+-- position) and by id on each: SUPER + 1..9 count along it, and H and L go on
+-- past the last window of a workspace to the next one in it.
+local function row()
+	local out = {}
 	for _, ws in ipairs(hl.get_workspaces()) do
-		if ws.id == id and is_compactable_ws(ws) then
-			return ws
+		if ws.id > 0 then
+			table.insert(out, ws)
+		end
+	end
+	local function pos(ws)
+		local m = ws.monitor
+		if m == nil then
+			return math.huge, math.huge
+		end
+		return m.x, m.y
+	end
+	table.sort(out, function(a, b)
+		local ax, ay = pos(a)
+		local bx, by = pos(b)
+		if ax ~= bx then
+			return ax < bx
+		end
+		if ay ~= by then
+			return ay < by
+		end
+		return a.id < b.id
+	end)
+	return out
+end
+
+-- An id no workspace has: focusing or moving to it makes a new workspace.
+local function new_workspace(workspaces)
+	local last = 0
+	for _, ws in ipairs(workspaces) do
+		last = math.max(last, ws.id)
+	end
+	return last + 1
+end
+
+-- The workspace at place n of the row, or a new one.
+local function nth(n)
+	local workspaces = row()
+	return workspaces[n] ~= nil and workspaces[n].id or new_workspace(workspaces)
+end
+
+-- The place of the active workspace in the row, and the row; nothing while a
+-- special workspace has the focus.
+local function place_in_row()
+	local win = hl.get_active_window()
+	local active = hl.get_active_workspace()
+	if active == nil or (win ~= nil and win.workspace ~= nil and win.workspace.id < 0) then
+		return nil
+	end
+	local workspaces = row()
+	for i, ws in ipairs(workspaces) do
+		if ws.id == active.id then
+			return i, workspaces
 		end
 	end
 	return nil
+end
+
+-- Whether a window of `win`'s workspace lies to the `dir` side of it. Focus
+-- in a direction wraps round at the edge of the screen, so it is asked only
+-- when there is something to go to.
+local function anything_beyond(win, dir)
+	if win == nil or win.workspace == nil then
+		return false
+	end
+	for _, w in ipairs(hl.get_windows()) do
+		if
+			w.workspace ~= nil
+			and w.workspace.id == win.workspace.id
+			and w.mapped
+			and not w.hidden
+			and w.address ~= win.address
+			and ((dir == "left" and w.at.x < win.at.x) or (dir == "right" and w.at.x > win.at.x))
+		then
+			return true
+		end
+	end
+	return false
 end
 
 -- The tiled window of a workspace nearest its `side`, the top one of a column.
@@ -605,203 +532,192 @@ local function window_at_side(ws, side)
 	return best
 end
 
-local function opposite(dir)
-	return dir == "left" and "right" or "left"
-end
-
--- Whether any window of `from`'s workspace lies to the `dir` side of it.
-local function anything_beyond(from, dir)
-	if from == nil or from.workspace == nil then
-		return false
-	end
-	for _, w in ipairs(hl.get_windows()) do
-		if w.workspace ~= nil and w.workspace.id == from.workspace.id and w.mapped and not w.hidden and lies_beyond(from, w, dir) then
-			return true
-		end
-	end
-	return false
-end
-
 local function focus_or_step(dir)
-	local win = hl.get_active_window()
-	-- Nothing on that side: focus would wrap to the far window and flash it
-	-- before coming back, so it is not asked at all.
-	if anything_beyond(win, dir) then
+	if anything_beyond(hl.get_active_window(), dir) then
 		hl.dispatch(hl.dsp.focus({ direction = dir }))
-		if lies_beyond(win, hl.get_active_window(), dir) then
-			return
-		end
-		-- It wrapped around after all: back to where it was.
-		hl.dispatch(hl.dsp.focus({ window = win }))
+		return
 	end
-	-- On to the next workspace.
-	local ws = workspace_beyond(dir)
-	if ws == nil then
+	local i, workspaces = place_in_row()
+	local ws = i and workspaces[i + (dir == "left" and -1 or 1)]
+	if not ws then
 		return
 	end
 	hl.dispatch(hl.dsp.focus({ workspace = ws.id }))
-	local entry = window_at_side(ws, opposite(dir))
+	-- Coming in from the left, the first window in; from the right, the last.
+	local entry = window_at_side(ws, dir == "left" and "right" or "left")
 	if entry ~= nil then
 		hl.dispatch(hl.dsp.focus({ window = entry }))
 	end
 end
 
--- Swap stays put with nothing on that side; then the window goes on to the
--- next workspace instead.
+-- Swap with the window on that side; with none there, the window goes on to
+-- the next workspace of the row (a new one past its right end).
 local function swap_or_throw(dir)
 	local win = hl.get_active_window()
 	if win == nil then
 		return
 	end
-	-- win is live: its position has to be read before the swap.
-	local x, y = win.at.x, win.at.y
-	pcall(hl.dispatch, hl.dsp.window.swap({ direction = dir }))
-	local now = hl.get_active_window()
-	if now == nil or now.at.x ~= x or now.at.y ~= y then
+	if dir == "up" or dir == "down" or anything_beyond(win, dir) then
+		hl.dispatch(hl.dsp.window.swap({ direction = dir }))
 		return
 	end
-	if win.workspace == nil or win.workspace.id < 0 or (dir ~= "left" and dir ~= "right") then
+	local i, workspaces = place_in_row()
+	if i == nil then
 		return
 	end
-	-- Past the last workspace: a new one.
-	local ws = workspace_beyond(dir)
-	local target = ws ~= nil and ws.id or (dir == "left" and "r-1" or "r+1")
-	-- Dwindle puts a window that arrives next to the one nearest the pointer,
-	-- on the pointer's side of it. Point at the side it comes in at, so it
-	-- lands first in the row there (last, coming from the right) instead of
-	-- wherever the pointer happens to be.
-	local entry = ws ~= nil and window_at_side(ws, opposite(dir)) or nil
-	if entry ~= nil then
-		pcall(hl.dispatch, hl.dsp.cursor.move({
-			x = dir == "right" and entry.at.x + 1 or entry.at.x + entry.size.x - 1,
-			y = entry.at.y + entry.size.y * (dir == "right" and 0.25 or 0.75),
-		}))
+	local ws = workspaces[i + (dir == "left" and -1 or 1)]
+	local target = ws and ws.id or (dir == "right" and new_workspace(workspaces))
+	if target then
+		hl.dispatch(hl.dsp.window.move({ workspace = target, window = win }))
 	end
-	pcall(hl.dispatch, hl.dsp.window.move({ workspace = target, window = win }))
 end
 
-section = "Essential"
-cmd("SUPER + B", "Browser", programs.browser)
-cmd("SUPER + RETURN", "Terminal", programs.terminal)
-cmd("SUPER + space", "Launcher", programs.launcher)
+-- The launcher's keys list shows the binds in the order they are made here,
+-- each under its section: the description reads "Windows: Close window".
+-- Binds with the same description and modifiers share one line.
+local function section(name)
+	return function(keys, desc, action, opts)
+		opts = opts or {}
+		opts.description = name .. ": " .. desc
+		if opts.repeating == nil then
+			opts.repeating = false
+		end
+		hl.bind(keys, action, opts)
+	end
+end
 
-section = "Windows"
-for _, d in ipairs(directions) do
-	local key, dir = d[1], d[2]
-	if dir == "left" or dir == "right" then
-		b("SUPER + " .. key, "Focus window", function()
-			focus_or_step(dir)
+local exec = hl.dsp.exec_cmd
+
+local directions = { H = "left", J = "down", K = "up", L = "right" }
+
+do
+	local bind = section("Essential")
+	bind("SUPER + B", "Browser", exec("firefox"))
+	bind("SUPER + RETURN", "Terminal", exec("ghostty"))
+	bind("SUPER + space", "Launcher", exec("qs ipc call shell toggle launcher apps"))
+end
+
+do
+	local bind = section("Windows")
+	local step = 25
+	for _, key in ipairs({ "H", "J", "K", "L" }) do
+		local dir = directions[key]
+		if dir == "left" or dir == "right" then
+			bind("SUPER + " .. key, "Focus window", function()
+				focus_or_step(dir)
+			end)
+		else
+			bind("SUPER + " .. key, "Focus window", hl.dsp.focus({ direction = dir }))
+		end
+	end
+	for _, key in ipairs({ "H", "J", "K", "L" }) do
+		local dir = directions[key]
+		bind("SUPER + SHIFT + " .. key, "Move window", function()
+			swap_or_throw(dir)
 		end)
-	else
-		b("SUPER + " .. key, "Focus window", hl.dsp.focus({ direction = dir }))
 	end
+	for _, key in ipairs({ "H", "J", "K", "L" }) do
+		local dir = directions[key]
+		bind(
+			"SUPER + CTRL + " .. key,
+			"Resize window",
+			hl.dsp.window.resize({
+				x = (dir == "left" and -step) or (dir == "right" and step) or 0,
+				y = (dir == "up" and -step) or (dir == "down" and step) or 0,
+				relative = true,
+			}),
+			{ repeating = true }
+		)
+	end
+	bind("SUPER + TAB", "Focus previous window", hl.dsp.focus({ last = true }))
+	for i = 1, 9 do
+		bind("SUPER + " .. i, "Switch to workspace", function()
+			hl.dispatch(hl.dsp.focus({ workspace = nth(i) }))
+		end)
+	end
+	for i = 1, 9 do
+		bind("SUPER + SHIFT + " .. i, "Move window to workspace", function()
+			hl.dispatch(hl.dsp.window.move({ workspace = nth(i) }))
+		end)
+	end
+	bind("SUPER + Q", "Close window", hl.dsp.window.close())
+	bind("SUPER + F", "Toggle fullscreen", hl.dsp.window.fullscreen())
+	bind("SUPER + T", "Toggle window split", hl.dsp.layout("togglesplit"))
+	bind("SUPER + M", "Toggle floating", hl.dsp.window.float({ action = "toggle" }))
 end
-for _, d in ipairs(directions) do
-	local dir = d[2]
-	b("SUPER + SHIFT + " .. d[1], "Move window", function()
-		swap_or_throw(dir)
+
+do
+	-- In the order of their keys.
+	local bind = section("Special Workspaces")
+	local keyed = {}
+	for name, app in pairs(specials) do
+		if app.key then
+			table.insert(keyed, { name = name, app = app })
+		end
+	end
+	table.sort(keyed, function(x, y)
+		return x.app.key < y.app.key
 	end)
-end
-for _, d in ipairs(directions) do
-	local dir = d[2]
-	b(
-		"SUPER + CTRL + " .. d[1],
-		"Resize window",
-		hl.dsp.window.resize({
-			x = (dir == "left" and -step) or (dir == "right" and step) or 0,
-			y = (dir == "up" and -step) or (dir == "down" and step) or 0,
-			relative = true,
-		}),
-		{ repeating = true }
-	)
-end
-b("SUPER + TAB", "Focus previous window", hl.dsp.focus({ last = true }))
-for i = 1, 9 do
-	b("SUPER + " .. i, "Switch to workspace", hl.dsp.focus({ workspace = i }))
-end
-for i = 1, 9 do
-	b("SUPER + SHIFT + " .. i, "Move window to workspace", hl.dsp.window.move({ workspace = i }))
-end
-b("SUPER + Q", "Close window", hl.dsp.window.close())
-b("SUPER + F", "Toggle fullscreen", hl.dsp.window.fullscreen())
-b("SUPER + T", "Toggle window split", hl.dsp.layout("togglesplit"))
-b("SUPER + M", "Toggle floating", hl.dsp.window.float({ action = "toggle" }))
-
--- Named after the shell's titles of them (quickshell/Specials.js), in the
--- order of their keys.
-section = "Special Workspaces"
-local specials = {}
-for name, app in pairs(programs.special) do
-	if app.key then
-		table.insert(specials, { name = name, app = app })
+	for _, sp in ipairs(keyed) do
+		bind("SUPER + SHIFT + " .. sp.app.key, sp.app.desc, hl.dsp.workspace.toggle_special(sp.name))
 	end
 end
-table.sort(specials, function(x, y)
-	return x.app.key < y.app.key
-end)
-for _, sp in ipairs(specials) do
-	b("SUPER + SHIFT + " .. sp.app.key, sp.app.desc, hl.dsp.workspace.toggle_special(sp.name))
+
+do
+	local bind = section("System & Tools")
+	bind("SUPER + A", "Actions", exec("qs ipc call shell toggle actions ''"))
+	bind("SUPER + W", "Weather", exec("qs ipc call shell toggle weather ''"))
+	bind("SUPER + E", "Emojis", exec("qs ipc call shell toggle launcher emoji"))
+	bind("SUPER + V", "Clipboard history", exec("qs ipc call shell toggle launcher clipboard"))
+	bind("SUPER + slash", "Keybindings", exec("qs ipc call shell toggle launcher keys"))
+	bind("SUPER + P", "Next wallpaper", exec("~/.local/bin/wallpaper next"))
 end
 
-section = "System & Tools"
-cmd("SUPER + A", "Actions", "qs ipc call shell toggle actions ''")
-cmd("SUPER + W", "Weather", "qs ipc call shell toggle weather ''")
-cmd("SUPER + E", "Emojis", "qs ipc call shell toggle launcher emoji")
-cmd("SUPER + V", "Clipboard history", "qs ipc call shell toggle launcher clipboard")
-cmd("SUPER + slash", "Keybindings", "qs ipc call shell toggle launcher keys")
-cmd("SUPER + P", "Next wallpaper", "~/.local/bin/wallpaper next")
-
-section = "Session"
-cmd("SUPER + escape", "Lock system", "qs ipc call session lock")
-
-section = "Capture"
-cmd("print", "Screenshot", "~/.local/bin/screenshot region")
-cmd("SHIFT + print", "Screenshot of the screen", "~/.local/bin/screenshot fullscreen")
-cmd("SUPER + D", "Dictation", "~/.local/bin/dictation")
-
-section = "Notifications"
-cmd("SUPER + N", "Toggle notification center", "qs ipc call shell toggle notifications ''")
-cmd("SUPER + comma", "Close latest notification", "qs ipc call notifications dismissLatest")
-
-section = "Mouse"
--- No resize drag: resize_on_border already does it from any edge.
-hl.bind("SUPER + mouse:272", hl.dsp.window.drag(), { mouse = true, description = section .. ": Move window" })
-b("SUPER + mouse:274", "Toggle floating", hl.dsp.window.float({ action = "toggle" }))
-
--- The shell shows the new level on its own (Osd.qml follows PipeWire).
-section = "Media"
-local function audio(command)
-	return command .. " && canberra-gtk-play -i audio-volume-change"
+do
+	local bind = section("Session")
+	bind("SUPER + escape", "Lock system", exec("qs ipc call session lock"))
 end
 
-local media = {
-	{
-		"XF86AudioRaiseVolume",
-		audio("wpctl set-volume -l 1.0 @DEFAULT_AUDIO_SINK@ 5%+"),
-		true,
-		"Volume up",
-	},
-	{
-		"XF86AudioLowerVolume",
-		audio("wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-"),
-		true,
-		"Volume down",
-	},
-	{ "XF86AudioMute", audio("wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"), nil, "Volume mute" },
-	{
-		"XF86AudioMicMute",
-		audio("wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle"),
-		nil,
-		"Microphone mute",
-	},
-	{ "XF86MonBrightnessUp", "~/.local/bin/brightness up", true, "Brightness up" },
-	{ "XF86MonBrightnessDown", "~/.local/bin/brightness down", true, "Brightness down" },
-	{ "XF86AudioNext", "playerctl next", nil, "Next track" },
-	{ "XF86AudioPause", "playerctl play-pause", nil, "Pause track" },
-	{ "XF86AudioPlay", "playerctl play-pause", nil, "Play track" },
-	{ "XF86AudioPrev", "playerctl previous", nil, "Previous track" },
-}
+do
+	local bind = section("Capture")
+	bind("print", "Screenshot", exec("~/.local/bin/screenshot region"))
+	bind("SHIFT + print", "Screenshot of the screen", exec("~/.local/bin/screenshot fullscreen"))
+	bind("SUPER + D", "Dictation", exec("~/.local/bin/dictation"))
+end
 
-for _, m in ipairs(media) do
-	b(m[1], m[4], hl.dsp.exec_cmd(m[2]), { locked = true, repeating = m[3] })
+do
+	local bind = section("Notifications")
+	bind("SUPER + N", "Toggle notification center", exec("qs ipc call shell toggle notifications ''"))
+	bind("SUPER + comma", "Close latest notification", exec("qs ipc call notifications dismissLatest"))
+end
+
+do
+	-- No resize drag: resize_on_border already does it from any edge.
+	local bind = section("Mouse")
+	bind("SUPER + mouse:272", "Move window", hl.dsp.window.drag(), { mouse = true })
+	bind("SUPER + mouse:274", "Toggle floating", hl.dsp.window.float({ action = "toggle" }))
+end
+
+do
+	-- Locked: they work on the lock screen too. The shell shows the new level
+	-- (Osd.qml follows PipeWire and the shell's own brightness).
+	local bind = section("Media")
+	local function audio(command)
+		return command .. " && canberra-gtk-play -i audio-volume-change"
+	end
+	-- keys, description, command, repeats while held
+	for _, m in ipairs({
+		{ "XF86AudioRaiseVolume", "Volume up", audio("wpctl set-volume -l 1.0 @DEFAULT_AUDIO_SINK@ 5%+"), true },
+		{ "XF86AudioLowerVolume", "Volume down", audio("wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-"), true },
+		{ "XF86AudioMute", "Volume mute", audio("wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"), false },
+		{ "XF86AudioMicMute", "Microphone mute", audio("wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle"), false },
+		{ "XF86MonBrightnessUp", "Brightness up", "qs ipc call brightness up", true },
+		{ "XF86MonBrightnessDown", "Brightness down", "qs ipc call brightness down", true },
+		{ "XF86AudioNext", "Next track", "playerctl next", false },
+		{ "XF86AudioPause", "Pause track", "playerctl play-pause", false },
+		{ "XF86AudioPlay", "Play track", "playerctl play-pause", false },
+		{ "XF86AudioPrev", "Previous track", "playerctl previous", false },
+	}) do
+		bind(m[1], m[2], exec(m[3]), { locked = true, repeating = m[4] })
+	end
 end

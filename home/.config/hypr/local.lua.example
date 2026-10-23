@@ -1,59 +1,32 @@
--- ~/.config/hypr/local.lua
--- Machine-specific configuration (GPU/DRM, monitors, device-specific binds/overrides).
--- This file is gitignored and stow-ignored. Copy to ~/.config/hypr/local.lua to use.
+-- ~/.config/hypr/local.lua: what belongs to one machine. Ignored by git and
+-- stow here; keep it in a repository of the machine's own (stowed next to
+-- these links) or copy this file there. Every field may be left out.
 
 return {
-	-- Keyboard layout and XKB options (default: "us", none). The shell's
-	-- keybindings sheet notes when Alt and Super are swapped.
+	-- Keyboard layout and XKB options (default: "us", none).
 	-- keyboard = {
 	-- 	layout = "pl",
 	-- 	options = "altwin:swap_lalt_lwin",
 	-- },
 
-	-- Hardware / GPU environment variables
-	env = function()
-		-- Example for hybrid graphics (AMD iGPU + NVIDIA dGPU on Lenovo Legion):
-		-- Put the GPU driving the most latency-sensitive display first. For example,
-		-- if an external monitor is physically wired to NVIDIA while the laptop
-		-- panel is wired to AMD, prefer NVIDIA first to avoid cross-GPU copies on
-		-- the external output (at the cost of more power use):
-		-- hl.env("AQ_DRM_DEVICES", "/dev/dri/nvidia-dgpu:/dev/dri/amd-igpu")
-		-- local vulkan_icd = "/usr/share/vulkan/icd.d/radeon_icd.json"
-		-- hl.env("VK_DRIVER_FILES", vulkan_icd)
-		-- hl.env("VK_ICD_FILENAMES", vulkan_icd)
-		-- hl.env("LIBVA_DRIVER_NAME", "radeonsi")
-	end,
+	-- Environment for the compositor and the session, e.g. the GPU order of a
+	-- hybrid laptop. `set` also exports the variable to the systemd session.
+	-- env = function(set)
+	-- 	set("AQ_DRM_DEVICES", "/dev/dri/card1:/dev/dri/card0")
+	-- end,
 
-	-- Monitor layout & refresh rates.
-	monitors = function(state)
-		-- state.laptop_disabled: true when the lid is closed and an external
-		-- monitor is connected (set by hyprland.lua). Pass it as `disabled`
-		-- on the laptop panel rule so reloads never re-enable it.
-		state = state or {}
-		-- Example: Laptop display + external monitor
-		-- local laptop_output = "desc:BOE 0x0998"
-		-- local external_output = "desc:iiyama Corporation PL2792Q 1152011401936"
-		--
-		-- hl.monitor({
-		-- 	output = laptop_output,
-		-- 	mode = "1920x1080@165",
-		-- 	position = "320x1440",
-		-- 	scale = 1,
-		-- 	disabled = state.laptop_disabled, -- lid closed + external monitor present
-		-- })
-		-- hl.monitor({
-		-- 	output = external_output,
-		-- 	mode = "preferred",
-		-- 	position = "0x0",
-		-- 	scale = 1,
-		-- })
-	end,
+	-- The built-in panel: off while the lid is closed and another monitor is
+	-- connected.
+	-- laptop = { output = "desc:BOE 0x0998", mode = "1920x1080@165" },
 
-	-- Commands to run once when the session starts, after the shell is up.
-	autostart = {
-		-- "wpctl set-volume @DEFAULT_AUDIO_SOURCE@ 0.25", -- a hot microphone
-	},
+	-- Monitor layout. `laptop` is where the panel goes while that monitor is
+	-- connected. Monitors not listed go next to the others at their best mode.
+	-- monitors = {
+	-- 	{ output = "desc:iiyama Corporation PL2792Q 1152011401936", position = "0x0", laptop = "320x1440" },
+	-- },
 
-	-- Set to true if you define custom Lid Switch handling in monitors()
-	custom_lid_switch = false,
+	-- Commands to run once when the session starts.
+	-- autostart = {
+	-- 	"wpctl set-volume @DEFAULT_AUDIO_SOURCE@ 0.25", -- a hot microphone
+	-- },
 }
