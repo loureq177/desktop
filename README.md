@@ -16,14 +16,14 @@ On Arch the installer changes the system, not only the home directory:
 - links `common/` and `archlinux/` into `~`
 - enables autologin on tty1 for the current user and makes zsh the login shell: the login shell starts Hyprland and the shell locks the session at once
 - copies `archlinux/etc` into `/etc` (zram, memory tuning, lid-switch inhibitors), backing up files that differ
-- enables the user units of this repo that have an `[Install]` section, and `hypridle`
+- enables the user units of this repo that have an `[Install]` section, and `hypridle` and `hyprsunset`
 - downloads the speech model that `dictation` needs (about 140 MB)
 
 Everything in the package lists is in `core`, `extra` or the AUR; nothing needs `multilib`.
 
 ### After the first run
 
-- `~/.config/hypr/local.lua` holds what belongs to one machine: keyboard layout (`us` without it), GPU order, monitor layout, startup commands. Start from `local.lua.example`.
+- `~/.config/hypr/local.lua` holds what belongs to one machine: keyboard layout (`us` without it), GPU order, monitor layout, startup commands. Start from `local.lua.example`, and keep it in a repository of the machine's own, stowed next to these links (`~/.config/hypr` is a real directory for that).
 - Firefox gets its defaults (`firefox-defaults/user.js`) at the first login after it has run once.
 - The lock screen accepts a fingerprint if one is enrolled (`fprintd-enroll`).
 
@@ -62,7 +62,7 @@ The launcher finds apps, the web apps and the other special workspaces among the
 | Keys | Action |
 | --- | --- |
 | `SUPER + Return` | Terminal |
-| `SUPER + Space` | Launcher: apps and actions, `2+2` calculates, `/` finds files, `>` lists commands to run |
+| `SUPER + Space` | Launcher: apps and actions, `2+2` calculates, `/` finds files |
 | `SUPER + A` | Quick actions (Wi-Fi, Bluetooth, capture, battery saver) |
 | `SUPER + N` | Notification center |
 | `SUPER + V` / `SUPER + E` | Clipboard history / emoji |
@@ -75,8 +75,8 @@ Everything also works with the mouse: the grid icon at the left of the bar opens
 
 ### Good to know
 
-- The session is locked by quickshell. If it cannot start, `quickshell-session` locks with `hyprlock` instead, so autologin never ends in an open desktop.
-- Without a location set in the weather panel, the forecast asks `ipwho.is` where this IP address is.
+- The session is locked by quickshell, which the session target starts (`quickshell.service`, restarted when it crashes). A shell that dies before the session was unlocked leaves it to `lock-fallback`, which locks with `hyprlock` instead, so autologin never ends in an open desktop.
+- The weather is for the place in `~/.config/weather.json` (`{ "name": "Krakow", "latitude": 50.06, "longitude": 19.94 }`); without it the forecast asks `ipwho.is` where this IP address is.
 
 ## Testing
 
