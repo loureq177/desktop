@@ -15,6 +15,12 @@ Drawer {
 		list.forceActiveFocus();
 	}
 
+	// What the notification leads to takes the place of the center.
+	function activate(nid): void {
+		Notifications.activate(nid);
+		Panels.close("notifications");
+	}
+
 	ColumnLayout {
 		anchors.fill: parent
 		spacing: 12
@@ -81,7 +87,7 @@ Drawer {
 			scrollBar: true
 			spacing: 8
 			model: Notifications.history
-			onActivated: index => Notifications.activate(Notifications.history.get(index).nid)
+			onActivated: index => win.activate(Notifications.history.get(index).nid)
 
 			Keys.onPressed: event => {
 				if (event.key === Qt.Key_X && !event.isAutoRepeat && count > 0)
@@ -101,7 +107,7 @@ Drawer {
 				}
 				onActivated: {
 					list.currentIndex = index;
-					Notifications.activate(nid);
+					win.activate(nid);
 				}
 				onDismissed: Notifications.dismiss(nid)
 			}

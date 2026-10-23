@@ -219,7 +219,8 @@ Rectangle {
 		anchors.top: parent.top
 		anchors.right: parent.right
 		anchors.margins: 6
-		size: 24
+		implicitWidth: 24
+		implicitHeight: 24
 		onClicked: root.dismissed()
 	}
 }

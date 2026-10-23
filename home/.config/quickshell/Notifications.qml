@@ -138,13 +138,6 @@ Singleton {
 		root.removeFrom(root.history, nid);
 	}
 
-	function focusApp(appTarget: string): void {
-		var literal = appTarget.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-		var selector = "class:^(?i)" + literal + "$";
-		var lua = selector.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
-		Quickshell.execDetached(["hyprctl", "dispatch", 'hl.dsp.focus({ window = "' + lua + '" })']);
-	}
-
 	function invoke(nid, identifier: string): void {
 		var n = root.live(nid);
 		var action = n?.actions.find(a => a.identifier === identifier);
@@ -172,10 +165,9 @@ Singleton {
 			var i = root.indexIn(root.history, nid);
 			var entry = i >= 0 ? root.history.get(i) : null;
 			if (entry && (entry.desktopEntry || entry.appName))
-				root.focusApp(entry.desktopEntry || entry.appName);
+				Hypr.focusApp(entry.desktopEntry || entry.appName);
 		}
 		root.removeFrom(root.toasts, nid);
-		Panels.close("notifications");
 	}
 
 	function clear(): void {
@@ -189,15 +181,6 @@ Singleton {
 		var latest = root.toasts.count > 0 ? root.toasts : root.history;
 		if (latest.count > 0)
 			root.dismiss(latest.get(0).nid);
-	}
-
-	// A panel on screen hides the toasts.
-	Connections {
-		target: Panels
-		function onActiveChanged() {
-			if (Panels.active !== "")
-				root.toasts.clear();
-		}
 	}
 
 	Timer {

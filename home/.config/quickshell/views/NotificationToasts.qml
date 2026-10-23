@@ -5,7 +5,7 @@ import Quickshell.Wayland
 import QtQuick
 
 // The newest notifications, under the right end of the bar, while no panel
-// is open (Notifications drops them when one opens).
+// is open: a panel that opens puts them away for good.
 PanelWindow {
 	id: win
 
@@ -41,6 +41,14 @@ PanelWindow {
 		target: Notifications
 		property: "toastsHeld"
 		value: win.replying
+	}
+
+	Connections {
+		target: Panels
+		function onActiveChanged() {
+			if (Panels.active !== "")
+				Notifications.toasts.clear();
+		}
 	}
 
 	// A card that goes with its field focused never reports losing the focus.
