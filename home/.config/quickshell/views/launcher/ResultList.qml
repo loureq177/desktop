@@ -6,12 +6,12 @@ import QtQuick
 import QtQuick.Layouts
 
 // The rows of the apps' and the keys' lists. Each item is
-//   { label, subtitle, icon, lineIcon, chord, run }
-// and maybe `accent` (the calculator's green), `mnemonic` (the label with the
-// letter of its key lit), `heading` (the section it opens when it differs
-// from the row before) and `confirm` (the verb of what runs on a second Enter
-// only). `icon` is a theme icon or one of the shell's (icons/); without one the
-// row shows `lineIcon`. `run` returning false keeps the launcher open.
+//   { label, subtitle, icon, lineIcon, run }
+// and maybe `chord` (its keys, as caps), `accent` (the calculator's green),
+// `heading` (the section it opens when it differs from the row before) and
+// `confirm` (the verb of what runs on a second Enter only). `icon` is a theme
+// icon or one of the shell's (icons/); without one the row shows `lineIcon`.
+// `run` returning false keeps the launcher open.
 SelectList {
 	id: list
 
@@ -131,8 +131,8 @@ SelectList {
 				font.bold: row.modelData.accent ?? false
 				color: row.modelData.accent ? Theme.accentGreen : Theme.textMain
 				elide: Text.ElideRight
-				textFormat: row.modelData.mnemonic ? Text.StyledText : Text.PlainText
-				text: row.modelData.mnemonic || row.modelData.label
+				textFormat: Text.PlainText
+				text: row.modelData.label
 			}
 
 			StyledText {
@@ -143,7 +143,6 @@ SelectList {
 				text: row.armed ? "Press Enter again to " + row.modelData.confirm : (row.modelData.subtitle ?? "")
 			}
 
-			// The bind that does the same, as key caps.
 			KeyCaps {
 				chord: row.modelData.chord ?? ""
 				highlighted: row.selected

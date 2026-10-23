@@ -3,12 +3,9 @@ import "../../widgets"
 import QtQuick
 import QtQuick.Layouts
 
-// One search field over four lists: the apps (with the commands, arithmetic,
-// files and the PATH), the emoji, the clipboard history and the keys. The
+// One search field over four lists (LauncherPane): the apps (with the commands,
+// arithmetic and files), the emoji, the clipboard history and the keys. The
 // empty field offers the other three; Backspace there goes back to the apps.
-// Each list (pane) has the same shape: query, icon, placeholder,
-// preferredHeight, step(), activate(), and maybe stepColumn(), complete(),
-// opened(), closed() and a footer line.
 ModalWindow {
 	id: root
 
@@ -16,11 +13,10 @@ ModalWindow {
 	readonly property var panes: ({ apps: apps, emoji: emoji, clipboard: clipboard, keys: keys })
 	readonly property var pane: panes[scope]
 
-	panel: true
 	shown: Panels.active === "launcher"
 	onDismissRequested: Panels.close("launcher")
 	onShownChanged: {
-		if (!shown && root.pane.closed)
+		if (!shown)
 			root.pane.closed();
 	}
 
@@ -36,8 +32,7 @@ ModalWindow {
 			root.scope = next;
 			search.clear();
 			search.focusInput();
-			if (root.pane.opened)
-				root.pane.opened();
+			root.pane.opened();
 		}
 	}
 
@@ -90,18 +85,12 @@ ModalWindow {
 				icon: root.pane.icon
 				placeholder: root.pane.placeholder
 				scopes: Object.keys(root.panes).filter(name => name !== root.scope)
-				completeOnTab: root.pane.completeOnTab ?? false
-				leftRightNavigate: root.pane.stepColumn !== undefined
+				leftRightNavigate: root.pane.grid
 
 				onAccepted: root.pane.activate()
 				onCancelled: Panels.close("launcher")
 				onStepped: delta => root.pane.step(delta)
 				onSteppedColumn: delta => root.pane.stepColumn(delta)
-				onCompleted: {
-					var line = root.pane.complete();
-					if (line)
-						search.complete(line);
-				}
 				onErased: {
 					if (root.scope !== "apps")
 						Panels.open("launcher", "apps");
@@ -181,7 +170,7 @@ ModalWindow {
 				mono: true
 				color: Theme.textDim
 				elide: Text.ElideRight
-				text: root.pane.footer ?? ""
+				text: root.pane.footer
 			}
 		}
 	}

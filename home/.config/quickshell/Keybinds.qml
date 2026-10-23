@@ -5,9 +5,8 @@ import Quickshell.Io
 import QtQuick
 
 // The key binds Hyprland reports and the keys the shell handles itself, for
-// the launcher's keys list and the chords shown next to what a bind also does.
-// hyprland.lua makes the binds in the order the list shows them, each
-// described as "Section: what it does".
+// the launcher's keys list. hyprland.lua makes the binds in the order the list
+// shows them, each described as "Section: what it does".
 Singleton {
 	id: root
 
@@ -40,8 +39,7 @@ Singleton {
 		{ category: "Gestures", chord: "3 FINGERS ↑", action: "Open the last special workspace" },
 		{ category: "Gestures", chord: "3 FINGERS ↓", action: "Hide the special workspace" },
 		{ category: "Launcher", chord: "2+2", action: "Calculate" },
-		{ category: "Launcher", chord: "/", action: "Files and folders in ~" },
-		{ category: "Launcher", chord: ">", action: "Run every command (in terminal)" }
+		{ category: "Launcher", chord: "/", action: "Files and folders in ~" }
 	]
 
 	function chordOf(mask: int, label: string): string {
@@ -66,11 +64,6 @@ Singleton {
 		if (keys.length > 2 && keys.every((k, i) => /^\d$/.test(k) && (i === 0 || Number(k) === Number(keys[i - 1]) + 1)))
 			return keys[0] + ".." + keys[keys.length - 1];
 		return keys.join(" ");
-	}
-
-	// The chord bound to `action` (a description without its section), or "".
-	function chord(action: string): string {
-		return action ? entries.find(e => e.action === action)?.chord ?? "" : "";
 	}
 
 	function parse(binds: var): var {

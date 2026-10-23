@@ -7,14 +7,18 @@ import QtQuick
 
 // The emoji, a grid of them; Enter types the one picked into the focused
 // window. The footer names it.
-Item {
+LauncherPane {
 	id: pane
 
-	property string query: ""
 	property var emojis: []
 
-	readonly property string icon: "smile"
-	readonly property string placeholder: "Search " + emojis.length + " emoji..."
+	icon: "smile"
+	placeholder: "Search " + emojis.length + " emoji..."
+	grid: true
+	preferredHeight: count === 0 ? 72 : Math.ceil(count / columns) * cell
+	footer: current ? current.e + "  " + String(current.k || "").split(" ").slice(0, 3).join(" ")
+		: emojis.length === 0 ? "Loading emojis..." : "No matching emojis"
+
 	readonly property var items: {
 		var needle = query.trim().toLowerCase();
 		return emojis.filter(it => it?.e && String(it.k || "").toLowerCase().includes(needle));
@@ -22,24 +26,21 @@ Item {
 	readonly property int count: items.length
 	readonly property int cell: 76
 	readonly property int columns: Math.max(1, Math.floor(width / cell))
-	readonly property int preferredHeight: count === 0 ? 72 : Math.ceil(count / columns) * cell
-	readonly property var current: items[grid.currentIndex] ?? null
-	readonly property string footer: current ? current.e + "  " + String(current.k || "").split(" ").slice(0, 3).join(" ")
-		: emojis.length === 0 ? "Loading emojis..." : "No matching emojis"
+	readonly property var current: items[cells.currentIndex] ?? null
 
 	function step(delta: int): void {
-		grid.currentIndex = ListNav.wrap(grid.currentIndex, delta * columns, count);
+		cells.currentIndex = ListNav.wrap(cells.currentIndex, delta * columns, count);
 	}
 
 	function stepColumn(delta: int): void {
-		grid.currentIndex = ListNav.wrap(grid.currentIndex, delta, count);
+		cells.currentIndex = ListNav.wrap(cells.currentIndex, delta, count);
 	}
 
 	function activate(): void {
-		grid.activated(grid.currentIndex);
+		cells.activated(cells.currentIndex);
 	}
 
-	onQueryChanged: grid.currentIndex = 0
+	onQueryChanged: cells.currentIndex = 0
 
 	FileView {
 		path: Quickshell.shellDir + "/emojis.json"
@@ -53,7 +54,7 @@ Item {
 	}
 
 	GridView {
-		id: grid
+		id: cells
 
 		signal activated(int index)
 
@@ -76,7 +77,7 @@ Item {
 		}
 
 		WheelScroll {
-			flickable: grid
+			flickable: cells
 		}
 
 		delegate: ListRow {

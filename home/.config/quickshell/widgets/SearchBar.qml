@@ -10,7 +10,6 @@ Rectangle {
 	property string icon: "search"
 	property string placeholder: ""
 	property alias text: input.text
-	property bool completeOnTab: false
 	property bool leftRightNavigate: false
 	// The names of the other lists, to switch to.
 	property var scopes: []
@@ -21,7 +20,6 @@ Rectangle {
 	signal cancelled()
 	signal stepped(int delta)
 	signal steppedColumn(int delta)
-	signal completed()
 	// Backspace in an empty field.
 	signal erased()
 	signal scopeChosen(string name)
@@ -33,11 +31,6 @@ Rectangle {
 
 	function clear() {
 		input.text = "";
-	}
-
-	function complete(t) {
-		input.text = t;
-		input.cursorPosition = t.length;
 	}
 
 	color: "transparent"
@@ -86,8 +79,6 @@ Rectangle {
 					bar.steppedColumn(-1);
 				else if (bar.leftRightNavigate && (key === Qt.Key_Right || (ctrl && key === Qt.Key_L)))
 					bar.steppedColumn(1);
-				else if (key === Qt.Key_Tab && bar.completeOnTab)
-					bar.completed();
 				else if (key === Qt.Key_Tab)
 					bar.stepped(event.modifiers & Qt.ShiftModifier ? -1 : 1);
 				else if (key === Qt.Key_Backspace && input.text === "")

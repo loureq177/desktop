@@ -1,8 +1,8 @@
 .pragma library
 
 // What the launcher's search does with the text typed: matching names (the
-// apps, the actions, the keys and the commands), plain arithmetic and the
-// files ("/" and a name, found by fd).
+// apps, the actions and the keys), plain arithmetic and the files ("/" and a
+// name, found by fd).
 
 // How well ql (lowercase) matches text: 0 when the text starts with it, 1 when
 // one of its words does, 2 when it is anywhere in it, -1 when it is not.
@@ -62,26 +62,6 @@ function appScore(entry, q) {
 // description and its keywords.
 function itemScore(item, q) {
 	return matchScore([[item.label, 0], [item.subtitle, 3], [item.keywords, 6]], q);
-}
-
-// The commands (compgen -c) for what was typed after ">": all of them for
-// nothing typed, else what was typed itself, then the commands that start
-// with it, then those that have it further in; `limit` at most.
-function matchCommands(commands, typed, limit) {
-	var t = (typed || "").trim();
-	if (t === "")
-		return commands.slice();
-	var tl = t.toLowerCase();
-	var starts = [];
-	var within = [];
-	for (var i = 0; i < commands.length; i++) {
-		var at = commands[i].toLowerCase().indexOf(tl);
-		if (at === 0 && commands[i].toLowerCase() !== tl)
-			starts.push(commands[i]);
-		else if (at > 0)
-			within.push(commands[i]);
-	}
-	return [t].concat(starts, within).slice(0, limit);
 }
 
 // "2+2", "15% * 80", "1,5 x 4": plain arithmetic, at once, or null.

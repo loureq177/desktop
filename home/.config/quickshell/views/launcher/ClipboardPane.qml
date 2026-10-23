@@ -8,16 +8,16 @@ import QtQuick.Controls
 // The clipboard history (cliphist): what was copied, newest first, and what
 // the row picked holds in full beside it. Enter pastes it into the focused
 // window; the icon of a row deletes it.
-Item {
+LauncherPane {
 	id: pane
 
-	property string query: ""
 	property var entries: []
 	property bool failed: false
 
-	readonly property string icon: "clipboard"
-	readonly property string placeholder: "Search " + entries.length + " copied items..."
-	readonly property int preferredHeight: Theme.windowHeight
+	icon: "clipboard"
+	placeholder: "Search " + entries.length + " copied items..."
+	preferredHeight: Theme.windowHeight
+
 	readonly property var items: entries.filter(e => e.preview.toLowerCase().includes(query.trim().toLowerCase()))
 	readonly property alias count: list.count
 	readonly property var current: items[list.currentIndex] ?? null
@@ -26,7 +26,8 @@ Item {
 	readonly property string previewPath: runDir + "/clipboard-preview"
 	readonly property alias wipeArmed: wipeConfirm.armed
 
-	// What `current` holds, once decoded: the text, or the image in previewPath.
+	// What `current` holds, once decoded into previewPath: the image shown
+	// from there, the text read back.
 	property string decodedId: ""
 	property string decodedText: ""
 
@@ -47,7 +48,6 @@ Item {
 	function closed(): void {
 		wipeConfirm.reset();
 		decoder.running = false;
-		decoder.stale = false;
 		decodedId = "";
 		list.currentIndex = 0;
 		Quickshell.execDetached(["rm", "-f", previewPath]);
@@ -100,63 +100,36 @@ Item {
 		}
 	}
 
-	// One decode at a time: one asked for while another runs follows it, and
-	// the output of the one overtaken is dropped. A run is over once it has
-	// exited and its output is in, which come in either order.
+	// One decode at a time; the entry picked meanwhile is decoded next.
 	Process {
 		id: decoder
 
 		property string entryId: ""
-		property bool stale: false
-		property bool busy: false
-		property bool exited: false
-		property bool streamed: false
-		property int exitCode: 0
-		property string output: ""
 
 		function decode(): void {
-			if (busy) {
-				stale = true;
-				return;
-			}
 			var e = pane.current;
-			if (!e || e.id === pane.decodedId)
+			if (running || !pane.visible || !e || e.id === pane.decodedId)
 				return;
 			entryId = e.id;
-			exited = false;
-			streamed = false;
-			command = pane.imageInfo(e.preview)
-				? ["sh", "-c", 'cliphist decode "$1" > "$2"', "sh", e.id, pane.previewPath]
-				: ["cliphist", "decode", e.id];
-			busy = true;
+			command = ["sh", "-c", 'cliphist decode "$1" > "$2"', "sh", e.id, pane.previewPath];
 			running = true;
 		}
 
-		function settle(): void {
-			if (!busy || !exited || !streamed)
-				return;
-			busy = false;
-			if (stale) {
-				stale = false;
-				decode();
-			} else if (exitCode === 0) {
-				pane.decodedText = output;
+		onExited: code => {
+			if (code === 0 && entryId === pane.current?.id) {
+				previewFile.reload();
+				pane.decodedText = pane.imageInfo(pane.current.preview) ? "" : previewFile.text();
 				pane.decodedId = entryId;
 			}
+			Qt.callLater(decode);
 		}
+	}
 
-		stdout: StdioCollector {
-			onStreamFinished: {
-				decoder.output = this.text;
-				decoder.streamed = true;
-				decoder.settle();
-			}
-		}
-		onExited: code => {
-			decoder.exitCode = code;
-			decoder.exited = true;
-			decoder.settle();
-		}
+	FileView {
+		id: previewFile
+		path: pane.previewPath
+		blockLoading: true
+		printErrors: false
 	}
 
 	SelectList {

@@ -105,11 +105,3 @@ test("rank: best first, equals in their own order unless told", () => {
   assert.deepEqual(plain(S.rank(items, score)), ["ab", "aa", "ba"]);
   assert.deepEqual(plain(S.rank(items, score, (x, y) => x.localeCompare(y))), ["aa", "ab", "ba"]);
 });
-
-test("matchCommands: what was typed, then the commands starting with it, then the rest", () => {
-  const cmds = ["git", "gitk", "legit", "ls", "lsblk"];
-  assert.deepEqual(plain(S.matchCommands(cmds, "git", 50)), ["git", "gitk", "legit"]);
-  assert.deepEqual(plain(S.matchCommands(cmds, " ls -la ", 50)), ["ls -la"]);
-  assert.deepEqual(plain(S.matchCommands(cmds, "", 50)), cmds);
-  assert.deepEqual(plain(S.matchCommands(cmds, "l", 2)), ["l", "legit"]);
-});
