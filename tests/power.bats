@@ -58,7 +58,7 @@ display_call() {
     grep -qx "custom-shader = " "$PERF"
     [[ "$(jq -c . "$KV")" == '{"animations_enabled":false}' ]]
     wait_for_call_like "powerprofilesctl set power-saver"
-    wait_for_call_like "qs ipc call osd brightness 50"
+    wait_for_call_like "qs ipc call brightness refresh"
 }
 
 @test "power-save: turning it off restores brightness, refresh rate, blur and profile" {

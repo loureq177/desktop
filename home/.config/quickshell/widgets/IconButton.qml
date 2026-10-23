@@ -1,14 +1,18 @@
 import ".."
 import QtQuick
 
-// A square button with a line icon, outlined, lit under the pointer.
+// A square button with a line icon, lit under the pointer: outlined, or bare
+// (`outlined: false`). `danger` turns it red under the pointer: what it does
+// cannot be undone.
 Rectangle {
 	id: button
 
 	property string icon: ""
 	property int iconSize: 16
+	property bool outlined: true
+	property bool danger: false
 	readonly property bool hovered: area.containsMouse
-	property color iconColor: hovered ? Theme.textMain : Theme.textDim
+	property color iconColor: !hovered ? Theme.textDim : danger ? Theme.critical : Theme.textMain
 	property real spin: 0
 
 	signal clicked()
@@ -17,8 +21,10 @@ Rectangle {
 	implicitHeight: 32
 	radius: Theme.roundingSubtle
 	color: hovered ? Theme.bgHover : "transparent"
-	border.color: hovered ? Theme.tileBorderHover : Theme.tileBorder
+	border.color: !outlined ? "transparent" : hovered ? Theme.tileBorderHover : Theme.tileBorder
 	border.width: 1
+
+	Behavior on color { ColorAnimation { duration: Theme.animFast } }
 
 	LineIcon {
 		anchors.centerIn: parent

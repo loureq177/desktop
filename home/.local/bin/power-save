@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # No argument toggles the mode; --reapply is for apply-ui, --sync for the shell
-# (SystemStatus.qml runs it whenever the power source changes).
+# (Modes.qml runs it whenever the power source changes).
 action="${1:-toggle}"
 with_brightness=true
 command -v brightnessctl >/dev/null || with_brightness=false
@@ -35,11 +35,8 @@ detach() { ( exec 201>&-; "$@" ) >/dev/null 2>&1 & }
 
 bri() { brightnessctl -c backlight "$@" >/dev/null || true; }
 
-report_brightness() {
-    local pct
-    pct="$(brightnessctl -c backlight -m | head -n 1 | cut -d, -f4 | tr -dc '0-9' || true)"
-    [[ -z "$pct" ]] || detach qs ipc call osd brightness "$pct"
-}
+# The shell shows the new level (Brightness.qml): sysfs tells it nothing.
+report_brightness() { detach qs ipc call brightness refresh; }
 
 ghostty_reload() {
     if systemctl --user is-active -q app-com.mitchellh.ghostty.service; then

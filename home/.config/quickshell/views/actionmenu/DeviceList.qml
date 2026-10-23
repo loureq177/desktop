@@ -1,5 +1,6 @@
 import "../.."
 import "../../widgets"
+import "../../widgets/ListNav.js" as ListNav
 import QtQuick
 import QtQuick.Layouts
 
@@ -15,14 +16,7 @@ FocusScope {
 
 	property string title: ""
 	property string subtitle: ""
-	// "Wi-Fi", "Bluetooth"; things: what the list holds ("networks").
-	property string noun: ""
-	property string things: ""
 	property string offIcon: ""
-	property string emptyTitle: ""
-	property string emptyHint: ""
-	property string forgetVerb: "forget"
-	property string timeoutMessage: ""
 	property int radioKey: 0
 	property bool radioOn: false
 	property bool scanning: false
@@ -120,7 +114,7 @@ FocusScope {
 		interval: 15000
 		onTriggered: {
 			root.clearPending();
-			root.errorMessage = root.timeoutMessage;
+			root.errorMessage = "Timed out";
 			root.timedOut();
 		}
 	}
@@ -141,7 +135,7 @@ FocusScope {
 			event.isAutoRepeat || forget(currentItem);
 		} else if (key === Qt.Key_R) {
 			root.scanRequested();
-		} else if (key === Qt.Key_H || key === Qt.Key_Left || key === Qt.Key_Backspace || key === Qt.Key_Escape || key === Qt.Key_Q) {
+		} else if (ListNav.back(event)) {
 			root.backRequested();
 		} else {
 			return;
@@ -175,7 +169,7 @@ FocusScope {
 
 		ErrorBanner {
 			visible: root.radioOn && !root.prompting && (root.errorMessage !== "" || forgetConfirm.armed !== "")
-			message: forgetConfirm.armed !== "" ? "Press X again to " + root.forgetVerb + " \"" + (root.items.find(i => i.key === forgetConfirm.armed)?.name ?? "") + "\"" : root.errorMessage
+			message: forgetConfirm.armed !== "" ? "Press X again to forget \"" + (root.items.find(i => i.key === forgetConfirm.armed)?.name ?? "") + "\"" : root.errorMessage
 		}
 
 		Item {
@@ -196,33 +190,16 @@ FocusScope {
 
 			StyledText {
 				Layout.alignment: Qt.AlignHCenter
-				text: root.noun + " is turned off"
+				text: root.title + " is off"
 				font.bold: true
-			}
-
-			StyledText {
-				Layout.alignment: Qt.AlignHCenter
-				text: "Turn on " + root.noun + " to scan and connect to " + root.things
-				mono: true
-				font.pixelSize: Theme.fontSizeSmall
-				color: Theme.textDim
 			}
 
 			TextButton {
 				Layout.alignment: Qt.AlignHCenter
 				Layout.topMargin: 8
 				primary: true
-				text: "Turn On " + root.noun
+				text: "Turn on (Space)"
 				onClicked: root.radioToggled()
-			}
-
-			StyledText {
-				Layout.alignment: Qt.AlignHCenter
-				Layout.topMargin: 4
-				text: "Press [space] to turn on"
-				mono: true
-				font.pixelSize: Theme.fontSizeTiny
-				color: Theme.textMuted
 			}
 			}
 		}
@@ -351,29 +328,15 @@ FocusScope {
 						onClicked: root.disconnectRequested(row.modelData)
 					}
 
-					Rectangle {
+					IconButton {
 						visible: row.modelData.saved || row.connected
 						implicitWidth: 26
 						implicitHeight: 26
-						radius: Theme.roundingSubtle
-						color: forgetArea.containsMouse ? Theme.bgCard : "transparent"
-						border.color: forgetArea.containsMouse ? Theme.critical : "transparent"
-						border.width: 1
-
-						LineIcon {
-							anchors.centerIn: parent
-							name: "trash"
-							size: 14
-							color: forgetArea.containsMouse ? Theme.critical : Theme.textDim
-						}
-
-						MouseArea {
-							id: forgetArea
-							anchors.fill: parent
-							hoverEnabled: true
-							cursorShape: Qt.PointingHandCursor
-							onClicked: root.forget(row.modelData)
-						}
+						icon: "trash"
+						iconSize: 14
+						outlined: false
+						danger: true
+						onClicked: root.forget(row.modelData)
 					}
 
 					StyledText {
@@ -392,14 +355,14 @@ FocusScope {
 
 				StyledText {
 					anchors.horizontalCenter: parent.horizontalCenter
-					text: root.emptyTitle
+					text: "Nothing found"
 					font.pixelSize: Theme.fontSizeSmall
 					color: Theme.textDim
 				}
 
 				StyledText {
 					anchors.horizontalCenter: parent.horizontalCenter
-					text: root.emptyHint
+					text: "Press R to scan again"
 					mono: true
 					font.pixelSize: Theme.fontSizeTiny
 					color: Theme.textMuted

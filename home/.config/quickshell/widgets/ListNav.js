@@ -24,3 +24,9 @@ function wrap(current, delta, count) {
 		return 0;
 	return Math.max(0, Math.min(count - 1, current + delta));
 }
+
+// Whether a key goes back from a page to the one it was opened from.
+function back(event) {
+	var key = event.key;
+	return key === Qt.Key_Escape || key === Qt.Key_H || key === Qt.Key_Left || key === Qt.Key_Backspace || key === Qt.Key_Q;
+}

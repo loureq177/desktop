@@ -1,5 +1,6 @@
 import "../.."
 import "../../widgets"
+import "../../widgets/ListNav.js" as ListNav
 import QtQuick
 import QtQuick.Layouts
 
@@ -18,8 +19,7 @@ FocusScope {
 	}
 
 	Keys.onPressed: event => {
-		var key = event.key;
-		if (key === Qt.Key_Escape || key === Qt.Key_H || key === Qt.Key_Q || key === Qt.Key_Back || key === Qt.Key_Backspace) {
+		if (ListNav.back(event)) {
 			root.backRequested();
 			event.accepted = true;
 		}

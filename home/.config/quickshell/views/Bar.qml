@@ -45,8 +45,9 @@ PanelWindow {
 	// Joined first so the list only changes when the set of specials does.
 	readonly property string specialsKey: Hyprland.workspaces.values
 		.map(w => String(w.name))
-		.filter(n => n.startsWith("special:") && n !== "special:btop")
+		.filter(n => n.startsWith("special:"))
 		.map(n => n.slice(8))
+		.filter(n => Specials.find(n)?.inBar !== false)
 		.sort()
 		.join("\n")
 
@@ -73,20 +74,8 @@ PanelWindow {
 	// (misc:close_special_on_empty). Hiding, which leaves the app running,
 	// stays on the left click.
 	function closeSpecial(name: string): void {
-		var wins = Hyprland.toplevels.values.filter(t => t?.workspace?.name === "special:" + name);
-		for (var i = 0; i < wins.length; i++) {
-			var addr = String(wins[i].address ?? "");
-			if (!addr.startsWith("0x"))
-				addr = "0x" + addr;
-			// A selector that matches nothing also lands on the focused window.
-			if (!/^0x[0-9a-f]+$/i.test(addr))
-				continue;
-			// The selector must go in the table: a bare string arg is ignored
-			// and the dispatcher falls back to the focused window.
-			Quickshell.execDetached([
-				"hyprctl", "dispatch", "hl.dsp.window.close({ window = 'address:" + addr + "' })"
-			]);
-		}
+		for (const win of Hyprland.toplevels.values.filter(t => t?.workspace?.name === "special:" + name))
+			Hypr.closeWindow(String(win.address ?? ""));
 	}
 
 	function playerFor(special: string): var {
@@ -100,6 +89,40 @@ PanelWindow {
 
 	// The bar has no background of its own, so hover is a tint rather than a solid fill.
 	readonly property color hoverColor: Theme.alpha(Theme.textMain, 0.1)
+
+	// How long until `seconds` run out: "1h 5m".
+	function duration(seconds: real): string {
+		return Math.floor(seconds / 3600) + "h " + Math.floor((seconds % 3600) / 60) + "m";
+	}
+
+	function batterySummary(): string {
+		if (!Battery.present)
+			return "";
+		var text = "Battery: " + Battery.percent + "%";
+		if (Battery.charging)
+			return text + " (Charging" + (Battery.timeToFull > 0 ? ", " + duration(Battery.timeToFull) + " to full" : "") + ")";
+		if (Battery.full)
+			return text + " (Fully charged)";
+		return text + (Battery.timeToEmpty > 0 ? " (" + duration(Battery.timeToEmpty) + " remaining)" : "");
+	}
+
+	function networkSummary(): string {
+		if (Net.wifiUp) {
+			var signal = Math.round(Net.signalPercent(Net.wifiNetwork));
+			return "Wi-Fi: " + (Net.wifiNetwork?.name || "Connected") + (signal > 0 ? " (" + signal + "%)" : "");
+		}
+		return Net.wiredUp ? "Ethernet: Connected" : "Network: Disconnected";
+	}
+
+	function bluetoothSummary(): string {
+		if (!Bt.adapter)
+			return "Bluetooth: Unavailable";
+		if (!Bt.enabled)
+			return "Bluetooth: Off";
+		if (Bt.connected.length === 0)
+			return "Bluetooth: Disconnected";
+		return "Bluetooth: " + Bt.connected.map(d => Bt.name(d) + (d.batteryAvailable && d.battery >= 0 ? " (" + Math.round(d.battery * 100) + "%)" : "")).join(", ");
+	}
 
 	// What a module reads out, nothing about its clicks or keys (those are in
 	// the launcher's actions).
@@ -201,7 +224,7 @@ PanelWindow {
 				if (Panels.active !== "")
 					Panels.close();
 				else
-					Commands.toggleSpecial(bar.visibleSpecial);
+					Hypr.toggleSpecial(bar.visibleSpecial);
 			}
 		}
 
@@ -255,7 +278,7 @@ PanelWindow {
 							cursorShape: Qt.PointingHandCursor
 							onClicked: {
 								bar.leavePanels("");
-								Quickshell.execDetached(["hyprctl", "dispatch", "hl.dsp.focus({workspace=" + wsButton.modelData.id + "})"]);
+								Hypr.focusWorkspace(wsButton.modelData.id);
 							}
 						}
 					}
@@ -268,15 +291,15 @@ PanelWindow {
 				Layout.alignment: Qt.AlignVCenter
 
 				Pill {
-					visible: SystemStatus.memPercent !== ""
+					visible: Memory.percent >= 0
 					icon: "memory-stick"
-					value: SystemStatus.memPercent + "%"
+					value: Memory.percent + "%"
 					isActive: bar.visibleSpecial === "btop"
-					textColor: Number(SystemStatus.memPercent) >= 90 ? Theme.critical
-						: Number(SystemStatus.memPercent) >= 75 ? Theme.warning
+					textColor: Memory.percent >= 90 ? Theme.critical
+						: Memory.percent >= 75 ? Theme.warning
 						: isActive ? Theme.accentBlue : Theme.textDim
-					tooltipText: SystemStatus.memTooltip
-					onActivated: Commands.toggleSpecial("btop")
+					tooltipText: (Memory.used / 1048576).toFixed(1) + " / " + (Memory.total / 1048576).toFixed(1) + " GiB"
+					onActivated: Hypr.toggleSpecial("btop")
 					onRightClicked: bar.closeSpecial("btop")
 				}
 
@@ -295,14 +318,14 @@ PanelWindow {
 						textColor: isActive ? Theme.accentBlue : (player?.isPlaying ? Theme.accentGreen : Theme.textDim)
 						tooltipText: [special?.title ?? modelData.charAt(0).toUpperCase() + modelData.slice(1),
 							[player?.trackArtist, player?.trackTitle].filter(s => s).join(" — ")].filter(s => s).join("\n")
-						onActivated: Commands.toggleSpecial(modelData)
+						onActivated: Hypr.toggleSpecial(modelData)
 						onRightClicked: bar.closeSpecial(modelData)
 					}
 				}
 			}
 
 			Pill {
-				visible: SystemStatus.powerSaveActive
+				visible: Modes.powerSave
 				icon: "leaf"
 				tooltipText: "Battery saver (60 Hz)"
 				onActivated: Commands.run("powersave")
@@ -318,7 +341,7 @@ PanelWindow {
 				readonly property date now: valid ? clockSource.date : new Date()
 				value: Qt.formatDateTime(now, "hh:mm")
 				tooltipText: Qt.formatDateTime(now, "dddd, MMMM d, yyyy")
-				onActivated: Commands.toggleSpecial("calendar")
+				onActivated: Hypr.toggleSpecial("calendar")
 
 				SystemClock {
 					id: clockSource
@@ -346,8 +369,8 @@ PanelWindow {
 			spacing: 6
 
 			Pill {
-				readonly property bool transcribing: SystemStatus.dictationState === "transcribing"
-				visible: SystemStatus.dictatingActive
+				readonly property bool transcribing: Modes.dictation === "transcribing"
+				visible: Modes.dictation !== ""
 				text: transcribing ? "…" : "●"
 				textColor: transcribing ? Theme.warning : Theme.critical
 				isActive: true
@@ -356,7 +379,7 @@ PanelWindow {
 			}
 
 			Pill {
-				visible: SystemStatus.recording
+				visible: Modes.recording
 				text: "●"
 				value: "REC"
 				textColor: Theme.critical
@@ -366,15 +389,15 @@ PanelWindow {
 			}
 
 			Pill {
-				visible: SystemStatus.screencasts > 0
+				visible: Modes.screencasts > 0
 				icon: "screen-share"
 				textColor: Theme.accentPurple
 				isActive: true
-				tooltipText: "Sharing the screen" + (SystemStatus.screencasts > 1 ? " (" + SystemStatus.screencasts + " streams)" : "")
+				tooltipText: "Sharing the screen" + (Modes.screencasts > 1 ? " (" + Modes.screencasts + " streams)" : "")
 			}
 
 			Pill {
-				visible: SystemStatus.awakeActive
+				visible: Modes.awake
 				icon: "coffee"
 				tooltipText: "Keep awake"
 				onActivated: Commands.run("awake")
@@ -383,30 +406,25 @@ PanelWindow {
 			Pill {
 				custom: true
 				isActive: Panels.active === "actions"
-				tooltipText: [SystemStatus.btSummary, SystemStatus.netSummary, SystemStatus.batterySummary].filter(s => s !== "").join("\n")
+				tooltipText: [bar.bluetoothSummary(), bar.networkSummary(), bar.batterySummary()].filter(s => s !== "").join("\n")
 				panel: "actions"
 				onActivated: Panels.toggle("actions")
 
 				LineIcon {
 					anchors.verticalCenter: parent.verticalCenter
-					name: SystemStatus.btIcon
-					color: SystemStatus.btEnabled ? Theme.textMain : Theme.textDim
+					name: Bt.icon
+					color: Bt.enabled ? Theme.textMain : Theme.textDim
 				}
 
 				LineIcon {
 					anchors.verticalCenter: parent.verticalCenter
-					name: SystemStatus.netIcon
-					color: SystemStatus.online ? Theme.textMain : Theme.textDim
+					name: Net.icon
+					color: Net.online ? Theme.textMain : Theme.textDim
 				}
 
-				StyledText {
+				BatteryText {
 					anchors.verticalCenter: parent.verticalCenter
-					visible: SystemStatus.batteryDevice !== null
-					text: SystemStatus.batteryPct + "%"
-					mono: true
 					font.pixelSize: Theme.fontSizeSmall
-					font.bold: true
-					color: SystemStatus.batteryTint
 				}
 			}
 

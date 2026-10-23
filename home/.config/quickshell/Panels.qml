@@ -15,8 +15,6 @@ Singleton {
 	property string active: ""
 	// What it was opened on: the launcher's list, the page of Actions.
 	property string mode: ""
-	// The last close skips the exit animation (see closeInstant).
-	property bool instant: false
 
 	// Where the panels, the OSD and the toasts show: the focused monitor.
 	readonly property var screen: Quickshell.screens.find(s => s.name === Hyprland.focusedMonitor?.name) ?? Quickshell.screens[0] ?? null
@@ -25,7 +23,6 @@ Singleton {
 	signal opened(string name, string mode)
 
 	function open(name: string, newMode): void {
-		root.instant = false;
 		root.mode = newMode || "";
 		root.active = name;
 		root.opened(name, root.mode);
@@ -39,12 +36,6 @@ Singleton {
 			root.active = "";
 	}
 
-	// Gone in the same frame: the screen it covered is about to be captured.
-	function closeInstant(): void {
-		root.instant = true;
-		root.active = "";
-	}
-
 	function toggle(name: string, newMode): void {
 		if (root.active === name && (!newMode || newMode === root.mode))
 			root.close();
@@ -54,12 +45,11 @@ Singleton {
 
 	// A panel that takes the keyboard takes the pointer off the bar with it,
 	// and the next click would only bring it back: the click that should put
-	// the panel away again. Moving the cursor to where it already is hands the
-	// pointer back to whatever lies under it.
+	// the panel away again.
 	Timer {
 		id: pointerRefresh
 		interval: 100
-		onTriggered: Quickshell.execDetached(["sh", "-c", 'p=$(hyprctl cursorpos) && hyprctl dispatch "hl.dsp.cursor.move({ x = ${p%%,*}, y = ${p##*, } })"'])
+		onTriggered: Hypr.refreshPointer()
 	}
 
 	// The window Hyprland last reported focused. A layer taking the keyboard

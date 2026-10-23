@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# brightness, clipboard-insert, emoji-insert, dictation
+# clipboard-insert, emoji-insert, dictation
 
 load helpers
 
@@ -10,46 +10,6 @@ setup() {
 
 teardown() {
     [[ ! -f "$XDG_RUNTIME_DIR/dictation.pid" ]] || kill "$(<"$XDG_RUNTIME_DIR/dictation.pid")" 2>/dev/null || true
-}
-
-# --- brightness --------------------------------------------------------------
-
-backlight() {
-    # $1: csv line printed for `brightnessctl -c backlight -m`
-    stub brightnessctl "[[ \"\$*\" == '-c backlight -m' ]] && printf '%s' '$1'; true"
-}
-
-@test "brightness up/down: steps by 10% and shows the OSD" {
-    backlight $'amdgpu_bl1,backlight,128,50%,255\n'
-    sut "$BIN/brightness" up
-    assert_status 0
-    assert_call "brightnessctl -c backlight set +10%"
-    assert_call "qs ipc call osd brightness 50"
-
-    sut "$BIN/brightness" down
-    assert_status 0
-    assert_call "brightnessctl -c backlight set 10%-"
-}
-
-@test "brightness: rejects anything but up and down" {
-    backlight $'amdgpu_bl1,backlight,128,50%,255\n'
-    sut "$BIN/brightness" sideways
-    assert_status 2
-    refute_call_like " set "
-}
-
-@test "brightness: is a no-op on machines without a backlight" {
-    backlight ''
-    sut "$BIN/brightness" up
-    assert_status 0
-    refute_call_like " set "
-    refute_call_like "qs ipc"
-}
-
-@test "brightness: is a no-op without brightnessctl" {
-    sut "$BIN/brightness" up
-    assert_status 0
-    refute_call_like "qs ipc"
 }
 
 # --- clipboard-insert / emoji-insert ----------------------------------------
@@ -111,7 +71,8 @@ dictation_stubs() {
     stub hyprctl "printf 'str: %s\nset: true\n' '$1'"
     stub_longrunning pw-record
     stub sox 'cp "$1" "$2"'
-    stub whisper-cli "printf '%s\n' '$2'"
+    # What the bar shows while whisper runs.
+    stub whisper-cli "cat '$XDG_RUNTIME_DIR/dictation' >'$SANDBOX/state-while-transcribing'; printf '%s\n' '$2'"
     stub_stdin wl-copy
     stub wtype
     stub notify-send
@@ -137,7 +98,7 @@ recorded_audio() {
     dictation_stubs pl ""
     sut "$BIN/dictation"
     assert_status 0
-    assert_call "qs ipc call dictation start"
+    [[ "$(<"$XDG_RUNTIME_DIR/dictation")" == recording ]]
     assert_call "pw-record --rate 16000 --channels 1 $XDG_RUNTIME_DIR/dictation_raw.wav"
     kill -0 "$(<"$XDG_RUNTIME_DIR/dictation.pid")"
 }
@@ -147,13 +108,12 @@ recorded_audio() {
     recorded_audio 16000
     sut "$BIN/dictation"
     assert_status 0
-    assert_call "qs ipc call dictation transcribing"
+    [[ "$(<"$SANDBOX/state-while-transcribing")" == transcribing ]]
     assert_call_like "whisper-cli -m $HOME/.local/share/whisper/ggml-base.bin"
     assert_call_like "-l pl"
     [[ "$(<"$SANDBOX/wl-copy.stdin")" == "Dzień dobry. " ]] || fail "copied: '$(<"$SANDBOX/wl-copy.stdin")'"
     assert_call "wtype -M shift -k Insert -m shift"
-    assert_call "qs ipc call dictation stop"
-    [[ ! -e "$XDG_RUNTIME_DIR/dictation.pid" && ! -e "$XDG_RUNTIME_DIR/dictation_raw.wav" && ! -e "$XDG_RUNTIME_DIR/dictation_clean.wav" ]]
+    [[ ! -e "$XDG_RUNTIME_DIR/dictation" && ! -e "$XDG_RUNTIME_DIR/dictation.pid" && ! -e "$XDG_RUNTIME_DIR/dictation_raw.wav" && ! -e "$XDG_RUNTIME_DIR/dictation_clean.wav" ]]
 }
 
 @test "dictation: picks the whisper language from the keyboard layout" {
@@ -194,7 +154,7 @@ EOF
         assert_status 0
         refute_call_like "wl-copy"
         refute_call_like "wtype"
-        assert_call "qs ipc call dictation stop"
+        [[ ! -e "$XDG_RUNTIME_DIR/dictation" ]]
     done
 
     : >"$CALLS"
@@ -203,7 +163,7 @@ EOF
     sut "$BIN/dictation"
     assert_status 0
     refute_call_like "whisper-cli"
-    assert_call "qs ipc call dictation stop"
+    [[ ! -e "$XDG_RUNTIME_DIR/dictation" ]]
     [[ ! -e "$XDG_RUNTIME_DIR/dictation_raw.wav" ]]
 }
 
@@ -212,7 +172,7 @@ EOF
     sut "$BIN/dictation" stop
     assert_status 0
     refute_call_like "pw-record"
-    assert_call "qs ipc call dictation stop"
+    [[ ! -e "$XDG_RUNTIME_DIR/dictation" ]]
 }
 
 @test "dictation: still transcribes when sox is unavailable" {

@@ -1,7 +1,6 @@
 import ".."
 import "../widgets"
 import Quickshell
-import Quickshell.Io
 import Quickshell.Wayland
 import QtQuick
 
@@ -15,7 +14,7 @@ PanelWindow {
 
 	readonly property string icon: kind === "brightness" ? "sun"
 		: kind === "mic" ? (muted ? "mic-off" : "mic")
-		: SystemStatus.volumeIcon(value, muted)
+		: Audio.icon
 
 	// Actions has sliders for both, which show the change already.
 	function show(newKind, newValue, newMuted) {
@@ -121,7 +120,7 @@ PanelWindow {
 	// Whatever changed the volume: keys, Actions, another mixer. A node
 	// that is not ready yet is only filling in its values, not changing.
 	Connections {
-		target: SystemStatus.sink?.audio ?? null
+		target: Audio.sink?.audio ?? null
 		function onVolumeChanged() {
 			win.showVolume();
 		}
@@ -131,25 +130,23 @@ PanelWindow {
 	}
 
 	Connections {
-		target: SystemStatus.source?.audio ?? null
+		target: Audio.source?.audio ?? null
 		function onMutedChanged() {
-			if (SystemStatus.source.ready)
-				win.show("mic", undefined, SystemStatus.source.audio.muted);
+			if (Audio.source.ready)
+				win.show("mic", undefined, Audio.source.audio.muted);
 		}
 	}
 
 	function showVolume(): void {
-		if (SystemStatus.volumeReady)
-			win.show("volume", SystemStatus.volume, SystemStatus.muted);
+		if (Audio.ready)
+			win.show("volume", Audio.volume, Audio.muted);
 	}
 
-	// The brightness keys and power-save report the level they set.
-	IpcHandler {
-		target: "osd"
-
-		function brightness(newValue: int): void {
-			SystemStatus.brightness = newValue;
-			win.show("brightness", newValue);
+	// The brightness keys and power-save.
+	Connections {
+		target: Brightness
+		function onAdjusted() {
+			win.show("brightness", Brightness.percent);
 		}
 	}
 }

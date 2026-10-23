@@ -9,19 +9,14 @@ import QtQuick.Layouts
 DeviceList {
 	id: root
 
-	readonly property var wifiDevice: SystemStatus.wifiDevice
+	readonly property var wifiDevice: Net.wifi
 	// The network the password form is open for.
 	property var promptItem: null
 	property bool showPassword: false
 
 	title: "Wi-Fi"
 	subtitle: !radioOn ? "Off" : (scanning ? "Scanning…" : items.length + " networks found")
-	noun: "Wi-Fi"
-	things: "networks"
 	offIcon: "wifi-off"
-	emptyTitle: "No networks found"
-	emptyHint: "Press [r] to rescan"
-	timeoutMessage: "Connection timed out"
 	radioKey: Qt.Key_W
 	radioOn: Networking.wifiEnabled
 	prompting: promptItem !== null
@@ -33,7 +28,7 @@ DeviceList {
 		for (const net of root.wifiDevice?.networks?.values ?? []) {
 			if (!net || !net.name || net.name.trim() === "")
 				continue;
-			var strength = SystemStatus.signalPercent(net);
+			var strength = Net.signalPercent(net);
 			var best = byName[net.name];
 			if (best && (best.connected || (!net.connected && best.strength >= strength)))
 				continue;
@@ -116,6 +111,7 @@ DeviceList {
 		scanning = true;
 		if (wifiDevice)
 			wifiDevice.scannerEnabled = true;
+		// Now rather than at the scanner's next round: Quickshell has no call for it.
 		Quickshell.execDetached(["nmcli", "device", "wifi", "rescan"]);
 		scanTimer.restart();
 	}
@@ -142,7 +138,6 @@ DeviceList {
 		if (promptItem && promptItem.key === item.key)
 			closePrompt();
 		item.net.forget();
-		Quickshell.execDetached(["nmcli", "connection", "delete", item.name]);
 	}
 	onTimedOut: {
 		if (prompting)
@@ -198,7 +193,6 @@ DeviceList {
 				}
 
 				CloseButton {
-					size: 22
 					onClicked: root.closePrompt()
 				}
 			}
@@ -237,26 +231,12 @@ DeviceList {
 						}
 					}
 
-					Rectangle {
+					IconButton {
 						Layout.preferredWidth: 26
 						Layout.preferredHeight: 26
-						radius: Theme.roundingSubtle
-						color: eyeArea.containsMouse ? Theme.bgHover : "transparent"
-
-						LineIcon {
-							anchors.centerIn: parent
-							name: root.showPassword ? "eye-off" : "eye"
-							size: 16
-							color: eyeArea.containsMouse ? Theme.textMain : Theme.textDim
-						}
-
-						MouseArea {
-							id: eyeArea
-							anchors.fill: parent
-							hoverEnabled: true
-							cursorShape: Qt.PointingHandCursor
-							onClicked: root.showPassword = !root.showPassword
-						}
+						icon: root.showPassword ? "eye-off" : "eye"
+						outlined: false
+						onClicked: root.showPassword = !root.showPassword
 					}
 				}
 			}

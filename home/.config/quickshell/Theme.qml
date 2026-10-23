@@ -87,10 +87,12 @@ Singleton {
 	readonly property color tileBorderHover: alpha(textMain, 0.18)
 
 	// Panels (bgCard) and the tiles and fields on them (bgMain) turn to
-	// frosted glass exactly when ghostty does (power-save's ghostty_perf);
-	// Hyprland blurs whatever lies underneath them.
+	// frosted glass exactly when ghostty does (power-save's ghostty_candy):
+	// translucency costs GPU time, so on AC power only and outside power-save,
+	// which also turns Hyprland's blur off.
+	readonly property bool glassy: !Battery.onBattery && !Modes.powerSave
 	function glass(c) {
-		return alpha(c, SystemStatus.glass ? 0.68 : 1);
+		return alpha(c, glassy ? 0.68 : 1);
 	}
 
 	// Hover, selection and fades; movement (cards, lists, scrolling).

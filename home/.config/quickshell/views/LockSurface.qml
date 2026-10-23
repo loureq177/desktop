@@ -150,18 +150,13 @@ Item {
 
 				LineIcon {
 					anchors.verticalCenter: parent.verticalCenter
-					name: SystemStatus.netIcon
-					color: SystemStatus.online ? Theme.accentBlue : Theme.textDim
+					name: Net.icon
+					color: Net.online ? Theme.accentBlue : Theme.textDim
 					size: Theme.fontSizeLarge
 				}
 
-				StyledText {
+				BatteryText {
 					anchors.verticalCenter: parent.verticalCenter
-					visible: SystemStatus.batteryDevice !== null
-					text: SystemStatus.batteryPct + "%"
-					color: SystemStatus.batteryFull ? Theme.accentGreen : SystemStatus.batteryTint
-					mono: true
-					font.bold: true
 				}
 
 				// Count only: what the notifications say stays behind the lock.

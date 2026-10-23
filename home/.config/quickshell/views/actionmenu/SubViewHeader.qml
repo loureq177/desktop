@@ -24,28 +24,10 @@ RowLayout {
 	Layout.preferredHeight: 34
 	spacing: 10
 
-	Rectangle {
-		Layout.preferredWidth: 32
-		Layout.preferredHeight: 32
-		radius: Theme.roundingSubtle
-		color: backArea.containsMouse ? Theme.bgHover : "transparent"
-		border.color: backArea.containsMouse ? Theme.tileBorderHover : Theme.tileBorder
-		border.width: 1
-
-		LineIcon {
-			anchors.centerIn: parent
-			name: "arrow-left"
-			size: 18
-			color: backArea.containsMouse ? Theme.textMain : Theme.textDim
-		}
-
-		MouseArea {
-			id: backArea
-			anchors.fill: parent
-			hoverEnabled: true
-			cursorShape: Qt.PointingHandCursor
-			onClicked: root.backClicked()
-		}
+	IconButton {
+		icon: "arrow-left"
+		iconSize: 18
+		onClicked: root.backClicked()
 	}
 
 	ColumnLayout {
@@ -72,40 +54,22 @@ RowLayout {
 
 	HotkeyHint {
 		key: root.showScan && root.enabledState ? root.scanKey : ""
-		lit: scanArea.containsMouse
+		lit: scan.hovered
 	}
 
-	Rectangle {
-		Layout.preferredWidth: 32
-		Layout.preferredHeight: 32
-		radius: Theme.roundingSubtle
-		color: scanArea.containsMouse ? Theme.bgHover : "transparent"
-		border.color: scanArea.containsMouse ? Theme.tileBorderHover : Theme.tileBorder
-		border.width: 1
+	IconButton {
+		id: scan
 		visible: root.showScan && root.enabledState
+		icon: "refresh-cw"
+		iconColor: root.isScanning ? Theme.accentBlue : hovered ? Theme.textMain : Theme.textDim
+		onClicked: root.scanClicked()
 
-		LineIcon {
-			id: scanIcon
-			anchors.centerIn: parent
-			name: "refresh-cw"
-			size: 16
-			color: root.isScanning ? Theme.accentBlue : (scanArea.containsMouse ? Theme.textMain : Theme.textDim)
-
-			RotationAnimation on rotation {
-				running: root.isScanning
-				loops: Animation.Infinite
-				from: 0
-				to: 360
-				duration: 900
-			}
-		}
-
-		MouseArea {
-			id: scanArea
-			anchors.fill: parent
-			hoverEnabled: true
-			cursorShape: Qt.PointingHandCursor
-			onClicked: root.scanClicked()
+		NumberAnimation on spin {
+			running: root.isScanning
+			loops: Animation.Infinite
+			from: 0
+			to: 360
+			duration: 900
 		}
 	}
 

@@ -37,9 +37,6 @@ FocusScope {
 		if (shown) {
 			handoff = false;
 			forceActiveFocus();
-		} else if (Panels.instant) {
-			progress = 0;
-			return;
 		} else {
 			handoff = Panels.active !== "" && parent.drawers.includes(Panels.active);
 		}

@@ -1,7 +1,6 @@
 import ".."
 import "../widgets"
 import "./actionmenu"
-import Quickshell.Networking
 import QtQuick
 import QtQuick.Layouts
 
@@ -20,7 +19,7 @@ Drawer {
 	// The keyboard's place: a slider's row, or a row and column of the tiles.
 	property int navRow: 0
 	property int navCol: 0
-	readonly property var sliders: SystemStatus.brightness >= 0 ? [volRow, briRow] : [volRow]
+	readonly property var sliders: Brightness.percent >= 0 ? [volRow, briRow] : [volRow]
 	readonly property int rowCount: sliders.length + Math.ceil(tileGrid.children.length / 2)
 
 	function tileAt(r: int, c: int): Item {
@@ -36,16 +35,16 @@ Drawer {
 	// Sideways a slider moves by 5%, a row of tiles to its other tile.
 	function moveSide(delta: int): void {
 		if (navRow === 0)
-			SystemStatus.setVolume(SystemStatus.volume + 5 * delta);
+			Audio.setVolume(Audio.volume + 5 * delta);
 		else if (navRow < sliders.length)
-			SystemStatus.setBrightness(SystemStatus.brightness + 5 * delta);
+			Brightness.setPercent(Brightness.percent + 5 * delta);
 		else
 			navCol = delta > 0 ? 1 : 0;
 	}
 
 	onOpened: mode => {
 		subView = mode || "main";
-		SystemStatus.readBrightness();
+		Brightness.read();
 		navRow = 0;
 		navCol = 0;
 		pages[subView].forceActiveFocus();
@@ -226,7 +225,7 @@ Drawer {
 			case Qt.Key_Enter:
 			case Qt.Key_Space:
 				if (win.navRow === 0)
-					SystemStatus.toggleMute();
+					Audio.toggleMute();
 				else if (tile)
 					event.key === Qt.Key_Space ? tile.flip() : tile.open();
 				break;
@@ -266,27 +265,27 @@ Drawer {
 		SliderRow {
 			id: volRow
 			current: win.navRow === 0
-			icon: SystemStatus.volumeIcon(SystemStatus.volume, SystemStatus.muted)
-			label: !ready ? "…" : SystemStatus.muted ? "Muted" : SystemStatus.volume + "%"
-			ready: SystemStatus.volumeReady
-			muted: SystemStatus.muted
-			value: SystemStatus.volume
+			icon: Audio.icon
+			label: !ready ? "…" : Audio.muted ? "Muted" : Audio.volume + "%"
+			ready: Audio.ready
+			muted: Audio.muted
+			value: Audio.volume
 			iconInteractive: true
 			onSelectRequested: win.navRow = 0
-			onIconClicked: SystemStatus.toggleMute()
-			onScrubbed: v => SystemStatus.setVolume(v)
+			onIconClicked: Audio.toggleMute()
+			onScrubbed: v => Audio.setVolume(v)
 		}
 
 		SliderRow {
 			id: briRow
-			visible: SystemStatus.brightness >= 0
+			visible: Brightness.percent >= 0
 			current: win.navRow === 1 && visible
 			icon: "sun"
-			label: SystemStatus.brightness + "%"
+			label: Brightness.percent + "%"
 			ready: visible
-			value: SystemStatus.brightness
+			value: Brightness.percent
 			onSelectRequested: win.navRow = 1
-			onScrubbed: v => SystemStatus.setBrightness(v)
+			onScrubbed: v => Brightness.setPercent(v)
 		}
 
 		GridLayout {
@@ -299,21 +298,21 @@ Drawer {
 			Tile {
 				key: "W"
 				title: "Wi-Fi"
-				icon: SystemStatus.wifiUp ? "wifi" : "wifi-off"
-				subtitle: SystemStatus.wifiStatus
-				active: Networking.wifiEnabled
+				icon: Net.wifiUp ? "wifi" : "wifi-off"
+				subtitle: Net.wifiStatus
+				active: Net.wifiOn
 				page: "wifi"
-				toggle: () => SystemStatus.toggleWifi()
+				toggle: () => Net.toggleWifi()
 			}
 
 			Tile {
 				key: "B"
 				title: "Bluetooth"
-				icon: SystemStatus.btIcon
-				subtitle: SystemStatus.btStatus
-				active: SystemStatus.btEnabled
+				icon: Bt.icon
+				subtitle: Bt.status
+				active: Bt.enabled
 				page: "bluetooth"
-				toggle: () => SystemStatus.toggleBluetooth()
+				toggle: () => Bt.toggle()
 			}
 
 			Tile {
@@ -325,9 +324,9 @@ Drawer {
 			Tile {
 				key: "C"
 				title: "Capture"
-				icon: SystemStatus.recording ? "circle-stop" : "camera"
-				subtitle: SystemStatus.recording ? "Recording" : ""
-				active: SystemStatus.recording
+				icon: Modes.recording ? "circle-stop" : "camera"
+				subtitle: Modes.recording ? "Recording" : ""
+				active: Modes.recording
 				tint: Theme.critical
 				page: "capture"
 			}

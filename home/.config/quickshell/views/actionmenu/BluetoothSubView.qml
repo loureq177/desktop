@@ -1,22 +1,15 @@
 import "../.."
 import "."
-import Quickshell
 import QtQuick
 
 DeviceList {
 	id: root
 
-	readonly property var btAdapter: SystemStatus.btAdapter
+	readonly property var btAdapter: Bt.adapter
 
 	title: "Bluetooth"
 	subtitle: !radioOn ? "Off" : (scanning ? "Scanning for nearby devices…" : items.filter(i => i.saved).length + " paired devices")
-	noun: "Bluetooth"
-	things: "devices"
 	offIcon: "bluetooth-off"
-	emptyTitle: "No Bluetooth devices found"
-	emptyHint: "Press [r] to scan for devices"
-	forgetVerb: "unpair"
-	timeoutMessage: "Action timed out — device didn't respond"
 	radioKey: Qt.Key_B
 	radioOn: btAdapter?.enabled ?? false
 	scanning: btAdapter?.discovering ?? false
@@ -32,7 +25,7 @@ DeviceList {
 				continue;
 			(isPaired ? paired : nearby).push({
 				key: d.address,
-				name: SystemStatus.deviceName(d),
+				name: Bt.name(d),
 				device: d,
 				icon: root.deviceIcon(d),
 				connected: d.connected,
@@ -83,7 +76,6 @@ DeviceList {
 		if (!btAdapter || !radioOn)
 			return;
 		btAdapter.discovering = true;
-		Quickshell.execDetached(["bluetoothctl", "--timeout", "15", "scan", "on"]);
 		scanTimer.restart();
 	}
 	onRadioToggled: {
