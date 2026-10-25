@@ -21,9 +21,7 @@ LauncherPane {
 	readonly property var items: entries.filter(e => e.preview.toLowerCase().includes(query.trim().toLowerCase()))
 	readonly property alias count: list.count
 	readonly property var current: items[list.currentIndex] ?? null
-	readonly property string runDir: Quickshell.env("XDG_RUNTIME_DIR")
-	readonly property string thumbDir: runDir + "/clipboard-thumbs"
-	readonly property string previewPath: runDir + "/clipboard-preview"
+	readonly property string previewPath: Quickshell.env("XDG_RUNTIME_DIR") + "/clipboard-preview"
 	readonly property alias wipeArmed: wipeConfirm.armed
 
 	// What `current` holds, once decoded into previewPath: the image shown
@@ -61,9 +59,9 @@ LauncherPane {
 		list.activate();
 	}
 
-	// Drops one entry, its thumbnail with it; the row the keyboard is on stays.
+	// Drops one entry; the row the keyboard is on stays.
 	function remove(entry: var): void {
-		Quickshell.execDetached(["sh", "-c", 'printf "%s\\n" "$1" | cliphist delete; rm -f "$2"', "sh", entry.id, thumbDir + "/" + entry.id]);
+		Quickshell.execDetached(["sh", "-c", 'printf "%s\\n" "$1" | cliphist delete', "sh", entry.id]);
 		var keep = list.currentIndex;
 		entries = entries.filter(e => e.id !== entry.id);
 		list.currentIndex = Math.min(keep, list.count - 1);
@@ -73,7 +71,7 @@ LauncherPane {
 	function wipe(): void {
 		if (!wipeConfirm.ask("wipe"))
 			return;
-		Quickshell.execDetached(["sh", "-c", 'cliphist wipe; rm -rf "$1"', "sh", thumbDir]);
+		Quickshell.execDetached(["cliphist", "wipe"]);
 		entries = [];
 	}
 
@@ -152,16 +150,8 @@ LauncherPane {
 
 			required property var modelData
 			readonly property var image: pane.imageInfo(modelData.preview)
-			readonly property string thumbPath: pane.thumbDir + "/" + modelData.id
-			property bool thumbReady: false
 
 			height: Theme.rowHeight
-
-			Process {
-				running: row.image !== null
-				command: ["sh", "-c", '[ -s "$1" ] || { mkdir -p "$2" && cliphist decode "$3" | magick - -thumbnail 120x80 "$1"; }', "sh", row.thumbPath, pane.thumbDir, row.modelData.id]
-				onExited: code => row.thumbReady = code === 0
-			}
 
 			Row {
 				anchors.fill: parent
@@ -169,30 +159,16 @@ LauncherPane {
 				anchors.rightMargin: 12
 				spacing: 12
 
-				// The thumbnail or the text icon; under the pointer, the X that
-				// deletes the entry.
+				// What kind of entry it is; under the pointer, the X that deletes it.
 				Item {
 					readonly property bool armed: deleteArea.containsMouse
 					anchors.verticalCenter: parent.verticalCenter
-					width: row.image ? 48 : Theme.rowIcon
+					width: Theme.rowIcon
 					height: Theme.rowIcon
 
-					Image {
-						anchors.fill: parent
-						visible: row.thumbReady
-						opacity: parent.armed ? 0.35 : 1
-						source: row.thumbReady ? "file://" + row.thumbPath : ""
-						fillMode: Image.PreserveAspectCrop
-						asynchronous: true
-						sourceSize: Qt.size(120, 80)
-
-						Behavior on opacity { NumberAnimation { duration: Theme.animFast } }
-					}
-
 					LineIcon {
-						visible: !row.image
 						anchors.centerIn: parent
-						name: "text"
+						name: row.image ? "image" : "text"
 						size: 20
 						color: row.selected ? Theme.accentBlue : Theme.textDim
 						opacity: parent.armed ? 0 : 1
