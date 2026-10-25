@@ -1,3 +1,4 @@
+--no-folding
 --ignore=README\.md
 --ignore=node_modules
 --ignore=__pycache__
