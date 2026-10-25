@@ -51,7 +51,7 @@ slow_tail() {
 }
 
 apply_display() {
-    local fields desc width height pos scale hz blur=true
+    local fields desc width height pos scale hz
     fields="$(hyprctl monitors -j | jq -r --arg hz "$1" '
         first(.[] | select(.name | startswith("eDP"))) as $m
         | ([$m.availableModes[] | select(startswith("\($m.width)x\($m.height)@"))
@@ -61,25 +61,22 @@ apply_display() {
         | @tsv' || true)"
     [[ -n "$fields" ]] || return 0
     IFS=$'\t' read -r desc width height pos scale hz <<<"$fields"
-    [[ "$1" == 60 ]] && blur=false
-    hyprctl eval "hl.monitor({ output = '${desc}', mode = '${width}x${height}@${hz}', position = '${pos}', scale = ${scale} }); hl.config({ decoration = { blur = { enabled = ${blur} } } })" >/dev/null || true
+    hyprctl eval "hl.monitor({ output = '${desc}', mode = '${width}x${height}@${hz}', position = '${pos}', scale = ${scale} })" >/dev/null || true
 }
 
-# Ghostty shader animation + translucency cost GPU time, so they are on only
-# on AC power and outside power-save mode. Returns 1 when nothing changed.
+# The animated cursor shader redraws the focused terminal every frame (about
+# 4 W more on battery), so it runs only on AC power and outside power-save
+# mode. Translucency and the (xray, cached) blur cost next to nothing and stay.
+# Returns 1 when nothing changed.
 ghostty_candy() {
-    local shader="$GHOSTTY_SHADER" anim=true opacity=0.80 conf
+    local shader="$GHOSTTY_SHADER" anim=true conf
     if ! on_ac || is_active; then
         # An empty custom-shader clears the list: no shader at all.
-        shader="" anim=false opacity=1.0
+        shader="" anim=false
     fi
     conf="# Managed by power-save. Do not edit.
-# background-opacity below 1 makes Ghostty send a buffer with alpha, and only
-# then does Hyprland blur what is behind the window (at 1.0 the buffer is
-# opaque and there is nothing to blur; background-blur itself is KDE-only).
 custom-shader = $shader
-custom-shader-animation = $anim
-background-opacity = $opacity"
+custom-shader-animation = $anim"
     [[ "$(cat "$GHOSTTY_PERF" 2>/dev/null)" != "$conf" ]] || return 1
     mkdir -p "${GHOSTTY_PERF%/*}"
     printf '%s\n' "$conf" >"$GHOSTTY_PERF"
