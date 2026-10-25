@@ -69,7 +69,7 @@ def words(rest):
 
 def main():
     repo = Path(sys.argv[1])
-    known = handlers(repo / "archlinux/.config/quickshell")
+    known = handlers(repo / "home/.config/quickshell")
     if not known:
         sys.exit("no IpcHandler found: has the quickshell config moved?")
 

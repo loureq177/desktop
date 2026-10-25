@@ -1,7 +1,7 @@
 # shellcheck shell=bash
 # What the scripts of this repo share: status lines, quiet runs, the way to
-# root. install.sh, sysupdate and sysclean source it. Kept to bash 3.2,
-# which is what macOS ships, for install.sh. Colours only when stdout is a terminal.
+# root. install.sh, sysupdate and sysclean source it. Colours only when stdout
+# is a terminal.
 
 if [[ -t 1 ]]; then
     _C_BLUE=$'\033[0;34m' _C_GREEN=$'\033[0;32m' _C_YELLOW=$'\033[0;33m' _C_RED=$'\033[0;31m' _C_NC=$'\033[0m'

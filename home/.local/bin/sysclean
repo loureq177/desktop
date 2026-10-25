@@ -3,7 +3,7 @@ set -euo pipefail
 shopt -s nullglob
 
 # Next to the script, not under $HOME: the --root run gets root's environment.
-# Through ~/.local/bin, not the repo, which keeps the library in common/.
+# Through ~/.local/bin, next to which stow links the library.
 SELF="$(cd "$(dirname "$0")" && pwd)/${0##*/}"
 source "${SELF%/*}/../lib/dotfiles/common.sh"
 

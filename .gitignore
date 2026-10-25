@@ -21,8 +21,8 @@ known_hosts*
 local.lua
 config.local
 *.local
-archlinux/.config/hypr/wallpapers/*
-!archlinux/.config/hypr/wallpapers/hyprland.webp
+home/.config/hypr/wallpapers/*
+!home/.config/hypr/wallpapers/hyprland.webp
 
 !**/.local/
 

@@ -30,7 +30,7 @@ check_each() {
         IFS= read -r first <"$REPO/$f" || true
         [[ -x "$REPO/$f" ]] || { echo "not executable: $f" >&2; bad=1; }
         [[ "$first" == '#!'* ]] || { echo "no shebang: $f" >&2; bad=1; }
-    done < <(repo_files 'archlinux/.local/bin/*' 'common/.local/bin/*' install.sh)
+    done < <(repo_files 'home/.local/bin/*' install.sh)
     [[ "$bad" -eq 0 ]]
 }
 
@@ -41,7 +41,7 @@ check_each() {
 
 @test "zsh scripts and zsh config parse" {
     need zsh
-    { shebang_files 'zsh'; repo_files 'common/.zshenv' 'common/.config/zsh/.zshrc' 'archlinux/.config/zsh/.zprofile'; } |
+    { shebang_files 'zsh'; repo_files 'home/.config/zsh/.zprofile'; } |
         sort -u | check_each zsh -n
 }
 
@@ -105,8 +105,8 @@ hyprland_verify() {
     export HOME="$BATS_TEST_TMPDIR/hypr-home"
     export XDG_RUNTIME_DIR="$BATS_TEST_TMPDIR/run"
     mkdir -p "$HOME/.config" "$HOME/.local" "$XDG_RUNTIME_DIR"
-    cp -r "$REPO/archlinux/.config/hypr" "$HOME/.config/hypr"
-    cp -r "$REPO/archlinux/.local/bin" "$HOME/.local/bin"
+    cp -r "$REPO/home/.config/hypr" "$HOME/.config/hypr"
+    cp -r "$REPO/home/.local/bin" "$HOME/.local/bin"
     rm -f "$HOME/.config/hypr/local.lua"
     [[ -z "${1:-}" ]] || cp "$1" "$HOME/.config/hypr/local.lua"
     run timeout 30 Hyprland --verify-config --config "$HOME/.config/hypr/hyprland.lua"
@@ -118,7 +118,7 @@ hyprland_verify() {
 }
 
 @test "hyprland accepts the config with the example local.lua" {
-    hyprland_verify "$REPO/archlinux/.config/hypr/local.lua.example"
+    hyprland_verify "$REPO/home/.config/hypr/local.lua.example"
 }
 
 @test "hyprland config survives a broken local.lua" {
@@ -126,31 +126,27 @@ hyprland_verify() {
     hyprland_verify "$BATS_TEST_TMPDIR/broken.lua"
 }
 
-@test "git config parses" {
-    git config --file "$REPO/common/.config/git/config" --list >/dev/null
-}
-
-@test "ghostty config is valid" {
+@test "ghostty accepts arch.conf" {
     need ghostty
-    # arch.conf is included from the main config through ~/.config.
+    # The main config, in .files, includes it.
     export HOME="$BATS_TEST_TMPDIR/home"
     mkdir -p "$HOME/.config/ghostty"
-    cp -r "$REPO/common/.config/ghostty/." "$REPO/archlinux/.config/ghostty/." "$HOME/.config/ghostty/"
-    run ghostty +validate-config --config-file="$HOME/.config/ghostty/config"
+    cp -r "$REPO/home/.config/ghostty/." "$HOME/.config/ghostty/"
+    run ghostty +validate-config --config-file="$HOME/.config/ghostty/arch.conf"
     assert_status 0
 }
 
 @test "compiled quickshell shader matches its source" {
     local qsb=/usr/lib/qt6/bin/qsb
     [[ -x "$qsb" ]] || skip "needs Qt6 qsb"
-    local dir="$REPO/archlinux/.config/quickshell/shaders"
+    local dir="$REPO/home/.config/quickshell/shaders"
     "$qsb" --qt6 -o "$BATS_TEST_TMPDIR/grow.frag.qsb" "$dir/grow.frag"
     cmp "$BATS_TEST_TMPDIR/grow.frag.qsb" "$dir/grow.frag.qsb" ||
         fail "grow.frag.qsb is stale: rebuild it with qsb --qt6 -o grow.frag.qsb grow.frag"
 }
 
 @test "emoji table has the shape the launcher reads" {
-    python3 - "$REPO/archlinux/.config/quickshell/emojis.json" <<'EOF'
+    python3 - "$REPO/home/.config/quickshell/emojis.json" <<'EOF'
 import json, sys
 data = json.load(open(sys.argv[1], encoding="utf-8"))
 assert isinstance(data, list) and len(data) > 100, "expected a long list"

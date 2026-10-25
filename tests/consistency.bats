@@ -4,8 +4,8 @@
 
 load helpers
 
-QS="archlinux/.config/quickshell"
-UNITS="archlinux/.config/systemd/user"
+QS="home/.config/quickshell"
+UNITS="home/.config/systemd/user"
 
 # --- quickshell --------------------------------------------------------------
 
@@ -44,7 +44,8 @@ UNITS="archlinux/.config/systemd/user"
 @test "every referenced ~/.local/bin script exists and is executable" {
     local bad=0 file name
     while IFS=: read -r file name; do
-        if [[ ! -x "$REPO/archlinux/.local/bin/$name" && ! -x "$REPO/common/.local/bin/$name" ]]; then
+        # firefox-apply is linked from .files.
+        if [[ ! -x "$REPO/home/.local/bin/$name" && "$name" != firefox-apply ]]; then
             echo "$file refers to .local/bin/$name, which does not exist" >&2
             bad=1
         fi
@@ -60,17 +61,17 @@ UNITS="archlinux/.config/systemd/user"
     # hyprland.lua builds these as  bin .. "/name args"
     local bad=0 name
     while IFS= read -r name; do
-        [[ -x "$REPO/archlinux/.local/bin/$name" ]] || { echo "hyprland.lua: bin .. \"/$name\" does not exist" >&2; bad=1; }
-    done < <(grep -oE 'bin \.\. "/[A-Za-z0-9_-]+' "$REPO/archlinux/.config/hypr/hyprland.lua" | sed 's|.*/||' | sort -u)
+        [[ -x "$REPO/home/.local/bin/$name" ]] || { echo "hyprland.lua: bin .. \"/$name\" does not exist" >&2; bad=1; }
+    done < <(grep -oE 'bin \.\. "/[A-Za-z0-9_-]+' "$REPO/home/.config/hypr/hyprland.lua" | sed 's|.*/||' | sort -u)
     [[ "$bad" -eq 0 ]]
 }
 
 @test "sourced shell libraries exist" {
     local bad=0 file name
     while IFS=: read -r file name; do
-        [[ -f "$REPO/archlinux/.local/lib/$name" || -f "$REPO/common/.local/lib/$name" ]] ||
+        [[ -f "$REPO/home/.local/lib/$name" ]] ||
             { echo "$file sources missing .local/lib/$name" >&2; bad=1; }
-    done < <(cd "$REPO" && grep -IoE '\.local/lib/[A-Za-z0-9_./-]+' -r archlinux common install.sh | sed -E 's|:\.local/lib/|:|' | sort -u)
+    done < <(cd "$REPO" && grep -IoE '\.local/lib/[A-Za-z0-9_./-]+' -r home install.sh | sed -E 's|:\.local/lib/|:|' | sort -u)
     [[ "$bad" -eq 0 ]]
 }
 
@@ -79,7 +80,7 @@ UNITS="archlinux/.config/systemd/user"
 @test "systemd units start scripts that exist" {
     local bad=0 unit script
     while IFS=: read -r unit script; do
-        [[ -x "$REPO/archlinux/.local/bin/$script" ]] || { echo "$unit: ExecStart script '$script' is missing" >&2; bad=1; }
+        [[ -x "$REPO/home/.local/bin/$script" ]] || { echo "$unit: ExecStart script '$script' is missing" >&2; bad=1; }
     done < <(cd "$REPO" && grep -oE '^Exec[A-Za-z]*=-?%h/\.local/bin/[A-Za-z0-9_-]+' "$UNITS"/*.service | sed -E 's|:Exec[A-Za-z]*=-?%h/\.local/bin/|:|')
     [[ "$bad" -eq 0 ]]
 }
@@ -113,22 +114,22 @@ UNITS="archlinux/.config/systemd/user"
     local pkg
     for pkg in hypridle hyprsunset; do
         grep -q "enable $pkg.service" "$REPO/install.sh" || fail "install.sh does not enable $pkg.service"
-        grep -qx "$pkg" "$REPO/archlinux/packages.txt" || fail "packages.txt does not install $pkg"
+        grep -qx "$pkg" "$REPO/packages.txt" || fail "packages.txt does not install $pkg"
     done
     grep -q 'enable wayland-pipewire-idle-inhibit.service' "$REPO/install.sh"
-    grep -qx wayland-pipewire-idle-inhibit "$REPO/archlinux/aur.txt"
+    grep -qx wayland-pipewire-idle-inhibit "$REPO/aur.txt"
 }
 
 @test "every /etc config has its package in the lists" {
-    # config under archlinux/etc -> the package that reads it
+    # config under etc/ -> the package that reads it
     local -A owner=(
         [etc/systemd/zram-generator.conf]=zram-generator
         [etc/pam.d/hyprlock]=hyprlock
     )
     local file
     for file in "${!owner[@]}"; do
-        [[ -f "$REPO/archlinux/$file" ]] || fail "$file is gone: drop it from this test"
-        grep -qx "${owner[$file]}" "$REPO/archlinux/packages.txt" || fail "$file needs ${owner[$file]}, which packages.txt does not install"
+        [[ -f "$REPO/$file" ]] || fail "$file is gone: drop it from this test"
+        grep -qx "${owner[$file]}" "$REPO/packages.txt" || fail "$file needs ${owner[$file]}, which packages.txt does not install"
     done
 }
 
@@ -136,7 +137,7 @@ UNITS="archlinux/.config/systemd/user"
     need pacman
     pacman -Si pacman >/dev/null 2>&1 || skip "no pacman sync database"
     local pkgs
-    mapfile -t pkgs < <(listed_packages "$REPO"/archlinux/{packages.txt,packages-laptop.txt})
+    mapfile -t pkgs < <(listed_packages "$REPO"/{packages.txt,packages-laptop.txt})
     local outside
     outside="$(pacman -Si "${pkgs[@]}" 2>/dev/null | awk '/^Repository/ {repo=$3} /^Name/ && repo != "core" && repo != "extra" {print $3 " (" repo ")"}')"
     [[ -z "$outside" ]] || fail "not in core/extra, which is all a fresh pacman.conf enables:" "$outside"
@@ -158,7 +159,7 @@ UNITS="archlinux/.config/systemd/user"
     export XDG_CONFIG_HOME="$HOME/.config"
     mkdir -p "$HOME/.config/systemd" "$HOME/.local" "$XDG_RUNTIME_DIR"
     cp -r "$REPO/$UNITS" "$HOME/.config/systemd/user"
-    cp -r "$REPO/archlinux/.local/bin" "$HOME/.local/bin"
+    cp -r "$REPO/home/.local/bin" "$HOME/.local/bin"
     cd "$HOME/.config/systemd/user"
     run systemd-analyze --user verify ./*.service ./*.timer ./*.socket ./*.target
     [[ "$output" != *"Failed to initialize manager"* ]] || skip "systemd cannot start a user manager here"
@@ -173,15 +174,13 @@ UNITS="archlinux/.config/systemd/user"
 @test "the files apply-ui renders from ui.toml are committed up to date" {
     export XDG_CONFIG_HOME="$BATS_TEST_TMPDIR/config"
     mkdir -p "$XDG_CONFIG_HOME"
-    cp -r "$REPO/archlinux/.config/ui" "$XDG_CONFIG_HOME/ui"
-    run python3 "$REPO/archlinux/.local/bin/apply-ui" --no-reload
+    cp -r "$REPO/home/.config/ui" "$XDG_CONFIG_HOME/ui"
+    run python3 "$REPO/home/.local/bin/apply-ui" --no-reload
     assert_status 0
-    local f pkg found bad=0
+    local f found bad=0
     while IFS= read -r f; do
         found=""
-        for pkg in archlinux common; do
-            [[ -f "$REPO/$pkg/.config/$f" ]] && found="$REPO/$pkg/.config/$f"
-        done
+        [[ -f "$REPO/home/.config/$f" ]] && found="$REPO/home/.config/$f"
         if [[ -z "$found" ]]; then
             echo "apply-ui writes $f, which is not in the repo" >&2
             bad=1
@@ -215,18 +214,16 @@ stow_ignored() {
 
 @test "stow links every tracked file except the ones meant to stay in the repo" {
     need stow
-    # Package lists, docs and machine-local files are deliberately not linked.
-    local allowed='^(packages(-[a-z]+)?\.txt|aur\.txt|flatpak\.txt|Brewfile|(.*/)?README\.md|\.config/hypr/local\.lua|etc)$'
-    local pkg path bad=0
-    for pkg in common archlinux; do
-        while IFS= read -r path; do
-            [[ -n "$path" ]] || continue
-            git -C "$REPO" ls-files --error-unmatch "$pkg/$path" >/dev/null 2>&1 || continue
-            [[ "$path" =~ $allowed ]] && continue
-            echo "$pkg/$path is tracked but .stowrc keeps stow from linking it" >&2
-            bad=1
-        done < <(stow_ignored "$pkg")
-    done
+    # Docs and machine-local files are deliberately not linked.
+    local allowed='^((.*/)?README\.md|\.config/hypr/local\.lua)$'
+    local path bad=0
+    while IFS= read -r path; do
+        [[ -n "$path" ]] || continue
+        git -C "$REPO" ls-files --error-unmatch "home/$path" >/dev/null 2>&1 || continue
+        [[ "$path" =~ $allowed ]] && continue
+        echo "home/$path is tracked but .stowrc keeps stow from linking it" >&2
+        bad=1
+    done < <(stow_ignored home)
     [[ "$bad" -eq 0 ]]
 }
 
@@ -252,22 +249,12 @@ stow_ignored() {
     [[ "$bad" -eq 0 ]]
 }
 
-@test "stow packages installed together do not provide the same file" {
-    local clash
-    clash="$(comm -12 <(cd "$REPO/common" && find . -type f | sort) <(cd "$REPO/archlinux" && find . -type f | sort))"
-    [[ -z "$clash" ]] || fail "in both common and archlinux:" "$clash"
-}
-
-@test "stowing common, alone (macOS) or with archlinux, has no conflicts" {
+@test "stowing home leaves no dangling links" {
     need stow
-    local pkgs target
-    for pkgs in common "common archlinux"; do
-        target="$BATS_TEST_TMPDIR/home-${pkgs// /-}"
-        mkdir -p "$target"
-        # shellcheck disable=SC2086 # one or two package names
-        (cd "$REPO" && stow --target "$target" $pkgs)
-        [[ -z "$(find "$target" -xtype l)" ]] || fail "dangling links:" "$(find "$target" -xtype l)"
-    done
+    local target="$BATS_TEST_TMPDIR/target"
+    mkdir -p "$target"
+    (cd "$REPO" && stow --target "$target" home)
+    [[ -z "$(find "$target" -xtype l)" ]] || fail "dangling links:" "$(find "$target" -xtype l)"
 }
 
 # --- package lists -----------------------------------------------------------
@@ -277,14 +264,14 @@ listed_packages() {
 }
 
 @test "package lists have no duplicates or malformed names" {
-    local lists=("$REPO"/archlinux/{packages.txt,packages-laptop.txt,aur.txt})
+    local lists=("$REPO"/{packages.txt,packages-laptop.txt,aur.txt})
     local dups
     dups="$(listed_packages "${lists[@]}" | sort | uniq -d)"
     [[ -z "$dups" ]] || fail "listed more than once:" "$dups"
     local odd
     odd="$(listed_packages "${lists[@]}" | grep -vE '^[a-z0-9@._+-]+$' || true)"
     [[ -z "$odd" ]] || fail "not a package name:" "$odd"
-    odd="$(listed_packages "$REPO/archlinux/flatpak.txt" | grep -vE '^[A-Za-z0-9_-]+(\.[A-Za-z0-9_-]+){2,}$' || true)"
+    odd="$(listed_packages "$REPO/flatpak.txt" | grep -vE '^[A-Za-z0-9_-]+(\.[A-Za-z0-9_-]+){2,}$' || true)"
     [[ -z "$odd" ]] || fail "not a flatpak app id:" "$odd"
 }
 
@@ -292,7 +279,7 @@ listed_packages() {
     need pacman
     pacman -Si pacman >/dev/null 2>&1 || skip "no pacman sync database"
     local pkgs
-    mapfile -t pkgs < <(listed_packages "$REPO"/archlinux/{packages.txt,packages-laptop.txt})
+    mapfile -t pkgs < <(listed_packages "$REPO"/{packages.txt,packages-laptop.txt})
     run pacman -Si "${pkgs[@]}"
     local missing
     missing="$(grep -E "^error: package '.*' was not found" <<<"$output" || true)"
@@ -308,7 +295,7 @@ listed_packages() {
             echo "$pkg is in the official repos now: move it from aur.txt to packages.txt" >&2
             bad=1
         fi
-    done < <(listed_packages "$REPO/archlinux/aur.txt")
+    done < <(listed_packages "$REPO/aur.txt")
     [[ "$bad" -eq 0 ]]
 }
 
@@ -331,7 +318,7 @@ listed_packages() {
 
     local provided
     provided="$(
-        { listed_packages "$REPO"/archlinux/{packages.txt,packages-laptop.txt,aur.txt}; echo base; } |
+        { listed_packages "$REPO"/{packages.txt,packages-laptop.txt,aur.txt}; echo base; } |
             while IFS= read -r pkg; do pactree -lu "$pkg" 2>/dev/null || pactree -slu "$pkg" 2>/dev/null || echo "$pkg"; done | sort -u
     )"
 
@@ -351,13 +338,13 @@ listed_packages() {
 
 @test "the ghostty shader power-save turns on is in the repo" {
     local shader
-    shader="$(grep -oE '^GHOSTTY_SHADER=.*/ghostty/shaders/[a-z_]+\.glsl' "$REPO/archlinux/.local/bin/power-save")"
+    shader="$(grep -oE '^GHOSTTY_SHADER=.*/ghostty/shaders/[a-z_]+\.glsl' "$REPO/home/.local/bin/power-save")"
     [[ -n "$shader" ]] || fail "power-save no longer names its shader"
-    [[ -f "$REPO/archlinux/.config/ghostty/shaders/${shader##*/}" ]] || fail "missing ${shader##*/}"
+    [[ -f "$REPO/home/.config/ghostty/shaders/${shader##*/}" ]] || fail "missing ${shader##*/}"
 }
 
 @test "the default wallpaper that 'wallpaper init' falls back to is in the repo" {
-    [[ -s "$REPO/archlinux/.config/hypr/wallpapers/hyprland.webp" ]]
+    [[ -s "$REPO/home/.config/hypr/wallpapers/hyprland.webp" ]]
 }
 
 @test "example files keep their real counterparts out of git" {
