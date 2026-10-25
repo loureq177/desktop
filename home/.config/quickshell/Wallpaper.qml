@@ -3,8 +3,7 @@ import Quickshell
 import Quickshell.Io
 import QtQuick
 
-// The wallpaper picked with ~/.local/bin/wallpaper: drawn by WallpaperView and
-// reused by the lock screen.
+// The wallpaper picked with ~/.local/bin/wallpaper, drawn by WallpaperView.
 Singleton {
 	id: root
 

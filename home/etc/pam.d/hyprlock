@@ -1,0 +1,4 @@
+# hyprlock's own file, plus the login keyring: autologin opens the session
+# without a password, so the unlock at login is what unlocks the keyring.
+auth        include     login
+-auth       optional    pam_gnome_keyring.so

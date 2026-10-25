@@ -1,7 +1,8 @@
 # The look shared by the desktop's programs. apply-ui renders it into the
-# files under templates/ (Hyprland, hyprlock, slurp, yazi, btop, lazygit) and
-# hands all of it to the shell as quickshell/ui.js. What only the shell uses
-# (its sizes, timings and font sizes) lives in quickshell/Theme.qml.
+# files under templates/ (Hyprland, hyprlock, hyprtoolkit, slurp, yazi, btop,
+# lazygit) and hands all of it to the shell as quickshell/ui.js. What only
+# the shell uses (its sizes, timings and font sizes) lives in
+# quickshell/Theme.qml.
 
 [rounding]
 window = 8
@@ -19,7 +20,7 @@ active = 1.0
 inactive = 0.96
 dim_special = 0.20
 
-# The blurred desktop behind the lock screen, in the shell and in hyprlock.
+# The blurred desktop behind the lock screen (hyprlock).
 [lock]
 brightness = 0.55
 vibrancy = 0.2

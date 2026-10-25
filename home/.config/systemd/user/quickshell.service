@@ -1,7 +1,7 @@
 [Unit]
-Description=Quickshell, the desktop shell and lock screen
-# Wanted by hyprland-session.target itself rather than enabled: the shell is
-# also the lock screen, and the autologin session must never come up without it.
+Description=Quickshell, the desktop shell
+# Wanted by hyprland-session.target itself rather than enabled: the bar,
+# notifications and launcher are part of the session.
 PartOf=hyprland-session.target
 After=hyprland-session.target
 StartLimitIntervalSec=60
@@ -13,10 +13,6 @@ Environment=MALLOC_CONF=narenas:1,muzzy_decay_ms:0
 SyslogIdentifier=quickshell
 Restart=on-failure
 RestartSec=1
-# A shell that dies without having unlocked leaves nothing holding the lock:
-# hyprlock takes over, and the shell is restarted once it has the password.
-ExecStopPost=%h/.local/bin/lock-fallback
-TimeoutStopSec=infinity
 # What the shell started outlives it: a restart must not take the screen
 # recording or the dictation with it.
 KillMode=process

@@ -78,10 +78,13 @@ hl.on("hyprland.start", function()
 	env("DISPLAY", ":0")
 
 	local cmds = {
-		-- First: the session target starts the shell (quickshell.service), which
-		-- locks the session before anything else is on screen. Nothing stops the
-		-- target when Hyprland exits, so after a restart a plain start would be a
-		-- no-op and leave its services bound to the dead compositor.
+		-- First: autologin opened the session, the lock closes it before anything
+		-- else is on screen.
+		"hyprlock --config ~/.config/hypr/hyprlock-boot.conf",
+
+		-- The session target starts the shell (quickshell.service). Nothing stops
+		-- the target when Hyprland exits, so after a restart a plain start would
+		-- be a no-op and leave its services bound to the dead compositor.
 		"sh -c 'dbus-update-activation-environment --systemd "
 			.. table.concat(exported, " ")
 			.. "; systemctl --user reset-failed; systemctl --user restart hyprland-session.target'",
@@ -675,7 +678,7 @@ end
 
 do
 	local bind = section("Session")
-	bind("SUPER + escape", "Lock system", exec("qs ipc call session lock"))
+	bind("SUPER + escape", "Lock system", exec("loginctl lock-session"))
 end
 
 do

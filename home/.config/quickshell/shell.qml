@@ -5,8 +5,7 @@ import "views/launcher"
 
 // Windows created later stack above earlier ones on the same layer.
 ShellRoot {
-	WallpaperView {
-	}
+	WallpaperView {}
 
 	Variants {
 		model: Quickshell.screens
@@ -14,21 +13,13 @@ ShellRoot {
 		}
 	}
 
-	DrawerWindow {
-	}
+	DrawerWindow {}
 
-	Launcher {
-	}
+	Launcher {}
 
-	NotificationToasts {
-	}
+	NotificationToasts {}
 
-	Osd {
-	}
+	Osd {}
 
-	PolkitDialog {
-	}
-
-	LockScreen {
-	}
+	PolkitDialog {}
 }

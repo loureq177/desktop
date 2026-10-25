@@ -3,8 +3,8 @@ Description=Hyprland compositor session
 Documentation=https://wiki.hypr.land
 BindsTo=graphical-session.target
 # Session services hook themselves in with WantedBy= (install.sh enables them).
-# Part of the session itself: the shell, which is also the lock screen, and the
-# X11 socket (hyprland.lua exports DISPLAY=:0).
+# Part of the session itself: the shell and the X11 socket (hyprland.lua
+# exports DISPLAY=:0).
 Wants=graphical-session-pre.target quickshell.service xwayland-satellite.socket
 After=graphical-session-pre.target
 Before=graphical-session.target

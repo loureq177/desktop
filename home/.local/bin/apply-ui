@@ -18,6 +18,8 @@ TEMPLATES = {
     "btop.theme": "btop/themes/github-dark.theme",
     "lazygit.yml": "lazygit/config.yml",
     "hyprlock.conf": "hypr/hyprlock.conf",
+    "hyprlock-boot.conf": "hypr/hyprlock-boot.conf",
+    "hyprtoolkit.conf": "hypr/hyprtoolkit.conf",
 }
 
 COMMENT = {".lua": "--", ".js": "//"}
