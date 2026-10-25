@@ -12,8 +12,6 @@ PanelWindow {
 	readonly property bool shown: Notifications.toasts.count > 0 && Panels.active === ""
 	readonly property int offscreen: Theme.drawerWidth + Theme.panelMargin
 	property int slide: offscreen
-	// A reply field has the keyboard.
-	property bool replying: false
 
 	visible: shown || slideOut.running
 	color: "transparent"
@@ -21,7 +19,6 @@ PanelWindow {
 	exclusiveZone: 0
 
 	WlrLayershell.layer: WlrLayer.Overlay
-	WlrLayershell.keyboardFocus: replying ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
 	WlrLayershell.namespace: "quickshell"
 
 	screen: Panels.screen
@@ -37,25 +34,11 @@ PanelWindow {
 		item: win.shown ? stack : null
 	}
 
-	Binding {
-		target: Notifications
-		property: "toastsHeld"
-		value: win.replying
-	}
-
 	Connections {
 		target: Panels
 		function onActiveChanged() {
 			if (Panels.active !== "")
 				Notifications.toasts.clear();
-		}
-	}
-
-	// A card that goes with its field focused never reports losing the focus.
-	Connections {
-		target: Notifications.toasts
-		function onRowsRemoved() {
-			win.replying = false;
 		}
 	}
 
@@ -105,7 +88,6 @@ PanelWindow {
 			isToast: true
 			onActivated: Notifications.activate(nid)
 			onDismissed: Notifications.dismiss(nid)
-			onReplyFocused: focused => win.replying = focused
 		}
 
 		add: Transition {

@@ -16,8 +16,6 @@ Rectangle {
 	required property int urgency
 	required property string image
 	required property string appIcon
-	required property bool hasInlineReply
-	required property string replyPlaceholder
 	required property var actions
 	required property double time
 
@@ -25,12 +23,9 @@ Rectangle {
 	property bool isToast: false
 
 	readonly property bool critical: urgency === NotificationUrgency.Critical
-	// A closed notification can no longer take a reply.
-	readonly property bool canReply: hasInlineReply && Notifications.live(nid) !== null
 
 	signal activated()
 	signal dismissed()
-	signal replyFocused(bool focused)
 
 	implicitHeight: Math.max(bodyCol.implicitHeight, notifPic.size) + Theme.notifPadV * 2
 	// A toast lights up under the pointer; in the center the pointer moves the
@@ -115,57 +110,6 @@ Rectangle {
 			maximumLineCount: 3
 			elide: Text.ElideRight
 			visible: text !== ""
-		}
-
-		Rectangle {
-			Layout.fillWidth: true
-			Layout.topMargin: 4
-			visible: root.canReply
-			implicitHeight: 30
-			color: Theme.glass(Theme.bgMain)
-			border.color: replyField.activeFocus ? Theme.selectionBorder : Theme.border
-			border.width: 1
-			radius: Theme.roundingElement
-
-			TextInput {
-				id: replyField
-				anchors.fill: parent
-				anchors.leftMargin: 8
-				anchors.rightMargin: 8
-				verticalAlignment: TextInput.AlignVCenter
-				font.family: Theme.fontMono
-				font.pixelSize: Theme.fontSize
-				color: Theme.textMain
-				clip: true
-				selectByMouse: true
-				wrapMode: TextInput.Wrap
-				activeFocusOnPress: true
-
-				onAccepted: {
-					var n = Notifications.live(root.nid);
-					// sendInlineReply returns nothing: the reply is out once it is called.
-					if (text.trim() !== "" && n) {
-						n.sendInlineReply(text);
-						text = "";
-						focus = false;
-						root.dismissed();
-					}
-				}
-				onActiveFocusChanged: root.replyFocused(activeFocus)
-				Keys.onEscapePressed: focus = false
-			}
-
-			StyledText {
-				visible: replyField.text === "" && !replyField.activeFocus
-				anchors.fill: parent
-				anchors.leftMargin: 8
-				anchors.rightMargin: 8
-				verticalAlignment: Text.AlignVCenter
-				elide: Text.ElideRight
-				text: root.replyPlaceholder || "Reply…"
-				mono: true
-				color: Theme.textMuted
-			}
 		}
 
 		RowLayout {

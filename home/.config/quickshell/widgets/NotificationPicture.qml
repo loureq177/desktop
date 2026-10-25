@@ -61,29 +61,6 @@ Item {
 		return Quickshell.iconPath(iconCandidate, true) || "";
 	}
 
-	readonly property string fallbackGlyph: {
-		var combo = ((root.appName || "") + " " + root.iconCandidate).toLowerCase();
-		if (combo.includes("arch") || combo.includes("pacman") || combo.includes("paru") || combo.includes("update"))
-			return "package";
-		if (combo.includes("reboot") || combo.includes("restart"))
-			return "rotate-cw";
-		if (combo.includes("warn") || combo.includes("alert"))
-			return "triangle-alert";
-		if (combo.includes("error") || combo.includes("fail"))
-			return "circle-x";
-		if (combo.includes("audio") || combo.includes("music") || combo.includes("spotify") || combo.includes("player"))
-			return "music";
-		if (combo.includes("chat") || combo.includes("message") || combo.includes("discord") || combo.includes("telegram"))
-			return "message-square";
-		if (combo.includes("mail"))
-			return "mail";
-		if (combo.includes("cal"))
-			return "calendar";
-		if (combo.includes("code") || combo.includes("nvim") || combo.includes("vim"))
-			return "code";
-		return "bell";
-	}
-
 	Rectangle {
 		id: imgContainer
 		anchors.fill: parent
@@ -122,7 +99,7 @@ Item {
 
 		LineIcon {
 			anchors.centerIn: parent
-			name: root.fallbackGlyph
+			name: "bell"
 			size: Math.round(Math.min(parent.width, parent.height) * 0.48)
 			color: Theme.accentBlue
 		}

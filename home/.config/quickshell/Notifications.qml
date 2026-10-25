@@ -17,8 +17,6 @@ Singleton {
 	readonly property int maxToasts: 4
 	readonly property int toastTimeoutMs: 5000
 
-	// Set while a toast's reply field has focus: nothing expires mid-typing.
-	property bool toastsHeld: false
 	// Milliseconds since the epoch: far past what an int holds.
 	property double lastSoundAt: 0
 	property var pendingUpdates: ({})
@@ -34,8 +32,6 @@ Singleton {
 			urgency: n.urgency,
 			image: n.image || "",
 			appIcon: n.appIcon || "",
-			hasInlineReply: n.hasInlineReply,
-			replyPlaceholder: n.inlineReplyPlaceholder || "",
 			actions: root.buttonActions(n.actions),
 			time: now,
 			// For a toast: when its timeout started (see the expiry timer).
@@ -151,13 +147,7 @@ Singleton {
 	}
 
 	// A click on the card: its default action, or else its app's window.
-	// Without an id, the newest toast.
 	function activate(nid): void {
-		if (nid === undefined) {
-			if (root.toasts.count === 0)
-				return;
-			nid = root.toasts.get(0).nid;
-		}
 		var action = root.live(nid)?.actions.find(a => a.identifier === "default");
 		if (action) {
 			action.invoke();
@@ -194,10 +184,8 @@ Singleton {
 				if (t.timeout === 0)
 					continue;
 				// Only the toast goes: the notification stays open in the
-				// center, where its actions and reply still have to work.
-				if (root.toastsHeld)
-					root.toasts.setProperty(i, "shownAt", now);
-				else if (now - t.shownAt >= t.timeout)
+				// center, where its actions still have to work.
+				if (now - t.shownAt >= t.timeout)
 					root.toasts.remove(i);
 			}
 		}
@@ -211,7 +199,6 @@ Singleton {
 		actionsSupported: true
 		imageSupported: true
 		persistenceSupported: false
-		inlineReplySupported: true
 
 		onNotification: n => {
 			var appName = (n.appName || n.desktopEntry || "").trim();
@@ -254,9 +241,6 @@ Singleton {
 		}
 		function dismissLatest(): void {
 			root.dismissLatest();
-		}
-		function invokeDefault(): void {
-			root.activate();
 		}
 	}
 }
