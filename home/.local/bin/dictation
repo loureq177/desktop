@@ -3,8 +3,6 @@ set -euo pipefail
 
 RUN_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
 PID_FILE="$RUN_DIR/dictation.pid"
-# What dictation is doing, for the shell's bar (Modes.qml): "recording" or
-# "transcribing", and no file while it is off.
 STATE_FILE="$RUN_DIR/dictation"
 LOCK_FILE="$RUN_DIR/dictation.lock"
 AUDIO_RAW="$RUN_DIR/dictation_raw.wav"
@@ -69,10 +67,9 @@ start() {
     rm -f "$PID_FILE" "$AUDIO_RAW" "$AUDIO_CLEAN"
     echo recording >"$STATE_FILE"
     pw-record --rate 16000 --channels 1 "$AUDIO_RAW" 200>&- >/dev/null 2>&1 &
-    echo $! > "$PID_FILE"
+    echo $! >"$PID_FILE"
 }
 
-# `stop` only stops; anything else toggles.
 if [[ "${1:-}" == "stop" || -f "$PID_FILE" ]]; then
     stop
 else

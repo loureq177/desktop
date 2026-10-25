@@ -1,13 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Battery care: the firmware stops charging short of full (a charge limit, or
-# Lenovo's Long_Life), which keeps a battery that sits on AC from wearing out.
-# Through UPower, as GNOME and KDE do it: no root, and UPower keeps the setting
-# across reboots. No argument toggles; --sync only reads it (the shell, once
-# the session is up). $XDG_RUNTIME_DIR/battery_care says "on" or "off", and is
-# not there on a machine that cannot do it, where the shell offers no switch.
-
 MARKER="$XDG_RUNTIME_DIR/battery_care"
 DEST=org.freedesktop.UPower
 IFACE=org.freedesktop.UPower.Device

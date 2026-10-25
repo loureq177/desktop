@@ -1,6 +1,8 @@
 #!/bin/sh
 set -eu
+
 emoji="${1:-}"
+
 [ -n "$emoji" ] || exit 0
 sleep 0.05
 wtype -- "$emoji" 2>/dev/null || true

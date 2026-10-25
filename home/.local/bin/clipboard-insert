@@ -1,17 +1,23 @@
 #!/bin/sh
 set -eu
+
 id="${1:-}"
 mime="${2:-}"
+
 [ -n "$id" ] || exit 0
+
 tmp="$(mktemp "${TMPDIR:-/tmp}/clipboard-insert.XXXXXX.bin")"
+
 chmod 600 "$tmp"
 trap 'rm -f "$tmp"' EXIT INT TERM HUP
 cliphist decode "$id" >"$tmp" || exit 0
+
 if [ -n "$mime" ]; then
     wl-copy --type "$mime" <"$tmp" || exit 0
 else
     wl-copy <"$tmp" || exit 0
 fi
+
 rm -f "$tmp"
 trap - EXIT INT TERM HUP
 sleep 0.05

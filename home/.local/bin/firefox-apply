@@ -8,7 +8,10 @@ FF_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/mozilla/firefox"
 [ -f "$FF_DIR/profiles.ini" ] || [ ! -f "$HOME/.mozilla/firefox/profiles.ini" ] || FF_DIR="$HOME/.mozilla/firefox"
 INIFILE="$FF_DIR/profiles.ini"
 
-[ -f "$INIFILE" ] || { echo "firefox-apply: $INIFILE not found" >&2; exit 1; }
+[ -f "$INIFILE" ] || {
+    echo "firefox-apply: $INIFILE not found" >&2
+    exit 1
+}
 
 SEL="$(awk '
     function val() { return substr($0, index($0, "=") + 1) }
@@ -33,14 +36,20 @@ SEL="$(awk '
 ' "$INIFILE")"
 ISREL="${SEL%%$'\t'*}"
 PROFILE="${SEL#*$'\t'}"
-[ -n "$PROFILE" ] || { echo "firefox-apply: no profile found in profiles.ini" >&2; exit 1; }
+[ -n "$PROFILE" ] || {
+    echo "firefox-apply: no profile found in profiles.ini" >&2
+    exit 1
+}
 
 if [ "$ISREL" = "0" ]; then
     PROFILE_DIR="$PROFILE"
 else
     PROFILE_DIR="$FF_DIR/$PROFILE"
 fi
-[ -d "$PROFILE_DIR" ] || { echo "firefox-apply: profile dir not found: $PROFILE_DIR" >&2; exit 1; }
+[ -d "$PROFILE_DIR" ] || {
+    echo "firefox-apply: profile dir not found: $PROFILE_DIR" >&2
+    exit 1
+}
 
 install -m 600 "$SRC/user.js" "$PROFILE_DIR/user.js"
 echo "[OK] user.js -> $PROFILE_DIR"
