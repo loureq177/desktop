@@ -14,8 +14,8 @@ On Arch the installer changes the system, not only the home directory:
 
 - upgrades the system and installs `archlinux/packages.txt` (plus `packages-laptop.txt` on a machine with a battery), the flatpaks, and the AUR packages; `paru` is built from the AUR if it is missing
 - links `common/` and `archlinux/` into `~`
-- enables autologin on tty1 for the current user and makes zsh the login shell: the login shell starts Hyprland and the shell locks the session at once
-- copies `archlinux/etc` into `/etc` (zram, memory tuning, lid-switch inhibitors), backing up files that differ
+- enables autologin on tty1 for the current user and makes zsh the login shell: the login shell starts Hyprland, which locks the session at once with `hyprlock`
+- copies `archlinux/etc` into `/etc` (zram and its sysctls, zswap off, the lock screen's PAM file), backing up files that differ
 - enables the user units of this repo that have an `[Install]` section, and `hypridle` and `hyprsunset`
 - downloads the speech model that `dictation` needs (about 140 MB)
 
@@ -29,9 +29,8 @@ Everything in the package lists is in `core`, `extra` or the AUR; nothing needs 
 
 ## Layout
 
-- `common/` – configs shared by both systems, linked into `~`
+- `common/` – configs shared by both systems, linked into `~`, and the Brewfile of macOS
 - `archlinux/` – Hyprland, quickshell, scripts and package lists; `archlinux/etc` is copied to `/etc` instead of linked
-- `macos/` – Brewfile and scripts
 
 Machine-local files (`local.lua`, `config.local`, `.zshrc.local`, `~/.ssh/config`) are ignored by git and stow; each has an `.example` next to it.
 
@@ -51,18 +50,18 @@ sysclean
 
 ### Theme
 
-`~/.config/ui/ui.toml` holds the colors, fonts and sizes the desktop's programs share. `apply-ui` renders it through the templates in `~/.config/ui/templates` into Hyprland, the fallback lock screen, slurp, yazi, btop and lazygit, hands it to quickshell as `ui.js` and sets the GTK settings (Hyprland sets them again at every start with `apply-ui --gtk`); the generated files are committed, and the tests fail when they are stale. What only the shell uses (its sizes and animation timing) is set in `quickshell/Theme.qml`, and the fzf colors are written out in `.zshrc` because macOS has no `apply-ui`.
+`~/.config/ui/ui.toml` holds the colors, fonts and sizes the desktop's programs share. `apply-ui` renders it through the templates in `~/.config/ui/templates` into Hyprland, the lock screen (`hyprlock`), Hyprland's own dialogs and `hyprshutdown` (`hyprtoolkit.conf`), slurp, yazi, btop and lazygit, hands it to quickshell as `ui.js` and sets the GTK settings (Hyprland sets them again at every start with `apply-ui --gtk`); the generated files are committed, and the tests fail when they are stale. What only the shell uses (its sizes and animation timing) is set in `quickshell/Theme.qml`, and the fzf colors are written out in `.zshrc` because macOS has no `apply-ui`.
 
 Ghostty, Neovim, bat, delta and opencode use their upstream GitHub Dark themes and do not follow `ui.toml`.
 
 ### Key binds
 
-The launcher finds apps, the web apps and the other special workspaces among them, and the desktop's actions by name: capture, battery saver, update, lock, suspend, reboot and power off (the last three on a second Enter). `2+2` calculates on the spot. `/` and a name finds files and folders in `~` with fd, and Enter opens one. Quick actions (`SUPER + A`) has the tiles and the Capture page. `SUPER + /` lists the keys, leaving out the ones a panel prints on its tiles and buttons. The ones to know first:
+The launcher finds apps, the web apps and the other special workspaces among them, and the desktop's actions by name: capture, battery saver, update, lock, suspend, reboot and power off (the last three on a second Enter). `2+2` calculates on the spot. Quick actions (`SUPER + A`) has the tiles and the Capture page. `SUPER + /` lists the keys, leaving out the ones a panel prints on its tiles and buttons. The ones to know first:
 
 | Keys | Action |
 | --- | --- |
 | `SUPER + Return` | Terminal |
-| `SUPER + Space` | Launcher: apps and actions, `2+2` calculates, `/` finds files |
+| `SUPER + Space` | Launcher: apps and actions, `2+2` calculates |
 | `SUPER + A` | Quick actions (Wi-Fi, Bluetooth, capture, battery saver) |
 | `SUPER + N` | Notification center |
 | `SUPER + V` / `SUPER + E` | Clipboard history / emoji |
@@ -75,17 +74,17 @@ Everything also works with the mouse: the grid icon at the left of the bar opens
 
 ### Good to know
 
-- The session is locked by quickshell, which the session target starts (`quickshell.service`, restarted when it crashes). A shell that dies before the session was unlocked leaves it to `lock-fallback`, which locks with `hyprlock` instead, so autologin never ends in an open desktop.
+- The session is locked by `hyprlock`: at login (`hyprland.lua`, over the blurred wallpaper with `hyprlock-boot.conf`) and when `hypridle` asks (`SUPER + Escape`, idle, suspend). It is its own process, so the shell (`quickshell.service`, restarted when it crashes) can fail without leaving the session open.
 - The weather is for the place in `~/.config/weather.json` (`{ "name": "Krakow", "latitude": 50.06, "longitude": 19.94 }`); without it the forecast asks `ipwho.is` where this IP address is.
 
 ## Testing
 
 ```bash
 tests/run                # everything
-tests/run install power  # selected suites (tests/*.bats, or "js")
-tests/run -f wallpaper   # tests whose name matches
+tests/run static         # selected suites (tests/*.bats)
+tests/run -f hyprland    # tests whose name matches
 ```
 
-Needs `bats`; `shellcheck`, `node`, `lua`, `stow`, Qt6 `qmllint` and `Hyprland` widen the coverage, and tests that need a missing tool are skipped. Scripts run against a temporary `$HOME` with every system command stubbed, so the suite never touches the running session.
+Needs `bats`; `shellcheck`, `node`, `luac`, `stow`, Qt6 `qmllint` and `Hyprland` widen the coverage, and tests that need a missing tool are skipped. Nothing is run against the running session.
 
-The shell scripts and the installer are tested for behaviour. The quickshell QML is checked for syntax, for references between files and for the IPC calls the scripts make; what it looks like and how it behaves on screen is not tested.
+Every file is checked for syntax by the program that reads it (Hyprland loads `hyprland.lua` itself), and the repo for agreeing with itself: the IPC calls the scripts make, the files QML refers to, the scripts and units that refer to each other, the stow links, the package lists and the files `apply-ui` generates. What the scripts do and how the desktop looks is not tested.
