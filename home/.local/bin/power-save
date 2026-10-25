@@ -16,7 +16,6 @@ PREV_BRIGHTNESS_FILE="$RUN_DIR/powersave_prev_brightness"
 STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}"
 GHOSTTY_PERF="$STATE_DIR/ghostty/perf.conf"
 GHOSTTY_SHADER="${XDG_CONFIG_HOME:-$HOME/.config}/ghostty/shaders/cursor_warp.glsl"
-OPENCODE_KV="$STATE_DIR/opencode/kv.json"
 
 is_active() { [[ -f "$STATE_FILE" ]]; }
 
@@ -86,18 +85,6 @@ background-opacity = $opacity"
     printf '%s\n' "$conf" >"$GHOSTTY_PERF"
 }
 
-opencode_anims() {
-    local json
-    mkdir -p "${OPENCODE_KV%/*}"
-    [[ -s "$OPENCODE_KV" ]] && json="$(<"$OPENCODE_KV")" || json='{}'
-    # Through a temp file: a jq that fails must not leave opencode's state empty.
-    if jq --argjson v "$1" '.animations_enabled = $v' <<<"$json" >"$OPENCODE_KV.tmp"; then
-        mv "$OPENCODE_KV.tmp" "$OPENCODE_KV"
-    else
-        rm -f "$OPENCODE_KV.tmp"
-    fi
-}
-
 enable_mode() {
     is_active && return 0
     touch "$STATE_FILE"
@@ -112,7 +99,6 @@ enable_mode() {
 
     apply_display 60
     ghostty_candy || true
-    opencode_anims false
     detach slow_tail power-saver
 }
 
@@ -135,7 +121,6 @@ disable_mode() {
 
     apply_display max
     ghostty_candy || true
-    opencode_anims true
     detach slow_tail balanced
 }
 
