@@ -14,9 +14,6 @@ CONFIG_DIR = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
 TEMPLATES = {
     "ui.lua": "hypr/ui.lua",
     "ui.sh": "ui/ui.sh",
-    "yazi.toml": "yazi/theme.toml",
-    "btop.theme": "btop/themes/github-dark.theme",
-    "lazygit.yml": "lazygit/config.yml",
     "hyprlock.conf": "hypr/hyprlock.conf",
     "hyprlock-boot.conf": "hypr/hyprlock-boot.conf",
     "hyprtoolkit.conf": "hypr/hyprtoolkit.conf",

@@ -44,7 +44,7 @@ UNITS="archlinux/.config/systemd/user"
 @test "every referenced ~/.local/bin script exists and is executable" {
     local bad=0 file name
     while IFS=: read -r file name; do
-        if [[ ! -x "$REPO/archlinux/.local/bin/$name" ]]; then
+        if [[ ! -x "$REPO/archlinux/.local/bin/$name" && ! -x "$REPO/common/.local/bin/$name" ]]; then
             echo "$file refers to .local/bin/$name, which does not exist" >&2
             bad=1
         fi

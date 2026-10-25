@@ -30,7 +30,7 @@ check_each() {
         IFS= read -r first <"$REPO/$f" || true
         [[ -x "$REPO/$f" ]] || { echo "not executable: $f" >&2; bad=1; }
         [[ "$first" == '#!'* ]] || { echo "no shebang: $f" >&2; bad=1; }
-    done < <(repo_files 'archlinux/.local/bin/*' install.sh)
+    done < <(repo_files 'archlinux/.local/bin/*' 'common/.local/bin/*' install.sh)
     [[ "$bad" -eq 0 ]]
 }
 
@@ -41,7 +41,7 @@ check_each() {
 
 @test "zsh scripts and zsh config parse" {
     need zsh
-    { shebang_files 'zsh'; repo_files 'common/.zshenv' 'common/.config/zsh/.zshrc' 'common/.config/zsh/.zprofile'; } |
+    { shebang_files 'zsh'; repo_files 'common/.zshenv' 'common/.config/zsh/.zshrc' 'archlinux/.config/zsh/.zprofile'; } |
         sort -u | check_each zsh -n
 }
 

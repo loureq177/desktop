@@ -199,9 +199,11 @@ Drawer {
 		// Enter does what a click on a tile does, Space what a click on its
 		// badge does (switching Wi-Fi or Bluetooth), O opens a tile's page. The
 		// letter on a tile does the same as Enter from anywhere, Shift and the
-		// letter the same as Space.
+		// letter the same as Space. Held, only the moves repeat: a slider keeps
+		// going, a switch does not flicker.
 		Keys.onPressed: event => {
-			if (event.isAutoRepeat)
+			var moves = [Qt.Key_H, Qt.Key_J, Qt.Key_K, Qt.Key_L, Qt.Key_Left, Qt.Key_Down, Qt.Key_Up, Qt.Key_Right];
+			if (event.isAutoRepeat && !moves.includes(event.key))
 				return;
 			var tile = win.tileAt(win.navRow, win.navCol);
 			switch (event.key) {

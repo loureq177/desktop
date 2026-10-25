@@ -6,7 +6,8 @@ import QtQuick
 // Flickable turns every wheel notch into a short flick, and its touchpad
 // scrolling stops dead when the fingers lift, as Wayland sends no momentum to
 // carry on with. Here a notch glides a fixed distance, and the touchpad
-// follows the fingers and then keeps going at the speed they left it.
+// moves the list as far as it moves a page in Firefox, then keeps going at
+// the speed the fingers left it.
 MouseArea {
 	id: root
 
@@ -16,6 +17,10 @@ MouseArea {
 
 	// Pixels a notch (a wheel turn of 120) scrolls.
 	readonly property int notchStep: 80
+	// Pixels a touchpad's pixel moves the list. Firefox (on GTK 3) scrolls 4:
+	// GDK divides what Wayland sends by 10, the pan gesture multiplies it by
+	// 40 (apz.gtk.pangesture.pixel_delta_mode_multiplier).
+	readonly property real fingerGain: 4
 
 	// Over the contents, not inside them (where Flickable puts its children),
 	// so it gets the wheel before the rows do. Clicks and hover pass through.
@@ -69,7 +74,7 @@ MouseArea {
 				flickable.cancelFlick();
 				root.samples = [];
 			}
-			var d = horizontal && Math.abs(px.x) > Math.abs(px.y) ? px.x : px.y;
+			var d = (horizontal && Math.abs(px.x) > Math.abs(px.y) ? px.x : px.y) * root.fingerGain;
 			if (d !== 0) {
 				flickable.cancelFlick();
 				moveTo(position() - d);

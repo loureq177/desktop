@@ -3,7 +3,7 @@ set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]:-$0}")"
 
 # The status lines the installed scripts print too.
-source common/.local/lib/dotfiles/common.sh
+source archlinux/.local/lib/dotfiles/common.sh
 
 NO_UPGRADE=0
 for arg in "$@"; do

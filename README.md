@@ -50,9 +50,9 @@ sysclean
 
 ### Theme
 
-`~/.config/ui/ui.toml` holds the colors, fonts and sizes the desktop's programs share. `apply-ui` renders it through the templates in `~/.config/ui/templates` into Hyprland, the lock screen (`hyprlock`), Hyprland's own dialogs and `hyprshutdown` (`hyprtoolkit.conf`), slurp, yazi, btop and lazygit, hands it to quickshell as `ui.js` and sets the GTK settings (Hyprland sets them again at every start with `apply-ui --gtk`); the generated files are committed, and the tests fail when they are stale. What only the shell uses (its sizes and animation timing) is set in `quickshell/Theme.qml`, and the fzf colors are written out in `.zshrc` because macOS has no `apply-ui`.
+`~/.config/ui/ui.toml` holds the colors, fonts and sizes the desktop's programs share. `apply-ui` renders it through the templates in `~/.config/ui/templates` into Hyprland, the lock screen (`hyprlock`), Hyprland's own dialogs and `hyprshutdown` (`hyprtoolkit.conf`) and slurp, hands it to quickshell as `ui.js` and sets the GTK settings (Hyprland sets them again at every start with `apply-ui --gtk`); the generated files are committed, and the tests fail when they are stale. What only the shell uses (its sizes and animation timing) is set in `quickshell/Theme.qml`, and the fzf colors are written out in `.zshrc` because macOS has no `apply-ui`.
 
-Ghostty, Neovim, bat, delta and opencode use their upstream GitHub Dark themes and do not follow `ui.toml`.
+Ghostty, Neovim, bat, delta, yazi, btop, lazygit and opencode use GitHub Dark as it is written in their own configs, the same on macOS, and do not follow `ui.toml`.
 
 ### Key binds
 
