@@ -20,8 +20,9 @@ ModalWindow {
 	// finger": until that module is done there is no password prompt to answer.
 	property string supplementaryText: ""
 	property bool supplementaryError: false
-	// Enter was pressed before the password was asked for: send it once it is.
-	property bool queued: false
+	// pam_fprintd has the reader and PAM asks for nothing else until it gives
+	// up, so the dialog shows the reader instead of a field nobody can use.
+	readonly property bool readingFinger: !responseRequired && !submitted && supplementaryText !== ""
 
 	// Escape hides the dialog at once; the agent drops the request a moment later.
 	property bool cancelled: false
@@ -38,7 +39,6 @@ ModalWindow {
 		responseRequired = false;
 		failed = false;
 		submitted = false;
-		queued = false;
 		inputPromptText = "";
 		supplementaryText = "";
 		field.text = "";
@@ -91,18 +91,12 @@ ModalWindow {
 			field.text = "";
 		}
 		updateCommandInfo();
-		if (responseRequired && queued) {
-			queued = false;
-			if (field.text.length > 0)
-				submitResponse();
-		}
 	}
 
 	function beginFlow() {
 		cancelled = false;
 		submitted = false;
 		failed = false;
-		queued = false;
 		inputPromptText = "";
 		supplementaryText = "";
 		field.text = "";
@@ -112,23 +106,22 @@ ModalWindow {
 	}
 
 	function refocus() {
-		if (shown)
+		if (!shown)
+			return;
+		if (field.visible)
 			field.focusInput();
+		else
+			reader.forceActiveFocus();
 	}
 
 	function submitResponse() {
 		if (root.submitted)
 			return;
 		var flow = agent.flow;
-		if (!flow || field.text.length === 0) {
+		if (!flow || !flow.isResponseRequired || field.text.length === 0) {
 			Qt.callLater(root.refocus);
 			return;
 		}
-		if (!flow.isResponseRequired) {
-			queued = true;
-			return;
-		}
-		queued = false;
 		failed = false;
 		submitted = true;
 		flow.submit(field.text);
@@ -175,6 +168,7 @@ ModalWindow {
 		}
 		function onSupplementaryMessageChanged() {
 			root.syncFromFlow();
+			Qt.callLater(root.refocus);
 		}
 		function onSupplementaryIsErrorChanged() {
 			root.syncFromFlow();
@@ -187,7 +181,6 @@ ModalWindow {
 		function onAuthenticationFailed() {
 			root.syncFromFlow();
 			root.submitted = false;
-			root.queued = false;
 			field.text = "";
 			shakeAnim.restart();
 			Qt.callLater(root.refocus);
@@ -240,11 +233,38 @@ ModalWindow {
 				lineHeight: 1.2
 			}
 
+			// Only the reader can answer, for as long as pam_fprintd waits on it.
+			RowLayout {
+				id: reader
+
+				Layout.fillWidth: true
+				Layout.preferredHeight: 46
+				visible: root.readingFinger
+				spacing: Theme.paddingItem
+
+				Keys.onEscapePressed: root.cancelRequest()
+
+				LineIcon {
+					name: "fingerprint"
+					size: 28
+					color: root.supplementaryError ? Theme.critical : Theme.accentBlue
+				}
+
+				StyledText {
+					Layout.fillWidth: true
+					text: root.supplementaryText
+					textFormat: Text.PlainText
+					color: root.supplementaryError ? Theme.critical : Theme.textMain
+					wrapMode: Text.Wrap
+				}
+			}
+
 			PasswordField {
 				id: field
 
 				Layout.fillWidth: true
 				Layout.preferredHeight: 46
+				visible: root.responseRequired || root.submitted
 				focus: true
 				fillColor: Theme.glass(Theme.bgMain)
 				masked: !root.responseVisible
@@ -261,19 +281,14 @@ ModalWindow {
 				}
 			}
 
+			// Why it came to the password, e.g. the reader timing out.
 			StyledText {
 				Layout.fillWidth: true
 				Layout.topMargin: -8
-				visible: text !== ""
-				text: {
-					if (root.submitted)
-						return "";
-					if (root.queued)
-						return (root.supplementaryText !== "" ? root.supplementaryText + " — " : "") + "password goes in once it is asked for";
-					return root.supplementaryText;
-				}
+				visible: field.visible && text !== ""
+				text: root.submitted ? "" : root.supplementaryText
 				textFormat: Text.PlainText
-				color: root.supplementaryError && !root.queued ? Theme.critical : Theme.textDim
+				color: root.supplementaryError ? Theme.critical : Theme.textDim
 				font.pixelSize: Theme.fontSizeSmall
 				wrapMode: Text.Wrap
 			}

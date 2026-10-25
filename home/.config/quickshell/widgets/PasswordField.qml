@@ -2,8 +2,8 @@ import ".."
 import QtQuick
 import QtQuick.Effects
 
-// The password field of the lock screen and the polkit dialog: a gradient
-// outline that reports the state, and one dot fading in per typed character.
+// The password field of the polkit dialog: a gradient outline that reports
+// the state, and one dot fading in per typed character.
 FocusScope {
 	id: field
 
@@ -17,6 +17,7 @@ FocusScope {
 	property color fillColor: Theme.alpha(Theme.bgCard, 0.65)
 
 	property real dotSize: height * 0.25
+	readonly property int dotFade: 400
 	readonly property bool inputFocused: input.activeFocus
 
 	signal accepted()
@@ -104,7 +105,7 @@ FocusScope {
 
 			Behavior on x {
 				NumberAnimation {
-					duration: Theme.lockDotsFade
+					duration: field.dotFade
 					easing.type: Easing.OutCubic
 				}
 			}
@@ -120,12 +121,12 @@ FocusScope {
 					NumberAnimation on opacity {
 						from: 0
 						to: 1
-						duration: Theme.lockDotsFade
+						duration: field.dotFade
 					}
 					NumberAnimation on scale {
 						from: 0.6
 						to: 1
-						duration: Theme.lockDotsFade
+						duration: field.dotFade
 						easing.type: Easing.OutQuad
 					}
 				}
