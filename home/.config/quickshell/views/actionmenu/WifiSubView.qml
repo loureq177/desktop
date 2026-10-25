@@ -40,9 +40,10 @@ DeviceList {
 				icon: root.signalIcon(strength),
 				connected: net.connected,
 				saved: net.known,
-				detail: net.known ? "Saved" : Math.round(strength) + "% signal",
+				detail: net.known ? "Saved" : "",
 				dim: strength < 50,
 				secured: net.security !== WifiSecurityType.Open && net.security !== WifiSecurityType.Unknown,
+				open: net.security === WifiSecurityType.Open,
 				battery: -1
 			};
 		}

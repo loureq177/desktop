@@ -8,8 +8,9 @@ import QtQuick.Layouts
 // networks or devices, and what stands in for it while the radio is off.
 //
 // Each of `items` is an object with key, name, icon, connected, saved (can be
-// forgotten), detail (the status line when idle), dim, secured (a lock after
-// the name) and battery (0..1, -1 for none). The page asks before forgetting
+// forgotten), detail (the status line when idle), dim, open (an open lock
+// after the name: most networks have a lock, so the odd one out is marked)
+// and battery (0..1, -1 for none). The page asks before forgetting
 // and tracks one action at a time (startPending).
 FocusScope {
 	id: root
@@ -270,17 +271,20 @@ FocusScope {
 							}
 
 							LineIcon {
-								visible: row.modelData.secured
-								name: "lock"
+								visible: row.modelData.open
+								name: "lock-open"
 								size: 13
 								color: Theme.textDim
 							}
 						}
 
 						RowLayout {
+							visible: status.text !== "" || battery.visible
 							spacing: 6
 
 							StyledText {
+								id: status
+								visible: text !== ""
 								text: row.busy ? root.pendingStatus : (row.connected ? "Connected" : row.modelData.detail)
 								mono: true
 								font.pixelSize: Theme.fontSizeTiny
@@ -296,6 +300,7 @@ FocusScope {
 
 								StyledText {
 									anchors.verticalCenter: parent.verticalCenter
+									visible: status.visible
 									text: "·"
 									mono: true
 									font.pixelSize: Theme.fontSizeTiny

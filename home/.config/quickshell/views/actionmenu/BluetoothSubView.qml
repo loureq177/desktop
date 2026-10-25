@@ -15,13 +15,14 @@ DeviceList {
 	scanning: btAdapter?.discovering ?? false
 
 	// Paired devices first, the connected ones on top; then the nearby ones
-	// that have a name.
+	// that have a name. Their own: without one, BlueZ makes the address the
+	// alias, which is `name`.
 	items: {
 		var paired = [];
 		var nearby = [];
 		for (const d of root.btAdapter?.devices?.values ?? []) {
 			var isPaired = d.paired || d.connected;
-			if (!isPaired && !d.name && !d.deviceName)
+			if (!isPaired && !d.deviceName)
 				continue;
 			(isPaired ? paired : nearby).push({
 				key: d.address,
@@ -30,9 +31,9 @@ DeviceList {
 				icon: root.deviceIcon(d),
 				connected: d.connected,
 				saved: isPaired,
-				detail: isPaired ? "Paired" : "Ready to pair",
+				detail: isPaired ? "" : "Ready to pair",
 				dim: !isPaired,
-				secured: false,
+				open: false,
 				battery: d.batteryAvailable && d.battery >= 0 ? d.battery : -1
 			});
 		}
