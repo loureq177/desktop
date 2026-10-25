@@ -20,14 +20,6 @@ Singleton {
 	// What went wrong, while there is no forecast to show instead.
 	property string lastError: ""
 
-	readonly property string tooltipText: {
-		if (!current)
-			return location || "Weather";
-		// The bar shows the temperature already; the panel has the rest.
-		var range = today.high && today.low ? "↑" + today.high + " ↓" + today.low : "";
-		return [location, range].filter(p => p).join(" · ") || "Weather";
-	}
-
 	function refresh(): void {
 		placeFile.reload();
 		var place = WeatherModel.parseLocationFile(placeFile.text());

@@ -90,47 +90,6 @@ PanelWindow {
 	// The bar has no background of its own, so hover is a tint rather than a solid fill.
 	readonly property color hoverColor: Theme.alpha(Theme.textMain, 0.1)
 
-	// How long until `seconds` run out: "1h 5m".
-	function duration(seconds: real): string {
-		return Math.floor(seconds / 3600) + "h " + Math.floor((seconds % 3600) / 60) + "m";
-	}
-
-	function batterySummary(): string {
-		if (!Battery.present)
-			return "";
-		var text = "Battery: " + Battery.percent + "%";
-		if (Battery.charging)
-			return text + " (Charging" + (Battery.timeToFull > 0 ? ", " + duration(Battery.timeToFull) + " to full" : "") + ")";
-		if (Battery.full)
-			return text + " (Fully charged)";
-		return text + (Battery.timeToEmpty > 0 ? " (" + duration(Battery.timeToEmpty) + " remaining)" : "");
-	}
-
-	function networkSummary(): string {
-		if (Net.wifiUp) {
-			var signal = Math.round(Net.signalPercent(Net.wifiNetwork));
-			return "Wi-Fi: " + (Net.wifiNetwork?.name || "Connected") + (signal > 0 ? " (" + signal + "%)" : "");
-		}
-		return Net.wiredUp ? "Ethernet: Connected" : "Network: Disconnected";
-	}
-
-	function bluetoothSummary(): string {
-		if (!Bt.adapter)
-			return "Bluetooth: Unavailable";
-		if (!Bt.enabled)
-			return "Bluetooth: Off";
-		if (Bt.connected.length === 0)
-			return "Bluetooth: Disconnected";
-		return "Bluetooth: " + Bt.connected.map(d => Bt.name(d) + (d.batteryAvailable && d.battery >= 0 ? " (" + Math.round(d.battery * 100) + "%)" : "")).join(", ");
-	}
-
-	// What a module reads out, nothing about its clicks or keys (those are in
-	// the launcher's actions).
-	Tooltip {
-		id: tooltip
-		host: bar
-	}
-
 	component Pill: Rectangle {
 		id: pill
 
@@ -139,7 +98,6 @@ PanelWindow {
 		property string value: ""
 		property color textColor: Theme.textMain
 		property bool isActive: false
-		property string tooltipText: ""
 		// The panel this module opens, if any.
 		property string panel: ""
 		property bool custom: false
@@ -195,13 +153,7 @@ PanelWindow {
 			hoverEnabled: true
 			cursorShape: Qt.PointingHandCursor
 			acceptedButtons: Qt.LeftButton | Qt.RightButton
-			onEntered: {
-				if (!pill.isActive)
-					tooltip.enter(pill);
-			}
-			onExited: tooltip.leave(pill)
 			onPressed: mouse => {
-				tooltip.dismiss();
 				if (pill.panel === "" || mouse.button !== Qt.LeftButton)
 					bar.leavePanels(pill.panel);
 				if (mouse.button === Qt.RightButton)
@@ -298,7 +250,6 @@ PanelWindow {
 					textColor: Memory.percent >= 90 ? Theme.critical
 						: Memory.percent >= 75 ? Theme.warning
 						: isActive ? Theme.accentBlue : Theme.textDim
-					tooltipText: (Memory.used / 1048576).toFixed(1) + " / " + (Memory.total / 1048576).toFixed(1) + " GiB"
 					onActivated: Hypr.toggleSpecial("btop")
 					onRightClicked: bar.closeSpecial("btop")
 				}
@@ -316,8 +267,6 @@ PanelWindow {
 						value: icon === "" ? modelData.charAt(0).toUpperCase() : ""
 						isActive: modelData === bar.visibleSpecial
 						textColor: isActive ? Theme.accentBlue : (player?.isPlaying ? Theme.accentGreen : Theme.textDim)
-						tooltipText: [special?.title ?? modelData.charAt(0).toUpperCase() + modelData.slice(1),
-							[player?.trackArtist, player?.trackTitle].filter(s => s).join(" — ")].filter(s => s).join("\n")
 						onActivated: Hypr.toggleSpecial(modelData)
 						onRightClicked: bar.closeSpecial(modelData)
 					}
@@ -327,7 +276,6 @@ PanelWindow {
 			Pill {
 				visible: Modes.powerSave
 				icon: "leaf"
-				tooltipText: "Battery saver (60 Hz)"
 				onActivated: Commands.run("powersave")
 			}
 		}
@@ -340,7 +288,6 @@ PanelWindow {
 				readonly property bool valid: !isNaN(clockSource.date?.getTime?.() ?? NaN)
 				readonly property date now: valid ? clockSource.date : new Date()
 				value: Qt.formatDateTime(now, "hh:mm")
-				tooltipText: Qt.formatDateTime(now, "dddd, MMMM d, yyyy")
 				onActivated: Hypr.toggleSpecial("calendar")
 
 				SystemClock {
@@ -357,7 +304,6 @@ PanelWindow {
 				icon: Weather.current?.icon ?? ""
 				value: Weather.current ? Weather.current.tempNum + "°" : ""
 				isActive: Panels.active === "weather"
-				tooltipText: Weather.tooltipText
 				panel: "weather"
 				onActivated: Panels.toggle("weather")
 			}
@@ -374,7 +320,6 @@ PanelWindow {
 				text: transcribing ? "…" : "●"
 				textColor: transcribing ? Theme.warning : Theme.critical
 				isActive: true
-				tooltipText: transcribing ? "Transcribing..." : "Dictation"
 				onActivated: Commands.script("dictation stop")
 			}
 
@@ -384,7 +329,6 @@ PanelWindow {
 				value: "REC"
 				textColor: Theme.critical
 				isActive: true
-				tooltipText: "Recording the screen"
 				onActivated: Commands.run("record")
 			}
 
@@ -393,20 +337,17 @@ PanelWindow {
 				icon: "screen-share"
 				textColor: Theme.accentPurple
 				isActive: true
-				tooltipText: "Sharing the screen" + (Modes.screencasts > 1 ? " (" + Modes.screencasts + " streams)" : "")
 			}
 
 			Pill {
 				visible: Modes.awake
 				icon: "coffee"
-				tooltipText: "Keep awake"
 				onActivated: Commands.run("awake")
 			}
 
 			Pill {
 				custom: true
 				isActive: Panels.active === "actions"
-				tooltipText: [bar.bluetoothSummary(), bar.networkSummary(), bar.batterySummary()].filter(s => s !== "").join("\n")
 				panel: "actions"
 				onActivated: Panels.toggle("actions")
 
@@ -435,9 +376,6 @@ PanelWindow {
 				icon: Notifications.dnd ? "bell-off" : (count > 0 ? "bell-dot" : "bell")
 				textColor: Notifications.dnd ? Theme.warning : (count > 0 || isOpen ? Theme.accentBlue : Theme.textMain)
 				isActive: isOpen
-				tooltipText: Notifications.dnd ? "Do not disturb"
-					: count > 0 ? count + (count === 1 ? " notification" : " notifications")
-					: "No notifications"
 				panel: "notifications"
 				onActivated: Panels.toggle("notifications")
 			}

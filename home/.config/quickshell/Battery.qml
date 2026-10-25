@@ -10,7 +10,4 @@ Singleton {
 	readonly property bool full: device?.state === UPowerDeviceState.FullyCharged
 	readonly property bool charging: device?.state === UPowerDeviceState.Charging || device?.state === UPowerDeviceState.PendingCharge
 	readonly property bool onBattery: UPower.onBattery
-	// Seconds, 0 when unknown.
-	readonly property real timeToFull: device?.timeToFull ?? 0
-	readonly property real timeToEmpty: device?.timeToEmpty ?? 0
 }
