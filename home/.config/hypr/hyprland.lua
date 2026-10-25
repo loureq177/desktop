@@ -430,12 +430,6 @@ hl.window_rule({
 	center = true,
 })
 
-hl.window_rule({
-	name = "ghostty-focus-opacity",
-	match = { class = "^(com.mitchellh.ghostty)$" },
-	opacity = "1.0 0.97",
-})
-
 -- The workspaces form one row, left to right across the monitors (by their
 -- position) and by id on each: SUPER + 1..9 count along it, and H and L go on
 -- past the last window of a workspace to the next one in it.
