@@ -285,17 +285,20 @@ PanelWindow {
 			spacing: 4
 
 			Pill {
-				readonly property bool valid: !isNaN(clockSource.date?.getTime?.() ?? NaN)
-				readonly property date now: valid ? clockSource.date : new Date()
+				id: clock
+				property date now: new Date()
 				value: Qt.formatDateTime(now, "hh:mm")
 				onActivated: Hypr.toggleSpecial("calendar")
 
-				SystemClock {
-					id: clockSource
-					// Seconds, not Minutes: the minute timer runs on the monotonic
-					// clock, which stops in suspend, so after resume it kept the
-					// pre-sleep time for up to a minute.
-					precision: SystemClock.Seconds
+				// Not SystemClock: in the hour a DST change repeats it schedules
+				// its tick an hour back and spins on a 1 ms timer. Every second,
+				// as the timer runs on the monotonic clock, which stops in
+				// suspend: after resume the time is at most a second stale.
+				Timer {
+					interval: 1000
+					running: true
+					repeat: true
+					onTriggered: clock.now = new Date()
 				}
 			}
 
@@ -351,10 +354,12 @@ PanelWindow {
 				panel: "actions"
 				onActivated: Panels.toggle("actions")
 
+				// Only with a device: on or off says nothing worth the room.
 				LineIcon {
 					anchors.verticalCenter: parent.verticalCenter
+					visible: Bt.connected.length > 0
 					name: Bt.icon
-					color: Bt.enabled ? Theme.textMain : Theme.textDim
+					color: Theme.textMain
 				}
 
 				LineIcon {
