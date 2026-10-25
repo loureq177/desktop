@@ -31,6 +31,15 @@ Singleton {
 		Hypr.exec(["sh", "-c", "sleep " + (Theme.animNormal + 50) / 1000 + " && " + commandLine]);
 	}
 
+	// hyprshutdown closes every app, then ends Hyprland and runs `then`. A
+	// machine that adds a mesa-egl script (not this repo's) keeps it on the
+	// iGPU's EGL: NVIDIA's would wake the sleeping dGPU and hold its screen
+	// back 1.75 s.
+	function shutdown(then: string): void {
+		const args = then ? ["hyprshutdown", "--post-cmd", then] : ["hyprshutdown"];
+		Hypr.exec(["sh", "-c", 'if [ -x "$0" ]; then exec "$0" "$@"; fi; exec "$@"', root.bin + "mesa-egl", ...args]);
+	}
+
 	function open(panel: string, mode): bool {
 		Panels.open(panel, mode);
 		return false;
@@ -85,8 +94,8 @@ Singleton {
 
 		{ id: "lock", name: "Lock", desc: "Lock the session", icon: "lock", keywords: "lock zablokuj ekran lockscreen", run: () => Hypr.exec(["loginctl", "lock-session"]) },
 		{ id: "suspend", name: "Suspend", desc: "Lock and sleep", icon: "moon", keywords: "suspend sleep uspij uśpij drzemka", run: () => Hypr.exec(["sh", "-c", "loginctl lock-session && systemctl suspend"]) },
-		{ id: "logout", name: "Log out", desc: "Close every app and end the session", icon: "log-out", confirm: "log out", keywords: "logout log out relogin relog exit wyloguj przeloguj sesja", run: () => Hypr.exec(["hyprshutdown"]) },
-		{ id: "reboot", name: "Reboot", desc: "Close every app and restart", icon: "rotate-cw", confirm: "reboot", keywords: "reboot restart uruchom ponownie zrestartuj", run: () => Hypr.exec(["hyprshutdown", "--post-cmd", "systemctl reboot --no-wall"]) },
-		{ id: "poweroff", name: "Power off", desc: "Close every app and shut down", icon: "power", confirm: "power off", keywords: "poweroff shutdown wylacz wyłącz power", run: () => Hypr.exec(["hyprshutdown", "--post-cmd", "systemctl poweroff --no-wall"]) }
+		{ id: "logout", name: "Log out", desc: "Close every app and end the session", icon: "log-out", confirm: "log out", keywords: "logout log out relogin relog exit wyloguj przeloguj sesja", run: () => shutdown("") },
+		{ id: "reboot", name: "Reboot", desc: "Close every app and restart", icon: "rotate-cw", confirm: "reboot", keywords: "reboot restart uruchom ponownie zrestartuj", run: () => shutdown("systemctl reboot --no-wall") },
+		{ id: "poweroff", name: "Power off", desc: "Close every app and shut down", icon: "power", confirm: "power off", keywords: "poweroff shutdown wylacz wyłącz power", run: () => shutdown("systemctl poweroff --no-wall") }
 	])
 }
