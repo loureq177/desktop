@@ -1,8 +1,7 @@
 .pragma library
 
 // What the launcher's search does with the text typed: matching names (the
-// apps, the actions and the keys), plain arithmetic and the files ("/" and a
-// name, found by fd).
+// apps, the actions and the keys) and plain arithmetic.
 
 // How well ql (lowercase) matches text: 0 when the text starts with it, 1 when
 // one of its words does, 2 when it is anywhere in it, -1 when it is not.
@@ -90,76 +89,4 @@ function calculate(raw) {
 		return null;
 	}
 	return null;
-}
-
-// The words of a file search ("/" and the words of the name), or null when q
-// is not one.
-function fileTerms(raw) {
-	var s = (raw || "").trim();
-	if (!s.startsWith("/"))
-		return null;
-	return s.substring(1).trim().split(/\s+/).filter(w => w !== "");
-}
-
-// fd's arguments for the words: files and folders under home whose name has
-// all of them, hidden and ignored ones left out.
-function fdCommand(terms, home, limit) {
-	var cmd = ["fd", "--type", "f", "--type", "d", "--ignore-case", "--fixed-strings",
-		"--max-results", String(limit), "--exclude", "node_modules", "--exclude", "__pycache__"];
-	for (var i = 1; i < terms.length; i++)
-		cmd.push("--and", terms[i]);
-	return cmd.concat([terms[0], home]);
-}
-
-var extIcons = {
-	"image": ["png", "jpg", "jpeg", "gif", "webp", "svg", "heic", "avif", "bmp", "tiff"],
-	"video": ["mp4", "mkv", "webm", "mov", "avi"],
-	"music": ["mp3", "flac", "ogg", "opus", "wav", "m4a"],
-	"package": ["zip", "tar", "gz", "xz", "zst", "7z", "rar", "appimage"],
-	"file-text": ["pdf", "txt", "md", "doc", "docx", "odt", "rtf", "tex", "epub", "csv", "xlsx", "ods", "pptx", "odp"],
-	"code": ["py", "js", "ts", "qml", "lua", "sh", "c", "h", "cpp", "rs", "go", "java", "json", "toml", "yaml", "yml", "html", "css", "ipynb"]
-};
-
-function fileIcon(name, isDir) {
-	if (isDir)
-		return "folder";
-	var dot = name.lastIndexOf(".");
-	var ext = dot > 0 ? name.substring(dot + 1).toLowerCase() : "";
-	for (var icon in extIcons) {
-		if (extIcons[icon].indexOf(ext) !== -1)
-			return icon;
-	}
-	return "file";
-}
-
-// The files fd printed (folders end in "/"), best first: the name starting
-// with the first word, then a word of it, then anywhere; nearer home before
-// deeper; shorter names first. { path, name, dir ("~/..."), isDir, icon }.
-function rankFiles(lines, terms, home, limit) {
-	var first = (terms[0] || "").toLowerCase();
-	var out = [];
-	for (var i = 0; i < lines.length; i++) {
-		var line = lines[i].trim();
-		if (line === "")
-			continue;
-		var isDir = line.endsWith("/");
-		var path = isDir ? line.substring(0, line.length - 1) : line;
-		var cut = path.lastIndexOf("/");
-		var name = path.substring(cut + 1);
-		var parent = path.substring(0, cut);
-		var lower = name.toLowerCase();
-		var at = lower.indexOf(first);
-		var score = at === 0 ? 0 : at > 0 && !/[a-z0-9ąćęłńóśźż]/.test(lower[at - 1]) ? 1 : 2;
-		out.push({
-			path: path,
-			name: name,
-			dir: parent === home ? "~" : parent.startsWith(home + "/") ? "~" + parent.substring(home.length) : parent,
-			isDir: isDir,
-			icon: fileIcon(name, isDir),
-			score: score,
-			depth: path.split("/").length
-		});
-	}
-	out.sort((a, b) => a.score - b.score || a.depth - b.depth || a.name.length - b.name.length || a.name.localeCompare(b.name));
-	return out.slice(0, limit);
 }

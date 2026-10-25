@@ -38,8 +38,7 @@ Singleton {
 		{ category: "Gestures", chord: "3 FINGERS ↔", action: "Switch workspace" },
 		{ category: "Gestures", chord: "3 FINGERS ↑", action: "Open the last special workspace" },
 		{ category: "Gestures", chord: "3 FINGERS ↓", action: "Hide the special workspace" },
-		{ category: "Launcher", chord: "2+2", action: "Calculate" },
-		{ category: "Launcher", chord: "/", action: "Files and folders in ~" }
+		{ category: "Launcher", chord: "2+2", action: "Calculate" }
 	]
 
 	function chordOf(mask: int, label: string): string {

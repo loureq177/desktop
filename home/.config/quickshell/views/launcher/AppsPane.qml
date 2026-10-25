@@ -2,18 +2,16 @@ import "../.."
 import "../../Specials.js" as Specials
 import "../../Search.js" as Search
 import Quickshell
-import Quickshell.Io
 import QtQuick
 
 // The launcher's first list: the apps, the specials and the commands by name,
-// arithmetic ("2+2") and the files in ~ ("/" and a name).
+// and arithmetic ("2+2").
 LauncherPane {
 	id: pane
 
 	readonly property string q: query.trim()
-	readonly property var fileTerms: Search.fileTerms(q)
 
-	icon: fileTerms !== null ? "folder" : q.startsWith("=") ? "calculator" : "search"
+	icon: q.startsWith("=") ? "calculator" : "search"
 	placeholder: "Search " + apps.length + " apps..."
 	preferredHeight: list.preferredHeight
 
@@ -54,15 +52,6 @@ LauncherPane {
 		run: c.run
 	}))
 
-	// The files fd found for `filesFor`: one search at a time, the words typed
-	// last next.
-	property string filesFor: ""
-	property var files: []
-
-	onFileTermsChanged: {
-		if (fileTerms !== null && fileTerms.length > 0 && !fileProc.running)
-			fileProc.search(fileTerms);
-	}
 	onQueryChanged: list.reset()
 
 	ResultList {
@@ -70,8 +59,6 @@ LauncherPane {
 		anchors.fill: parent
 
 		items: {
-			if (pane.fileTerms !== null)
-				return pane.fileTerms.length === 0 ? [] : pane.files;
 			var calc = Search.calculate(pane.q);
 			// The apps and the specials, best match first, then by name; the
 			// commands only come up when asked for.
@@ -87,41 +74,6 @@ LauncherPane {
 			}]).concat(matches);
 		}
 
-		emptyText: {
-			if (pane.fileTerms === null)
-				return "Nothing matches";
-			if (pane.fileTerms.length === 0)
-				return "Type a file or folder name; Enter opens it";
-			return pane.filesFor === pane.fileTerms.join(" ") ? "No file or folder called that in ~" : "Searching...";
-		}
-	}
-
-	Process {
-		id: fileProc
-
-		property var terms: []
-
-		function search(words: var): void {
-			terms = words;
-			command = Search.fdCommand(words, Quickshell.env("HOME"), 400);
-			running = true;
-		}
-
-		stdout: StdioCollector {
-			onStreamFinished: {
-				pane.filesFor = fileProc.terms.join(" ");
-				// Shown in yazi, the file under its cursor, not opened in an app.
-				pane.files = Search.rankFiles(this.text.split("\n"), fileProc.terms, Quickshell.env("HOME"), 60).map(f => ({
-					label: f.name,
-					subtitle: f.dir,
-					lineIcon: f.icon,
-					run: () => Hypr.exec(["ghostty", "+new-window", "-e", "yazi", f.path])
-				}));
-			}
-		}
-		onExited: {
-			if (pane.fileTerms !== null && pane.fileTerms.length > 0 && pane.fileTerms.join(" ") !== terms.join(" "))
-				Qt.callLater(() => fileProc.search(pane.fileTerms));
-		}
+		emptyText: "Nothing matches"
 	}
 }
