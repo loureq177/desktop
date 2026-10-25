@@ -156,11 +156,34 @@ if command -v flatpak >/dev/null 2>&1; then
     else
         flatpak uninstall --unused -y 2>/dev/null || true
     fi
+
+    # Uninstalling an app leaves its ~/.var/app data behind. It can hold
+    # saves, so it is only listed.
+    _log_info "Checking for data of uninstalled Flatpaks..."
+    if apps=$(flatpak list --app --columns=application 2>/dev/null); then
+        declare -A installed=()
+        while IFS= read -r app; do
+            [ -n "$app" ] && installed[$app]=1
+        done <<<"$apps"
+        leftovers=0
+        for dir in "$HOME/.var/app/"*/; do
+            dir="${dir%/}"
+            [ -n "${installed[${dir##*/}]:-}" ] && continue
+            echo "  $(du -sh -- "$dir" 2>/dev/null | cut -f1)	$dir"
+            leftovers=1
+        done
+        if [ "$leftovers" = 1 ]; then
+            _log_warn "Left in place (remove by hand if not needed)."
+        else
+            _log_ok "None."
+        fi
+    fi
 fi
 
 _log_info "Cleaning miscellaneous caches..."
-rm -rf "$HOME/.cache/thumbnails/"* /tmp/paru/* 2>/dev/null || true
-_log_ok "Thumbnails and temporary build files cleared."
+# debuginfod_client: gdb's debug symbols. Its own expiry runs only with gdb.
+rm -rf "$HOME/.cache/thumbnails/"* "$HOME/.cache/debuginfod_client/"* /tmp/paru/* 2>/dev/null || true
+_log_ok "Thumbnails, debug symbols and temporary build files cleared."
 
 _log_info "Emptying trash..."
 if [ "$AUTO" = 1 ]; then
@@ -175,6 +198,7 @@ run_if uv uv cache prune
 run_if pip pip cache purge
 run_if bun bun pm cache rm
 run_if npm npm cache clean --force
+run_if pnpm pnpm store prune
 _log_ok "Caches pruned."
 
 _log_info "Pruning container engines..."

@@ -140,7 +140,7 @@ if [ -x /usr/bin/zsh ] && [ "$(getent passwd "$USER" 2>/dev/null | cut -d: -f7)"
     sudo chsh -s /usr/bin/zsh "$USER" || _log_warn "Failed to change the login shell to zsh."
 fi
 
-_log_info "Installing system configs (zram, swap sysctls, zswap off, lock screen PAM)..."
+_log_info "Installing system configs (zram, swap sysctls, zswap off, lock screen PAM, journal and coredump limits)..."
 # etc/ mirrors /etc; the files are copied, not linked.
 while IFS= read -r -d '' src; do
     dest="/$src"
@@ -153,6 +153,8 @@ sudo mkdir -p /etc/pacman.d/hooks
 sudo ln -sfn /dev/null /etc/pacman.d/hooks/dbus-reload.hook
 sudo systemd-tmpfiles --create /etc/tmpfiles.d/memory.conf || _log_warn "Failed to turn zswap off."
 sudo sysctl --quiet --load /etc/sysctl.d/99-zram.conf || _log_warn "Failed to apply zram sysctls."
+# journald reads its limits only at start.
+sudo systemctl restart systemd-journald || _log_warn "Failed to restart journald."
 sudo systemctl daemon-reload 2>/dev/null || true
 sudo systemctl start systemd-zram-setup@zram0.service 2>/dev/null || _log_warn "zram starts on the next boot."
 
