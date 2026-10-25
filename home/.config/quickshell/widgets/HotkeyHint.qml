@@ -12,6 +12,6 @@ StyledText {
 	mono: true
 	font.pixelSize: 10
 	font.bold: true
-	color: lit ? Theme.accentBlue : Theme.textDim
+	color: lit ? Theme.textMain : Theme.textDim
 	opacity: lit ? 0.9 : 0.6
 }

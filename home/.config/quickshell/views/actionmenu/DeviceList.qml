@@ -225,9 +225,8 @@ FocusScope {
 
 				height: 50
 				color: connected ? Theme.alpha(Theme.accent, 0.08) : Theme.glass(Theme.bgMain)
-				border.color: connected ? Theme.selectionBorder : Theme.tileBorder
+				border.color: connected ? Theme.alpha(Theme.accent, 0.32) : Theme.tileBorder
 				border.width: 1
-				highlightColor: connected ? Theme.alpha(Theme.accent, 0.20) : Theme.selectionBg
 
 				Behavior on color { ColorAnimation { duration: Theme.animFast } }
 
@@ -343,7 +342,7 @@ FocusScope {
 						visible: !row.connected && !row.busy
 						text: "›"
 						font.pixelSize: Theme.fontSizeLarge
-						color: row.selected ? Theme.accentBlue : Theme.textMuted
+						color: row.selected ? Theme.textMain : Theme.textMuted
 					}
 				}
 			}

@@ -26,13 +26,6 @@ Singleton {
 
 	readonly property color backdropColor: Qt.rgba(0, 0, 0, ui.opacity.dim_special)
 
-	// Lock screen backdrop: blurred screenshot, darkened and slightly saturated.
-	readonly property int lockBlurMax: 64
-	readonly property real lockBrightness: ui.lock.brightness
-	readonly property real lockVibrancy: ui.lock.vibrancy
-	readonly property int lockFadeIn: 450
-	readonly property int lockFadeOut: 300
-	readonly property int lockDotsFade: 400
 	readonly property int wallpaperGrow: 900
 	readonly property int wallpaperFeather: 120
 
@@ -78,8 +71,10 @@ Singleton {
 		var q = Qt.color(c);
 		return Qt.rgba(q.r, q.g, q.b, a);
 	}
-	readonly property color selectionBg: alpha(accent, 0.2)
-	readonly property color selectionBorder: alpha(accent, 0.32)
+	// The keyboard's place in a list or among tiles: grey, so that it never
+	// reads as a switch that is on or as an accent.
+	readonly property color selectionBg: alpha(textMain, 0.1)
+	readonly property color selectionBorder: alpha(textMain, 0.2)
 
 	// Hairlines around tiles, rows and buttons: a tint of the text colour, so
 	// they sit on frosted glass and on solid panels alike.

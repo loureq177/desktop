@@ -13,7 +13,6 @@ Rectangle {
 	property int topInset: 0
 	// Room around the highlight on every side (the cells of a grid).
 	property int inset: 0
-	property alias highlightColor: highlight.color
 
 	width: view?.rowWidth ?? view?.width ?? 0
 	radius: Theme.roundingElement
@@ -26,7 +25,6 @@ Rectangle {
 		anchors.topMargin: row.topInset + row.inset
 
 		SelectionHighlight {
-			id: highlight
 			radius: row.radius
 			selected: row.selected
 		}

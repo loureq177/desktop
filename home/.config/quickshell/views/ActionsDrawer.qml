@@ -97,7 +97,6 @@ Drawer {
 
 		SelectionHighlight {
 			selected: tile.selected
-			color: tile.active ? Theme.alpha(tile.tint, 0.3) : Theme.selectionBg
 		}
 
 		HoverSelect {
@@ -176,7 +175,7 @@ Drawer {
 				visible: tile.page !== ""
 				text: "›"
 				font.bold: true
-				color: tile.selected ? Theme.accentBlue : Theme.textDim
+				color: tile.selected ? Theme.textMain : Theme.textDim
 			}
 		}
 
