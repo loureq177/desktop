@@ -86,7 +86,7 @@ Singleton {
 		{ id: "lock", name: "Lock", desc: "Lock the session", icon: "lock", keywords: "lock zablokuj ekran lockscreen", run: () => Hypr.exec(["loginctl", "lock-session"]) },
 		{ id: "suspend", name: "Suspend", desc: "Lock and sleep", icon: "moon", keywords: "suspend sleep uspij uśpij drzemka", run: () => Hypr.exec(["sh", "-c", "loginctl lock-session && systemctl suspend"]) },
 		{ id: "logout", name: "Log out", desc: "Close every app and end the session", icon: "log-out", confirm: "log out", keywords: "logout log out relogin relog exit wyloguj przeloguj sesja", run: () => Hypr.exec(["hyprshutdown"]) },
-		{ id: "reboot", name: "Reboot", desc: "Close every app and restart", icon: "rotate-cw", confirm: "reboot", keywords: "reboot restart uruchom ponownie zrestartuj", run: () => Hypr.exec(["hyprshutdown", "--post-cmd", "systemctl reboot"]) },
-		{ id: "poweroff", name: "Power off", desc: "Close every app and shut down", icon: "power", confirm: "power off", keywords: "poweroff shutdown wylacz wyłącz power", run: () => Hypr.exec(["hyprshutdown", "--post-cmd", "systemctl poweroff"]) }
+		{ id: "reboot", name: "Reboot", desc: "Close every app and restart", icon: "rotate-cw", confirm: "reboot", keywords: "reboot restart uruchom ponownie zrestartuj", run: () => Hypr.exec(["hyprshutdown", "--post-cmd", "systemctl reboot --no-wall"]) },
+		{ id: "poweroff", name: "Power off", desc: "Close every app and shut down", icon: "power", confirm: "power off", keywords: "poweroff shutdown wylacz wyłącz power", run: () => Hypr.exec(["hyprshutdown", "--post-cmd", "systemctl poweroff --no-wall"]) }
 	])
 }
