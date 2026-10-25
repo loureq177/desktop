@@ -1,70 +1,48 @@
 import ".."
-import Quickshell
-import Quickshell.Widgets
 import QtQuick
 
+// The notification's picture: an avatar, a screenshot. An app's own icon is
+// left out, as is a placeholder: the app's name is on the card already, and
+// either would only take room from the text.
 Item {
 	id: root
 
 	required property string image
 	required property string appIcon
-	property string appName: ""
 	property int size: 64
 
-	implicitWidth: root.size
-	implicitHeight: root.size
+	// The image hint, else an icon that is really a picture: `notify-send -i
+	// file` (the screenshot script) passes its file as the app icon.
+	readonly property string source: root.pictureUrl(root.image) || root.pictureUrl(root.appIcon)
+	// While it loads too: waiting for Ready would jump the layout.
+	readonly property bool hasPicture: root.source !== "" && img.status !== Image.Error
 
-	readonly property string resolvedImage: {
-		var img = (root.image || "").trim();
-		if (img === "")
-			return "";
-		if (img.startsWith("data:") || img.startsWith("http:") || img.startsWith("https:"))
-			return img;
+	implicitWidth: root.hasPicture ? root.size : 0
+	implicitHeight: root.hasPicture ? root.size : 0
+	visible: root.hasPicture
+
+	// The URL of a picture, or "" for an icon: one by name, or a file from an
+	// icon theme.
+	function pictureUrl(raw: string): string {
+		var pic = (raw || "").trim();
+		if (pic.startsWith("data:") || pic.startsWith("http:") || pic.startsWith("https:"))
+			return pic;
 		// Pixels sent with the notification itself (image-data), e.g. avatars.
-		if (img.startsWith("image://qsimage/"))
-			return img;
-		if (img.startsWith("image://icon//"))
-			return "file:///" + img.slice(14);
-		if (img.startsWith("image://icon/file://"))
-			return img.slice(13);
-		if (img.startsWith("/") || img.startsWith("file:")) {
-			if (img.includes("/icons/") || img.includes("/pixmaps/") || img.endsWith(".svg"))
-				return "";
-			return img.startsWith("/") ? ("file://" + img) : img;
-		}
-		return "";
-	}
-
-	readonly property string iconCandidate: {
-		var ic = (root.appIcon || "").trim();
-		if (ic === "" && root.image) {
-			var img = root.image.trim();
-			if (img.startsWith("image://icon/") && !img.startsWith("image://icon//") && !img.startsWith("image://icon/file://"))
-				ic = img.slice(13);
-			else if (img.includes("/icons/") || img.includes("/pixmaps/") || img.endsWith(".svg"))
-				ic = img;
-			else if (!img.startsWith("/") && !img.startsWith("file:") && !img.startsWith("data:") && !img.startsWith("http:") && !img.startsWith("https:") && !img.startsWith("image:"))
-				ic = img;
-		}
-		if (ic === "" && root.appName) {
-			var entry = DesktopEntries.heuristicLookup(root.appName);
-			ic = (entry && entry.icon) ? entry.icon : root.appName.toLowerCase().replace(/[^a-z0-9_-]/g, "");
-		}
-		return ic;
-	}
-
-	readonly property string resolvedIconPath: {
-		if (!iconCandidate || resolvedImage !== "")
+		if (pic.startsWith("image://qsimage/"))
+			return pic;
+		if (pic.startsWith("image://icon//"))
+			pic = pic.slice("image://icon/".length);
+		else if (pic.startsWith("image://icon/file://"))
+			pic = pic.slice("image://icon/".length);
+		if (!pic.startsWith("/") && !pic.startsWith("file:"))
 			return "";
-		if (iconCandidate.startsWith("/") || iconCandidate.startsWith("file:"))
-			return iconCandidate.startsWith("/") ? ("file://" + iconCandidate) : iconCandidate;
-		return Quickshell.iconPath(iconCandidate, true) || "";
+		if (pic.includes("/icons/") || pic.includes("/pixmaps/") || pic.endsWith(".svg"))
+			return "";
+		return pic.startsWith("/") ? "file://" + pic : pic;
 	}
 
 	Rectangle {
-		id: imgContainer
 		anchors.fill: parent
-		visible: root.resolvedImage !== "" && mainImg.status === Image.Ready
 		radius: Theme.roundingElement
 		color: Theme.bgCard
 		border.color: Theme.border
@@ -72,36 +50,12 @@ Item {
 		clip: true
 
 		Image {
-			id: mainImg
+			id: img
 			anchors.fill: parent
-			source: root.resolvedImage
+			source: root.source
 			fillMode: Image.PreserveAspectCrop
 			asynchronous: true
 			cache: false
-		}
-	}
-
-	IconImage {
-		id: iconImg
-		anchors.fill: parent
-		visible: !imgContainer.visible && root.resolvedIconPath !== ""
-		source: root.resolvedIconPath
-		asynchronous: true
-	}
-
-	Rectangle {
-		anchors.fill: parent
-		visible: !imgContainer.visible && !iconImg.visible
-		radius: Theme.roundingElement
-		color: Theme.bgHover
-		border.color: Theme.border
-		border.width: 1
-
-		LineIcon {
-			anchors.centerIn: parent
-			name: "bell"
-			size: Math.round(Math.min(parent.width, parent.height) * 0.48)
-			color: Theme.accentBlue
 		}
 	}
 }

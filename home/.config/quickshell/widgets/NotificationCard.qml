@@ -27,7 +27,7 @@ Rectangle {
 	signal activated()
 	signal dismissed()
 
-	implicitHeight: Math.max(bodyCol.implicitHeight, notifPic.size) + Theme.notifPadV * 2
+	implicitHeight: Math.max(bodyCol.implicitHeight, notifPic.implicitHeight) + Theme.notifPadV * 2
 	// A toast lights up under the pointer; in the center the pointer moves the
 	// selection instead (HoverSelect there).
 	color: isToast ? (hoverArea.containsMouse ? Theme.bgHover : Theme.glass(Theme.bgCard)) : Theme.glass(Theme.bgMain)
@@ -59,13 +59,12 @@ Rectangle {
 		size: 64
 		image: root.image
 		appIcon: root.appIcon
-		appName: root.appName
 	}
 
 	ColumnLayout {
 		id: bodyCol
-		anchors.left: notifPic.right
-		anchors.leftMargin: 12
+		anchors.left: notifPic.hasPicture ? notifPic.right : parent.left
+		anchors.leftMargin: notifPic.hasPicture ? 12 : Theme.notifPadH
 		anchors.right: closeBtn.left
 		anchors.rightMargin: 8
 		anchors.verticalCenter: parent.verticalCenter

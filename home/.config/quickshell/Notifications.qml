@@ -20,6 +20,8 @@ Singleton {
 	// Milliseconds since the epoch: far past what an int holds.
 	property double lastSoundAt: 0
 	property var pendingUpdates: ({})
+	// nid -> RetainableLock, see keepImage().
+	property var imageLocks: ({})
 
 	function row(n): var {
 		var now = Date.now();
@@ -82,6 +84,20 @@ Singleton {
 		return server.trackedNotifications.values.find(n => n.id === nid) ?? null;
 	}
 
+	// Pixels sent with the notification (image-data) are served only while the
+	// notification object lives, and an app closing it frees them: a lock keeps
+	// a closed one around while the center still shows its row.
+	function keepImage(n): void {
+		if (root.imageLocks[n.id] || !n.image.startsWith("image://qsimage/"))
+			return;
+		root.imageLocks[n.id] = imageLock.createObject(root, { object: n });
+	}
+
+	function releaseImage(nid): void {
+		root.imageLocks[nid]?.destroy();
+		delete root.imageLocks[nid];
+	}
+
 	function playSound(): void {
 		var now = Date.now();
 		if (now - root.lastSoundAt < 250)
@@ -119,11 +135,15 @@ Singleton {
 			var n = root.live(Number(key));
 			if (!n)
 				continue;
+			root.keepImage(n);
+			// New content: back to the top, as its toast.
 			var i = root.indexIn(root.history, n.id);
-			if (i >= 0)
+			if (i >= 0) {
 				root.history.set(i, root.row(n));
-			else
+				root.history.move(i, 0, 1);
+			} else {
 				root.history.insert(0, root.row(n));
+			}
 			root.showToast(n);
 		}
 	}
@@ -132,6 +152,7 @@ Singleton {
 		root.live(nid)?.dismiss();
 		root.removeFrom(root.toasts, nid);
 		root.removeFrom(root.history, nid);
+		root.releaseImage(nid);
 	}
 
 	function invoke(nid, identifier: string): void {
@@ -165,6 +186,8 @@ Singleton {
 			n.dismiss();
 		root.toasts.clear();
 		root.history.clear();
+		for (var nid in root.imageLocks)
+			root.releaseImage(nid);
 	}
 
 	function dismissLatest(): void {
@@ -191,6 +214,14 @@ Singleton {
 		}
 	}
 
+	Component {
+		id: imageLock
+
+		RetainableLock {
+			locked: true
+		}
+	}
+
 	NotificationServer {
 		id: server
 		keepOnReload: true
@@ -206,11 +237,14 @@ Singleton {
 				return;
 			n.tracked = true;
 			var id = n.id;
+			root.keepImage(n);
 			root.removeFrom(root.history, id);
 			root.history.insert(0, root.row(n));
 			while (root.history.count > root.historyLimit) {
-				root.live(root.history.get(root.historyLimit).nid)?.dismiss();
+				var old = root.history.get(root.historyLimit).nid;
+				root.live(old)?.dismiss();
 				root.history.remove(root.historyLimit);
+				root.releaseImage(old);
 			}
 			// Kept over a reload: already seen, so no toast this time.
 			if (!n.lastGeneration)
