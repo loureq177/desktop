@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Every file parses with the interpreter that will run it.
+# Every file parses with the program that will read it.
 
 load helpers
 
@@ -30,7 +30,7 @@ check_each() {
         IFS= read -r first <"$REPO/$f" || true
         [[ -x "$REPO/$f" ]] || { echo "not executable: $f" >&2; bad=1; }
         [[ "$first" == '#!'* ]] || { echo "no shebang: $f" >&2; bad=1; }
-    done < <(repo_files 'archlinux/.local/bin/*' 'macos/.local/bin/*' install.sh)
+    done < <(repo_files 'archlinux/.local/bin/*' install.sh)
     [[ "$bad" -eq 0 ]]
 }
 
@@ -96,6 +96,34 @@ check_each() {
     # qmllint exits non-zero for syntax errors only; type warnings are noise
     # here because quickshell's own types are not all visible to it.
     [[ "$status" -eq 0 ]] || fail "$(grep -B1 -A3 -F '[syntax]' <<<"$output")"
+}
+
+# hyprland_verify [LOCAL]: Hyprland itself loads hyprland.lua, with LOCAL as
+# local.lua (none: a fresh checkout has no machine-local overrides).
+hyprland_verify() {
+    need Hyprland
+    export HOME="$BATS_TEST_TMPDIR/hypr-home"
+    export XDG_RUNTIME_DIR="$BATS_TEST_TMPDIR/run"
+    mkdir -p "$HOME/.config" "$HOME/.local" "$XDG_RUNTIME_DIR"
+    cp -r "$REPO/archlinux/.config/hypr" "$HOME/.config/hypr"
+    cp -r "$REPO/archlinux/.local/bin" "$HOME/.local/bin"
+    rm -f "$HOME/.config/hypr/local.lua"
+    [[ -z "${1:-}" ]] || cp "$1" "$HOME/.config/hypr/local.lua"
+    run timeout 30 Hyprland --verify-config --config "$HOME/.config/hypr/hyprland.lua"
+    [[ "$output" == *"config ok"* ]] || fail "$output"
+}
+
+@test "hyprland accepts the config without machine-local overrides" {
+    hyprland_verify
+}
+
+@test "hyprland accepts the config with the example local.lua" {
+    hyprland_verify "$REPO/archlinux/.config/hypr/local.lua.example"
+}
+
+@test "hyprland config survives a broken local.lua" {
+    echo 'this is not lua {' >"$BATS_TEST_TMPDIR/broken.lua"
+    hyprland_verify "$BATS_TEST_TMPDIR/broken.lua"
 }
 
 @test "git config parses" {

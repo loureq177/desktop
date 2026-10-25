@@ -44,7 +44,7 @@ UNITS="archlinux/.config/systemd/user"
 @test "every referenced ~/.local/bin script exists and is executable" {
     local bad=0 file name
     while IFS=: read -r file name; do
-        if [[ ! -x "$REPO/archlinux/.local/bin/$name" && ! -x "$REPO/macos/.local/bin/$name" ]]; then
+        if [[ ! -x "$REPO/archlinux/.local/bin/$name" ]]; then
             echo "$file refers to .local/bin/$name, which does not exist" >&2
             bad=1
         fi
@@ -110,10 +110,11 @@ UNITS="archlinux/.config/systemd/user"
 }
 
 @test "install.sh enables external units that the package lists install" {
-    grep -q 'enable hypridle.service' "$REPO/install.sh"
-    grep -q 'enable hyprsunset.service' "$REPO/install.sh"
-    grep -qx hyprsunset "$REPO/archlinux/packages.txt"
-    grep -qx hypridle "$REPO/archlinux/packages.txt"
+    local pkg
+    for pkg in hypridle hyprsunset; do
+        grep -q "enable $pkg.service" "$REPO/install.sh" || fail "install.sh does not enable $pkg.service"
+        grep -qx "$pkg" "$REPO/archlinux/packages.txt" || fail "packages.txt does not install $pkg"
+    done
     grep -q 'enable wayland-pipewire-idle-inhibit.service' "$REPO/install.sh"
     grep -qx wayland-pipewire-idle-inhibit "$REPO/archlinux/aur.txt"
 }
@@ -122,6 +123,7 @@ UNITS="archlinux/.config/systemd/user"
     # config under archlinux/etc -> the package that reads it
     local -A owner=(
         [etc/systemd/zram-generator.conf]=zram-generator
+        [etc/pam.d/hyprlock]=hyprlock
     )
     local file
     for file in "${!owner[@]}"; do
@@ -166,6 +168,31 @@ UNITS="archlinux/.config/systemd/user"
     [[ -z "$problems" ]] || fail "$problems"
 }
 
+# --- apply-ui ----------------------------------------------------------------
+
+@test "the files apply-ui renders from ui.toml are committed up to date" {
+    export XDG_CONFIG_HOME="$BATS_TEST_TMPDIR/config"
+    mkdir -p "$XDG_CONFIG_HOME"
+    cp -r "$REPO/archlinux/.config/ui" "$XDG_CONFIG_HOME/ui"
+    run python3 "$REPO/archlinux/.local/bin/apply-ui" --no-reload
+    assert_status 0
+    local f pkg found bad=0
+    while IFS= read -r f; do
+        found=""
+        for pkg in archlinux common; do
+            [[ -f "$REPO/$pkg/.config/$f" ]] && found="$REPO/$pkg/.config/$f"
+        done
+        if [[ -z "$found" ]]; then
+            echo "apply-ui writes $f, which is not in the repo" >&2
+            bad=1
+        elif ! diff -u "$found" "$XDG_CONFIG_HOME/$f" >&2; then
+            echo "STALE: $f (run apply-ui and commit the result)" >&2
+            bad=1
+        fi
+    done < <(cd "$XDG_CONFIG_HOME" && find . -type f ! -path './ui/templates/*' ! -path './ui/ui.toml' | sed 's|^\./||')
+    [[ "$bad" -eq 0 ]]
+}
+
 # --- stow --------------------------------------------------------------------
 
 # stow_ignored PACKAGE: paths stow refuses to link, with every directory
@@ -191,7 +218,7 @@ stow_ignored() {
     # Package lists, docs and machine-local files are deliberately not linked.
     local allowed='^(packages(-[a-z]+)?\.txt|aur\.txt|flatpak\.txt|Brewfile|(.*/)?README\.md|\.config/hypr/local\.lua|etc)$'
     local pkg path bad=0
-    for pkg in common archlinux macos; do
+    for pkg in common archlinux; do
         while IFS= read -r path; do
             [[ -n "$path" ]] || continue
             git -C "$REPO" ls-files --error-unmatch "$pkg/$path" >/dev/null 2>&1 || continue
@@ -226,20 +253,19 @@ stow_ignored() {
 }
 
 @test "stow packages installed together do not provide the same file" {
-    local other clash
-    for other in archlinux macos; do
-        clash="$(comm -12 <(cd "$REPO/common" && find . -type f | sort) <(cd "$REPO/$other" && find . -type f | sort))"
-        [[ -z "$clash" ]] || fail "in both common and $other:" "$clash"
-    done
+    local clash
+    clash="$(comm -12 <(cd "$REPO/common" && find . -type f | sort) <(cd "$REPO/archlinux" && find . -type f | sort))"
+    [[ -z "$clash" ]] || fail "in both common and archlinux:" "$clash"
 }
 
-@test "stowing common with archlinux or macos has no conflicts" {
+@test "stowing common, alone (macOS) or with archlinux, has no conflicts" {
     need stow
-    local os target
-    for os in archlinux macos; do
-        target="$BATS_TEST_TMPDIR/home-$os"
+    local pkgs target
+    for pkgs in common "common archlinux"; do
+        target="$BATS_TEST_TMPDIR/home-${pkgs// /-}"
         mkdir -p "$target"
-        (cd "$REPO" && stow --target "$target" common "$os")
+        # shellcheck disable=SC2086 # one or two package names
+        (cd "$REPO" && stow --target "$target" $pkgs)
         [[ -z "$(find "$target" -xtype l)" ]] || fail "dangling links:" "$(find "$target" -xtype l)"
     done
 }
@@ -293,7 +319,7 @@ listed_packages() {
     # tools guarded by `command -v` (showtime, fwupdmgr, ...) are left out.
     local needed=(
         qs notify-send nmcli brightnessctl checkupdates pacdiff paccache cliphist wl-copy wl-paste wtype
-        hyprctl Hyprland hypridle hyprsunset hyprpicker pw-record sox whisper-cli flock jq sqlite3 firefox grim slurp
+        hyprctl Hyprland hypridle hyprlock hyprsunset hyprpicker pw-record sox whisper-cli flock jq sqlite3 firefox grim slurp
         tesseract canberra-gtk-play satty wf-recorder pactl wpctl v4l2-ctl ffplay powerprofilesctl
         curl playerctl stow bat nvim zsh python3 gsettings systemd-inhibit xdg-open ghostty flatpak
         yazi btop lazygit fzf git

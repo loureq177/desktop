@@ -12,7 +12,7 @@ jobs:
       - name: Install tools
         run: |
           pacman -Syu --noconfirm --needed \
-            git diffutils bats parallel shellcheck nodejs lua stow zsh jq sqlite python ruff \
+            git diffutils bats parallel shellcheck nodejs lua stow zsh python ruff \
             pacman-contrib qt6-declarative qt6-shadertools
           useradd -m tester
 
@@ -20,6 +20,6 @@ jobs:
 
       - name: Run tests
         run: |
-          # install.sh refuses to run as root, so its tests need a normal user
+          # As an ordinary user, like on the desktop
           chown -R tester: .
           runuser -u tester -- env HOME=/home/tester tests/run

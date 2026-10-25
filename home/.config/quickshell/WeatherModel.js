@@ -170,16 +170,3 @@ function chartPoints(hours, columnWidth, top, height) {
 		return { x: i * columnWidth + columnWidth / 2, y: top + (maxT - h.temp) / range * height };
 	});
 }
-
-if (typeof module !== "undefined") {
-	module.exports = {
-		parseLocationFile: parseLocationFile,
-		dayName: dayName,
-		iconForWmoCode: iconForWmoCode,
-		parseOpenMeteoCurrent: parseOpenMeteoCurrent,
-		parseOpenMeteoHourly: parseOpenMeteoHourly,
-		parseTodayHighLow: parseTodayHighLow,
-		parseOpenMeteoDaily: parseOpenMeteoDaily,
-		chartPoints: chartPoints
-	};
-}
