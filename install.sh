@@ -138,7 +138,7 @@ if [ "$OS" = "Linux" ]; then
 
     _log_info "Configuring autologin on tty1..."
     # No display manager: getty@tty1 runs login for $USER, the login shell execs Hyprland
-    # (.zprofile) and quickshell locks the session as soon as it starts.
+    # (.zprofile) and hyprlock locks the session as soon as Hyprland starts (hyprland.lua).
     # Nothing may write to tty1 on the way: the first byte makes fbcon take the console
     # over, a ~0.7 s modeset of the laptop panel that login waits for (even with the lid
     # closed and Hyprland leaving the panel off). agetty always prints a newline, and
@@ -165,7 +165,7 @@ EOF
         sudo chsh -s /usr/bin/zsh "$USER" || _log_warn "Failed to change the login shell to zsh."
     fi
 
-    _log_info "Installing system configs (THP, zram, swap sysctls, lid inhibitor)..."
+    _log_info "Installing system configs (zram, swap sysctls, zswap off, lock screen PAM)..."
     # archlinux/etc mirrors /etc; stow skips it (.stowrc) and the files are copied.
     while IFS= read -r -d '' src; do
         dest="/${src#archlinux/}"
@@ -176,7 +176,7 @@ EOF
     # pacman hook's extra SIGHUP races that reload and times out after 90s.
     sudo mkdir -p /etc/pacman.d/hooks
     sudo ln -sfn /dev/null /etc/pacman.d/hooks/dbus-reload.hook
-    sudo systemd-tmpfiles --create /etc/tmpfiles.d/memory.conf || _log_warn "Failed to apply tmpfiles memory settings."
+    sudo systemd-tmpfiles --create /etc/tmpfiles.d/memory.conf || _log_warn "Failed to turn zswap off."
     sudo sysctl --quiet --load /etc/sysctl.d/99-zram.conf || _log_warn "Failed to apply zram sysctls."
     sudo systemctl daemon-reload 2>/dev/null || true
     sudo systemctl start systemd-zram-setup@zram0.service 2>/dev/null || _log_warn "zram starts on the next boot."
@@ -237,7 +237,7 @@ elif [ "$OS" = "Darwin" ]; then
 
     if command -v brew &>/dev/null; then
         _log_info "Installing dependencies from Brewfile..."
-        brew bundle --file=macos/Brewfile
+        brew bundle --file=common/Brewfile
     else
         _log_error "Homebrew installation failed or 'brew' is not in PATH."
         exit 1
@@ -249,7 +249,6 @@ elif [ "$OS" = "Darwin" ]; then
     fi
 
     restow_pkg common common
-    restow_pkg macOS macos
 else
     _log_error "Unsupported OS: $OS (only Linux/Arch and Darwin/macOS are supported)."
     exit 1
