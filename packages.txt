@@ -86,6 +86,7 @@ gvfs-smb
 seahorse
 showtime
 snapshot
+thunderbird
 
 # Terminal: shell, prompt and the tools the zsh config aliases
 zsh
