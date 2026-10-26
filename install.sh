@@ -140,7 +140,7 @@ if [ -x /usr/bin/zsh ] && [ "$(getent passwd "$USER" 2>/dev/null | cut -d: -f7)"
     sudo chsh -s /usr/bin/zsh "$USER" || _log_warn "Failed to change the login shell to zsh."
 fi
 
-_log_info "Installing system configs (zram, swap sysctls, zswap off, lock screen PAM, journal and coredump limits)..."
+_log_info "Installing system configs (zram, swap and hardening sysctls, zswap off, lock screen PAM, journal and coredump limits)..."
 # etc/ mirrors /etc; the files are copied, not linked.
 while IFS= read -r -d '' src; do
     dest="/$src"
