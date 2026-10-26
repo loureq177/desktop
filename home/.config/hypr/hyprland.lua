@@ -58,16 +58,12 @@ end
 env("GSK_RENDERER", "gl")
 env("GTK_A11Y", "none")
 env("XDG_SESSION_DESKTOP", "Hyprland")
-env("GDK_BACKEND", "wayland,x11")
 env("GDK_WAYLAND_DISABLE", "ext_background_effect_manager_v1")
-env("QT_QPA_PLATFORM", "wayland;xcb")
 env("QS_ICON_THEME", ui.theme.icon)
-env("SDL_VIDEODRIVER", "wayland")
 for _, prefix in ipairs({ "XCURSOR", "HYPRCURSOR" }) do
 	env(prefix .. "_THEME", ui.theme.cursor)
 	env(prefix .. "_SIZE", tostring(ui.font.size_cursor))
 end
-env("ELECTRON_OZONE_PLATFORM_HINT", "auto")
 env("SAL_USE_VCLPLUGIN", "gtk3")
 
 hl.on("hyprland.start", function()
@@ -200,14 +196,13 @@ local keyboard = type(machine.keyboard) == "table" and machine.keyboard or {}
 
 hl.config({
 	input = {
-		kb_layout = keyboard.layout or "us",
-		kb_options = keyboard.options or "",
+		kb_layout = keyboard.layout,
+		kb_options = keyboard.options,
 		repeat_delay = 200,
 		repeat_rate = 20,
 		sensitivity = 0.2,
 		touchpad = {
 			natural_scroll = true,
-			tap_to_click = true,
 		},
 	},
 	cursor = {
@@ -296,10 +291,7 @@ hl.config({
 			color = ui.colors.shadow,
 		},
 		blur = {
-			enabled = true,
-			size = 8,
 			passes = 3,
-			ignore_opacity = true,
 			-- live (non-xray) blur halves the frame rate on outputs driven through the multi-GPU blit
 			xray = true,
 			vibrancy = 0.4,
