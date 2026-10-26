@@ -263,7 +263,6 @@ Drawer {
 						required property int index
 
 						x: index * hourlyFlick.columnWidth
-						y: 0
 						width: hourlyFlick.columnWidth
 						height: parent.height
 

@@ -11,7 +11,6 @@ Rectangle {
 	border.width: 1
 	opacity: selected ? 1.0 : 0.0
 	visible: opacity > 0.0
-	z: 0
 
 	Behavior on opacity {
 		NumberAnimation {

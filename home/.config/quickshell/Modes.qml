@@ -86,7 +86,6 @@ Singleton {
 
 	Timer {
 		id: powerSync
-		interval: 1000
 		running: true
 		onTriggered: Quickshell.execDetached([Quickshell.env("HOME") + "/.local/bin/power-save", "--sync"])
 	}

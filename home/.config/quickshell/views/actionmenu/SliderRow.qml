@@ -21,7 +21,6 @@ Rectangle {
 	Layout.preferredHeight: 48
 	radius: Theme.roundingElement
 	color: "transparent"
-	border.width: 0
 
 	SelectionHighlight {
 		selected: row.current
@@ -33,7 +32,6 @@ Rectangle {
 
 	MouseArea {
 		anchors.fill: parent
-		z: 0
 		onClicked: row.selectRequested()
 	}
 

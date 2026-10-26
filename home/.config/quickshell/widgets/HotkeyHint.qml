@@ -10,7 +10,7 @@ StyledText {
 	visible: key !== ""
 	text: key
 	mono: true
-	font.pixelSize: 10
+	font.pixelSize: Theme.fontSizeTiny
 	font.bold: true
 	color: lit ? Theme.textMain : Theme.textDim
 	opacity: lit ? 0.9 : 0.6

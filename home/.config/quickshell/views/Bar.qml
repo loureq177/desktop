@@ -295,7 +295,6 @@ PanelWindow {
 				// as the timer runs on the monotonic clock, which stops in
 				// suspend: after resume the time is at most a second stale.
 				Timer {
-					interval: 1000
 					running: true
 					repeat: true
 					onTriggered: clock.now = new Date()

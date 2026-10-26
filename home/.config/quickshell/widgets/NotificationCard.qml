@@ -56,7 +56,6 @@ Rectangle {
 		anchors.left: parent.left
 		anchors.leftMargin: Theme.notifPadH
 		anchors.verticalCenter: parent.verticalCenter
-		size: 64
 		image: root.image
 		appIcon: root.appIcon
 	}
