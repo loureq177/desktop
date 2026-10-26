@@ -1,22 +1,13 @@
 root = true
 
+# Neovim formats shell scripts with shfmt on save, and shfmt takes its indent
+# from here (tabs without it). Scripts in bin/ have no extension, hence [*].
 [*]
-charset = utf-8
-end_of_line = lf
-insert_final_newline = true
-trim_trailing_whitespace = true
 indent_style = space
 indent_size = 4
+
+[*.{qml,js,lua}]
+indent_style = tab
 
 [*.{yml,yaml,json,toml}]
 indent_size = 2
-
-[*.{qml,js}]
-indent_size = 4
-
-[*.{sh,zsh,bash}]
-indent_style = space
-indent_size = 4
-
-[Makefile]
-indent_style = tab
