@@ -98,8 +98,13 @@ PanelWindow {
 			NumberAnimation { property: "opacity"; to: 0; duration: Theme.animNormal; easing.type: Easing.OutCubic }
 			NumberAnimation { property: "x"; to: 60; duration: Theme.animNormal; easing.type: Easing.OutCubic }
 		}
+		// A card displaced or moved halfway through its add transition stops it
+		// where it is, maybe almost transparent: these finish its fade-in too.
 		displaced: Transition {
 			NumberAnimation { property: "y"; duration: Theme.animNormal; easing.type: Easing.OutCubic }
+			NumberAnimation { property: "opacity"; to: 1; duration: Theme.animNormal; easing.type: Easing.OutCubic }
+			NumberAnimation { property: "x"; to: 0; duration: Theme.animNormal; easing.type: Easing.OutCubic }
 		}
+		move: stack.displaced
 	}
 }
