@@ -4,7 +4,6 @@ PartOf=hyprland-session.target
 After=hyprland-session.target
 
 [Service]
-Type=simple
 ExecStart=/usr/bin/wl-clip-persist --clipboard regular
 Restart=on-failure
 RestartSec=1
