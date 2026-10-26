@@ -306,7 +306,7 @@ listed_packages() {
     # tools guarded by `command -v` (showtime, fwupdmgr, ...) are left out.
     local needed=(
         qs notify-send nmcli brightnessctl checkupdates pacdiff paccache cliphist wl-copy wl-paste wtype
-        hyprctl Hyprland hypridle hyprlock hyprsunset hyprpicker pw-record sox whisper-cli flock jq sqlite3 firefox grim slurp
+        hyprctl Hyprland hypridle hyprlock hyprsunset hyprpicker pw-record sox whisper-cli flock jq firefox grim slurp
         tesseract canberra-gtk-play satty wf-recorder pactl wpctl v4l2-ctl ffplay powerprofilesctl
         curl playerctl stow bat nvim zsh python3 gsettings systemd-inhibit xdg-open ghostty flatpak
         yazi btop lazygit fzf git
