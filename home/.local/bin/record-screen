@@ -59,6 +59,31 @@ audio_device() {
     echo "$source"
 }
 
+# Encode on the GPU Hyprland renders with (the first of AQ_DRM_DEVICES), off the
+# CPU: NVENC on NVIDIA, whose VA-API driver only decodes, VA-API elsewhere, and
+# x264 when that GPU has no H.264 encoder.
+encoder_args() {
+    local card="${AQ_DRM_DEVICES:-}" cards dev node
+    card="${card%%:*}"
+    if [[ -z "$card" ]]; then
+        cards=(/dev/dri/card*)
+        card="${cards[0]}"
+    fi
+    dev="/sys/class/drm/$(basename "$(readlink -f "$card")")/device"
+    if [[ "$(readlink -f "$dev/driver")" == */nvidia ]]; then
+        echo "-c h264_nvenc -p preset=p4 -p rc=vbr -p cq=23"
+        return
+    fi
+    for node in "$dev"/drm/renderD*; do
+        node="/dev/dri/${node##*/}"
+        if [[ -c "$node" ]] && vainfo --display drm --device "$node" 2>/dev/null | grep -q "VAProfileH264.*EncSlice"; then
+            echo "-c h264_vaapi -d $node"
+            return
+        fi
+    done
+    echo "-c libx264 -x yuv420p"
+}
+
 webcam_device() {
     local dev
     for dev in /dev/video*; do
@@ -178,7 +203,9 @@ if $CAM; then
     start_webcam "$GEOM"
 fi
 
-wf-recorder -c libx264 -x yuv420p "${AUDIO_ARGS[@]}" -g "$GEOM" -f "$FILE" &
+read -ra ENCODER_ARGS <<<"$(encoder_args)"
+
+wf-recorder "${ENCODER_ARGS[@]}" "${AUDIO_ARGS[@]}" -g "$GEOM" -f "$FILE" &
 REC_PID=$!
 disown
 
