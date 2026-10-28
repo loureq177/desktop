@@ -20,6 +20,4 @@ ShellRoot {
 	NotificationToasts {}
 
 	Osd {}
-
-	PolkitDialog {}
 }

@@ -4,7 +4,7 @@ Highly optimized desktop for Arch Linunx with blazingly-fast navigation and grea
 
 ## Features
 
-- **quickshell**: bar, launcher (apps, `/` actions, `2+2`, clipboard, emoji, keys), quick actions, notifications, OSD, polkit dialog
+- **quickshell**: bar, launcher (apps, `/` actions, `2+2`, clipboard, emoji, keys), quick actions, notifications, OSD
 - **hyprlock**: password or fingerprint
 - **Github theme everywhere**: `~/.config/ui/ui.toml`, applied with `apply-ui`
 - Screenshots, screen recording with camera, OCR
