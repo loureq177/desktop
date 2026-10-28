@@ -108,6 +108,26 @@ Variants {
 			id: second
 		}
 
+		// Darkens the top edge a little so the bar, which has no background,
+		// reads on a bright wallpaper too. It eases out rather than fading
+		// linearly, which would leave a visible line where it ends.
+		Rectangle {
+			anchors {
+				top: parent.top
+				left: parent.left
+				right: parent.right
+			}
+			height: 120
+			z: 2
+			gradient: Gradient {
+				GradientStop { position: 0.0; color: Qt.rgba(0, 0, 0, 0.34) }
+				GradientStop { position: 0.25; color: Qt.rgba(0, 0, 0, 0.24) }
+				GradientStop { position: 0.5; color: Qt.rgba(0, 0, 0, 0.115) }
+				GradientStop { position: 0.75; color: Qt.rgba(0, 0, 0, 0.035) }
+				GradientStop { position: 1.0; color: "transparent" }
+			}
+		}
+
 		NumberAnimation {
 			id: grow
 			target: win

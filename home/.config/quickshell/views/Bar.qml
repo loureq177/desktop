@@ -120,6 +120,8 @@ PanelWindow {
 			id: pillRow
 			anchors.centerIn: parent
 			spacing: pill.custom ? 10 : 6
+			layer.enabled: true
+			layer.effect: Halo {}
 
 			LineIcon {
 				anchors.verticalCenter: parent.verticalCenter
@@ -196,6 +198,8 @@ PanelWindow {
 			Row {
 				Layout.alignment: Qt.AlignVCenter
 				height: Theme.barHeight
+				layer.enabled: true
+				layer.effect: Halo {}
 
 				Repeater {
 					model: Hyprland.workspaces.values
