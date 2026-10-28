@@ -25,7 +25,6 @@ Singleton {
 		"print": "PRINT",
 		"mouse:272": "LEFT DRAG",
 		"mouse:273": "RIGHT DRAG",
-		"mouse:274": "MIDDLE CLICK",
 		"mouse_down": "SCROLL ↓",
 		"mouse_up": "SCROLL ↑"
 	})
@@ -37,8 +36,7 @@ Singleton {
 		{ category: "Mouse", chord: "RIGHT-CLICK BAR ICON", action: "Close a special workspace" },
 		{ category: "Gestures", chord: "3 FINGERS ↔", action: "Switch workspace" },
 		{ category: "Gestures", chord: "3 FINGERS ↑", action: "Open the last special workspace" },
-		{ category: "Gestures", chord: "3 FINGERS ↓", action: "Hide the special workspace" },
-		{ category: "Launcher", chord: "2+2", action: "Calculate" }
+		{ category: "Gestures", chord: "3 FINGERS ↓", action: "Hide the special workspace" }
 	]
 
 	function chordOf(mask: int, label: string): string {

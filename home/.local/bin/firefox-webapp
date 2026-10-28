@@ -36,6 +36,8 @@ user_pref("browser.sessionstore.resume_from_crash", false);
 user_pref("dom.ipc.processCount", 2);
 // The web apps are 10% larger than the rest of the desktop.
 user_pref("layout.css.devPixelsPerPx", "1.1");
+// Only the web apps run here: their notifications need no asking.
+user_pref("permissions.default.desktop-notification", 1);
 
 user_pref("datareporting.healthreport.uploadEnabled", false);
 user_pref("datareporting.policy.dataSubmissionEnabled", false);

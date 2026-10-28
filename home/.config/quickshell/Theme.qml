@@ -89,7 +89,7 @@ Singleton {
 
 	// Hover, selection and fades; movement (cards, lists, scrolling).
 	readonly property int animFast: 150
-	readonly property int animNormal: 250
+	readonly property int animNormal: 300
 
 	// Cubic bezier control points matching Hyprland:
 	// easeOutQuint = { { 0.23, 1 }, { 0.32, 1 } }

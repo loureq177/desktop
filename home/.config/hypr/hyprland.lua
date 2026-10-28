@@ -16,6 +16,7 @@ end
 
 local function webapp(name, url, title, key, desc)
 	return {
+		id = name,
 		exe = bin .. "/firefox-webapp " .. name .. " " .. url,
 		class = "webapps",
 		title = ".*" .. title .. ".*",
@@ -303,17 +304,19 @@ hl.config({
 	},
 })
 
-hl.curve("myBezier", { type = "bezier", points = { { 0.05, 0.9 }, { 0.1, 1.05 } } })
+-- Windows and workspaces move as one, as the shell's drawers slide out: the
+-- same curve (easeOutQuint) and time (its animNormal), with no overshoot,
+-- which a resizing client would have to draw twice.
 hl.curve("easeOutQuint", { type = "bezier", points = { { 0.23, 1 }, { 0.32, 1 } } })
 hl.curve("almostLinear", { type = "bezier", points = { { 0.5, 0.5 }, { 0.75, 1 } } })
 hl.curve("quick", { type = "bezier", points = { { 0.15, 0 }, { 0.1, 1 } } })
 
 for _, animation in ipairs({
 	{ leaf = "global", speed = 10, bezier = "default" },
-	{ leaf = "border", speed = 5.39, bezier = "easeOutQuint" },
-	{ leaf = "windows", speed = 4, bezier = "myBezier" },
-	{ leaf = "windowsIn", speed = 4, bezier = "myBezier", style = "popin 80%" },
-	{ leaf = "windowsOut", speed = 5, bezier = "myBezier", style = "popin 85%" },
+	{ leaf = "border", speed = 3, bezier = "easeOutQuint" },
+	{ leaf = "windows", speed = 3, bezier = "easeOutQuint" },
+	{ leaf = "windowsIn", speed = 3, bezier = "easeOutQuint", style = "popin 80%" },
+	{ leaf = "windowsOut", speed = 3, bezier = "easeOutQuint", style = "popin 85%" },
 	{ leaf = "fadeIn", speed = 1.73, bezier = "almostLinear" },
 	{ leaf = "fadeOut", speed = 1.46, bezier = "almostLinear" },
 	{ leaf = "fade", speed = 4, bezier = "default" },
@@ -321,8 +324,8 @@ for _, animation in ipairs({
 	{ leaf = "layersOut", speed = 1.39, bezier = "almostLinear", style = "fade" },
 	{ leaf = "fadeLayersIn", speed = 1.79, bezier = "almostLinear" },
 	{ leaf = "fadeLayersOut", speed = 1.39, bezier = "almostLinear" },
-	{ leaf = "workspacesIn", speed = 3, bezier = "quick" },
-	{ leaf = "workspacesOut", speed = 3, bezier = "quick" },
+	{ leaf = "workspacesIn", speed = 3, bezier = "easeOutQuint" },
+	{ leaf = "workspacesOut", speed = 3, bezier = "easeOutQuint" },
 	{ leaf = "zoomFactor", speed = 7, bezier = "quick" },
 	{ leaf = "specialWorkspaceIn", speed = 4, bezier = "default", style = "slide bottom" },
 	{ leaf = "specialWorkspaceOut", speed = 4, bezier = "default", style = "slide top" },
@@ -378,6 +381,41 @@ for name, app in pairs(specials) do
 		hl.window_rule({ match = { class = app.class, title = app.title }, workspace = ws })
 	end
 end
+
+-- The web apps that start hidden with the session, so their notifications
+-- come before they are first opened. They share one Firefox, which names all
+-- its windows after the first app (--name) and makes the windows of the
+-- others itself, out of reach of exec rules: each window is moved to its
+-- special as it opens, and the next app starts after it. The window asks to
+-- be activated right after, which would bring its special up.
+local background = { "mail", "calendar", "whatsapp" }
+
+hl.on("hyprland.start", function()
+	local class = specials[background[1]].id
+	local i = 0
+	local sub
+	local function start_next()
+		i = i + 1
+		if background[i] == nil then
+			sub:remove()
+			return
+		end
+		hl.exec_cmd(specials[background[i]].exe)
+	end
+	sub = hl.on("window.open", function(w)
+		-- one opened on a special is the user's own (on_created_empty)
+		if w.class ~= class or (w.workspace ~= nil and w.workspace.special) then
+			return
+		end
+		hl.dispatch(hl.dsp.window.set_prop({ prop = "focus_on_activate", value = "0", window = w }))
+		hl.dispatch(hl.dsp.window.move({ workspace = "special:" .. background[i], follow = false, window = w }))
+		hl.timer(function()
+			hl.dispatch(hl.dsp.window.set_prop({ prop = "focus_on_activate", value = "unset", window = w }))
+		end, { timeout = 10000, type = "oneshot" })
+		start_next()
+	end)
+	start_next()
+end)
 
 hl.window_rule({
 	name = "picture-in-picture",
@@ -539,6 +577,25 @@ local function focus_or_step(dir)
 	end
 end
 
+-- Moves `win` to workspace `id`. Into one another monitor shows already it
+-- flies over; one that slides in brings it along, in its new place at once,
+-- instead of the window flying there while the workspace slides.
+local function move_to_workspace(win, id)
+	local shown = false
+	for _, m in ipairs(hl.get_monitors()) do
+		shown = shown or (m.active_workspace ~= nil and m.active_workspace.id == id)
+	end
+	if not shown then
+		hl.dispatch(hl.dsp.window.set_prop({ prop = "no_anim", value = "1", window = win }))
+	end
+	hl.dispatch(hl.dsp.window.move({ workspace = id, window = win }))
+	if not shown then
+		hl.timer(function()
+			hl.dispatch(hl.dsp.window.set_prop({ prop = "no_anim", value = "unset", window = win }))
+		end, { timeout = 100, type = "oneshot" })
+	end
+end
+
 -- Swap with the window on that side; with none there, the window goes on to
 -- the next workspace of the row (a new one past its right end).
 local function swap_or_throw(dir)
@@ -556,9 +613,24 @@ local function swap_or_throw(dir)
 	end
 	local ws = workspaces[i + (dir == "left" and -1 or 1)]
 	local target = ws and ws.id or (dir == "right" and new_workspace(workspaces))
-	if target then
-		hl.dispatch(hl.dsp.window.move({ workspace = target, window = win }))
+	if not target then
+		return
 	end
+	-- Dwindle splits the window nearest the cursor, on the cursor's side of
+	-- it: with the cursor at the edge the window comes in by (focus_or_step's
+	-- entry), thrown right it lands first in the row, thrown left last (or
+	-- above and below, when that window splits top and bottom). The cursor
+	-- waits in the outer gap, over no window to take the focus on the way.
+	local edge = ws and window_at_side(ws, dir == "left" and "right" or "left")
+	local m = ws and ws.monitor
+	if edge ~= nil and m ~= nil then
+		local last = dir == "left"
+		hl.dispatch(hl.dsp.cursor.move({
+			x = last and m.x + m.width / m.scale - 1 or m.x,
+			y = edge.at.y + edge.size.y / 2 + (last and 1 or -1),
+		}))
+	end
+	move_to_workspace(win, target)
 end
 
 -- The launcher's keys list shows the binds in the order they are made here,
@@ -626,7 +698,10 @@ do
 	end
 	for i = 1, 9 do
 		bind("SUPER + SHIFT + " .. i, "Move window to workspace", function()
-			hl.dispatch(hl.dsp.window.move({ workspace = nth(i) }))
+			local win = hl.get_active_window()
+			if win ~= nil then
+				move_to_workspace(win, nth(i))
+			end
 		end)
 	end
 	bind("SUPER + Q", "Close window", hl.dsp.window.close())
@@ -677,6 +752,7 @@ end
 do
 	local bind = section("Notifications")
 	bind("SUPER + N", "Toggle notification center", exec("qs ipc call shell toggle notifications ''"))
+	bind("SUPER + period", "Open latest notification", exec("qs ipc call notifications activateLatest"))
 	bind("SUPER + comma", "Close latest notification", exec("qs ipc call notifications dismissLatest"))
 end
 
@@ -684,7 +760,6 @@ do
 	-- No resize drag: resize_on_border already does it from any edge.
 	local bind = section("Mouse")
 	bind("SUPER + mouse:272", "Move window", hl.dsp.window.drag(), { mouse = true })
-	bind("SUPER + mouse:274", "Toggle floating", hl.dsp.window.float({ action = "toggle" }))
 end
 
 do
