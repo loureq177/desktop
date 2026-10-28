@@ -14,16 +14,6 @@ ModalWindow {
 	property bool submitted: false
 	property string displayCommand: ""
 
-	property string inputPromptText: ""
-
-	// What PAM says without asking for anything, e.g. pam_fprintd's "place your
-	// finger": until that module is done there is no password prompt to answer.
-	property string supplementaryText: ""
-	property bool supplementaryError: false
-	// pam_fprintd has the reader and PAM asks for nothing else until it gives
-	// up, so the dialog shows the reader instead of a field nobody can use.
-	readonly property bool readingFinger: !responseRequired && !submitted && supplementaryText !== ""
-
 	// Escape hides the dialog at once; the agent drops the request a moment later.
 	property bool cancelled: false
 
@@ -39,8 +29,6 @@ ModalWindow {
 		responseRequired = false;
 		failed = false;
 		submitted = false;
-		inputPromptText = "";
-		supplementaryText = "";
 		field.text = "";
 	}
 
@@ -82,9 +70,6 @@ ModalWindow {
 		responseRequired = !!flow.isResponseRequired;
 		responseVisible = !!flow.responseVisible;
 		failed = !!flow.failed;
-		inputPromptText = String(flow.inputPrompt || "").replace(/:\s*$/, "");
-		supplementaryText = String(flow.supplementaryMessage || "").trim();
-		supplementaryError = !!flow.supplementaryIsError;
 		// The dots stay while the answer is checked, until something new is asked.
 		if (responseRequired && submitted) {
 			submitted = false;
@@ -97,8 +82,6 @@ ModalWindow {
 		cancelled = false;
 		submitted = false;
 		failed = false;
-		inputPromptText = "";
-		supplementaryText = "";
 		field.text = "";
 		cardTrans.x = 0;
 		syncFromFlow();
@@ -108,10 +91,7 @@ ModalWindow {
 	function refocus() {
 		if (!shown)
 			return;
-		if (field.visible)
-			field.focusInput();
-		else
-			reader.forceActiveFocus();
+		field.focusInput();
 	}
 
 	function submitResponse() {
@@ -165,13 +145,6 @@ ModalWindow {
 		function onInputPromptChanged() {
 			root.syncFromFlow();
 			Qt.callLater(root.refocus);
-		}
-		function onSupplementaryMessageChanged() {
-			root.syncFromFlow();
-			Qt.callLater(root.refocus);
-		}
-		function onSupplementaryIsErrorChanged() {
-			root.syncFromFlow();
 		}
 		function onFailedChanged() {
 			root.syncFromFlow();
@@ -233,32 +206,6 @@ ModalWindow {
 				lineHeight: 1.2
 			}
 
-			// Only the reader can answer, for as long as pam_fprintd waits on it.
-			RowLayout {
-				id: reader
-
-				Layout.fillWidth: true
-				Layout.preferredHeight: 46
-				visible: root.readingFinger
-				spacing: Theme.paddingItem
-
-				Keys.onEscapePressed: root.cancelRequest()
-
-				LineIcon {
-					name: "fingerprint"
-					size: 28
-					color: root.supplementaryError ? Theme.critical : Theme.accentBlue
-				}
-
-				StyledText {
-					Layout.fillWidth: true
-					text: root.supplementaryText
-					textFormat: Text.PlainText
-					color: root.supplementaryError ? Theme.critical : Theme.textMain
-					wrapMode: Text.Wrap
-				}
-			}
-
 			PasswordField {
 				id: field
 
@@ -271,7 +218,7 @@ ModalWindow {
 				readOnly: root.submitted
 				busy: root.submitted
 				failed: root.failed
-				message: root.failed ? "Wrong password, try again" : root.inputPromptText
+				message: root.failed ? "Wrong password, try again" : ""
 
 				onAccepted: root.submitResponse()
 				onCancelled: root.cancelRequest()
@@ -279,18 +226,6 @@ ModalWindow {
 					if (text.length > 0 && root.failed)
 						root.failed = false;
 				}
-			}
-
-			// Why it came to the password, e.g. the reader timing out.
-			StyledText {
-				Layout.fillWidth: true
-				Layout.topMargin: -8
-				visible: field.visible && text !== ""
-				text: root.submitted ? "" : root.supplementaryText
-				textFormat: Text.PlainText
-				color: root.supplementaryError ? Theme.critical : Theme.textDim
-				font.pixelSize: Theme.fontSizeSmall
-				wrapMode: Text.Wrap
 			}
 		}
 	}
