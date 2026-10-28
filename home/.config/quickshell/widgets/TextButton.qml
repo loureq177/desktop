@@ -15,7 +15,9 @@ Rectangle {
 
 	signal clicked()
 
-	implicitWidth: row.implicitWidth + 20
+	// Of the label's own width, not the row's: the label narrows in a button
+	// made narrower than it (a layout's fillWidth) and elides.
+	implicitWidth: (icon !== "" ? 14 + row.spacing : 0) + label.implicitWidth + 20
 	implicitHeight: 30
 	radius: Theme.roundingSubtle
 	color: primary ? (hovered ? Qt.lighter(Theme.accentBlue, 1.15) : Theme.accentBlue)
@@ -41,6 +43,8 @@ Rectangle {
 		StyledText {
 			id: label
 			anchors.verticalCenter: parent.verticalCenter
+			width: Math.min(implicitWidth, root.width - root.implicitWidth + implicitWidth)
+			elide: Text.ElideRight
 			text: root.text
 			font.pixelSize: Theme.fontSizeSmall
 			font.bold: root.primary

@@ -190,10 +190,23 @@ Singleton {
 			root.releaseImage(nid);
 	}
 
-	function dismissLatest(): void {
+	// The newest toast, or once it has gone the newest in the center.
+	function latestNid(): var {
 		var latest = root.toasts.count > 0 ? root.toasts : root.history;
-		if (latest.count > 0)
-			root.dismiss(latest.get(0).nid);
+		return latest.count > 0 ? latest.get(0).nid : null;
+	}
+
+	function dismissLatest(): void {
+		var nid = root.latestNid();
+		if (nid !== null)
+			root.dismiss(nid);
+	}
+
+	// As a click on it: to the conversation, to answer.
+	function activateLatest(): void {
+		var nid = root.latestNid();
+		if (nid !== null)
+			root.activate(nid);
 	}
 
 	Timer {
@@ -275,6 +288,9 @@ Singleton {
 		}
 		function dismissLatest(): void {
 			root.dismissLatest();
+		}
+		function activateLatest(): void {
+			root.activateLatest();
 		}
 	}
 }

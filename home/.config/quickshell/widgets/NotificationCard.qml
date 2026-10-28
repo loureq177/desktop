@@ -39,7 +39,7 @@ Rectangle {
 	Behavior on color { ColorAnimation { duration: Theme.animFast } }
 	Behavior on border.color { ColorAnimation { duration: Theme.animFast } }
 
-	SelectionHighlight {
+	FadeHighlight {
 		selected: root.isSelected && !root.isToast
 	}
 
@@ -51,11 +51,14 @@ Rectangle {
 		onClicked: root.activated()
 	}
 
+	// The picture by the first line of text; text shorter than the picture is
+	// centred on it.
 	NotificationPicture {
 		id: notifPic
 		anchors.left: parent.left
 		anchors.leftMargin: Theme.notifPadH
-		anchors.verticalCenter: parent.verticalCenter
+		anchors.top: parent.top
+		anchors.topMargin: Theme.notifPadV
 		image: root.image
 		appIcon: root.appIcon
 	}
@@ -66,7 +69,8 @@ Rectangle {
 		anchors.leftMargin: notifPic.hasPicture ? 12 : Theme.notifPadH
 		anchors.right: closeBtn.left
 		anchors.rightMargin: 8
-		anchors.verticalCenter: parent.verticalCenter
+		anchors.top: parent.top
+		anchors.topMargin: Theme.notifPadV + Math.max(0, (notifPic.implicitHeight - implicitHeight) / 2)
 		spacing: 3
 
 		RowLayout {
@@ -119,38 +123,12 @@ Rectangle {
 			Repeater {
 				model: root.actions
 
-				delegate: Rectangle {
-					id: actionButton
+				delegate: TextButton {
 					required property string identifier
-					required property string text
+					required text
 
 					Layout.fillWidth: true
-					implicitHeight: 28
-					color: buttonArea.containsMouse ? Theme.border : Theme.bgHover
-					border.color: buttonArea.containsMouse ? Theme.tileBorderHover : Theme.tileBorder
-					border.width: 1
-					radius: Theme.roundingElement
-
-					Behavior on color { ColorAnimation { duration: Theme.animFast } }
-
-					StyledText {
-						anchors.fill: parent
-						anchors.leftMargin: 10
-						anchors.rightMargin: 10
-						horizontalAlignment: Text.AlignHCenter
-						verticalAlignment: Text.AlignVCenter
-						elide: Text.ElideRight
-						text: actionButton.text
-						mono: true
-					}
-
-					MouseArea {
-						id: buttonArea
-						anchors.fill: parent
-						hoverEnabled: true
-						cursorShape: Qt.PointingHandCursor
-						onClicked: Notifications.invoke(root.nid, actionButton.identifier)
-					}
+					onClicked: Notifications.invoke(root.nid, identifier)
 				}
 			}
 		}

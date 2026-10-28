@@ -41,21 +41,15 @@ Item {
 		return pic.startsWith("/") ? "file://" + pic : pic;
 	}
 
-	Rectangle {
+	// Bare, no tile behind it: a site's icon (Firefox sends those as pixels)
+	// is see-through around the edges, and a tile there framed it in black.
+	Image {
+		id: img
 		anchors.fill: parent
-		radius: Theme.roundingElement
-		color: Theme.bgCard
-		border.color: Theme.border
-		border.width: 1
-		clip: true
-
-		Image {
-			id: img
-			anchors.fill: parent
-			source: root.source
-			fillMode: Image.PreserveAspectCrop
-			asynchronous: true
-			cache: false
-		}
+		source: root.source
+		fillMode: Image.PreserveAspectCrop
+		asynchronous: true
+		cache: false
+		mipmap: true
 	}
 }
