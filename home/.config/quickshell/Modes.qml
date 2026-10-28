@@ -8,8 +8,9 @@ import QtQuick
 // What the session's scripts have switched on. Each leaves a file in
 // $XDG_RUNTIME_DIR while it is on: awake-toggle, power-save, record-screen and
 // dictation, which writes what it is doing into its own. battery-care writes
-// "on" or "off", and nothing where the battery has no charge limit. And the
-// screens being shared, which Hyprland reports.
+// "on" or "off", and nothing where the battery has no charge limit. The
+// screens being shared, which Hyprland reports. And night light, which
+// hyprsunset tells when asked: its schedule (hyprsunset.conf) changes it too.
 Singleton {
 	id: root
 
@@ -22,6 +23,29 @@ Singleton {
 	// "recording", "transcribing", or "" while it is off.
 	readonly property string dictation: dictationMarker.loaded ? dictationMarker.state : ""
 	property int screencasts: 0
+	property bool nightLight: false
+
+	function readNightLight(): void {
+		if (!nightLightQuery.running)
+			nightLightQuery.running = true;
+	}
+
+	// Until the schedule's next change; 4500 K as in hyprsunset.conf. Off
+	// reads back 6000 K, as hyprsunset's identity profile does: `identity`
+	// alone leaves the warm temperature to be read.
+	function toggleNightLight(): void {
+		nightLight = !nightLight;
+		Quickshell.execDetached(["sh", "-c", nightLight ? "hyprctl hyprsunset temperature 4500"
+			: "hyprctl hyprsunset temperature 6000 && hyprctl hyprsunset identity"]);
+	}
+
+	Process {
+		id: nightLightQuery
+		command: ["hyprctl", "hyprsunset", "temperature"]
+		stdout: StdioCollector {
+			onStreamFinished: root.nightLight = parseInt(this.text) < 6000
+		}
+	}
 
 	component Marker: FileView {
 		printErrors: false
@@ -63,7 +87,10 @@ Singleton {
 	}
 
 	// UPower keeps the charge limit across reboots; the marker is per session.
-	Component.onCompleted: Quickshell.execDetached([Quickshell.env("HOME") + "/.local/bin/battery-care", "--sync"])
+	Component.onCompleted: {
+		Quickshell.execDetached([Quickshell.env("HOME") + "/.local/bin/battery-care", "--sync"]);
+		readNightLight();
+	}
 
 	Connections {
 		target: Hyprland

@@ -5,15 +5,15 @@ import QtQuick
 import QtQuick.Layouts
 
 // Volume, brightness and the switches of the desktop, with a page of their
-// own for Wi-Fi, Bluetooth and Capture.
+// own for Wi-Fi and Bluetooth.
 Drawer {
 	id: win
 
 	name: "actions"
 	cardWidth: 520
-	// "main", or the page of one tile ("wifi", "bluetooth", "capture").
+	// "main", or the page of one tile ("wifi", "bluetooth").
 	property string subView: "main"
-	readonly property var pages: ({ main: mainPage, wifi: wifiPage, bluetooth: btPage, capture: capturePage })
+	readonly property var pages: ({ main: mainPage, wifi: wifiPage, bluetooth: btPage })
 	contentHeight: pages[subView].implicitHeight
 
 	// The keyboard's place: a slider's row, or a row and column of the tiles.
@@ -45,6 +45,7 @@ Drawer {
 	onOpened: mode => {
 		subView = mode || "main";
 		Brightness.read();
+		Modes.readNightLight();
 		navRow = 0;
 		navCol = 0;
 		pages[subView].forceActiveFocus();
@@ -95,7 +96,7 @@ Drawer {
 		Behavior on color { ColorAnimation { duration: Theme.animFast } }
 		Behavior on border.color { ColorAnimation { duration: Theme.animFast } }
 
-		SelectionHighlight {
+		FadeHighlight {
 			selected: tile.selected
 		}
 
@@ -323,13 +324,8 @@ Drawer {
 			}
 
 			Tile {
-				key: "C"
-				title: "Capture"
-				icon: Modes.recording ? "circle-stop" : "camera"
-				subtitle: Modes.recording ? "Recording" : ""
-				active: Modes.recording
-				tint: Theme.critical
-				page: "capture"
+				key: "N"
+				command: "nightlight"
 			}
 
 			Tile {
@@ -356,13 +352,6 @@ Drawer {
 		id: btPage
 		anchors.fill: parent
 		visible: win.subView === "bluetooth"
-		onBackRequested: win.subView = "main"
-	}
-
-	CaptureSubView {
-		id: capturePage
-		anchors.fill: parent
-		visible: win.subView === "capture"
 		onBackRequested: win.subView = "main"
 	}
 }
