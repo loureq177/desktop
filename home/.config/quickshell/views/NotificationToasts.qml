@@ -42,7 +42,10 @@ PanelWindow {
 		}
 	}
 
+	// Taken when they come in, kept while they leave.
 	onShownChanged: {
+		if (shown)
+			screen = Panels.screen;
 		slideIn.stop();
 		slideOut.stop();
 		if (shown)

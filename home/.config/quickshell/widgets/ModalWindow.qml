@@ -3,9 +3,9 @@ import Quickshell
 import Quickshell.Wayland
 import QtQuick
 
-// A card in the middle of the screen over a dim: the launcher, the polkit
-// dialog. It has the keyboard while shown; Esc or a click on the dim asks to
-// dismiss it. The card fades in (and grows, scaled by `progress` itself).
+// A card in the middle of the screen over a dim: the launcher. It has the
+// keyboard while shown; Esc or a click on the dim asks to dismiss it. The card fades in (and grows, scaled by `progress`
+// itself).
 PanelWindow {
 	id: root
 
@@ -38,7 +38,11 @@ PanelWindow {
 		right: true
 	}
 
+	// The screen is taken when it opens and kept through the way out: the
+	// focus moving on meanwhile must not carry the fading card along.
 	onShownChanged: {
+		if (shown)
+			screen = Panels.screen;
 		anim.stop();
 		anim.to = shown ? 1 : 0;
 		anim.duration = shown ? Theme.animNormal : Theme.animFast;

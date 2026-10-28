@@ -20,6 +20,9 @@ PanelWindow {
 	function show(newKind, newValue, newMuted) {
 		if ((newKind === "volume" || newKind === "brightness") && Panels.active === "actions")
 			return;
+		// Where it appears stays put while it is up and fading.
+		if (!shown)
+			screen = Panels.screen;
 		kind = newKind;
 		if (newValue !== undefined)
 			value = newValue;

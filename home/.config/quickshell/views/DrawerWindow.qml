@@ -33,6 +33,13 @@ PanelWindow {
 		right: true
 	}
 
+	// Taken when a drawer opens, kept while it leaves: the focus moving to
+	// another monitor closes it, and it must finish where it started.
+	onShownChanged: {
+		if (shown)
+			screen = Panels.screen;
+	}
+
 	HyprlandFocusGrab {
 		active: root.shown
 		windows: [root].concat(Bars.windows)
