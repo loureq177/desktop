@@ -85,6 +85,7 @@ Drawer {
 			Layout.fillWidth: true
 			Layout.fillHeight: true
 			scrollBar: true
+			slidingHighlight: false
 			spacing: 8
 			model: Notifications.history
 			onActivated: index => win.activate(Notifications.history.get(index).nid)
@@ -102,7 +103,7 @@ Drawer {
 				isSelected: ListView.isCurrentItem
 
 				HoverSelect {
-					enabled: !list.moving
+					enabled: !list.dragging
 					onSelected: list.currentIndex = index
 				}
 				onActivated: {

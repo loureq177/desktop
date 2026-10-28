@@ -1,4 +1,5 @@
 import ".."
+import "Pointer.js" as Pointer
 import QtQuick
 
 // Wheel and touchpad scrolling for the Flickable it is declared in, the way
@@ -40,16 +41,65 @@ MouseArea {
 	// The touchpad's last movements, { t, d }, for the speed it leaves at.
 	property var samples: []
 
+	// The wheel or the touchpad moves the list, not the keyboard: the rows
+	// passing under the resting pointer take the selection (HoverSelect), up
+	// to the one it stops under. It lasts a moment longer than the movement,
+	// as the hover of a frame comes in the next one.
+	property bool byPointer: false
+	readonly property bool gliding: glide.running || flickable.moving
+	onByPointerChanged: Pointer.setScrolling(byPointer)
+	onGlidingChanged: {
+		if (!gliding && byPointer)
+			settle.restart();
+	}
+
 	function position(): real {
 		return horizontal ? flickable.contentX : flickable.contentY;
 	}
 
-	function moveTo(p: real): void {
-		p = Math.max(start, Math.min(end, p));
+	function setPosition(p: real): void {
 		if (horizontal)
 			flickable.contentX = p;
 		else
 			flickable.contentY = p;
+	}
+
+	function moveTo(p: real): void {
+		setPosition(Math.max(start, Math.min(end, p)));
+	}
+
+	function glideTo(p: real, duration: int): void {
+		flickable.cancelFlick();
+		glide.stop();
+		glide.duration = duration;
+		glide.to = p;
+		glide.start();
+	}
+
+	// Brings the row (or cell) `index` of a ListView or GridView into sight, as
+	// positionViewAtIndex(index, Contain) does, but gliding there in the time
+	// the highlight takes to light it, so the two arrive together. A step made
+	// mid-glide counts from where the glide was going. The pointer's picks
+	// (Pointer.pick) are in sight already, and leave the list moving as it was.
+	function reveal(index: int): void {
+		if (Pointer.picking)
+			return;
+		settle.stop();
+		byPointer = false;
+		if (!flickable.visible) {
+			glide.stop();
+			flickable.positionViewAtIndex(index, ListView.Contain);
+			return;
+		}
+		var from = position();
+		var aim = glide.running ? glide.to : from;
+		glide.stop();
+		setPosition(aim);
+		flickable.positionViewAtIndex(index, ListView.Contain);
+		var to = position();
+		setPosition(from);
+		if (to !== from)
+			glideTo(to, Theme.animFast);
 	}
 
 	// Pixels a second, from the movements of the last tenth of a second.
@@ -66,8 +116,12 @@ MouseArea {
 			wheel.accepted = false;
 			return;
 		}
+		settle.restart();
+		byPointer = true;
+		// Only the touchpad scrolls in phases; a wheel's notch comes with a
+		// pixel delta as well (15 under Hyprland), which is not the one to use.
 		var px = wheel.pixelDelta;
-		if (wheel.phase !== Qt.NoScrollPhase || px.x !== 0 || px.y !== 0) {
+		if (wheel.phase !== Qt.NoScrollPhase) {
 			glide.stop();
 			var now = Date.now();
 			if (wheel.phase === Qt.ScrollBegin) {
@@ -90,19 +144,26 @@ MouseArea {
 			var a = wheel.angleDelta;
 			var notches = (horizontal && a.y === 0 ? a.x : a.y) / 120;
 			var from = glide.running ? glide.to : position();
-			flickable.cancelFlick();
-			glide.stop();
-			glide.to = Math.max(start, Math.min(end, from - notches * root.notchStep));
-			glide.start();
+			glideTo(Math.max(start, Math.min(end, from - notches * root.notchStep)), Theme.animNormal);
 		}
 		wheel.accepted = true;
+	}
+
+	// After the last move: the touchpad's come one by one, with nothing
+	// running between them.
+	Timer {
+		id: settle
+		interval: 100
+		onTriggered: {
+			if (!root.gliding)
+				root.byPointer = false;
+		}
 	}
 
 	NumberAnimation {
 		id: glide
 		target: root.flickable
 		property: root.horizontal ? "contentX" : "contentY"
-		duration: Theme.animNormal
 		easing.type: Easing.OutCubic
 	}
 }

@@ -1,9 +1,10 @@
 import ".."
 import QtQuick
 
-// A row of a SelectList (or the cell of a GridView): lit while it is the
-// current one, which the pointer moves as well; a click activates it.
-// `topInset` leaves room above the row for a heading of its own.
+// A row of a SelectList (or the cell of a GridView): the current one, which
+// the pointer moves as well, is lit by the view's ListHighlight over
+// `highlightArea`; a click activates it. `topInset` leaves room above the
+// row for a heading of its own.
 Rectangle {
 	id: row
 
@@ -13,6 +14,7 @@ Rectangle {
 	property int topInset: 0
 	// Room around the highlight on every side (the cells of a grid).
 	property int inset: 0
+	readonly property Item highlightArea: area
 
 	width: view?.rowWidth ?? view?.width ?? 0
 	radius: Theme.roundingElement
@@ -24,13 +26,8 @@ Rectangle {
 		anchors.margins: row.inset
 		anchors.topMargin: row.topInset + row.inset
 
-		SelectionHighlight {
-			radius: row.radius
-			selected: row.selected
-		}
-
 		HoverSelect {
-			enabled: !row.view.moving
+			enabled: !row.view.dragging
 			onSelected: row.view.currentIndex = row.index
 		}
 

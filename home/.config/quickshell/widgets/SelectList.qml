@@ -12,6 +12,11 @@ ListView {
 	property bool wrap: false
 	// A thin bar while the rows overflow; rows leave room for it.
 	property bool scrollBar: false
+	// The highlight over the rows: for rows that paint a background of their own.
+	property alias highlightOver: highlight.over
+	// One highlight sliding from row to row; off for rows that light up on
+	// their own (FadeHighlight), as the notification cards do.
+	property bool slidingHighlight: true
 	readonly property int rowWidth: width - (scrollBar && ScrollBar.vertical.visible ? 10 : 0)
 
 	signal activated(int index)
@@ -31,7 +36,7 @@ ListView {
 	clip: true
 	highlightFollowsCurrentItem: false
 	keyNavigationEnabled: false
-	onCurrentIndexChanged: positionViewAtIndex(currentIndex, ListView.Contain)
+	onCurrentIndexChanged: scrolling.reveal(currentIndex)
 	onCountChanged: {
 		if (currentIndex >= count)
 			currentIndex = Math.max(0, count - 1);
@@ -54,7 +59,14 @@ ListView {
 		visible: list.scrollBar && size < 1.0
 	}
 
+	ListHighlight {
+		id: highlight
+		view: list
+		item: list.slidingHighlight ? list.currentItem : null
+	}
+
 	WheelScroll {
+		id: scrolling
 		flickable: list
 	}
 }

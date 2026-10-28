@@ -22,7 +22,7 @@ Rectangle {
 	radius: Theme.roundingElement
 	color: "transparent"
 
-	SelectionHighlight {
+	FadeHighlight {
 		selected: row.current
 	}
 

@@ -212,6 +212,7 @@ FocusScope {
 			Layout.fillWidth: true
 			Layout.fillHeight: true
 			scrollBar: true
+			highlightOver: true
 			spacing: 6
 			model: root.items
 			onCurrentIndexChanged: root.currentKey = root.items[currentIndex]?.key ?? ""

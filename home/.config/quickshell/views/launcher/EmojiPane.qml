@@ -13,7 +13,7 @@ LauncherPane {
 	property var emojis: []
 
 	icon: "smile"
-	placeholder: "Search " + emojis.length + " emoji..."
+	placeholder: "Search emoji..."
 	grid: true
 	preferredHeight: count === 0 ? 72 : Math.ceil(count / columns) * cell
 	footer: current ? current.e + "  " + String(current.k || "").split(" ").slice(0, 3).join(" ")
@@ -67,7 +67,7 @@ LauncherPane {
 		cellHeight: pane.cell
 		model: pane.items
 		highlightFollowsCurrentItem: false
-		onCurrentIndexChanged: positionViewAtIndex(currentIndex, GridView.Contain)
+		onCurrentIndexChanged: scrolling.reveal(currentIndex)
 		onActivated: index => {
 			var emoji = pane.items[index]?.e;
 			if (!emoji)
@@ -76,7 +76,12 @@ LauncherPane {
 			Quickshell.execDetached([Commands.bin + "emoji-insert", emoji]);
 		}
 
+		ListHighlight {
+			view: cells
+		}
+
 		WheelScroll {
+			id: scrolling
 			flickable: cells
 		}
 
