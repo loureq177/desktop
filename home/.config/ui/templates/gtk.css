@@ -1,0 +1,248 @@
+/* The look of the GTK 3 file chooser: the window xdg-desktop-portal-gtk opens
+ * for Ctrl+O in most programs, and the one GTK 3 programs that skip the
+ * portal draw themselves. GTK 3 has no node for that window alone: it is a
+ * "dialog" like every other, so its header bar dresses the other GTK 3
+ * dialogs too. What sits under "filechooser" is the file chooser's own. */
+
+@define-color ui_bg @bg_main@;
+@define-color ui_card @bg_card@;
+@define-color ui_hover @bg_hover@;
+@define-color ui_border @border@;
+@define-color ui_accent @accent_blue@;
+@define-color ui_text @text_main@;
+@define-color ui_dim @text_dim@;
+@define-color ui_muted @text_muted@;
+
+/* --- the window ---------------------------------------------------------- */
+
+dialog.background {
+    background-color: @ui_bg;
+    color: @ui_text;
+}
+
+dialog headerbar {
+    background: @ui_card;
+    border-bottom: 1px solid @ui_border;
+    box-shadow: none;
+    min-height: 44px;
+}
+
+dialog headerbar .title {
+    color: @ui_text;
+    font-weight: 600;
+}
+
+dialog headerbar button,
+filechooser button {
+    background: @ui_hover;
+    border: 1px solid @ui_border;
+    border-radius: 6px;
+    box-shadow: none;
+    color: @ui_text;
+    text-shadow: none;
+    -gtk-icon-shadow: none;
+}
+
+dialog headerbar button:hover,
+filechooser button:hover {
+    background: @ui_border;
+}
+
+dialog headerbar button:disabled,
+filechooser button:disabled {
+    background: transparent;
+    color: @ui_muted;
+}
+
+/* Open, Save, Select: the button Enter presses. */
+dialog headerbar button.suggested-action,
+filechooser button.suggested-action {
+    background: @ui_accent;
+    border-color: @ui_accent;
+    color: @ui_bg;
+    font-weight: 600;
+}
+
+dialog headerbar button.suggested-action:hover,
+filechooser button.suggested-action:hover {
+    background: shade(@ui_accent, 1.12);
+}
+
+dialog headerbar button.suggested-action:disabled,
+filechooser button.suggested-action:disabled {
+    background: transparent;
+    border-color: @ui_border;
+    color: @ui_muted;
+}
+
+dialog popover.background {
+    background: @ui_card;
+    border: 1px solid @ui_border;
+    border-radius: @rounding_window@px;
+    box-shadow: none;
+    color: @ui_text;
+}
+
+/* --- places ---------------------------------------------------------------- */
+
+filechooser placessidebar,
+filechooser placessidebar list {
+    background: @ui_card;
+}
+
+filechooser paned > separator {
+    background: @ui_border;
+    min-width: 1px;
+}
+
+filechooser placessidebar row {
+    border-radius: 6px;
+    color: @ui_dim;
+    margin: 1px 6px;
+    min-height: 32px;
+}
+
+filechooser placessidebar row > revealer {
+    padding: 0 8px;
+}
+
+filechooser placessidebar row:hover {
+    background: @ui_hover;
+    color: @ui_text;
+}
+
+filechooser placessidebar row:selected {
+    background: alpha(@ui_accent, 0.16);
+    color: @ui_accent;
+}
+
+filechooser placessidebar row:selected image {
+    color: @ui_accent;
+}
+
+filechooser placessidebar separator {
+    background: @ui_border;
+    margin: 6px 12px;
+}
+
+/* --- path bar and search -------------------------------------------------- */
+
+filechooser #pathbarbox {
+    background: @ui_bg;
+    border-bottom: 1px solid @ui_border;
+}
+
+filechooser .path-bar button {
+    background: transparent;
+    border-color: transparent;
+    color: @ui_dim;
+}
+
+filechooser .path-bar button:hover {
+    background: @ui_hover;
+    color: @ui_text;
+}
+
+/* The folder you are in. */
+filechooser .path-bar button:checked {
+    background: @ui_hover;
+    border-color: @ui_border;
+    color: @ui_text;
+    font-weight: 600;
+}
+
+filechooser entry,
+dialog popover entry {
+    background: @ui_card;
+    border: 1px solid @ui_border;
+    border-radius: 6px;
+    box-shadow: none;
+    color: @ui_text;
+    caret-color: @ui_accent;
+}
+
+filechooser entry:focus,
+dialog popover entry:focus {
+    border-color: @ui_accent;
+}
+
+filechooser entry selection,
+dialog popover entry selection {
+    background: alpha(@ui_accent, 0.35);
+    color: @ui_text;
+}
+
+/* --- the file list ---------------------------------------------------------- */
+
+filechooser stack.view,
+filechooser treeview.view {
+    background: @ui_bg;
+    color: @ui_text;
+    outline-color: alpha(@ui_accent, 0.5);
+}
+
+filechooser treeview.view:hover {
+    background: @ui_card;
+}
+
+filechooser treeview.view:selected,
+filechooser treeview.view:selected:focus {
+    background: alpha(@ui_accent, 0.20);
+    color: @ui_text;
+}
+
+filechooser treeview.view header button {
+    background: @ui_bg;
+    border: none;
+    border-bottom: 1px solid @ui_border;
+    border-radius: 0;
+    color: @ui_dim;
+    font-weight: 600;
+    padding: 6px 6px;
+}
+
+filechooser treeview.view header button:hover {
+    background: @ui_card;
+    color: @ui_text;
+}
+
+filechooser treeview.view.dnd {
+    border: 1px solid @ui_accent;
+}
+
+/* "Open files read-only", the file type filter. */
+filechooser actionbar > revealer > box {
+    background: @ui_card;
+    border-top: 1px solid @ui_border;
+    color: @ui_dim;
+}
+
+filechooser check {
+    background: @ui_card;
+    border: 1px solid @ui_border;
+    border-radius: 4px;
+    box-shadow: none;
+    color: @ui_bg;
+}
+
+filechooser check:checked {
+    background: @ui_accent;
+    border-color: @ui_accent;
+}
+
+filechooser scrollbar {
+    background: transparent;
+    border: none;
+}
+
+filechooser scrollbar slider {
+    background: @ui_border;
+    border: none;
+    border-radius: 99px;
+    min-width: 6px;
+    min-height: 6px;
+}
+
+filechooser scrollbar slider:hover {
+    background: @ui_muted;
+}
