@@ -11,9 +11,7 @@ Rectangle {
 	property string placeholder: ""
 	property alias text: input.text
 	property bool leftRightNavigate: false
-	// The names of the other lists, to switch to.
-	property var scopes: []
-	// Buttons of the window, between the field and the scopes (Clear all).
+	// Buttons of the window, after the field (Clear all).
 	default property alias trailing: trailingRow.data
 
 	signal accepted()
@@ -22,7 +20,6 @@ Rectangle {
 	signal steppedColumn(int delta)
 	// Backspace in an empty field.
 	signal erased()
-	signal scopeChosen(string name)
 
 	function focusInput() {
 		input.focus = true;
@@ -103,55 +100,10 @@ Rectangle {
 			}
 		}
 
-		// Before the scopes, so they stay where they are in every window.
 		Row {
 			id: trailingRow
 			spacing: 6
 			Layout.alignment: Qt.AlignVCenter
-		}
-
-		// The other lists, while the field is empty; a click goes there.
-		Row {
-			visible: bar.scopes.length > 0 && input.text === ""
-			spacing: 2
-			Layout.alignment: Qt.AlignVCenter
-
-			Repeater {
-				model: bar.scopes
-
-				delegate: Rectangle {
-					id: chip
-					required property string modelData
-					readonly property bool lit: chipArea.containsMouse
-					implicitWidth: chipText.implicitWidth + 12
-					implicitHeight: 26
-					radius: Theme.roundingSubtle
-					color: chip.lit ? Theme.bgHover : "transparent"
-
-					Behavior on color { ColorAnimation { duration: Theme.animFast } }
-
-					StyledText {
-						id: chipText
-						anchors.centerIn: parent
-						text: chip.modelData
-						mono: true
-						font.pixelSize: Theme.fontSizeSmall
-						color: chip.lit ? Theme.textMain : Theme.textDim
-					}
-
-					MouseArea {
-						id: chipArea
-						anchors.fill: parent
-						hoverEnabled: true
-						cursorShape: Qt.PointingHandCursor
-						// scopeChosen rebuilds the chips, this one with them: last.
-						onClicked: {
-							bar.focusInput();
-							bar.scopeChosen(chip.modelData);
-						}
-					}
-				}
-			}
 		}
 	}
 }

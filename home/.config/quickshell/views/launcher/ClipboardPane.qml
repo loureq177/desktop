@@ -15,7 +15,7 @@ LauncherPane {
 	property bool failed: false
 
 	icon: "clipboard"
-	placeholder: "Search " + entries.length + " copied items..."
+	placeholder: "Search copied items..."
 	preferredHeight: Theme.windowHeight
 
 	readonly property var items: entries.filter(e => e.preview.toLowerCase().includes(query.trim().toLowerCase()))

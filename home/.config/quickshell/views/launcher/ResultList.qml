@@ -17,7 +17,7 @@ SelectList {
 
 	property var items: []
 	property string emptyText: ""
-	readonly property int headingHeight: 34
+	readonly property int headingHeight: 22
 	readonly property int preferredHeight: items.length === 0 ? 72
 		: items.length * Theme.rowHeight + items.filter((it, i) => headingAt(i) !== "").length * headingHeight
 
@@ -67,32 +67,32 @@ SelectList {
 		height: Theme.rowHeight + topInset
 		topInset: heading !== "" ? list.headingHeight : 0
 
-		Item {
+		// The heading's name inside its divider: ── NAME ──────
+		RowLayout {
 			visible: row.heading !== ""
 			width: parent.width
 			height: list.headingHeight
+			spacing: 8
 
 			Rectangle {
-				visible: row.index > 0
-				anchors.left: parent.left
-				anchors.right: parent.right
-				anchors.top: parent.top
-				anchors.margins: 12
-				anchors.topMargin: 6
-				height: 1
+				Layout.preferredWidth: 12
+				Layout.preferredHeight: 1
 				color: Theme.tileBorder
 			}
 
 			StyledText {
-				anchors.left: parent.left
-				anchors.bottom: parent.bottom
-				anchors.leftMargin: 12
-				anchors.bottomMargin: 4
 				text: row.heading.toUpperCase()
 				font.pixelSize: Theme.fontSizeTiny
 				font.bold: true
 				font.letterSpacing: 1
 				color: Theme.textMuted
+			}
+
+			Rectangle {
+				Layout.fillWidth: true
+				Layout.rightMargin: 12
+				Layout.preferredHeight: 1
+				color: Theme.tileBorder
 			}
 		}
 

@@ -5,7 +5,8 @@ import QtQuick.Layouts
 
 // One search field over four lists (LauncherPane): the apps (with the commands,
 // arithmetic and files), the emoji, the clipboard history and the keys. The
-// empty field offers the other three; Backspace there goes back to the apps.
+// other three open from their keys or as commands; Backspace in the empty
+// field goes back to the apps.
 ModalWindow {
 	id: root
 
@@ -84,7 +85,6 @@ ModalWindow {
 				Layout.fillWidth: true
 				icon: root.pane.icon
 				placeholder: root.pane.placeholder
-				scopes: Object.keys(root.panes).filter(name => name !== root.scope)
 				leftRightNavigate: root.pane.grid
 
 				onAccepted: root.pane.activate()
@@ -95,7 +95,6 @@ ModalWindow {
 					if (root.scope !== "apps")
 						Panels.open("launcher", "apps");
 				}
-				onScopeChosen: name => Panels.open("launcher", name)
 
 				// The first click arms it, the second wipes the history.
 				TextButton {

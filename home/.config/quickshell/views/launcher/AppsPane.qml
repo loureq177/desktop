@@ -5,14 +5,16 @@ import Quickshell
 import QtQuick
 
 // The launcher's first list: the apps, the specials and the commands by name,
-// and arithmetic ("2+2").
+// and arithmetic ("2+2"). "/" lists only the commands, all of them in their
+// groups when nothing follows.
 LauncherPane {
 	id: pane
 
 	readonly property string q: query.trim()
+	readonly property bool commandsOnly: q.startsWith("/")
 
-	icon: q.startsWith("=") ? "calculator" : "search"
-	placeholder: "Search " + apps.length + " apps..."
+	icon: commandsOnly ? "zap" : q.startsWith("=") ? "calculator" : "search"
+	placeholder: "Search " + apps.length + " apps or /actions..."
 	preferredHeight: list.preferredHeight
 
 	function step(delta: int): void {
@@ -47,6 +49,7 @@ LauncherPane {
 		label: Commands.label(c),
 		subtitle: c.desc,
 		lineIcon: c.icon,
+		heading: pane.q === "/" ? c.group : "",
 		keywords: c.keywords,
 		confirm: c.confirm,
 		run: c.run
@@ -59,6 +62,8 @@ LauncherPane {
 		anchors.fill: parent
 
 		items: {
+			if (pane.commandsOnly)
+				return Search.rank(pane.commands, it => Search.itemScore(it, pane.q.substring(1).trim()));
 			var calc = Search.calculate(pane.q);
 			// The apps and the specials, best match first, then by name; the
 			// commands only come up when asked for.
