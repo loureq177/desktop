@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# A notification when the kernel kills a process for lack of memory: without
+# it the app just vanishes, and sysclean finds its unit failed days later.
+# The kernel journal is readable by wheel.
+set -euo pipefail
+
+journalctl -k -f -n 0 -o cat --grep 'Killed process' | while IFS= read -r line; do
+    [[ "$line" =~ Killed\ process\ [0-9]+\ \((.*)\) ]] || continue
+    notify-send --app-name "System" -u critical -i dialog-warning \
+        "Out of memory: ${BASH_REMATCH[1]} was killed" \
+        "The system ran out of RAM and closed it to keep running."
+done
