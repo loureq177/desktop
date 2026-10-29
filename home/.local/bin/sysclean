@@ -145,8 +145,8 @@ clean_flatpak() {
     local removed
     removed=$(grep -cE '^ *[0-9]+\. ' <<<"$unused" || true)
 
-    # Uninstalling an app leaves its ~/.var/app data behind. It can hold
-    # saves, so it is only listed.
+    # Uninstalling an app leaves its ~/.var/app data and permissions behind:
+    # removed by hand, only listed by --auto (it is your data).
     local apps app dir
     local -a leftovers=()
     apps=$(flatpak list --app --columns=application 2>/dev/null) || return 0
@@ -155,16 +155,24 @@ clean_flatpak() {
         [ -n "$app" ] && installed[$app]=1
     done <<<"$apps"
     for dir in "$HOME/.var/app/"*/; do
+        [ -d "$dir" ] || continue
         dir="${dir%/}"
-        [ -n "${installed[${dir##*/}]:-}" ] && continue
-        leftovers+=("${dir/#$HOME/\~} ($(du -sh -- "$dir" 2>/dev/null | cut -f1))")
+        app="${dir##*/}"
+        [ -n "${installed[$app]:-}" ] && continue
+        leftovers+=("$app ($(du -sh -- "$dir" 2>/dev/null | cut -f1))")
+        if [ "$AUTO" = 0 ]; then
+            rm -rf -- "$dir"
+            flatpak permission-reset -- "$app" >/dev/null 2>&1 || true
+        fi
     done
     local runtimes="No unused runtimes"
     ((removed == 0)) || runtimes="$removed unused runtimes removed"
-    if ((${#leftovers[@]})); then
-        _log_warn "$runtimes; data of uninstalled apps left (remove by hand): $(_join ", " "${leftovers[@]}")"
-    else
+    if ((${#leftovers[@]} == 0)); then
         _log_ok "$runtimes"
+    elif [ "$AUTO" = 1 ]; then
+        _log_warn "$runtimes; data of uninstalled apps left (sysclean removes it): $(_join ", " "${leftovers[@]}")"
+    else
+        _log_ok "$runtimes; data of uninstalled apps removed: $(_join ", " "${leftovers[@]}")"
     fi
 }
 
