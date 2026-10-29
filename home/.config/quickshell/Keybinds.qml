@@ -4,9 +4,7 @@ import Quickshell.Hyprland
 import Quickshell.Io
 import QtQuick
 
-// The key binds Hyprland reports and the keys the shell handles itself, for
-// the launcher's keys list. hyprland/binds.lua makes the binds in the order the list
-// shows them, each described as "Section: what it does".
+// Hyprland's binds and the shell's own keys, for the launcher's keys list.
 Singleton {
 	id: root
 
@@ -23,15 +21,17 @@ Singleton {
 		"return": "RETURN",
 		"escape": "ESC",
 		"print": "PRINT",
+		"left": "←",
+		"down": "↓",
+		"up": "↑",
+		"right": "→",
 		"mouse:272": "LEFT DRAG",
 		"mouse:273": "RIGHT DRAG",
 		"mouse_down": "SCROLL ↓",
 		"mouse_up": "SCROLL ↑"
 	})
 
-	// What the shell does on its own, out of hyprctl's sight, and shown nowhere
-	// else: not the keys printed in the panels, nor Esc and J / K, which every
-	// panel takes.
+	// The shell's own keys, shown nowhere else (not Esc and J / K, which every panel takes).
 	readonly property var shellEntries: [
 		{ category: "Mouse", chord: "RIGHT-CLICK BAR ICON", action: "Close a special workspace" },
 		{ category: "Gestures", chord: "3 FINGERS ↔", action: "Switch workspace" },
@@ -47,6 +47,8 @@ Singleton {
 			mods.push("CTRL");
 		if (mask & 8)
 			mods.push("ALT");
+		if (mask & 128)
+			mods.push("ALTGR");
 		if (mask & 1)
 			mods.push("SHIFT");
 		return mods.concat([label]).join(" + ");
@@ -56,11 +58,14 @@ Singleton {
 		return keyNames[key.toLowerCase()] ?? key.toUpperCase();
 	}
 
-	// "1..9" for a run of digits, else the keys side by side: "H J K L".
+	// "1..9" for a run of digits, else the keys side by side, the arrows
+	// after the letters they stand in for: "H J K L / ← ↓ ↑ →".
 	function keysLabel(keys: var): string {
 		if (keys.length > 2 && keys.every((k, i) => /^\d$/.test(k) && (i === 0 || Number(k) === Number(keys[i - 1]) + 1)))
 			return keys[0] + ".." + keys[keys.length - 1];
-		return keys.join(" ");
+		var arrows = keys.filter(k => "←↓↑→".includes(k));
+		var rest = keys.filter(k => !arrows.includes(k));
+		return rest.length > 0 && arrows.length > 0 ? rest.join(" ") + " / " + arrows.join(" ") : keys.join(" ");
 	}
 
 	function parse(binds: var): var {
