@@ -294,7 +294,7 @@ fi
 
 pacman_log_start=0
 if [ -f "$PACMAN_LOG" ]; then
-    pacman_log_start=$(wc -l < "$PACMAN_LOG" 2>/dev/null || echo 0)
+    pacman_log_start=$(wc -l <"$PACMAN_LOG" 2>/dev/null || echo 0)
 fi
 
 # Flatpak brings its own runtimes, nothing pacman installs: it downloads
@@ -322,7 +322,7 @@ if [[ "$rc" != 0 ]]; then
     exit "$rc"
 fi
 pacman_changes "$pacman_log_start" "${PACMAN_SIZE:+$PACMAN_SIZE · }$PACMAN_TIME"
-aur_log_start=$(wc -l < "$PACMAN_LOG" 2>/dev/null || echo 0)
+aur_log_start=$(wc -l <"$PACMAN_LOG" 2>/dev/null || echo 0)
 
 if command -v paru >/dev/null 2>&1; then
     # AUR build scripts run as this user and come from strangers: paru shows
@@ -360,11 +360,11 @@ if [ ! -d "/usr/lib/modules/$(uname -r)" ]; then
     reboot_reasons+=("the running kernel ($(uname -r)) is gone from disk")
 fi
 if [ -f "$PACMAN_LOG" ] && [ "$pacman_log_start" -gt 0 ]; then
-    upgraded_critical=$(tail -n "+$((pacman_log_start + 1))" "$PACMAN_LOG" 2>/dev/null \
-        | grep -E "\[ALPM\] upgraded (linux|linux-zen|linux-lts|linux-firmware|nvidia|nvidia-dkms|nvidia-open|nvidia-open-dkms|nvidia-utils|mesa|systemd|glibc|amd-ucode|intel-ucode) \(" \
-        | sed -E 's/.*upgraded ([^ ]+) .*/\1/' \
-        | sort -u \
-        | tr '\n' ' ' || true)
+    upgraded_critical=$(tail -n "+$((pacman_log_start + 1))" "$PACMAN_LOG" 2>/dev/null |
+        grep -E "\[ALPM\] upgraded (linux|linux-zen|linux-lts|linux-firmware|nvidia|nvidia-dkms|nvidia-open|nvidia-open-dkms|nvidia-utils|mesa|systemd|glibc|amd-ucode|intel-ucode) \(" |
+        sed -E 's/.*upgraded ([^ ]+) .*/\1/' |
+        sort -u |
+        tr '\n' ' ' || true)
     if [ -n "$upgraded_critical" ]; then
         read -ra critical <<<"$upgraded_critical"
         reboot_reasons+=("$(listing "${critical[@]}") updated")
