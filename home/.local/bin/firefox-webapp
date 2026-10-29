@@ -38,6 +38,10 @@ user_pref("dom.ipc.processCount", 2);
 user_pref("layout.css.devPixelsPerPx", "1.1");
 // Only the web apps run here: their notifications need no asking.
 user_pref("permissions.default.desktop-notification", 1);
+// Nor do their popups, camera and microphone (calls, Gmail's compose window).
+user_pref("dom.disable_open_during_load", false);
+user_pref("permissions.default.camera", 1);
+user_pref("permissions.default.microphone", 1);
 
 user_pref("datareporting.healthreport.uploadEnabled", false);
 user_pref("datareporting.policy.dataSubmissionEnabled", false);
