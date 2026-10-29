@@ -24,6 +24,8 @@ Rectangle {
 
 	readonly property bool critical: urgency === NotificationUrgency.Critical
 
+	readonly property bool hovered: hover.hovered
+
 	signal activated()
 	signal dismissed()
 
@@ -41,6 +43,11 @@ Rectangle {
 
 	FadeHighlight {
 		selected: root.isSelected && !root.isToast
+	}
+
+	// Unlike hoverArea, it also holds over the buttons on the card.
+	HoverHandler {
+		id: hover
 	}
 
 	MouseArea {

@@ -89,6 +89,7 @@ PanelWindow {
 		delegate: NotificationCard {
 			width: stack.width
 			isToast: true
+			onHoveredChanged: Notifications.holdToast(nid, hovered)
 			onActivated: Notifications.activate(nid)
 			onDismissed: Notifications.dismiss(nid)
 		}

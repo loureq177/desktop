@@ -15,7 +15,7 @@ Singleton {
 	readonly property ListModel toasts: ListModel {}
 	readonly property int historyLimit: 100
 	readonly property int maxToasts: 4
-	readonly property int toastTimeoutMs: 5000
+	readonly property int toastTimeoutMs: 8000
 
 	// Milliseconds since the epoch: far past what an int holds.
 	property double lastSoundAt: 0
@@ -38,8 +38,21 @@ Singleton {
 			time: now,
 			// For a toast: when its timeout started (see the expiry timer).
 			shownAt: now,
-			timeout: root.toastTimeoutFor(n)
+			timeout: root.toastTimeoutFor(n),
+			// For a toast: under the pointer, which keeps it (see holdToast()).
+			held: false
 		};
+	}
+
+	// A toast under the pointer stays; when the pointer leaves, its timeout
+	// starts over.
+	function holdToast(nid, held): void {
+		var i = root.indexIn(root.toasts, nid);
+		if (i < 0)
+			return;
+		root.toasts.setProperty(i, "held", held);
+		if (!held)
+			root.toasts.setProperty(i, "shownAt", Date.now());
 	}
 
 	// The actions worth a button: "default" is a click on the card itself.
@@ -111,7 +124,10 @@ Singleton {
 			return;
 		var i = root.indexIn(root.toasts, n.id);
 		if (i >= 0) {
-			root.toasts.set(i, root.row(n));
+			var updated = root.row(n);
+			// The pointer is still over it: no enter or leave comes to say so.
+			updated.held = root.toasts.get(i).held;
+			root.toasts.set(i, updated);
 			root.toasts.move(i, 0, 1);
 		} else {
 			root.toasts.insert(0, root.row(n));
@@ -217,7 +233,7 @@ Singleton {
 			var now = Date.now();
 			for (var i = root.toasts.count - 1; i >= 0; i--) {
 				var t = root.toasts.get(i);
-				if (t.timeout === 0)
+				if (t.timeout === 0 || t.held)
 					continue;
 				// Only the toast goes: the notification stays open in the
 				// center, where its actions still have to work.
