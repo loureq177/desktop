@@ -2,19 +2,35 @@
 set -euo pipefail
 
 WALL_DIR="${WALL_DIR:-$HOME/Pictures/Wallpapers}"
+# The ones the desktop comes with.
+SYSTEM_DIR="$HOME/.config/hypr/wallpapers"
 STATE_FILE="${XDG_CACHE_HOME:-$HOME/.cache}/wallpaper/current"
 DEFAULT_WALLPAPER="$WALL_DIR/hyprland.webp"
-[[ -f "$DEFAULT_WALLPAPER" ]] || DEFAULT_WALLPAPER="$HOME/.config/hypr/wallpapers/hyprland.webp"
+[[ -f "$DEFAULT_WALLPAPER" ]] || DEFAULT_WALLPAPER="$SYSTEM_DIR/hyprland.webp"
 
 die() {
     echo "wallpaper: $*" >&2
     exit 1
 }
 
-list_files() {
-    find "$WALL_DIR" -maxdepth 1 -type f \
+images() {
+    find "$1" -maxdepth 1 -type f \
         \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' \) \
-        -printf '%f\n' 2>/dev/null | sort
+        2>/dev/null
+}
+
+# The paths of the user's wallpapers and the desktop's, by file name; the
+# user's copy of one (by name, whatever its format) stands in for the desktop's.
+list_files() {
+    local own
+    own="$(images "$WALL_DIR" | sed 's|.*/||; s|\.[^.]*$||')"
+    {
+        images "$WALL_DIR"
+        images "$SYSTEM_DIR" | while IFS= read -r f; do
+            local stem="${f##*/}"
+            grep -qxF "${stem%.*}" <<<"$own" || printf '%s\n' "$f"
+        done
+    } | awk -F/ '{ print $NF "\t" $0 }' | sort | cut -f2-
 }
 
 current_path() {
@@ -34,12 +50,17 @@ apply() {
 next() {
     local files cur idx=-1 i
     mapfile -t files < <(list_files)
-    [[ "${#files[@]}" -eq 0 ]] && die "no wallpapers in $WALL_DIR"
-    cur="$(basename "$(current_path 2>/dev/null || true)")"
+    if [[ "${#files[@]}" -eq 0 ]]; then
+        # Run from a key: stderr goes nowhere anyone reads.
+        notify-send --app-name=Wallpaper -i image-missing "No wallpapers" \
+            "Put images (png, jpg, webp) in ${WALL_DIR/#$HOME/\~}" 2>/dev/null || true
+        die "no wallpapers in $WALL_DIR or $SYSTEM_DIR"
+    fi
+    cur="$(current_path 2>/dev/null || true)"
     for i in "${!files[@]}"; do
         [[ "${files[$i]}" == "$cur" ]] && idx="$i" && break
     done
-    apply "$WALL_DIR/${files[$(((idx + 1) % ${#files[@]}))]}"
+    apply "${files[$(((idx + 1) % ${#files[@]}))]}"
 }
 
 # Make sure a wallpaper is set (autostart entry).
@@ -47,8 +68,8 @@ init() {
     local saved=""
     saved="$(current_path 2>/dev/null || true)"
     [[ -n "$saved" ]] || { [[ -f "$DEFAULT_WALLPAPER" ]] && saved="$DEFAULT_WALLPAPER"; }
-    [[ -n "$saved" ]] || saved="$WALL_DIR/$(list_files | head -n 1 || true)"
-    [[ -f "$saved" ]] || die "no wallpapers in $WALL_DIR"
+    [[ -n "$saved" ]] || saved="$(list_files | head -n 1 || true)"
+    [[ -f "$saved" ]] || die "no wallpapers in $WALL_DIR or $SYSTEM_DIR"
     apply "$saved"
 }
 

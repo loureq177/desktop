@@ -14,7 +14,18 @@ PanelWindow {
 
 	readonly property string icon: kind === "brightness" ? "sun"
 		: kind === "mic" ? (muted ? "mic-off" : "mic")
+		: kind === "wallpaper" ? "image"
 		: Audio.icon
+
+	// The wallpaper's name, and the folder SUPER + P goes through.
+	readonly property string home: Quickshell.env("HOME")
+	readonly property string wallpaperName: Wallpaper.path.replace(/^.*\//, "").replace(/\.[^.]*$/, "")
+	readonly property string wallpaperDir: {
+		var dir = Wallpaper.path.replace(/\/[^/]*$/, "");
+		var shown = dir.startsWith(home + "/") ? "~" + dir.slice(home.length) : dir;
+		// One of the desktop's own, which SUPER + P goes through with the user's.
+		return dir === home + "/.config/hypr/wallpapers" ? "Built in · add yours to ~/Pictures/Wallpapers" : shown;
+	}
 
 	// Actions has sliders for both, which show the change already.
 	function show(newKind, newValue, newMuted) {
@@ -92,10 +103,38 @@ PanelWindow {
 					anchors.fill: parent
 					horizontalAlignment: Text.AlignHCenter
 					verticalAlignment: Text.AlignVCenter
+					visible: win.kind !== "wallpaper"
 					text: win.kind === "mic" ? (win.muted ? "Muted" : "On") : win.value + "%"
 					mono: true
 					font.pixelSize: Theme.fontSizeSmall
 					font.bold: true
+				}
+
+				Column {
+					anchors.verticalCenter: parent.verticalCenter
+					width: parent.width
+					visible: win.kind === "wallpaper"
+					spacing: 2
+
+					StyledText {
+						width: parent.width
+						horizontalAlignment: Text.AlignHCenter
+						elide: Text.ElideMiddle
+						textFormat: Text.PlainText
+						text: win.wallpaperName
+						font.bold: true
+					}
+
+					StyledText {
+						width: parent.width
+						horizontalAlignment: Text.AlignHCenter
+						elide: Text.ElideMiddle
+						textFormat: Text.PlainText
+						text: win.wallpaperDir
+						mono: true
+						font.pixelSize: Theme.fontSizeSmall
+						color: Theme.textDim
+					}
 				}
 
 				Rectangle {
@@ -105,7 +144,7 @@ PanelWindow {
 					height: 6
 					radius: Theme.roundingSubtle
 					color: Theme.bgHover
-					visible: win.kind !== "mic"
+					visible: win.kind !== "mic" && win.kind !== "wallpaper"
 
 					Rectangle {
 						anchors.left: parent.left
@@ -143,6 +182,13 @@ PanelWindow {
 	function showVolume(): void {
 		if (Audio.ready)
 			win.show("volume", Audio.volume, Audio.muted);
+	}
+
+	Connections {
+		target: Wallpaper
+		function onSwitched() {
+			win.show("wallpaper");
+		}
 	}
 
 	// The brightness keys and power-save.
