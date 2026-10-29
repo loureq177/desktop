@@ -3,13 +3,13 @@ import "../../widgets"
 import QtQuick
 import QtQuick.Layouts
 
-// One search field over the lists (LauncherPane): apps, emoji, clipboard, keys,
-// session and settings; Backspace in the empty field goes back to the apps.
+// One search field over the lists (LauncherPane): apps, emoji, clipboard, keys
+// and settings; Backspace in the empty field goes back to the apps.
 ModalWindow {
 	id: root
 
 	property string scope: "apps"
-	readonly property var panes: ({ apps: apps, emoji: emoji, clipboard: clipboard, keys: keys, session: session, settings: settings })
+	readonly property var panes: ({ apps: apps, emoji: emoji, clipboard: clipboard, keys: keys, settings: settings })
 	readonly property var pane: panes[scope]
 
 	shown: Panels.active === "launcher"
@@ -159,13 +159,6 @@ ModalWindow {
 					id: keys
 					anchors.fill: parent
 					visible: root.scope === "keys"
-					query: visible ? search.text : ""
-				}
-
-				SessionPane {
-					id: session
-					anchors.fill: parent
-					visible: root.scope === "session"
 					query: visible ? search.text : ""
 				}
 

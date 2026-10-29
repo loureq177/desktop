@@ -3,7 +3,7 @@ import Quickshell
 import QtQuick
 
 // What the desktop does: { id, name, desc, icon, run } and maybe active, confirm,
-// alert, tint, group, key, keywords (synonyms); run returning false keeps the launcher.
+// alert, tint, group, keywords (synonyms); run returning false keeps the launcher.
 Singleton {
 	id: root
 
@@ -52,19 +52,13 @@ Singleton {
 
 	// The most used first: the "/" list shows them in this order, and a name
 	// that matches two of them picks the first.
-	readonly property var all: [
-		{ id: "lock", group: "session", key: "L", name: "Lock", desc: "SUPER + Esc", icon: "lock", run: () => Hypr.exec(["loginctl", "lock-session"]) },
-		{ id: "suspend", group: "session", key: "S", name: "Suspend", desc: "Lock and sleep", icon: "moon", run: () => Hypr.exec(["sh", "-c", "loginctl lock-session && systemctl suspend"]) },
-		{ id: "poweroff", group: "session", key: "P", name: "Power off", desc: "Close the apps, shut down", icon: "power", confirm: "power off", keywords: "shutdown", run: () => shutdown("systemctl poweroff --no-wall") },
-		{ id: "reboot", group: "session", key: "R", name: "Reboot", desc: "Close the apps, restart", icon: "rotate-cw", confirm: "reboot", run: () => shutdown("systemctl reboot --no-wall") },
-		{ id: "logout", group: "session", key: "O", name: "Log out", desc: "Close the apps, end the session", icon: "log-out", confirm: "log out", keywords: "logout exit", run: () => shutdown("") }
-	].concat(Modes.recording ? [
+	readonly property var all: (Modes.recording ? [
 		{ id: "record", group: "capture", name: "Stop recording", desc: "Save the screen recording", icon: "circle-stop", alert: true, run: () => script("record-screen") }
 	] : [
 		{ id: "record", group: "capture", name: "Record screen", desc: "An area, a window or a monitor", icon: "video", keywords: "video", run: () => capture(bin + "record-screen") },
 		{ id: "record-mic", group: "capture", name: "Record screen with microphone", desc: "Your voice mixed in", icon: "mic", run: () => capture(bin + "record-screen --mic") },
 		{ id: "record-cam", group: "capture", name: "Record screen with microphone and camera", desc: "Your voice and a camera overlay", icon: "webcam", keywords: "webcam", run: () => capture(bin + "record-screen --mic --cam") }
-	], [
+	]).concat([
 		{ id: "picker", group: "capture", name: "Color picker", desc: "Copies the hex value", icon: "pipette", run: () => capture("hyprpicker -a --notify") },
 		{ id: "ocr", group: "capture", name: "OCR", desc: "Copy text from screen", icon: "scan-text", run: () => capture(bin + "ocr") },
 
@@ -79,8 +73,13 @@ Singleton {
 		{ id: "wifi", group: "connections", name: "Wi-Fi", desc: "Networks", icon: "wifi", keywords: "wifi internet", run: () => open("actions", "wifi") },
 		{ id: "bluetooth", group: "connections", name: "Bluetooth", desc: "Devices", icon: "bluetooth", keywords: "headphones", run: () => open("actions", "bluetooth") },
 
-		{ id: "settings", group: "system", name: "Settings", desc: "Every option of the desktop", icon: "settings", keywords: "config preferences", run: () => open("launcher", "settings") },
+		{ id: "settings", group: "system", name: "Settings", desc: "Hyprland and the look", icon: "settings", keywords: "config preferences", run: () => open("launcher", "settings") },
 		{ id: "sysupdate", group: "system", name: "System update", desc: "Upgrade the packages", icon: "package", keywords: "sysupdate", run: () => terminal("sysupdate") },
-		{ id: "sysclean", group: "system", name: "System cleanup", desc: "Caches, orphaned packages, the trash", icon: "trash", keywords: "sysclean", run: () => terminal("sysclean") }
+		{ id: "sysclean", group: "system", name: "System cleanup", desc: "Caches, orphaned packages, the trash", icon: "trash", keywords: "sysclean", run: () => terminal("sysclean") },
+
+		{ id: "suspend", group: "session", name: "Suspend", desc: "Lock and sleep", icon: "moon", run: () => Hypr.exec(["sh", "-c", "loginctl lock-session && systemctl suspend"]) },
+		{ id: "logout", group: "session", name: "Log out", desc: "Close the apps, end the session", icon: "log-out", confirm: "log out", keywords: "logout exit", run: () => shutdown("") },
+		{ id: "reboot", group: "session", name: "Reboot", desc: "Close the apps, restart", icon: "rotate-cw", confirm: "reboot", run: () => shutdown("systemctl reboot --no-wall") },
+		{ id: "poweroff", group: "session", name: "Power off", desc: "Close the apps, shut down", icon: "power", confirm: "power off", keywords: "shutdown", run: () => shutdown("systemctl poweroff --no-wall") }
 	])
 }

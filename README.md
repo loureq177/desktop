@@ -75,12 +75,11 @@ on tty1. It also clones and installs [`.files`](https://github.com/loureq177/.fi
 
 ## Keys
 
-| Keys                     | Action        |
-| ------------------------ | ------------- |
-| `SUPER + /`              | All keys      |
-| `SUPER + Space`          | Launcher      |
-| `SUPER + A`              | Quick actions |
-| `SUPER + N`              | Notifications |
-| `SUPER + S`              | Settings      |
-| `SUPER + Escape`         | Lock          |
-| `SUPER + SHIFT + Escape` | Power menu    |
+| Keys             | Action        |
+| ---------------- | ------------- |
+| `SUPER + /`      | All keys      |
+| `SUPER + Space`  | Launcher      |
+| `SUPER + A`      | Quick actions |
+| `SUPER + N`      | Notifications |
+| `SUPER + S`      | Settings      |
+| `SUPER + Escape` | Lock          |

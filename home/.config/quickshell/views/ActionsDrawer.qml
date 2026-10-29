@@ -197,7 +197,7 @@ Drawer {
 		visible: win.subView === "main"
 
 		// Enter clicks the tile, Space its badge, O opens its page, a tile's letter = Enter,
-		// Shift + letter = Space, P the power menu; only moves repeat.
+		// Shift + letter = Space; only moves repeat.
 		Keys.onPressed: event => {
 			var moves = [Qt.Key_H, Qt.Key_J, Qt.Key_K, Qt.Key_L, Qt.Key_Left, Qt.Key_Down, Qt.Key_Up, Qt.Key_Right];
 			if (event.isAutoRepeat && !moves.includes(event.key))
@@ -234,9 +234,6 @@ Drawer {
 			case Qt.Key_Q:
 				Panels.close("actions");
 				break;
-			case Qt.Key_P:
-				Panels.open("launcher", "session");
-				break;
 			default:
 				tile = Array.from(tileGrid.children).find(t => t.key !== "" && event.key === t.key.charCodeAt(0));
 				if (!tile)
@@ -251,60 +248,11 @@ Drawer {
 			Layout.fillWidth: true
 			Layout.preferredHeight: 32
 
-			// The name of the session's button under the pointer, or what a
-			// second click on it does.
 			StyledText {
-				readonly property var armed: Commands.get(sessionConfirm.armed)
 				Layout.fillWidth: true
-				text: armed ? "Click again to " + armed.confirm : sessionRow.hovered?.name ?? "Actions"
-				color: armed ? Theme.warning : Theme.textMain
+				text: "Actions"
 				font.pixelSize: Theme.fontSizeLarge
 				font.bold: true
-				elide: Text.ElideRight
-			}
-
-			HotkeyHint {
-				key: "P"
-				lit: sessionRow.hovered !== null
-			}
-
-			// The session's buttons: what ends the session asks for a second click.
-			Row {
-				id: sessionRow
-
-				property var hovered: null
-
-				Confirm {
-					id: sessionConfirm
-				}
-
-				Repeater {
-					model: Commands.all.filter(c => c.group === "session")
-
-					delegate: IconButton {
-						required property var modelData
-						readonly property bool armed: sessionConfirm.armed === modelData.id
-						icon: modelData.icon
-						iconSize: 14
-						outlined: false
-						danger: modelData.confirm !== undefined
-						iconColor: armed ? Theme.warning : !hovered ? Theme.textDim : danger ? Theme.critical : Theme.textMain
-						implicitWidth: 28
-						implicitHeight: 28
-						onHoveredChanged: {
-							if (hovered)
-								sessionRow.hovered = modelData;
-							else if (sessionRow.hovered === modelData)
-								sessionRow.hovered = null;
-						}
-						onClicked: {
-							if (modelData.confirm && !sessionConfirm.ask(modelData.id))
-								return;
-							Panels.close("actions");
-							modelData.run();
-						}
-					}
-				}
 			}
 
 			CloseButton {

@@ -119,10 +119,7 @@ end
 
 do
 	local bind = section("Session")
-	-- Both under the left hand: the lock on its own, the way out next to it
-	-- (and in Actions, on its power button).
 	bind("SUPER + escape", "Lock system", exec("loginctl lock-session"))
-	bind("SUPER + SHIFT + escape", "Power menu", exec("qs ipc call shell toggle launcher session"))
 end
 
 do
