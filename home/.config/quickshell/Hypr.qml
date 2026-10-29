@@ -1,14 +1,17 @@
 pragma Singleton
 import Quickshell
 import Quickshell.Hyprland
+import Quickshell.Io
 import QtQuick
 
-// What the shell asks of Hyprland. A dispatch is Lua (hl.dsp, as in
-// hyprland/*.lua), and every string goes into it through quote(). What the user
-// starts runs through Hyprland too: it gets the session's environment instead
-// of the shell's, and is no child of the shell.
+// What the shell asks of Hyprland: Lua dispatches, strings through quote(); apps
+// start through Hyprland, with the session's environment.
 Singleton {
 	id: root
+
+	// The special workspaces open now, by name: Quickshell gives all specials one id,
+	// so Hyprland.workspaces cannot tell them apart.
+	property var specials: []
 
 	// A Lua string literal.
 	function quote(text: string): string {
@@ -54,5 +57,54 @@ Singleton {
 	// lies under it.
 	function refreshPointer(): void {
 		dispatch("hl.dsp.cursor.move({ x = hl.get_cursor_pos().x, y = hl.get_cursor_pos().y })");
+	}
+
+	// Closes the windows of special `name`, which removes it; hyprctl, as Quickshell
+	// knows a special only by the shared id.
+	function closeSpecial(name: string): void {
+		closer.command = ["sh", "-c", 'hyprctl clients -j | jq -r --arg ws "special:$1" \'.[] | select(.workspace.name == $ws) | .address\'', "sh", name];
+		closer.running = true;
+	}
+
+	// Asked again after each event that may change them: one made before the shell
+	// listened (the hidden Gmail) would be missed otherwise.
+	Connections {
+		target: Hyprland
+		function onRawEvent(ev) {
+			if (["createworkspacev2", "destroyworkspacev2", "openwindow", "closewindow", "movewindowv2"].includes(ev.name))
+				specialsAsk.restart();
+		}
+	}
+
+	// One ask at a time: an event during one asks again once it is done.
+	Timer {
+		id: specialsAsk
+		interval: 50
+		onTriggered: {
+			if (specialsList.running)
+				restart();
+			else
+				specialsList.running = true;
+		}
+	}
+
+	Process {
+		id: specialsList
+		running: true
+		command: ["sh", "-c", "hyprctl workspaces -j | jq -r '.[].name | select(startswith(\"special:\"))'"]
+		stdout: StdioCollector {
+			onStreamFinished: {
+				var names = this.text.split("\n").filter(n => n !== "").map(n => n.slice(8));
+				if (names.join("\n") !== root.specials.join("\n"))
+					root.specials = names;
+			}
+		}
+	}
+
+	Process {
+		id: closer
+		stdout: StdioCollector {
+			onStreamFinished: this.text.split("\n").filter(a => a !== "").forEach(a => root.closeWindow(a))
+		}
 	}
 }

@@ -57,9 +57,8 @@ hl.config({
 	},
 })
 
--- Windows and workspaces move as one, as the shell's drawers slide out: the
--- same curve (easeOutQuint) and time (its animNormal), with no overshoot,
--- which a resizing client would have to draw twice.
+-- The shell drawers' curve and time, no overshoot (a resizing client would draw
+-- twice).
 hl.curve("easeOutQuint", { type = "bezier", points = { { 0.23, 1 }, { 0.32, 1 } } })
 hl.curve("almostLinear", { type = "bezier", points = { { 0.5, 0.5 }, { 0.75, 1 } } })
 hl.curve("quick", { type = "bezier", points = { { 0.15, 0 }, { 0.1, 1 } } })
@@ -101,6 +100,8 @@ hl.layer_rule({
 	name = "blur-shell-panels",
 	match = { namespace = "^quickshell$" },
 	blur = true,
+	-- the tray's menus, which open from the bar
+	blur_popups = true,
 	-- the shell animates its own panels; Hyprland's fade on top shows the
 	-- card unblurred for a moment and freezes its last frame on the way out
 	no_anim = true,

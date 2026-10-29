@@ -1,6 +1,5 @@
--- The special workspaces: each the home of one app, started when the
--- workspace is opened empty; `key` toggles it with SUPER + SHIFT (binds.lua).
--- The shell shows them under the same names (quickshell/Specials.js).
+-- Special workspaces, one app each, started when opened empty; `key` toggles it
+-- with SUPER + SHIFT. The shell's names match (quickshell/Specials.js).
 
 local bin = os.getenv("HOME") .. "/.local/bin"
 
@@ -52,12 +51,8 @@ hl.on("workspace.created", function(ws)
 	end
 end)
 
--- The web apps that start hidden with the session, so their notifications
--- come before they are first opened. They share one Firefox, which names all
--- its windows after the first app (--name) and makes the windows of the
--- others itself, out of reach of exec rules: each window is moved to its
--- special as it opens, and the next app starts after it. The window asks to
--- be activated right after, which would bring its special up.
+-- Web apps started hidden so their notifications come early. They share one
+-- Firefox (windows named after the first app), so each is moved as it opens.
 local background = { "mail", "calendar", "whatsapp" }
 
 hl.on("hyprland.start", function()
@@ -83,10 +78,9 @@ hl.on("hyprland.start", function()
 			follow = false,
 			window = w,
 		}))
+		-- Back on, as misc:focus_on_activate is (look.lua): "unset" leaves it off.
 		hl.timer(function()
-			hl.dispatch(
-				hl.dsp.window.set_prop({ prop = "focus_on_activate", value = "unset", window = w })
-			)
+			hl.dispatch(hl.dsp.window.set_prop({ prop = "focus_on_activate", value = "1", window = w }))
 		end, { timeout = 10000, type = "oneshot" })
 		start_next()
 	end)

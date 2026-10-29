@@ -15,10 +15,11 @@ hl.config({
 	cursor = {
 		warp_on_change_workspace = true,
 	},
-	-- H and L past the last window go to the next workspace, not the next
-	-- monitor (workspaces.lua).
+	-- H / L past the last window go to the next workspace, not monitor; a special
+	-- hides when the workspace changes.
 	binds = {
 		window_direction_monitor_fallback = false,
+		hide_special_on_workspace_change = true,
 	},
 	gestures = {
 		workspace_swipe_touch = true,

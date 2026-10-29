@@ -4,8 +4,11 @@ import "../Specials.js" as Specials
 import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Services.Mpris
+import Quickshell.Services.SystemTray
 import Quickshell.Wayland
+import Quickshell.Widgets
 import QtQuick
+import QtQuick.Effects
 import QtQuick.Layouts
 
 PanelWindow {
@@ -43,10 +46,7 @@ PanelWindow {
 	property var specialEvent: null
 	readonly property string visibleSpecial: String(specialEvent ?? Hyprland.monitorFor(modelData)?.lastIpcObject?.specialWorkspace?.name ?? "").replace(/^special:/, "")
 	// Joined first so the list only changes when the set of specials does.
-	readonly property string specialsKey: Hyprland.workspaces.values
-		.map(w => String(w.name))
-		.filter(n => n.startsWith("special:"))
-		.map(n => n.slice(8))
+	readonly property string specialsKey: Hypr.specials
 		.filter(n => Specials.find(n)?.inBar !== false)
 		.sort()
 		.join("\n")
@@ -65,30 +65,19 @@ PanelWindow {
 		}
 	}
 
-	// A click on a module puts the open panel away, as a click anywhere else
-	// does, unless it is that module's own (`except`). A module that opens a
-	// panel replaces the open one instead, with Panels.toggle.
+	// A click on a module puts the open panel away, unless it is the module's own
+	// (`except`).
 	function leavePanels(except: string): void {
 		if (Panels.active !== "" && Panels.active !== except)
 			Panels.close();
-	}
-
-	// Right-click closes a special: closing its windows removes the workspace
-	// (misc:close_special_on_empty). Hiding, which leaves the app running,
-	// stays on the left click.
-	function closeSpecial(name: string): void {
-		for (const win of Hyprland.toplevels.values.filter(t => t?.workspace?.name === "special:" + name))
-			Hypr.closeWindow(String(win.address ?? ""));
 	}
 
 	function playerFor(special: string): var {
 		return Mpris.players.values.find(p => ((p?.desktopEntry ?? "") + " " + (p?.identity ?? "")).toLowerCase().includes(special)) ?? null;
 	}
 
-	// Colour rule: at rest the workspace group on the left is textDim and the
-	// readouts (clock, weather, status) are textMain. Blue marks what is on
-	// screen or wants attention, green what is running (playback, charging), dim
-	// what is switched off; warning and critical speak for themselves.
+	// Colours: blue is on screen or wants attention, green running, dim off; readouts
+	// are textMain, the workspaces textDim.
 
 	// The bar has no background of its own, so hover is a tint rather than a solid fill.
 	readonly property color hoverColor: Theme.alpha(Theme.textMain, 0.1)
@@ -104,6 +93,7 @@ PanelWindow {
 		// The panel this module opens, if any.
 		property string panel: ""
 		property bool custom: false
+		readonly property bool hovered: pillArea.containsMouse
 		default property alias content: pillRow.data
 		signal activated()
 		signal rightClicked()
@@ -167,6 +157,10 @@ PanelWindow {
 					pill.activated();
 			}
 		}
+	}
+
+	TrayMenu {
+		id: trayMenu
 	}
 
 	Item {
@@ -258,10 +252,11 @@ PanelWindow {
 						: Memory.percent >= 75 ? Theme.warning
 						: isActive ? Theme.accentBlue : Theme.textDim
 					onActivated: Hypr.toggleSpecial("btop")
-					onRightClicked: bar.closeSpecial("btop")
+					onRightClicked: Hypr.closeSpecial("btop")
 				}
 
-				// Blue while it is on screen, green while it plays something.
+				// The app's mark (LineIcons.brands), as the tray shows its apps:
+				// blue while it is on screen, green while it plays something.
 				Repeater {
 					model: bar.specialsKey !== "" ? bar.specialsKey.split("\n") : []
 
@@ -275,7 +270,7 @@ PanelWindow {
 						isActive: modelData === bar.visibleSpecial
 						textColor: isActive ? Theme.accentBlue : (player?.isPlaying ? Theme.accentGreen : Theme.textDim)
 						onActivated: Hypr.toggleSpecial(modelData)
-						onRightClicked: bar.closeSpecial(modelData)
+						onRightClicked: Hypr.closeSpecial(modelData)
 					}
 				}
 			}
@@ -297,10 +292,8 @@ PanelWindow {
 				value: Qt.formatDateTime(now, "hh:mm")
 				onActivated: Hypr.toggleSpecial("calendar")
 
-				// Not SystemClock: in the hour a DST change repeats it schedules
-				// its tick an hour back and spins on a 1 ms timer. Every second,
-				// as the timer runs on the monotonic clock, which stops in
-				// suspend: after resume the time is at most a second stale.
+				// Not SystemClock, which spins in the hour a DST change repeats; a second's tick
+				// is at most a second stale after resume.
 				Timer {
 					running: true
 					repeat: true
@@ -322,6 +315,40 @@ PanelWindow {
 			anchors.right: parent.right
 			anchors.verticalCenter: parent.verticalCenter
 			spacing: 6
+
+			// The tray apps that have something to show (Discord, Steam), in the bar's colour;
+			// click as the app does, right-click for its menu.
+			Repeater {
+				model: SystemTray.items.values.filter(i => i.status !== Status.Passive)
+
+				delegate: Pill {
+					id: trayPill
+					required property SystemTrayItem modelData
+
+					custom: true
+					onActivated: modelData.onlyMenu ? showMenu() : modelData.activate()
+					onRightClicked: modelData.hasMenu ? showMenu() : modelData.secondaryActivate()
+
+					function showMenu(): void {
+						trayMenu.open(trayPill, modelData.menu);
+					}
+
+					IconImage {
+						readonly property bool colored: trayPill.hovered || trayPill.modelData.status === Status.NeedsAttention
+
+						anchors.verticalCenter: parent.verticalCenter
+						implicitSize: 16
+						source: trayPill.modelData.icon
+						layer.enabled: !colored
+						layer.effect: MultiEffect {
+							saturation: -1.0
+							brightness: 0.7
+							colorization: 1.0
+							colorizationColor: Theme.textMain
+						}
+					}
+				}
+			}
 
 			Pill {
 				readonly property bool transcribing: Modes.dictation === "transcribing"
