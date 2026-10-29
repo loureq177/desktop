@@ -1,10 +1,8 @@
 import "Pointer.js" as Pointer
 import QtQuick
 
-// Hovering an item selects it, as the keyboard does, so there is one
-// highlight for both. A real movement of the pointer counts, and a list the
-// wheel or the touchpad scrolls under it; never contents the keyboard or an
-// animation moves, so it does not take the keyboard's selection.
+// Hovering selects, as the keyboard does: only real pointer moves or a wheel scroll
+// count, not contents moving under a resting pointer.
 HoverHandler {
 	id: root
 
@@ -13,7 +11,8 @@ HoverHandler {
 	onPointChanged: {
 		if (!hovered)
 			return;
-		var p = parent.mapToItem(null, point.position.x, point.position.y);
+		// The event's own window position: one mapped from a gliding row looks moved.
+		var p = point.scenePosition;
 		if (Pointer.moved(p.x, p.y) || Pointer.scrolling)
 			Pointer.pick(() => root.selected());
 	}

@@ -4,9 +4,8 @@ import Quickshell.Io
 import QtQuick
 import "WeatherModel.js" as WeatherModel
 
-// The forecast from Open-Meteo, every quarter of an hour: for the place in
-// ~/.config/weather.json ({ "name", "latitude", "longitude" }), or else for
-// where ipwho.is places this IP address.
+// Open-Meteo's forecast every 15 minutes, for ~/.config/weather.json's place or
+// wherever ipwho.is puts this IP.
 Singleton {
 	id: root
 
@@ -21,7 +20,6 @@ Singleton {
 	property string lastError: ""
 
 	function refresh(): void {
-		placeFile.reload();
 		var place = WeatherModel.parseLocationFile(placeFile.text());
 		if (place.latitude !== null) {
 			location = place.name;
@@ -63,6 +61,9 @@ Singleton {
 		path: (Quickshell.env("XDG_CONFIG_HOME") || Quickshell.env("HOME") + "/.config") + "/weather.json"
 		blockLoading: true
 		printErrors: false
+		// Kept current here: text() right after a reload() is the read before.
+		watchChanges: true
+		onFileChanged: reload()
 	}
 
 	Process {

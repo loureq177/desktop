@@ -5,9 +5,8 @@ import Quickshell.Io
 import QtQuick
 import QtQuick.Controls
 
-// The clipboard history (cliphist): what was copied, newest first, and what
-// the row picked holds in full beside it. Enter pastes it into the focused
-// window; the icon of a row deletes it.
+// The clipboard history (cliphist), newest first, the picked entry in full beside it;
+// Enter pastes it, the row's icon deletes it.
 LauncherPane {
 	id: pane
 
@@ -98,43 +97,35 @@ LauncherPane {
 		}
 	}
 
-	// One decode at a time; the entry picked meanwhile is decoded next.
+	// One decode at a time; images go to previewPath and load off the GUI thread. Not a
+	// FileView: its text() after reload() is stale.
 	Process {
 		id: decoder
 
 		property string entryId: ""
+		property bool image: false
 
 		function decode(): void {
 			var e = pane.current;
 			if (running || !pane.visible || !e || e.id === pane.decodedId)
 				return;
 			entryId = e.id;
-			command = ["sh", "-c", 'cliphist decode "$1" > "$2"', "sh", e.id, pane.previewPath];
+			image = pane.imageInfo(e.preview) !== null;
+			command = image ? ["sh", "-c", 'cliphist decode "$1" > "$2"', "sh", e.id, pane.previewPath] : ["cliphist", "decode", e.id];
 			running = true;
 		}
 
 		onExited: code => {
-			// Only text is read back here, and in one go: an image goes to
-			// the Image, which loads it off the GUI thread, so a scroll over
-			// the rows does not wait for it.
 			if (code === 0 && entryId === pane.current?.id) {
-				if (pane.imageInfo(pane.current.preview)) {
-					pane.decodedText = "";
-				} else {
-					previewFile.reload();
-					pane.decodedText = previewFile.text();
-				}
+				pane.decodedText = image ? "" : decodedOut.text;
 				pane.decodedId = entryId;
 			}
 			Qt.callLater(decode);
 		}
-	}
 
-	FileView {
-		id: previewFile
-		path: pane.previewPath
-		blockLoading: true
-		printErrors: false
+		stdout: StdioCollector {
+			id: decodedOut
+		}
 	}
 
 	SelectList {

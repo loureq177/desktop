@@ -4,9 +4,8 @@ import Quickshell.Io
 import Quickshell.Services.Notifications
 import QtQuick
 
-// Two lists of rows, newest first: `history` for the center and `toasts` for
-// the popups. A row copies the notification's fields (see row()), so the
-// center keeps showing it after its app has closed it.
+// `history` for the center and `toasts` for popups, newest first; a row copies
+// the notification, so it outlives the app closing it.
 Singleton {
 	id: root
 
@@ -97,9 +96,8 @@ Singleton {
 		return server.trackedNotifications.values.find(n => n.id === nid) ?? null;
 	}
 
-	// Pixels sent with the notification (image-data) are served only while the
-	// notification object lives, and an app closing it frees them: a lock keeps
-	// a closed one around while the center still shows its row.
+	// An image sent with a notification lives only as long as it does: a lock keeps it
+	// while the center shows the row.
 	function keepImage(n): void {
 		if (root.imageLocks[n.id] || !n.image.startsWith("image://qsimage/"))
 			return;
@@ -185,15 +183,18 @@ Singleton {
 
 	// A click on the card: its default action, or else its app's window.
 	function activate(nid): void {
-		var action = root.live(nid)?.actions.find(a => a.identifier === "default");
-		if (action) {
+		var i = root.indexIn(root.history, nid);
+		var entry = i >= 0 ? root.history.get(i) : null;
+		var isDefault = a => a.identifier === "default";
+		// One the app has closed (WhatsApp closes the last on each message): its newest
+		// open one leads to the same window, which a class can't find for the web apps.
+		var n = root.live(nid) ?? (entry ? server.trackedNotifications.values.filter(t =>
+			(t.desktopEntry || t.appName) === (entry.desktopEntry || entry.appName) && t.actions.some(isDefault)).pop() : null);
+		var action = n?.actions.find(isDefault);
+		if (action)
 			action.invoke();
-		} else {
-			var i = root.indexIn(root.history, nid);
-			var entry = i >= 0 ? root.history.get(i) : null;
-			if (entry && (entry.desktopEntry || entry.appName))
-				Hypr.focusApp(entry.desktopEntry || entry.appName);
-		}
+		else if (entry && (entry.desktopEntry || entry.appName))
+			Hypr.focusApp(entry.desktopEntry || entry.appName);
 		root.removeFrom(root.toasts, nid);
 	}
 

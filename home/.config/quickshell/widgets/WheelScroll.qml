@@ -2,13 +2,8 @@ import ".."
 import "Pointer.js" as Pointer
 import QtQuick
 
-// Wheel and touchpad scrolling for the Flickable it is declared in, the way
-// the rest of the desktop scrolls, and the same in every list of the shell.
-// Flickable turns every wheel notch into a short flick, and its touchpad
-// scrolling stops dead when the fingers lift, as Wayland sends no momentum to
-// carry on with. Here a notch glides a fixed distance, and the touchpad
-// moves the list as far as it moves a page in Firefox, then keeps going at
-// the speed the fingers left it.
+// Wheel and touchpad scrolling for its Flickable, as in the rest of the desktop: a notch
+// glides a fixed distance, the touchpad moves as in Firefox and keeps its momentum.
 MouseArea {
 	id: root
 
@@ -18,9 +13,7 @@ MouseArea {
 
 	// Pixels a notch (a wheel turn of 120) scrolls.
 	readonly property int notchStep: 80
-	// Pixels a touchpad's pixel moves the list. Firefox (on GTK 3) scrolls 4:
-	// GDK divides what Wayland sends by 10, the pan gesture multiplies it by
-	// 40 (apz.gtk.pangesture.pixel_delta_mode_multiplier).
+	// Pixels a touchpad pixel moves: Firefox (GTK 3) scrolls 4 (÷10 by GDK, ×40 pan multiplier).
 	readonly property real fingerGain: 4
 
 	// Over the contents, not inside them (where Flickable puts its children),
@@ -41,10 +34,8 @@ MouseArea {
 	// The touchpad's last movements, { t, d }, for the speed it leaves at.
 	property var samples: []
 
-	// The wheel or the touchpad moves the list, not the keyboard: the rows
-	// passing under the resting pointer take the selection (HoverSelect), up
-	// to the one it stops under. It lasts a moment longer than the movement,
-	// as the hover of a frame comes in the next one.
+	// The pointer scrolls, not the keyboard: rows passing under it take the selection;
+	// it lasts a moment past the movement, as hover comes a frame late.
 	property bool byPointer: false
 	readonly property bool gliding: glide.running || flickable.moving
 	onByPointerChanged: Pointer.setScrolling(byPointer)
@@ -76,11 +67,8 @@ MouseArea {
 		glide.start();
 	}
 
-	// Brings the row (or cell) `index` of a ListView or GridView into sight, as
-	// positionViewAtIndex(index, Contain) does, but gliding there in the time
-	// the highlight takes to light it, so the two arrive together. A step made
-	// mid-glide counts from where the glide was going. The pointer's picks
-	// (Pointer.pick) are in sight already, and leave the list moving as it was.
+	// Brings row `index` into sight as positionViewAtIndex(Contain) does, gliding in step
+	// with the highlight; the pointer's picks are left alone.
 	function reveal(index: int): void {
 		if (Pointer.picking)
 			return;
@@ -97,6 +85,12 @@ MouseArea {
 		setPosition(aim);
 		flickable.positionViewAtIndex(index, ListView.Contain);
 		var to = position();
+		// Further than a page it jumps: a glide past unmade rows ends where their guessed
+		// heights put it. Put right once they are made.
+		if (Math.abs(to - from) > flickable.height) {
+			Qt.callLater(() => flickable.positionViewAtIndex(index, ListView.Contain));
+			return;
+		}
 		setPosition(from);
 		if (to !== from)
 			glideTo(to, Theme.animFast);
