@@ -4,3 +4,12 @@
 # Sourced, not exported: arrays cannot be exported.
 # shellcheck disable=SC2034
 SLURP_ARGS=(-d -b "#0d1117b0" -c "#58a6ff" -s "#58a6ff20" -w 2 -B "#00000000")
+
+# The colours the scripts draw with in a terminal (tasks.sh), as rrggbb.
+UI_ACCENT_BLUE="58a6ff"
+UI_ACCENT_PURPLE="bc8cff"
+UI_ACCENT_GREEN="3fb950"
+UI_WARNING="d29922"
+UI_CRITICAL="f85149"
+UI_TEXT_DIM="8b949e"
+UI_TEXT_MUTED="484f58"

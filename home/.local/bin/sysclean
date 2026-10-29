@@ -14,15 +14,11 @@ case "${1:-}" in
 --root) ROOT=1 ;;
 esac
 
-skip_sudo() {
-    echo "  (skipped in --auto: needs sudo)"
-}
-
-# prune_paccache CMD... [-- EXTRA...]: keep two versions of every package and
-# drop uninstalled ones, reporting only paccache's own "finished" verdicts.
+# Keeps two versions of each package and drops uninstalled ones; prints what was removed
+# ("3 packages (124 MiB)"), or nothing.
 prune_paccache() {
     local -a cmd=() extra=()
-    local arg sep=0 mode out line found=0
+    local arg sep=0 mode out n=0 bytes=0 count size
     for arg in "$@"; do
         if [ "$arg" = -- ]; then
             sep=1
@@ -35,13 +31,13 @@ prune_paccache() {
     for mode in "-r -k 2" "-r -u -k 0"; do
         # shellcheck disable=SC2086
         out=$("${cmd[@]}" $mode "${extra[@]}" 2>&1) || true
-        while IFS= read -r line; do
-            [ -n "$line" ] || continue
-            _log_ok "${line#finished: }"
-            found=1
-        done < <(grep -oE 'finished: .*' <<<"$out" || true)
+        # "finished: 3 packages removed (disk space saved: 124.4 MiB)"
+        while read -r count size; do
+            n=$((n + count))
+            bytes=$((bytes + $(numfmt --from=iec-i <<<"${size// /}" 2>/dev/null || echo 0)))
+        done < <(sed -nE 's/.*finished: ([0-9]+) packages? removed \(disk space saved: ([0-9.]+) ([KMGT]?i?)B\).*/\1 \2\3/p' <<<"$out")
     done
-    [ "$found" = 1 ] || _log_ok "Nothing to remove."
+    ((n == 0)) || printf '%d packages (%s)' "$n" "$(numfmt --to=iec-i --suffix=B "$bytes")"
 }
 
 avail_bytes() {
@@ -49,56 +45,54 @@ avail_bytes() {
         awk 'NR>1 && !seen[$1]++ {sum+=$2} END {print sum+0}'
 }
 
-# What needs root, run as `sysclean --root` under sudo. It finds what to
-# remove by itself: nothing it deletes comes from the caller.
+# The root steps (`sysclean --root` under sudo), finding what to remove by themselves;
+# their last line is the step's summary.
 root_steps() {
-    _log_info "Checking for orphaned packages..."
-    local -a orphans
+    local -a said=() orphans
     mapfile -t orphans < <(pacman -Qdtq || true)
     if [ "${#orphans[@]}" -gt 0 ]; then
-        echo "Removing: ${orphans[*]}"
+        echo "Removing orphans: ${orphans[*]}"
         pacman -Rns --noconfirm "${orphans[@]}"
-    else
-        _log_ok "No orphaned packages."
+        said+=("${#orphans[@]} orphans")
     fi
 
-    _log_info "Cleaning cached pacman packages..."
+    local cache
     if command -v paccache >/dev/null 2>&1; then
-        prune_paccache paccache
+        cache=$(prune_paccache paccache)
+        [ -z "$cache" ] || said+=("cache $cache")
     fi
 
-    _log_info "Cleaning orphaned kernel modules..."
-    local running_kernel dir ver removed_modules=0
+    local running_kernel dir ver
     running_kernel=$(uname -r)
     for dir in /usr/lib/modules/*/; do
         dir="${dir%/}"
         [ -L "$dir" ] && continue
         ver="${dir##*/}"
-        if [ "$ver" = "$running_kernel" ]; then
-            echo "  Keeping $ver (running kernel)"
-            continue
-        fi
+        [ "$ver" = "$running_kernel" ] && continue
         if [ -e "$dir/modules.dep" ]; then
             pacman -Qo "$dir/modules.dep" &>/dev/null && continue
         fi
         pacman -Qo "$dir" &>/dev/null && continue
         echo "Removing orphaned modules directory: $dir"
         rm -rf -- "${dir:?module dir unset}"
-        removed_modules=1
+        said+=("modules of $ver")
     done
-    [ "$removed_modules" = 1 ] || _log_ok "No orphaned modules."
 
-    _log_info "Vacuuming systemd coredumps..."
-    if [ -d /var/lib/systemd/coredump ]; then
-        rm -rf -- /var/lib/systemd/coredump/*
-        _log_ok "Coredumps removed."
-    else
-        _log_ok "No coredumps."
+    local dumps=(/var/lib/systemd/coredump/*)
+    if ((${#dumps[@]})); then
+        rm -rf -- "${dumps[@]}"
+        said+=("${#dumps[@]} coredumps")
     fi
 
-    _log_info "Vacuuming journal..."
-    journalctl --vacuum-size=200M --vacuum-time=2weeks --quiet
-    _log_ok "Journal trimmed to 200M / 2 weeks."
+    local freed
+    freed=$(journalctl --vacuum-size=200M --vacuum-time=2weeks 2>&1 | sed -nE 's/.*freed ([0-9.]+[KMGT]?) .*/\1/p' | tail -n 1)
+    [[ -z "$freed" || "$freed" == 0B ]] || said+=("journal ${freed}B")
+
+    if ((${#said[@]})); then
+        _log_ok "Removed $(_join ", " "${said[@]}")"
+    else
+        _log_ok "Nothing to remove"
+    fi
 }
 
 if [ "$ROOT" = 1 ]; then
@@ -110,141 +104,160 @@ if [ "$ROOT" = 1 ]; then
     exit 0
 fi
 
+source "${SELF%/*}/../lib/dotfiles/tasks.sh"
+
+# The root steps, in one `sysclean --root`: one password, asked before the
+# steps start (they have no terminal to ask from).
+clean_root() {
+    if [ "$AUTO" = 1 ]; then
+        local -a orphans
+        mapfile -t orphans < <(pacman -Qdtq || true)
+        if ((${#orphans[@]})); then
+            printf '%s\n' "${orphans[@]}"
+            _log_warn "Skipped (needs sudo); ${#orphans[@]} orphans: ${orphans[*]}"
+        else
+            _log_ok "Skipped (needs sudo)"
+        fi
+        return 0
+    fi
+    sudo -n "$SELF" --root
+}
+
+clean_paru() {
+    if [ -d "$HOME/.cache/paru" ]; then
+        rm -rf "$HOME/.cache/paru/clone/"* "$HOME/.cache/paru/diff/"* 2>/dev/null || true
+        local pkgs=""
+        [ -d "$HOME/.cache/paru/pkg" ] && pkgs=$(prune_paccache paccache -- -c "$HOME/.cache/paru/pkg")
+        _log_ok "Build files cleared${pkgs:+, $pkgs}"
+    else
+        _log_ok "No Paru cache"
+    fi
+}
+
+clean_flatpak() {
+    local unused
+    if [ "$AUTO" = 1 ]; then
+        unused=$(flatpak uninstall --user --unused -y 2>&1 || true)
+    else
+        unused=$(flatpak uninstall --unused -y --noninteractive 2>&1 || true)
+    fi
+    printf '%s\n' "$unused"
+    local removed
+    removed=$(grep -cE '^ *[0-9]+\. ' <<<"$unused" || true)
+
+    # Uninstalling an app leaves its ~/.var/app data behind. It can hold
+    # saves, so it is only listed.
+    local apps app dir
+    local -a leftovers=()
+    apps=$(flatpak list --app --columns=application 2>/dev/null) || return 0
+    declare -A installed=()
+    while IFS= read -r app; do
+        [ -n "$app" ] && installed[$app]=1
+    done <<<"$apps"
+    for dir in "$HOME/.var/app/"*/; do
+        dir="${dir%/}"
+        [ -n "${installed[${dir##*/}]:-}" ] && continue
+        leftovers+=("${dir/#$HOME/\~} ($(du -sh -- "$dir" 2>/dev/null | cut -f1))")
+    done
+    local runtimes="No unused runtimes"
+    ((removed == 0)) || runtimes="$removed unused runtimes removed"
+    if ((${#leftovers[@]})); then
+        _log_warn "$runtimes; data of uninstalled apps left (remove by hand): $(_join ", " "${leftovers[@]}")"
+    else
+        _log_ok "$runtimes"
+    fi
+}
+
+clean_misc() {
+    # debuginfod_client: gdb's debug symbols. Its own expiry runs only with gdb.
+    rm -rf "$HOME/.cache/thumbnails/"* "$HOME/.cache/debuginfod_client/"* /tmp/paru/* 2>/dev/null || true
+    _log_ok "Thumbnails, debug symbols, build files"
+}
+
+clean_trash() {
+    if [ "$AUTO" = 1 ]; then
+        _log_ok "Skipped (--auto: it is your data)"
+    else
+        local n
+        n=$(gio list trash:// 2>/dev/null | wc -l || echo 0)
+        run_if gio gio trash --empty
+        if ((n)); then _log_ok "Emptied ($n items)"; else _log_ok "Already empty"; fi
+    fi
+}
+
+clean_dev_caches() {
+    run_if uv uv cache prune
+    run_if pip pip cache purge
+    run_if bun bun pm cache rm
+    run_if npm npm cache clean --force
+    run_if pnpm pnpm store prune
+    local -a tools=() t
+    for t in uv pip bun npm pnpm; do
+        command -v "$t" >/dev/null 2>&1 && tools+=("$t")
+    done
+    _log_ok "Pruned $(_join ", " "${tools[@]}")"
+}
+
+clean_containers() {
+    if [ "$AUTO" = 1 ]; then
+        _log_ok "Skipped (--auto: images take long to get back)"
+    else
+        # Images, stopped containers and build cache come back with a pull or a
+        # build. Volumes hold data and do not: they stay.
+        run_if podman podman system prune -a --force
+        run_if docker docker system prune -a -f
+        run_if docker docker builder prune -f
+        _log_ok "Unused images and build cache (volumes kept)"
+    fi
+}
+
+RUN_START=${EPOCHREALTIME/./}
 CLEAN_MOUNTS=()
 for m in / /home /boot; do
     [ -e "$m" ] && CLEAN_MOUNTS+=("$m")
 done
 AVAIL_BEFORE=$(avail_bytes "${CLEAN_MOUNTS[@]}")
 
-failed_services=0
+if [ "$AUTO" = 1 ] || sudo -v; then
+    task "System" clean_root
+else
+    _log_warn "No sudo: the root steps are skipped; cleaning the rest."
+fi
+task "Paru cache" clean_paru
+command -v flatpak >/dev/null 2>&1 && task "Flatpak" clean_flatpak
+task "Temporary files" clean_misc
+task "Trash" clean_trash
+task "Dev caches" clean_dev_caches
+task "Containers" clean_containers
+run_tasks "Cleaning up"
 
-if [ "$AUTO" = 1 ]; then
-    _log_info "Checking for orphaned packages..."
-    orphan_list=$(paru -Qdtq || true)
-    if [ -n "$orphan_list" ]; then
-        echo "Orphans found (leaving them: removal needs sudo):"
-        echo "$orphan_list"
-    else
-        _log_ok "No orphaned packages."
-    fi
-    for step in "Cleaning cached pacman packages..." "Cleaning orphaned kernel modules..." \
-        "Vacuuming systemd coredumps..." "Vacuuming journal..."; do
-        _log_info "$step"
-        skip_sudo
+# Failed units are reset once shown, so the next run lists only new failures;
+# --auto keeps them for a run someone reads.
+attention=()
+failed_sys=$(systemctl --failed --plain --no-legend --no-pager 2>/dev/null | awk '{print $1}' || true)
+failed_user=$(systemctl --user --failed --plain --no-legend --no-pager 2>/dev/null | awk '{print $1}' || true)
+if [ -n "$failed_sys$failed_user" ]; then
+    for u in $failed_sys; do
+        attention+=("$u failed: journalctl -b -u $u")
     done
-else
-    # All root steps run in one `sysclean --root`, so there is one prompt.
-    sudo "$SELF" --root || _log_warn "Root steps did not finish (exit $?); cleaning the rest."
-fi
-
-_log_info "Cleaning Paru AUR cache..."
-if [ -d "$HOME/.cache/paru" ]; then
-    rm -rf "$HOME/.cache/paru/clone/"* "$HOME/.cache/paru/diff/"* 2>/dev/null || true
-    if [ -d "$HOME/.cache/paru/pkg" ]; then
-        prune_paccache paccache -- -c "$HOME/.cache/paru/pkg"
-    else
-        _log_ok "Cleared."
-    fi
-else
-    _log_ok "No Paru cache."
-fi
-
-if command -v flatpak >/dev/null 2>&1; then
-    _log_info "Cleaning Flatpak leftovers..."
-    if [ "$AUTO" = 1 ]; then
-        flatpak uninstall --user --unused -y 2>/dev/null || true
-    else
-        flatpak uninstall --unused -y 2>/dev/null || true
-    fi
-
-    # Uninstalling an app leaves its ~/.var/app data behind. It can hold
-    # saves, so it is only listed.
-    _log_info "Checking for data of uninstalled Flatpaks..."
-    if apps=$(flatpak list --app --columns=application 2>/dev/null); then
-        declare -A installed=()
-        while IFS= read -r app; do
-            [ -n "$app" ] && installed[$app]=1
-        done <<<"$apps"
-        leftovers=0
-        for dir in "$HOME/.var/app/"*/; do
-            dir="${dir%/}"
-            [ -n "${installed[${dir##*/}]:-}" ] && continue
-            echo "  $(du -sh -- "$dir" 2>/dev/null | cut -f1)	$dir"
-            leftovers=1
-        done
-        if [ "$leftovers" = 1 ]; then
-            _log_warn "Left in place (remove by hand if not needed)."
-        else
-            _log_ok "None."
-        fi
-    fi
-fi
-
-_log_info "Cleaning miscellaneous caches..."
-# debuginfod_client: gdb's debug symbols. Its own expiry runs only with gdb.
-rm -rf "$HOME/.cache/thumbnails/"* "$HOME/.cache/debuginfod_client/"* /tmp/paru/* 2>/dev/null || true
-_log_ok "Thumbnails, debug symbols and temporary build files cleared."
-
-_log_info "Emptying trash..."
-if [ "$AUTO" = 1 ]; then
-    echo "  (skipped in --auto: deletes user data)"
-else
-    run_if gio gio trash --empty
-    _log_ok "Trash emptied."
-fi
-
-_log_info "Cleaning Python & Node caches..."
-run_if uv uv cache prune
-run_if pip pip cache purge
-run_if bun bun pm cache rm
-run_if npm npm cache clean --force
-run_if pnpm pnpm store prune
-_log_ok "Caches pruned."
-
-_log_info "Pruning container engines..."
-if [ "$AUTO" = 1 ]; then
-    echo "  (skipped in --auto: deletes images)"
-else
-    # Images, stopped containers and build cache come back with a pull or a
-    # build. Volumes hold data and do not: they stay.
-    run_if podman podman system prune -a --force
-    run_if docker docker system prune -a -f
-    run_if docker docker builder prune -f
-    _log_ok "Unused images, stopped containers and build cache removed (volumes kept)."
-fi
-
-_log_info "Checking for failed systemd services..."
-failed_sys=$(systemctl --failed --plain --no-legend --no-pager 2>/dev/null || true)
-failed_user=$(systemctl --user --failed --plain --no-legend --no-pager 2>/dev/null || true)
-
-if [ -n "$failed_sys" ]; then
-    _log_warn "Failed system services:"
-    echo "$failed_sys"
-    failed_services=1
-fi
-if [ -n "$failed_user" ]; then
-    _log_warn "Failed user services:"
-    echo "$failed_user"
-    failed_services=1
-fi
-if [ "$failed_services" = 0 ]; then
-    _log_ok "No failed services."
-    _log_info "System is clean."
-else
-    # systemd keeps a unit failed until a reset or a reboot, so once shown
-    # they are reset: the next run lists only what failed since. Why they
-    # failed stays in the journal. --auto keeps them for a run someone reads.
+    for u in $failed_user; do
+        attention+=("$u failed: journalctl -b --user -u $u")
+    done
     if [ "$AUTO" = 0 ]; then
-        mapfile -t units < <(awk '{print $1}' <<<"$failed_sys")
-        [ -z "$failed_sys" ] || sudo systemctl reset-failed -- "${units[@]}" || true
-        mapfile -t units < <(awk '{print $1}' <<<"$failed_user")
-        [ -z "$failed_user" ] || systemctl --user reset-failed -- "${units[@]}" || true
-        echo "  Reset; why one failed: journalctl -b -u UNIT (--user -u for user ones)"
+        # shellcheck disable=SC2086
+        [ -z "$failed_sys" ] || sudo systemctl reset-failed -- $failed_sys || true
+        # shellcheck disable=SC2086
+        [ -z "$failed_user" ] || systemctl --user reset-failed -- $failed_user || true
     fi
-    _log_info "Cleaned, but some services have failed (see above)."
+fi
+if ((${#attention[@]})); then
+    _log_info "Needs you"
+    for a in "${attention[@]}"; do
+        _log_warn "$a"
+    done
 fi
 
 AVAIL_AFTER=$(avail_bytes "${CLEAN_MOUNTS[@]}")
 FREED_BYTES=$((AVAIL_AFTER - AVAIL_BEFORE))
 if [ "$FREED_BYTES" -lt 0 ]; then FREED_BYTES=0; fi
-_log_total "$(numfmt --to=iec-i --suffix=B -- "$FREED_BYTES")"
+_log_total "$(numfmt --to=iec-i --suffix=B -- "$FREED_BYTES")" "$(_task_time $((${EPOCHREALTIME/./} - RUN_START)))"

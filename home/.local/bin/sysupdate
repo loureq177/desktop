@@ -3,14 +3,18 @@ set -euo pipefail
 
 source "$HOME/.local/lib/dotfiles/common.sh"
 
-# step MSG TOOL CMD...: run CMD under a heading when TOOL is installed; a
-# failing step does not stop the others.
-step() {
-    local msg=$1 tool=$2
-    shift 2
-    command -v "$tool" >/dev/null 2>&1 || return 0
-    _log_info "$msg"
-    "$@" || true
+STATE="${XDG_STATE_HOME:-$HOME/.local/state}/sysupdate"
+mkdir -p "$STATE"
+# All that the steps printed, for when the lines here are not enough.
+TASKS_LOG="$STATE/last.log"
+: >"$TASKS_LOG"
+source "$HOME/.local/lib/dotfiles/tasks.sh"
+
+# queue LABEL TOOL FUNCTION: a step of the rest, when TOOL is installed. The
+# steps run at once (tasks.sh); a failing one does not stop the others.
+queue() {
+    command -v "$2" >/dev/null 2>&1 || return 0
+    task "$1" "$3"
 }
 
 notify() {
@@ -18,126 +22,377 @@ notify() {
     notify-send --app-name="System Update" --icon="$1" --urgency="$2" "$3" "$4" || true
 }
 
-abort() {
-    echo "operation aborted" >&2
-    exit "$1"
+# What needs a look once it is all done, said again at the end.
+attention=()
+
+# "a, b and c".
+listing() {
+    local out="" i=0 x
+    for x in "$@"; do
+        i=$((i + 1))
+        if ((i == 1)); then
+            out=$x
+        elif ((i == $#)); then
+            out+=" and $x"
+        else
+            out+=", $x"
+        fi
+    done
+    printf '%s' "$out"
 }
 
-# Zinit prints a line for every plugin it checks; real changes (git output)
-# still come through, the checked ones are only counted.
+# --- System packages ---------------------------------------------------------
+
+# pacman's stages as one changing spinner line (it prints a line per stage without a tty),
+# showing only warnings, errors and failing hooks; the changes come from pacman.log.
+pacman_view() {
+    local line buf="" stage="Syncing databases" frame=0 hooks=0 count="" size="" done_ops=0 rc start
+    local tty=0
+    [[ -t 1 ]] && tty=1
+    start=$(_task_now)
+    _tasks_sweep
+    ((tty)) && printf '\e[?25l'
+    while :; do
+        rc=0
+        IFS= read -r -t 0.08 line || rc=$?
+        if ((rc > 128)); then
+            buf+=$line
+        elif ((rc != 0)); then
+            line=$buf$line
+            [[ -z "$line" ]] && break
+            buf=""
+            rc=-1
+        else
+            line=$buf$line
+            buf=""
+        fi
+        if ((rc <= 0)); then
+            case $line in
+            "" | "no new news" | " there is nothing to do" | ":: Synchronizing package databases..." | ":: Starting full system upgrade..." | \
+                "resolving dependencies..." | "looking for conflicting packages..." | "checking dependencies..." | \
+                ":: Proceed with installation? [Y/n]"* | ":: Retrieving packages..." | " "*" is up to date" | \
+                "Total Installed Size:"* | "Net Upgrade Size:"*) ;;
+            " "*" downloading...")
+                [[ -n "$count" ]] && stage="Downloading $count packages${size:+, $size}"
+                ;;
+            "Packages ("*)
+                count=${line#Packages (}
+                count=${count%%)*}
+                ;;
+            "Total Download Size:"*)
+                size=${line#*:}
+                size=${size#"${size%%[![:space:]]*}"}
+                ;;
+            "checking keyring..." | "checking package integrity..." | "loading package files..." | \
+                "checking for file conflicts..." | "checking available disk space...")
+                stage="Checking packages"
+                ;;
+            ":: Processing package changes...") stage="Installing" ;;
+            "upgrading "*... | "installing "*... | "removing "*... | "reinstalling "*... | "downgrading "*...)
+                done_ops=$((done_ops + 1))
+                stage="${line%...}${count:+ ($done_ops/$count)}"
+                stage=${stage^}
+                ;;
+            ":: Running pre-transaction hooks..." | ":: Running post-transaction hooks...")
+                hooks=1
+                stage="Running hooks"
+                ;;
+            "("[0-9]*"/"[0-9]*") "*)
+                if ((hooks)); then
+                    stage=${line#*) }
+                    stage=${stage%...}
+                fi
+                ;;
+            *)
+                # A hook's own output is noise unless something went wrong.
+                if ((hooks)) && ! grep -qiE 'error|fail' <<<"$line"; then
+                    :
+                else
+                    ((tty)) && printf '\r\e[2K'
+                    case $line in
+                    "warning: "*) _log_warn "${line#warning: }" ;;
+                    "error: "*) _log_error "${line#error: }" 2>&1 ;;
+                    *) printf '    %s\n' "$line" ;;
+                    esac
+                fi
+                ;;
+            esac
+            ((rc == -1)) && break
+        fi
+        if ((tty)); then
+            printf '\r\e[2K  %s %s  %s%s%s' "$(_task_spinner "$frame" 0)" "$stage" \
+                "$_C_DIM" "$(_task_time $(($(_task_now) - start)))" "$_C_NC"
+            frame=$((frame + 1))
+        fi
+    done
+    ((tty)) && printf '\r\e[2K\e[?25h'
+    PACMAN_TIME=$(_task_time $(($(_task_now) - start)))
+    PACMAN_SIZE=$size
+    return 0
+}
+
+# What pacman changed since line $1 of its log: the count, then a package a line.
+pacman_changes() {
+    local from=$1 what=$2
+    local -a lines
+    mapfile -t lines < <(tail -n "+$((from + 1))" "$PACMAN_LOG" 2>/dev/null |
+        sed -nE 's/.*\[ALPM\] (upgraded|installed|removed|downgraded|reinstalled) ([^ ]+) \((.*)\)$/\1\t\2\t\3/p')
+    if ((${#lines[@]} == 0)); then
+        _log_ok "Up to date${what:+ · $what}"
+        return
+    fi
+    local -A counts=()
+    local l verb name ver width=0
+    for l in "${lines[@]}"; do
+        IFS=$'\t' read -r verb name ver <<<"$l"
+        counts[$verb]=$((${counts[$verb]:-0} + 1))
+        ((${#name} > width)) && width=${#name}
+    done
+    local -a said=()
+    for verb in upgraded installed downgraded reinstalled removed; do
+        [[ -n "${counts[$verb]:-}" ]] && said+=("${counts[$verb]} $verb")
+    done
+    _log_ok "$(listing "${said[@]}")${what:+ · $what}"
+    for l in "${lines[@]}"; do
+        IFS=$'\t' read -r verb name ver <<<"$l"
+        ver=${ver// -> / → }
+        [[ "$verb" == upgraded ]] || ver="$verb $ver"
+        printf '    %-*s  %s%s%s\n' "$width" "$name" "$_C_DIM" "$ver" "$_C_NC"
+    done
+}
+
+# --- The rest, all at once ---------------------------------------------------
+
+# Zinit and its plugins in parallel (10× faster); what changed comes from the plugins'
+# commits. Own session: an interactive zsh grabs the terminal.
 update_zsh_plugins() {
-    run_captured zsh -ic "zinit self-update && zinit update --all" || return 0
-    local checked rest
-    checked=$(grep -cE 'Updating [^ ]+/[^ ]+$' <<<"$OUT" || true)
-    rest=$(grep -vE -e 'Updating [^ ]+/[^ ]+$' -e "can't change option" <<<"$OUT" || true)
-    [ -z "$rest" ] || printf '%s\n' "$rest"
-    [ "$checked" -eq 0 ] || _log_ok "Checked $checked plugins."
+    local dir="${XDG_DATA_HOME:-$HOME/.local/share}/zinit" d
+    local -A before=()
+    for d in "$dir/zinit.git" "$dir/plugins/"*/; do
+        d=${d%/}
+        [[ -d "$d/.git" ]] && before[$d]=$(git -C "$d" rev-parse HEAD 2>/dev/null || true)
+    done
+    run_captured setsid -w zsh -ic "zinit self-update && zinit update --parallel" || return 1
+    local -a updated=()
+    for d in "${!before[@]}"; do
+        [[ "$(git -C "$d" rev-parse HEAD 2>/dev/null || true)" == "${before[$d]}" ]] && continue
+        d=${d##*/}
+        d=${d%.git}
+        updated+=("${d#*---}")
+    done
+    if ((${#updated[@]})); then
+        _log_ok "Updated $(listing "${updated[@]}") (of ${#before[@]})"
+    else
+        _log_ok "${#before[@]} checked, none updated"
+    fi
 }
 
 # Lazy's sync log runs to hundreds of lines; the lockfile diff says what moved.
 update_nvim_plugins() {
-    local lock="${XDG_CONFIG_HOME:-$HOME/.config}/nvim/lazy-lock.json" before="" after="" total changed
-    [ -f "$lock" ] && before=$(<"$lock")
-    run_captured nvim --headless "+Lazy! sync" +qa || return 0
+    local lock="${XDG_CONFIG_HOME:-$HOME/.config}/nvim/lazy-lock.json" old_lock="" new_lock="" total
+    local -a changed
+    [ -f "$lock" ] && old_lock=$(<"$lock")
+    run_captured nvim --headless "+Lazy! sync" +qa || return 1
     [ -f "$lock" ] || return 0
-    after=$(<"$lock")
-    total=$(grep -c '^ *"' <<<"$after" || true)
-    changed=$(diff <(printf '%s\n' "$before") <(printf '%s\n' "$after") \
-        | sed -nE 's/^> *"([^"]+)".*/\1/p' | paste -sd, - | sed 's/,/, /g' || true)
-    if [ -n "$changed" ]; then
-        _log_ok "Updated: $changed (checked $total plugins)."
+    new_lock=$(<"$lock")
+    total=$(grep -c '^ *"' <<<"$new_lock" || true)
+    mapfile -t changed < <(diff <(printf '%s\n' "$old_lock") <(printf '%s\n' "$new_lock") | sed -nE 's/^> *"([^"]+)".*/\1/p' || true)
+    if ((${#changed[@]})); then
+        _log_ok "Updated $(listing "${changed[@]}") (of $total)"
     else
-        _log_ok "Checked $total plugins, none updated."
+        _log_ok "$total checked, none updated"
     fi
+}
+
+# Once a week is enough for votes; the stamp counts a run without the
+# credentials too, so the hint comes weekly, not every time.
+AUR_VOTES_STAMP="$STATE/aur-votes"
+aur_votes_due() {
+    [[ ! -f "$AUR_VOTES_STAMP" ]] || [[ -n "$(find "$AUR_VOTES_STAMP" -mtime +6 2>/dev/null)" ]]
 }
 
 sync_aur_votes() {
     if python3 -c "import keyring, sys; sys.exit(0 if keyring.get_credential('aur-sync-vote', None) else 1)" >/dev/null 2>&1; then
-        aur-sync-vote
+        run_captured aur-sync-vote || return 1
+        printf '%s\n' "$OUT"
+        touch "$AUR_VOTES_STAMP"
+        _log_ok "Synced (again in a week)"
     else
-        echo "Skipping vote sync: no saved AUR credentials."
-        echo "Run 'aur-sync-vote --remember' once to enable it."
+        touch "$AUR_VOTES_STAMP"
+        _log_warn "Off: 'aur-sync-vote --remember' turns it on"
     fi
 }
 
-update_firmware() {
-    fwupdmgr refresh || true
-    fwupdmgr update -y
+# Only the check: installing may ask for a password (polkit), so it comes
+# after the steps, in the terminal, when there is something to install.
+check_firmware() {
+    fwupdmgr refresh >/dev/null 2>&1 || true
+    local rc=0
+    fwupdmgr get-updates --no-unreported-check >/dev/null 2>&1 || rc=$?
+    if [ "$rc" -eq 0 ]; then
+        touch "$TASKS_DIR/firmware"
+        _log_warn "Updates found: installed after the rest"
+    else
+        _log_ok "Up to date"
+    fi
+}
+
+# What there is to update is asked first: the update itself does not say it
+# plainly without a terminal.
+update_flatpak() {
+    local -a apps
+    mapfile -t apps < <(flatpak remote-ls --updates --columns=name 2>/dev/null | sed '/^$/d' || true)
+    run_captured flatpak update -y --noninteractive || return 1
+    printf '%s\n' "$OUT"
+    if ((${#apps[@]})); then
+        _log_ok "Updated $(listing "${apps[@]}")"
+    else
+        _log_ok "Nothing to update"
+    fi
+}
+
+update_tldr() {
+    run_captured tldr --update || return 1
+    printf '%s\n' "$OUT"
+    _log_ok "Pages updated"
+}
+
+# "Updated ruff v0.6.1 -> v0.6.2" for each tool that moved.
+update_uv_tools() {
+    run_captured uv tool upgrade --all || return 1
+    printf '%s\n' "$OUT"
+    local -a moved
+    mapfile -t moved < <(sed -nE 's/^Updated ([^ ]+) v?([^ ]+) -> v?([^ ]+).*/\1 \2 → \3/p' <<<"$OUT")
+    if ((${#moved[@]})); then
+        _log_ok "Updated $(listing "${moved[@]}")"
+    else
+        _log_ok "Nothing to upgrade"
+    fi
 }
 
 # Merges what pacdiff can do alone, then lists what needs a human.
 check_pacnew() {
     yes s | pacdiff -s >/dev/null 2>&1 || true
-    local pacnew_files
-    pacnew_files=$(pacdiff -o 2>/dev/null || true)
-    if [ -z "$pacnew_files" ]; then
-        _log_ok "No pending .pacnew files."
-        return
-    fi
-    _log_warn "Detected .pacnew/.pacsave files requiring attention:"
-    echo "$pacnew_files"
-    echo "Run 'DIFFPROG=\"nvim -d\" pacdiff -s' to review and merge."
-    notify dialog-warning normal "Pacnew Files Detected" "Configuration merge needed for:\n$pacnew_files"
+    local -a files
+    mapfile -t files < <(pacdiff -o 2>/dev/null || true)
+    ((${#files[@]})) || return 0
+    local f
+    for f in "${files[@]}"; do
+        attention+=("$f to merge: DIFFPROG=\"nvim -d\" pacdiff -s")
+    done
+    notify dialog-warning normal "Pacnew Files Detected" "Configuration merge needed for:\n$(printf '%s\n' "${files[@]}")"
 }
 
-pacman_log_start=0
-if [ -f /var/log/pacman.log ]; then
-    pacman_log_start=$(wc -l < /var/log/pacman.log 2>/dev/null || echo 0)
+# --- The run -----------------------------------------------------------------
+
+PACMAN_LOG=${PACMAN_LOG:-/var/log/pacman.log}
+RUN_START=${EPOCHREALTIME/./}
+# The password first, before any heading or spinner.
+if [[ -t 0 ]]; then
+    sudo -v || exit 1
 fi
 
-_log_info "Updating system packages..."
-if command -v paru >/dev/null 2>&1; then
-    paru -Syu --repo --noconfirm || abort $?
+pacman_log_start=0
+if [ -f "$PACMAN_LOG" ]; then
+    pacman_log_start=$(wc -l < "$PACMAN_LOG" 2>/dev/null || echo 0)
+fi
 
+# Flatpak brings its own runtimes, nothing pacman installs: it downloads
+# while pacman does, and its line below is done or under way by then.
+command -v flatpak >/dev/null 2>&1 && task_start "Flatpak apps" update_flatpak
+
+_log_info "System packages"
+# pacman_view reads it in this shell, not in a pipe's: what it finds stays.
+upgrade() {
+    if command -v paru >/dev/null 2>&1; then
+        paru -Syu --repo --noconfirm
+    else
+        sudo pacman -Syu --noconfirm
+    fi
+}
+echo 1 >"$TASKS_DIR/pacman.rc"
+pacman_view < <({
+    rc=0
+    upgrade 2>&1 || rc=$?
+    echo "$rc" >"$TASKS_DIR/pacman.rc"
+} | tee -a "$TASKS_LOG")
+rc=$(<"$TASKS_DIR/pacman.rc")
+if [[ "$rc" != 0 ]]; then
+    _log_error "Failed (exit $rc): all of it in ${TASKS_LOG/#$HOME/\~}"
+    exit "$rc"
+fi
+pacman_changes "$pacman_log_start" "${PACMAN_SIZE:+$PACMAN_SIZE · }$PACMAN_TIME"
+aur_log_start=$(wc -l < "$PACMAN_LOG" 2>/dev/null || echo 0)
+
+if command -v paru >/dev/null 2>&1; then
     # AUR build scripts run as this user and come from strangers: paru shows
     # what changed and asks before building, so this part needs a terminal.
-    _log_info "Updating AUR packages..."
+    _log_info "AUR packages"
     if [[ -z "$(paru -Qua --devel 2>/dev/null || true)" ]]; then
-        _log_ok "Nothing to update."
+        _log_ok "Nothing to update"
     elif [[ -t 0 ]]; then
-        paru -Sua --devel || abort $?
+        paru -Sua --devel || exit $?
+        pacman_changes "$aur_log_start" ""
     else
-        echo "Skipped: AUR updates are reviewed before they are built. Run 'sysupdate' in a terminal."
+        _log_warn "Skipped: AUR updates are reviewed before they are built. Run 'sysupdate' in a terminal."
     fi
-elif command -v pacman >/dev/null 2>&1; then
-    sudo pacman -Syu --noconfirm || abort $?
 fi
 
-_log_info "Updating Zsh plugins (zinit)..."
-update_zsh_plugins
+# The rest uses what pacman has just updated (git, nvim, python), so it
+# starts after it, all at once.
+queue "Zsh plugins" zsh update_zsh_plugins
+aur_votes_due && queue "AUR votes" aur-sync-vote sync_aur_votes
+queue "Firmware" fwupdmgr check_firmware
+queue "tldr pages" tldr update_tldr
+queue "uv tools" uv update_uv_tools
+queue "Neovim plugins" nvim update_nvim_plugins
+run_tasks "Apps and tools"
 
-step "Syncing AUR votes..." aur-sync-vote sync_aur_votes
-step "Checking firmware updates..." fwupdmgr update_firmware
-step "Updating Flatpak packages..." flatpak flatpak update -y
-step "Updating tldr cache..." tldr tldr --update
-step "Updating uv tools..." uv uv tool upgrade --all
-step "Updating Neovim plugins (LazyVim)..." nvim update_nvim_plugins
-step "Checking and cleaning .pacnew / .pacsave files..." pacdiff check_pacnew
+if [ -f "$TASKS_DIR/firmware" ]; then
+    _log_info "Firmware"
+    fwupdmgr update -y || true
+fi
+
+command -v pacdiff >/dev/null 2>&1 && check_pacnew
 
 reboot_reasons=()
-
 if [ ! -d "/usr/lib/modules/$(uname -r)" ]; then
-    reboot_reasons+=("Running kernel ($(uname -r)) modules not found on disk")
+    reboot_reasons+=("the running kernel ($(uname -r)) is gone from disk")
 fi
-
-if [ -f /var/log/pacman.log ] && [ "$pacman_log_start" -gt 0 ]; then
-    upgraded_critical=$(tail -n "+$((pacman_log_start + 1))" /var/log/pacman.log 2>/dev/null \
+if [ -f "$PACMAN_LOG" ] && [ "$pacman_log_start" -gt 0 ]; then
+    upgraded_critical=$(tail -n "+$((pacman_log_start + 1))" "$PACMAN_LOG" 2>/dev/null \
         | grep -E "\[ALPM\] upgraded (linux|linux-zen|linux-lts|linux-firmware|nvidia|nvidia-dkms|nvidia-open|nvidia-open-dkms|nvidia-utils|mesa|systemd|glibc|amd-ucode|intel-ucode) \(" \
         | sed -E 's/.*upgraded ([^ ]+) .*/\1/' \
         | sort -u \
         | tr '\n' ' ' || true)
     if [ -n "$upgraded_critical" ]; then
-        reboot_reasons+=("Updated core packages: ${upgraded_critical% }")
+        read -ra critical <<<"$upgraded_critical"
+        reboot_reasons+=("$(listing "${critical[@]}") updated")
     fi
 fi
-
 if ((${#reboot_reasons[@]})); then
-    _log_warn "A system restart is recommended:"
-    printf '   • %s\n' "${reboot_reasons[@]}"
+    attention+=("Restart: $(listing "${reboot_reasons[@]}")")
     notify system-reboot critical "Reboot Recommended" "$(printf '%s\n' "${reboot_reasons[@]}")"
 else
-    _log_ok "System update complete. No reboot required."
     notify archlinux normal "Update Complete" "System update completed successfully."
 fi
 
-sleep 3
+if ((${#attention[@]})); then
+    _log_info "Needs you"
+    for a in "${attention[@]}"; do
+        _log_warn "$a"
+    done
+fi
+
+printf '\n'
+if ((TASKS_FAILED)); then
+    printf '%s✗ Updated in %s, %d step(s) failed%s\n' "$_C_RED$_C_BOLD" "$(_task_time $((${EPOCHREALTIME/./} - RUN_START)))" "$TASKS_FAILED" "$_C_NC"
+else
+    printf '%s✓ Up to date · %s%s\n' "$_C_GREEN$_C_BOLD" "$(_task_time $((${EPOCHREALTIME/./} - RUN_START)))" "$_C_NC"
+fi
+
+# In a window of its own (the launcher, the update notification) the summary
+# stays until a key is pressed; from a shell there is nothing to wait for.
+if [[ -t 0 ]] && ! [[ "$(ps -o comm= -p "$PPID" 2>/dev/null)" =~ ^(zsh|bash|fish|sh)$ ]]; then
+    read -rsn1 -p $'\nPress any key to close.' || true
+fi
