@@ -3,7 +3,9 @@
 
 source "${XDG_CONFIG_HOME:-$HOME/.config}/ui/ui.sh"  # SLURP_ARGS
 
-play_sound() { canberra-gtk-play -i "$1" >/dev/null 2>&1 || true; }
+# In the background: canberra-gtk-play lasts as long as the sound, and the
+# notification should not wait for it. Off the lock, which it would hold.
+play_sound() { canberra-gtk-play -i "$1" >/dev/null 2>&1 200>&- & disown; }
 
 # Allow one instance per lock name; the lock lives on fd 200 until `exec 200>&-`.
 single_instance() {

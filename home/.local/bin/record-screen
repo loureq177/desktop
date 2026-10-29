@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # record-screen [--mic] [--cam]: stops the recording that is running, or else
-# asks for an area and records it, with the microphone and the camera if asked.
+# asks for an area, a window or a monitor and records it, with the microphone
+# and the camera if asked.
 set -euo pipefail
 
 OUT_DIR="$HOME/Videos/Screencasts"
@@ -183,7 +184,9 @@ for arg in "$@"; do
     esac
 done
 
-pick_region --windows || exit 0
+# Drag an area or click a window; a click on neither takes the monitor, as
+# screenshot does.
+pick_region --windows --outputs || exit 0
 is_click "$GEOM" && exit 0
 
 FILE="$OUT_DIR/$(date +'%Y-%m-%d_%H-%M-%S').mp4"

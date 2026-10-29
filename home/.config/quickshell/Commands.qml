@@ -72,7 +72,7 @@ Singleton {
 	].concat(Modes.recording ? [
 		{ id: "record", group: "capture", name: "Stop recording", desc: "Save the screen recording", icon: "circle-stop", alert: true, keywords: "record screen video recording stop nagrywanie zatrzymaj", run: () => script("record-screen") }
 	] : [
-		{ id: "record", group: "capture", name: "Record screen", desc: "An area or a window", icon: "video", keywords: "record screen video recording nagraj ekran wideo nagrywanie", run: () => capture(bin + "record-screen") },
+		{ id: "record", group: "capture", name: "Record screen", desc: "An area, a window or a monitor", icon: "video", keywords: "record screen video recording nagraj ekran wideo nagrywanie", run: () => capture(bin + "record-screen") },
 		{ id: "record-mic", group: "capture", name: "Record screen with microphone", desc: "Your voice mixed in", icon: "mic", keywords: "record screen microphone mic audio nagraj mikrofon", run: () => capture(bin + "record-screen --mic") },
 		{ id: "record-cam", group: "capture", name: "Record screen with microphone and camera", desc: "Your voice and a camera overlay", icon: "webcam", keywords: "record screen microphone camera webcam kamera nagraj mikrofon", run: () => capture(bin + "record-screen --mic --cam") }
 	], [
