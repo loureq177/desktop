@@ -28,12 +28,12 @@ LauncherPane {
 	readonly property int columns: Math.max(1, Math.floor(width / cell))
 	readonly property var current: items[cells.currentIndex] ?? null
 
-	function step(delta: int): void {
-		cells.currentIndex = ListNav.wrap(cells.currentIndex, delta * columns, count);
+	function step(delta: int, repeat: bool): void {
+		cells.currentIndex = ListNav.wrap(cells.currentIndex, delta * columns, count, repeat);
 	}
 
-	function stepColumn(delta: int): void {
-		cells.currentIndex = ListNav.wrap(cells.currentIndex, delta, count);
+	function stepColumn(delta: int, repeat: bool): void {
+		cells.currentIndex = ListNav.wrap(cells.currentIndex, delta, count, repeat);
 	}
 
 	function activate(): void {

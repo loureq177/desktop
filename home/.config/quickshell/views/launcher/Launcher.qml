@@ -89,8 +89,8 @@ ModalWindow {
 
 				onAccepted: root.pane.activate()
 				onCancelled: Panels.close("launcher")
-				onStepped: delta => root.pane.step(delta)
-				onSteppedColumn: delta => root.pane.stepColumn(delta)
+				onStepped: (delta, repeat) => root.pane.step(delta, repeat)
+				onSteppedColumn: (delta, repeat) => root.pane.stepColumn(delta, repeat)
 				onErased: {
 					if (root.scope !== "apps")
 						Panels.open("launcher", "apps");

@@ -14,8 +14,8 @@ LauncherPane {
 	placeholder: "Search " + Keybinds.entries.length + " keys..."
 	preferredHeight: list.preferredHeight
 
-	function step(delta: int): void {
-		list.step(delta);
+	function step(delta: int, repeat: bool): void {
+		list.step(delta, repeat);
 	}
 
 	// The line icon of a key: what it is pressed with.

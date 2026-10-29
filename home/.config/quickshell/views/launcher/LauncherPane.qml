@@ -13,10 +13,11 @@ Item {
 	// A grid: Left and Right move to the next cell, Up and Down by a row.
 	property bool grid: false
 
-	function step(delta: int): void {
+	// `repeat`: the key is held down.
+	function step(delta: int, repeat: bool): void {
 	}
 
-	function stepColumn(delta: int): void {
+	function stepColumn(delta: int, repeat: bool): void {
 	}
 
 	function activate(): void {

@@ -16,8 +16,9 @@ Rectangle {
 
 	signal accepted()
 	signal cancelled()
-	signal stepped(int delta)
-	signal steppedColumn(int delta)
+	// `repeat`: the key is held down.
+	signal stepped(int delta, bool repeat)
+	signal steppedColumn(int delta, bool repeat)
 	// Backspace in an empty field.
 	signal erased()
 
@@ -68,16 +69,17 @@ Rectangle {
 			Keys.onPressed: event => {
 				var ctrl = event.modifiers & Qt.ControlModifier;
 				var key = event.key;
+				var held = event.isAutoRepeat;
 				if (key === Qt.Key_Down || (ctrl && key === Qt.Key_J))
-					bar.stepped(1);
+					bar.stepped(1, held);
 				else if (key === Qt.Key_Up || (ctrl && key === Qt.Key_K))
-					bar.stepped(-1);
+					bar.stepped(-1, held);
 				else if (bar.leftRightNavigate && (key === Qt.Key_Left || (ctrl && key === Qt.Key_H)))
-					bar.steppedColumn(-1);
+					bar.steppedColumn(-1, held);
 				else if (bar.leftRightNavigate && (key === Qt.Key_Right || (ctrl && key === Qt.Key_L)))
-					bar.steppedColumn(1);
+					bar.steppedColumn(1, held);
 				else if (key === Qt.Key_Tab)
-					bar.stepped(event.modifiers & Qt.ShiftModifier ? -1 : 1);
+					bar.stepped(event.modifiers & Qt.ShiftModifier ? -1 : 1, held);
 				else if (key === Qt.Key_Backspace && input.text === "")
 					bar.erased();
 				else if (key === Qt.Key_Return || key === Qt.Key_Enter)

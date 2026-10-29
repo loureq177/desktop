@@ -5,7 +5,8 @@ import QtQuick.Controls
 
 // A list the keyboard and the pointer pick from, with one highlight for both:
 // J / K and the arrows, g / G, Enter or a click for `activated`. Its rows are
-// ListRow. With `wrap`, step() goes round at the ends (ListNav.wrap).
+// ListRow. With `wrap`, step() goes round at the ends on a fresh press
+// (ListNav.wrap).
 ListView {
 	id: list
 
@@ -21,11 +22,11 @@ ListView {
 
 	signal activated(int index)
 
-	function step(delta: int): void {
+	function step(delta: int, repeat: bool): void {
 		if (count === 0)
 			return;
 		var next = currentIndex + delta;
-		currentIndex = wrap ? ListNav.wrap(currentIndex, delta, count) : Math.max(0, Math.min(count - 1, next));
+		currentIndex = wrap ? ListNav.wrap(currentIndex, delta, count, repeat) : Math.max(0, Math.min(count - 1, next));
 	}
 
 	function activate(): void {

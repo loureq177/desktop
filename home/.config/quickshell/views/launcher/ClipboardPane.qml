@@ -51,8 +51,8 @@ LauncherPane {
 		Quickshell.execDetached(["rm", "-f", previewPath]);
 	}
 
-	function step(delta: int): void {
-		list.step(delta);
+	function step(delta: int, repeat: bool): void {
+		list.step(delta, repeat);
 	}
 
 	function activate(): void {
@@ -114,9 +114,16 @@ LauncherPane {
 		}
 
 		onExited: code => {
+			// Only text is read back here, and in one go: an image goes to
+			// the Image, which loads it off the GUI thread, so a scroll over
+			// the rows does not wait for it.
 			if (code === 0 && entryId === pane.current?.id) {
-				previewFile.reload();
-				pane.decodedText = pane.imageInfo(pane.current.preview) ? "" : previewFile.text();
+				if (pane.imageInfo(pane.current.preview)) {
+					pane.decodedText = "";
+				} else {
+					previewFile.reload();
+					pane.decodedText = previewFile.text();
+				}
 				pane.decodedId = entryId;
 			}
 			Qt.callLater(decode);
@@ -242,6 +249,9 @@ LauncherPane {
 			visible: preview.isImage && preview.decoded
 			source: visible ? "file://" + pane.previewPath : ""
 			fillMode: Image.PreserveAspectFit
+			// Decoded no larger than shown: a screenshot is a big texture.
+			sourceSize.width: width
+			sourceSize.height: height
 			asynchronous: true
 			cache: false
 			mipmap: true

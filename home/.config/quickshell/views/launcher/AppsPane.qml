@@ -17,8 +17,8 @@ LauncherPane {
 	placeholder: "Search " + apps.length + " apps or /actions..."
 	preferredHeight: list.preferredHeight
 
-	function step(delta: int): void {
-		list.step(delta);
+	function step(delta: int, repeat: bool): void {
+		list.step(delta, repeat);
 	}
 
 	function activate(): void {
