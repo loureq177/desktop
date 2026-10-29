@@ -6,3 +6,7 @@ PartOf=graphical-session.target
 ListenStream=/tmp/.X11-unix/X0
 ListenStream=@/tmp/.X11-unix/X0
 RemoveOnStop=yes
+# The :0 lock with systemd's pid: without it an Xwayland Hyprland starts (as a broken
+# config reloads) takes :0 and deletes the socket, leaving X11 apps without a display.
+ExecStartPre=/bin/sh -c 'printf "%%10d\\n" "$$PPID" >/tmp/.X0-lock'
+ExecStopPost=/bin/rm -f /tmp/.X0-lock
