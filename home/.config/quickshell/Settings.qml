@@ -3,8 +3,8 @@ import Quickshell
 import Quickshell.Io
 import QtQuick
 
-// What the settings list can change: modes, the look (apply-ui) and Hyprland's
-// options (kept in ~/.config/hypr/settings.lua); kind is bool, int, float, enum, text or color.
+// What the settings list can change: the look (apply-ui) and Hyprland's options
+// (kept in ~/.config/hypr/settings.lua); kind is bool, int, float, enum, text or color.
 Singleton {
 	id: root
 
@@ -20,8 +20,8 @@ Singleton {
 
 	readonly property string savedPath: Quickshell.env("HOME") + "/.config/hypr/settings.lua"
 
-	// Left out: what ui.toml decides (look.lua), changed there instead, and
-	// Xwayland, which xwayland-satellite stands in for.
+	// Left out: what ui.toml decides (look.lua), changed there instead, Xwayland,
+	// which xwayland-satellite stands in for, and debug:*.
 	readonly property var notHere: [
 		"general:gaps_in", "general:gaps_out", "general:border_size",
 		"general:col.active_border", "general:col.inactive_border",
@@ -47,19 +47,6 @@ Singleton {
 		return t.charAt(0).toUpperCase() + t.slice(1);
 	}
 
-	readonly property var modeEntries: Commands.all.filter(c => c.active !== undefined).map(c => ({
-		id: "mode:" + c.id,
-		source: "mode",
-		name: c.id,
-		group: "Desktop",
-		label: c.name,
-		desc: c.desc,
-		kind: "bool",
-		value: c.active,
-		icon: c.icon,
-		keywords: c.keywords
-	}))
-
 	readonly property var uiEntries: uiValues.map(v => {
 		var name = v.section + "." + v.key;
 		var choices = uiChoices[name];
@@ -67,7 +54,9 @@ Singleton {
 			id: "ui:" + name,
 			source: "ui",
 			name: name,
-			group: "Look · " + humanize(v.section),
+			group: "Look › " + humanize(v.section),
+			section: "look",
+			sub: humanize(v.section),
 			label: humanize(v.key),
 			desc: "ui.toml · the whole desktop",
 			kind: choices ? "enum" : v.kind === "str" ? "text" : v.kind,
@@ -78,7 +67,7 @@ Singleton {
 		};
 	})
 
-	readonly property var hyprEntries: hyprOptions.filter(o => !notHere.includes(o.name) && !Array.isArray(o.default)).map(o => {
+	readonly property var hyprEntries: hyprOptions.filter(o => !notHere.includes(o.name) && !o.name.startsWith("debug:") && !Array.isArray(o.default)).map(o => {
 		var parts = o.name.split(":");
 		var last = parts.pop();
 		var number = typeof o.default === "number";
@@ -97,6 +86,8 @@ Singleton {
 			source: "hyprland",
 			name: o.name,
 			group: parts.map(humanize).join(" › "),
+			section: parts[0],
+			sub: parts.slice(1).map(humanize).join(" › "),
 			label: humanize(last),
 			desc: o.description,
 			kind: kind,
@@ -110,7 +101,17 @@ Singleton {
 		};
 	})
 
-	readonly property var entries: modeEntries.concat(uiEntries, hyprEntries)
+	readonly property var entries: uiEntries.concat(hyprEntries)
+
+	// The entries by their first part, in the order they come: { key, label, icon, count }.
+	readonly property var sections: entries.reduce((list, e) => {
+		var s = list.find(x => x.key === e.section);
+		if (s)
+			s.count++;
+		else
+			list.push({ key: e.section, label: humanize(e.section), icon: e.section === "look" ? "droplet" : e.icon, count: 1 });
+		return list;
+	}, [])
 
 	// The value as the list shows it.
 	function display(e: var): string {
@@ -209,9 +210,7 @@ Singleton {
 		root.lastError = "";
 		if (value === undefined || String(value) === String(e.value))
 			return;
-		if (e.source === "mode") {
-			Commands.run(e.name);
-		} else if (e.source === "ui") {
+		if (e.source === "ui") {
 			Hypr.exec([Quickshell.env("HOME") + "/.local/bin/apply-ui", "--set=" + e.name + "=" + String(value)]);
 		} else {
 			if (e.kind === "color")

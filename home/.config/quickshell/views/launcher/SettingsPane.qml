@@ -2,8 +2,8 @@ import "../.."
 import "../../Search.js" as Search
 import QtQuick
 
-// Every setting (Settings) with its value: Enter edits, ←/→ steps, blue was set here,
-// Ctrl+R gives it back to the config, Esc steps out.
+// The settings (Settings) by section, typing searches them all: Enter edits, ←/→ steps,
+// blue was set here, Ctrl+R gives it back to the config, Esc steps out.
 LauncherPane {
 	id: pane
 
@@ -11,25 +11,32 @@ LauncherPane {
 	// "type" a value for it.
 	property string mode: "browse"
 	property var editing: null
+	// The section browsed: "" lists the sections, "changed" what settings.lua holds.
+	property string section: ""
+	property int sectionIndex: 0
 	// Where browsing was, to come back to.
 	property string browseQuery: ""
 	property int browseIndex: 0
 
 	readonly property string q: query.trim()
 	readonly property var current: mode === "browse" ? (list.items[list.currentIndex]?.setting ?? null) : editing
+	readonly property var changedEntries: Settings.entries.filter(e => Settings.changed(e))
+	readonly property string sectionLabel: section === "changed" ? "Changed here" : Settings.humanize(section)
 
 	icon: mode === "browse" ? "settings" : "pencil"
 	grid: mode === "browse"
 	placeholder: mode === "choose" ? "Pick " + editing.label.toLowerCase() + "..."
 		: mode === "type" ? "A value for " + editing.label.toLowerCase() + range(editing)
-		: Settings.loaded ? "Search " + Settings.entries.length + " settings..." : "Loading settings..."
+		: !Settings.loaded ? "Loading settings..."
+		: section !== "" ? "Search " + sectionLabel.toLowerCase() + "..."
+		: "Search " + Settings.entries.length + " settings..."
 	preferredHeight: list.preferredHeight
 	footer: {
 		if (Settings.lastError !== "")
 			return "⚠ " + Settings.lastError;
 		var e = current;
 		if (!e)
-			return "";
+			return mode === "browse" && section === "" && list.count > 0 ? "Enter opens the section · type to search every setting" : "";
 		if (mode === "type")
 			return "Enter sets it · Esc leaves it" + (e.source === "ui" ? " · the shell restarts with the new look" : "");
 		if (mode === "choose")
@@ -75,10 +82,23 @@ LauncherPane {
 	}
 
 	function back(): bool {
-		if (mode === "browse")
+		if (mode !== "browse")
+			leave();
+		else if (section !== "")
+			openSection("");
+		else
 			return false;
-		leave();
 		return true;
+	}
+
+	// Into a section (its own list, its own search), or back out to the sections.
+	function openSection(key: string): void {
+		var index = key === "" ? sectionIndex : 0;
+		if (key !== "")
+			sectionIndex = list.currentIndex;
+		section = key;
+		pane.queryRequested("");
+		Qt.callLater(() => list.currentIndex = index);
 	}
 
 	function resetValue(): void {
@@ -89,6 +109,7 @@ LauncherPane {
 	function opened(): void {
 		mode = "browse";
 		editing = null;
+		section = "";
 		Settings.lastError = "";
 		Settings.refresh();
 	}
@@ -96,6 +117,7 @@ LauncherPane {
 	function closed(): void {
 		mode = "browse";
 		editing = null;
+		section = "";
 	}
 
 	// The list is made again as a value changes: the row stays selected.
@@ -141,6 +163,34 @@ LauncherPane {
 		Qt.callLater(() => list.currentIndex = index);
 	}
 
+	// What settings.lua holds first, then the look and Hyprland's sections.
+	function sectionRows(): var {
+		var changed = changedEntries.length;
+		var rows = Settings.sections.map(s => {
+			var n = changedEntries.filter(e => e.section === s.key).length;
+			return {
+				label: s.label,
+				subtitle: (s.key === "look" ? "ui.toml · " : "Hyprland · ") + s.count + " settings" + (n > 0 ? " · " + n + " changed" : ""),
+				lineIcon: s.icon,
+				run: () => {
+					pane.openSection(s.key);
+					return false;
+				}
+			};
+		});
+		if (changed > 0)
+			rows.unshift({
+				label: "Changed here",
+				subtitle: changed + " in settings.lua, Ctrl+R gives one back",
+				lineIcon: "pencil",
+				run: () => {
+					pane.openSection("changed");
+					return false;
+				}
+			});
+		return rows;
+	}
+
 	onQueryChanged: {
 		if (mode !== "type")
 			list.reset();
@@ -161,12 +211,16 @@ LauncherPane {
 						return false;
 					}
 				}));
-			var shown = pane.mode === "type" ? [pane.editing]
-				: Search.rank(Settings.entries, e => pane.score(e));
+			if (pane.mode === "browse" && pane.section === "" && pane.q === "")
+				return pane.sectionRows();
+			var all = pane.section === "" ? Settings.entries
+				: pane.section === "changed" ? pane.changedEntries
+				: Settings.entries.filter(e => e.section === pane.section);
+			var shown = pane.mode === "type" ? [pane.editing] : Search.rank(all, e => pane.score(e));
 			return shown.map(e => ({
 				label: e.label,
-				subtitle: pane.q === "" || pane.mode === "type" ? e.desc : e.group,
-				heading: pane.q === "" && pane.mode === "browse" ? e.group : "",
+				subtitle: pane.section === "" && pane.mode === "browse" ? e.group : e.desc,
+				heading: pane.q !== "" || pane.mode !== "browse" ? "" : pane.section === "changed" ? e.group : e.sub,
 				lineIcon: e.icon,
 				setting: e,
 				run: () => {
@@ -176,6 +230,6 @@ LauncherPane {
 			}));
 		}
 
-		emptyText: Settings.loaded ? "No setting by that name" : "Loading settings..."
+		emptyText: !Settings.loaded ? "Loading settings..." : pane.section === "changed" && pane.q === "" ? "Nothing changed here" : "No setting by that name"
 	}
 }
