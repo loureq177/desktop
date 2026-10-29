@@ -54,6 +54,9 @@ PanelWindow {
 	Connections {
 		target: Hyprland
 		function onRawEvent(ev) {
+			// Quickshell keeps the old id of a workspace hyprland/workspaces.lua renumbered.
+			if (ev.name === "changeworkspaceid")
+				Hyprland.refreshWorkspaces();
 			if (ev.name !== "activespecial")
 				return;
 			var parts = String(ev.data ?? "").split(",");

@@ -58,11 +58,11 @@ UNITS="home/.config/systemd/user"
 }
 
 @test "hyprland webapps and helper paths point at existing scripts" {
-    # hyprland.lua builds these as  bin .. "/name args"
+    # the hyprland config builds these as  bin .. "/name args"
     local bad=0 name
     while IFS= read -r name; do
-        [[ -x "$REPO/home/.local/bin/$name" ]] || { echo "hyprland.lua: bin .. \"/$name\" does not exist" >&2; bad=1; }
-    done < <(grep -oE 'bin \.\. "/[A-Za-z0-9_-]+' "$REPO/home/.config/hypr/hyprland.lua" | sed 's|.*/||' | sort -u)
+        [[ -x "$REPO/home/.local/bin/$name" ]] || { echo "hypr/*.lua: bin .. \"/$name\" does not exist" >&2; bad=1; }
+    done < <(grep -rhoE --include='*.lua' 'bin \.\. "/[A-Za-z0-9_-]+' "$REPO/home/.config/hypr" | sed 's|.*/||' | sort -u)
     [[ "$bad" -eq 0 ]]
 }
 

@@ -5,7 +5,7 @@ import Quickshell.Io
 import QtQuick
 
 // The key binds Hyprland reports and the keys the shell handles itself, for
-// the launcher's keys list. hyprland.lua makes the binds in the order the list
+// the launcher's keys list. hyprland/binds.lua makes the binds in the order the list
 // shows them, each described as "Section: what it does".
 Singleton {
 	id: root

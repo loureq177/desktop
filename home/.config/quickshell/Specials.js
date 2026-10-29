@@ -1,6 +1,6 @@
 .pragma library
 
-// The special workspaces of hyprland.lua (`specials`, by the same names), as
+// The special workspaces of hyprland/specials.lua (`specials`, by the same names), as
 // the shell shows them. `app` is the program's own name, which the launcher
 // lists with `title` (or `desc`, when the two are the same) under it; `icon`
 // is the bar's line icon and `appIcon` the launcher's: one of the shell's own

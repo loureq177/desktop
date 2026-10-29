@@ -113,7 +113,7 @@ stow --verbose --restow --target ~ home
 
 _log_info "Configuring autologin on tty1..."
 # No display manager: getty@tty1 runs login for $USER, the login shell execs Hyprland
-# (.zprofile) and hyprlock locks the session as soon as Hyprland starts (hyprland.lua).
+# (.zprofile) and hyprlock locks the session as soon as Hyprland starts (hyprland/autostart.lua).
 # Nothing may write to tty1 on the way: the first byte makes fbcon take the console
 # over, a ~0.7 s modeset of the laptop panel that login waits for (even with the lid
 # closed and Hyprland leaving the panel off). agetty always prints a newline, and

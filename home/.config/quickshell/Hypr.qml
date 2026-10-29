@@ -4,7 +4,7 @@ import Quickshell.Hyprland
 import QtQuick
 
 // What the shell asks of Hyprland. A dispatch is Lua (hl.dsp, as in
-// hyprland.lua), and every string goes into it through quote(). What the user
+// hyprland/*.lua), and every string goes into it through quote(). What the user
 // starts runs through Hyprland too: it gets the session's environment instead
 // of the shell's, and is no child of the shell.
 Singleton {
