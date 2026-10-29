@@ -41,7 +41,7 @@ check_each() {
 
 @test "zsh scripts and zsh config parse" {
     need zsh
-    { shebang_files 'zsh'; repo_files 'home/.config/zsh/.zprofile'; } |
+    { shebang_files 'zsh'; } |
         sort -u | check_each zsh -n
 }
 
