@@ -27,12 +27,15 @@ functionality.
     - quick actions, notifications, OSD
     - Weather module
     - RAM usage indicatorr
+    - Tray: the apps running in the background (Discord, Steam)
 - **Hyprlock**: password or fingerprint
 - **Github theme**: `~/.config/ui/ui.toml`, change it with `apply-ui`
 - Screenshots with edits, screen recording with mic and camera!!, OCR
 - **Dictation** with whisper-cpp under `SUPER + D`
 - Battery care, power saver, awake-mode, night-light
-- `sysupdate` and `sysclean` scripts
+- **Settings** under `SUPER + S`: every option of Hyprland, the theme and the
+  desktop's modes, searchable, changed on the spot
+- `sysupdate` and `sysclean` scripts, their steps run at once
 - A notification when the system runs out of RAM and kills an app
 - Wallpaper swither with grow animation (SUPER + P)
 
@@ -57,14 +60,17 @@ git clone https://github.com/loureq177/desktop.git ~/Projects/desktop && ~/Proje
 
 The installer changes the system: packages (official, AUR, flatpak), `/etc`
 (zram, sysctl hardening, the lock screen's PAM), autologin on tty1, zsh as the
-login shell.
+login shell. It also clones and installs [`.files`](https://github.com/loureq177/.files)
+(zsh, Ghostty, nvim), which the login and the terminal need.
 
 ## Keys
 
-| Keys             | Action        |
-| ---------------- | ------------- |
-| `SUPER + /`      | All keys      |
-| `SUPER + Space`  | Launcher      |
-| `SUPER + A`      | Quick actions |
-| `SUPER + N`      | Notifications |
-| `SUPER + Escape` | Lock          |
+| Keys                     | Action        |
+| ------------------------ | ------------- |
+| `SUPER + /`              | All keys      |
+| `SUPER + Space`          | Launcher      |
+| `SUPER + A`              | Quick actions |
+| `SUPER + N`              | Notifications |
+| `SUPER + S`              | Settings      |
+| `SUPER + Escape`         | Lock          |
+| `SUPER + SHIFT + Escape` | Power menu    |

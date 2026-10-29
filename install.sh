@@ -101,6 +101,17 @@ if pkglist aur.txt | grep -q .; then
     fi
 fi
 
+# The terminal side (zsh, Ghostty, nvim) is .files': its .zshenv (ZDOTDIR) is how the
+# login shell finds the .zprofile that starts Hyprland. Skipped once it is linked.
+if [ ! -d ~/.files ]; then
+    _log_info "Cloning .files (the terminal configs)..."
+    git clone https://github.com/loureq177/.files.git ~/.files
+fi
+if [ ! -e ~/.zshenv ]; then
+    _log_info "Installing .files..."
+    bash ~/.files/install.sh
+fi
+
 _log_info "Linking home/ into ~..."
 mkdir -p ~/.config ~/.local/share ~/.local/state ~/.local/bin ~/.cache
 if ! err="$(stow --simulate --restow --target ~ home 2>&1)"; then
@@ -112,13 +123,8 @@ fi
 stow --verbose --restow --target ~ home
 
 _log_info "Configuring autologin on tty1..."
-# No display manager: getty@tty1 runs login for $USER, the login shell execs Hyprland
-# (.zprofile) and hyprlock locks the session as soon as Hyprland starts (hyprland/autostart.lua).
-# Nothing may write to tty1 on the way: the first byte makes fbcon take the console
-# over, a ~0.7 s modeset of the laptop panel that login waits for (even with the lid
-# closed and Hyprland leaving the panel off). agetty always prints a newline, and
-# TTYReset/TTYVTDisallocate send escape sequences, so login runs directly and both
-# are off. With ~/.hushlogin, login and PAM print nothing either.
+# No display manager: getty autologins $USER, .zprofile execs Hyprland, hyprlock locks.
+# Nothing may write to tty1 (fbcon would take it, a ~0.7 s modeset), so login runs directly.
 autologin_conf=$(mktemp)
 cat >"$autologin_conf" <<EOF
 [Service]
