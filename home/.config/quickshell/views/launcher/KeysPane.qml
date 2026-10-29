@@ -2,9 +2,7 @@ import "../.."
 import "../../Search.js" as Search
 import QtQuick
 
-// Every key bind and key of the shell (Keybinds), to read. With nothing typed
-// they come in sections, each under its heading; a search mixes them, by what
-// the key does first, then by chord and section.
+// Every bind and shell key (Keybinds): in sections when nothing is typed, else ranked.
 LauncherPane {
 	id: pane
 

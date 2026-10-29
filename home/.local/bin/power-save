@@ -64,10 +64,8 @@ apply_display() {
     hyprctl eval "hl.monitor({ output = '${desc}', mode = '${width}x${height}@${hz}', position = '${pos}', scale = ${scale} })" >/dev/null || true
 }
 
-# The animated cursor shader redraws the focused terminal every frame (about
-# 4 W more on battery), so it runs only on AC power and outside power-save
-# mode. Translucency and the (xray, cached) blur cost next to nothing and stay.
-# Returns 1 when nothing changed.
+# The cursor shader redraws the terminal every frame (~4 W), so only on AC outside
+# power-save. Returns 1 when nothing changed.
 ghostty_candy() {
     local shader="$GHOSTTY_SHADER" anim=true conf
     if ! on_ac || is_active; then

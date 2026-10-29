@@ -1,9 +1,7 @@
 import QtQuick
 
-// The SelectionHighlight of a ListView's or GridView's current item. It
-// lights the item's `highlightArea` when it has one (ListRow), else all of
-// it; behind the items, or `over` them when they paint a background of their
-// own (cards) that would hide it.
+// Lights the current item's `highlightArea` (or all of it); behind the items, or
+// `over` them when they paint their own background.
 SelectionHighlight {
 	required property var view
 	property bool over: false

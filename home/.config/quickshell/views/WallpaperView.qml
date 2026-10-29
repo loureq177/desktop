@@ -3,9 +3,8 @@ import Quickshell
 import Quickshell.Wayland
 import QtQuick
 
-// Two stacked images per screen: a new wallpaper decodes in the hidden one,
-// grows over the old one as a circle from a random point, and the old one is
-// dropped.
+// Two images per screen: the new wallpaper decodes hidden, then grows over the old
+// one as a circle.
 Variants {
 	model: Quickshell.screens
 
@@ -108,9 +107,8 @@ Variants {
 			id: second
 		}
 
-		// Darkens the top edge a little so the bar, which has no background,
-		// reads on a bright wallpaper too. It eases out rather than fading
-		// linearly, which would leave a visible line where it ends.
+		// Darkens the top edge so the bar reads on a bright wallpaper; eased, so no line shows
+		// where it ends.
 		Rectangle {
 			anchors {
 				top: parent.top

@@ -4,9 +4,7 @@ import "../../Search.js" as Search
 import Quickshell
 import QtQuick
 
-// The launcher's first list: the apps, the specials and the commands by name,
-// and arithmetic ("2+2"). "/" lists only the commands, all of them in their
-// groups when nothing follows.
+// The apps, specials and commands by name, and arithmetic; "/" lists only the commands.
 LauncherPane {
 	id: pane
 

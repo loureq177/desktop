@@ -1,8 +1,5 @@
-# The look shared by the desktop's programs. apply-ui renders it into the
-# files under templates/ (Hyprland, hyprlock, hyprtoolkit, the GTK file
-# chooser, slurp, yazi, btop, lazygit) and hands all of it to the shell as quickshell/ui.js. What only
-# the shell uses (its sizes, timings and font sizes) lives in
-# quickshell/Theme.qml.
+# The look shared by the desktop's programs: apply-ui renders it into templates/ and
+# quickshell/ui.js. What only the shell uses is in quickshell/Theme.qml.
 
 [rounding]
 window = 8

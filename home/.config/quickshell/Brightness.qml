@@ -3,9 +3,8 @@ import Quickshell
 import Quickshell.Io
 import QtQuick
 
-// The backlight, in percent: -1 until it is read, and for good on a machine
-// without one. The brightness keys come here (hyprland/binds.lua); what else
-// changes it calls `refresh` below, as sysfs reports no changes.
+// The backlight in percent, -1 when there is none; sysfs reports no changes, so
+// whatever changes it calls refresh().
 Singleton {
 	id: root
 

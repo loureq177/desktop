@@ -158,9 +158,8 @@ function parseOpenMeteoDaily(report, todayString) {
 	return result;
 }
 
-// Where each hour of the temperature chart sits: x in the middle of its
-// column, y from `top` (the warmest hour) down to `top + height` (the coldest).
-// A spread under 3° is drawn as 3°, so a steady day stays a flat line.
+// Each hour's point on the chart: x mid-column, y from the warmest (top) to the
+// coldest; under 3° of spread draws as 3°.
 function chartPoints(hours, columnWidth, top, height) {
 	if (!hours || !hours.length) return [];
 	var temps = hours.map(function (h) { return h.temp; });

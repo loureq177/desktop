@@ -1,9 +1,7 @@
 import QtQuick
 import QtQuick.Effects
 
-// A soft dark glow around text and icons, for an item's `layer.effect`: it
-// keeps them readable on whatever the wallpaper puts behind them without a
-// backdrop of their own.
+// A soft dark glow for text and icons (layer.effect), readable on any wallpaper.
 MultiEffect {
 	shadowEnabled: true
 	shadowColor: "black"

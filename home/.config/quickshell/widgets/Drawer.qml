@@ -1,10 +1,8 @@
 import ".."
 import QtQuick
 
-// A card that slides in from the right edge, under the bar (or from the top,
-// `fromTop`), while Panels has `name` open. One that leaves because another
-// drawer takes its place fades where it is instead of sliding across the
-// newcomer. Esc that nothing inside took puts it away.
+// A card sliding in from the right under the bar (or the top) while Panels has `name`
+// open; replaced by another, it fades in place. Esc puts it away.
 FocusScope {
 	id: root
 

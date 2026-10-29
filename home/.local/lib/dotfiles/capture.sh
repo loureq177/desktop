@@ -41,11 +41,8 @@ output_rects() {
     ' 2>/dev/null || true
 }
 
-# pick_region [--freeze] [--windows] [--outputs]: select an area with slurp
-# into $GEOM. --freeze freezes the screen while selecting, --windows offers
-# window rects, --outputs whole monitors: slurp takes the smallest rect under
-# a click, so a click on no window takes the monitor. Returns 1 when the
-# selection is cancelled; without rects a click on nothing cancels too.
+# pick_region [--freeze] [--windows] [--outputs]: an area from slurp into $GEOM;
+# returns 1 when cancelled.
 # shellcheck disable=SC2034  # GEOM is read by the sourcing script
 pick_region() {
     local arg freeze=false rects=""

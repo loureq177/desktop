@@ -1,9 +1,7 @@
 import ".."
 import QtQuick
 
-// A square button with a line icon, lit under the pointer: outlined, or bare
-// (`outlined: false`). `danger` turns it red under the pointer: what it does
-// cannot be undone.
+// A square line-icon button, outlined or bare; `danger` turns it red under the pointer.
 Rectangle {
 	id: button
 

@@ -82,10 +82,8 @@ fetch_image() {
     mv "$IMAGE.part" "$IMAGE"
 }
 
-# The GPU that renders the VM: not the NVIDIA card of a hybrid laptop, which
-# would stay awake for it. Empty lets libvirt choose. egl-headless hands
-# virt-manager finished frames: a frame passed as a GPU buffer (spice gl=on)
-# stays black when the host's desktop runs on the other GPU.
+# The VM's render GPU, not a hybrid laptop's NVIDIA card (it would stay awake); empty
+# lets libvirt pick. egl-headless, as spice gl=on stays black across GPUs.
 render_node() {
     local node
     for node in /sys/class/drm/renderD*; do

@@ -1,6 +1,5 @@
--- The monitors local.lua names where it puts them, anything else next to
--- them. The laptop panel is off while the lid is closed and another screen is
--- connected, and sits where the connected external monitor wants it.
+-- Monitors where local.lua puts them, the rest beside; the laptop panel is off
+-- with the lid closed and another screen connected.
 
 local machine = require("hyprland.machine")
 local laptop = machine.laptop

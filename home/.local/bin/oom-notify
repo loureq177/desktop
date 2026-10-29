@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
-# A notification when the kernel kills a process for lack of memory: without
-# it the app just vanishes, and sysclean finds its unit failed days later.
-# The kernel journal is readable by wheel.
+# Notifies when the kernel's OOM killer kills a process, which otherwise just vanishes.
 set -euo pipefail
 
 journalctl -k -f -n 0 -o cat --grep 'Killed process' | while IFS= read -r line; do

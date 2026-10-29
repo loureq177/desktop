@@ -1,10 +1,8 @@
 import ".."
 import QtQuick
 
-// The highlight of the keyboard's (and the pointer's) place: one for a whole
-// list or page, sliding from item to item in the time a list glides to it
-// (WheelScroll.reveal), so the two move as one. Whoever declares it puts it
-// over `item`; the first item is lit in place, not flown to.
+// One highlight for a list, sliding in the time the list glides (WheelScroll.reveal);
+// the first item is lit in place.
 Rectangle {
 	id: root
 

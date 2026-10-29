@@ -4,10 +4,8 @@ import Quickshell.Hyprland
 import Quickshell.Io
 import QtQuick
 
-// The panel on screen, at most one: opening one closes the one before. Going
-// anywhere else puts it away: a click outside it, on another module of the
-// bar (Bar.leavePanels), or a key that changes the workspace, the special
-// workspace, the window or the monitor (below).
+// At most one panel on screen; a click outside, another bar module or a key that
+// moves focus elsewhere puts it away.
 Singleton {
 	id: root
 
@@ -43,9 +41,8 @@ Singleton {
 			root.open(name, newMode);
 	}
 
-	// A panel that takes the keyboard takes the pointer off the bar with it,
-	// and the next click would only bring it back: the click that should put
-	// the panel away again.
+	// A panel taking the keyboard takes the pointer off the bar: the next click there
+	// would only bring it back.
 	Timer {
 		id: pointerRefresh
 		interval: 100

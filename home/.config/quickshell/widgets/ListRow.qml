@@ -1,10 +1,8 @@
 import ".."
 import QtQuick
 
-// A row of a SelectList (or the cell of a GridView): the current one, which
-// the pointer moves as well, is lit by the view's ListHighlight over
-// `highlightArea`; a click activates it. `topInset` leaves room above the
-// row for a heading of its own.
+// A row of a SelectList (or a GridView cell), lit over `highlightArea`; `topInset`
+// leaves room for a heading.
 Rectangle {
 	id: row
 

@@ -3,9 +3,8 @@ import Quickshell
 import QtQuick
 import "ui.js" as Ui
 
-// The colours and what the shell shares with the rest of the desktop come
-// from ~/.config/ui/ui.toml (through ui.js, which apply-ui writes). The rest
-// belongs to the shell alone and is set here.
+// Colours and shared sizes come from ~/.config/ui/ui.toml (via ui.js); the rest is
+// the shell's own.
 Singleton {
 	id: theme
 

@@ -1,9 +1,8 @@
 import ".."
 import QtQuick
 
-// The notification's picture: an avatar, a screenshot. An app's own icon is
-// left out, as is a placeholder: the app's name is on the card already, and
-// either would only take room from the text.
+// The notification's picture (an avatar, a screenshot); app icons and placeholders are
+// left out.
 Item {
 	id: root
 

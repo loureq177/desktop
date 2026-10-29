@@ -5,9 +5,8 @@ import Quickshell.Hyprland
 import Quickshell.Wayland
 import QtQuick
 
-// The drawers under the bar, in one window: Actions, the notification center
-// and the weather. Below the bar, which stays clickable; a click anywhere
-// else puts the drawer away.
+// The drawers under the bar (Actions, notifications, weather) in one window; a
+// click elsewhere puts them away.
 PanelWindow {
 	id: root
 

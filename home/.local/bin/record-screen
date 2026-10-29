@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-# record-screen [--mic] [--cam]: stops the recording that is running, or else
-# asks for an area, a window or a monitor and records it, with the microphone
-# and the camera if asked.
+# record-screen [--mic] [--cam]: stops the running recording, or records an area,
+# a window or a monitor.
 set -euo pipefail
 
 OUT_DIR="$HOME/Videos/Screencasts"
@@ -60,9 +59,8 @@ audio_device() {
     echo "$source"
 }
 
-# Encode on the GPU Hyprland renders with (the first of AQ_DRM_DEVICES), off the
-# CPU: NVENC on NVIDIA, whose VA-API driver only decodes, VA-API elsewhere, and
-# x264 when that GPU has no H.264 encoder.
+# Encodes on Hyprland's GPU (first of AQ_DRM_DEVICES): NVENC on NVIDIA, VA-API
+# elsewhere, x264 without an H.264 encoder.
 encoder_args() {
     local card="${AQ_DRM_DEVICES:-}" cards dev node
     card="${card%%:*}"

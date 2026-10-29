@@ -13,9 +13,7 @@ function step(event, count, current) {
 	return -1;
 }
 
-// A move by `delta` that goes round at the ends: up from the first row to the
-// last, down from the last to the first; elsewhere it stops at the end. A held
-// key (`repeat`) stops there too, so only a fresh press goes round.
+// A move by `delta` that wraps at the ends on a fresh press; a held key stops there.
 function wrap(current, delta, count, repeat) {
 	if (count === 0)
 		return 0;

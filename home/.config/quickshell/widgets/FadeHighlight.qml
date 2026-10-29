@@ -1,9 +1,7 @@
 import ".."
 import QtQuick
 
-// The highlight of one item, fading in while it is `selected` and out when
-// it is not: each item has its own, where SelectionHighlight is one for a
-// whole list that slides between them.
+// One item's own highlight, fading with `selected` (SelectionHighlight slides for a list).
 Rectangle {
 	property bool selected: false
 

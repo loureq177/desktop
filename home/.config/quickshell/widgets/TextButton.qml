@@ -1,9 +1,8 @@
 import ".."
 import QtQuick
 
-// A button that says what it does: outlined, or filled with the accent for
-// the one a form is there for (`primary`). An `icon` goes before the text.
-// `danger` paints it red: what it does next cannot be undone.
+// A labelled button, outlined or filled (`primary`), with an optional `icon`;
+// `danger` paints it red.
 Rectangle {
 	id: root
 

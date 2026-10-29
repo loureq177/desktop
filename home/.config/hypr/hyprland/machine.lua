@@ -1,7 +1,5 @@
--- What belongs to one machine: keyboard, GPU, monitors, startup commands
--- (local.lua.example). Every field is here whatever local.lua has: a missing
--- or broken one leaves the defaults. (Hyprland's require reports a broken
--- file as a config error even in pcall; dofile does not.)
+-- The machine's keyboard, GPU, monitors and startup (local.lua.example), with
+-- defaults for whatever is missing; dofile, as require errors even in pcall.
 
 local ok, machine = pcall(dofile, os.getenv("HOME") .. "/.config/hypr/local.lua")
 if not ok or type(machine) ~= "table" then

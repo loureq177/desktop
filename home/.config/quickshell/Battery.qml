@@ -13,9 +13,8 @@ Singleton {
 	readonly property bool charging: device?.state === UPowerDeviceState.Charging || device?.state === UPowerDeviceState.PendingCharge
 	readonly property bool onBattery: UPower.onBattery
 
-	// The lowest level already warned of: a warning comes once as the charge
-	// falls past 10% and 5%, and again only after the charger. At 2% UPower
-	// takes over (CriticalPowerAction).
+	// The lowest level warned of: once at 10% and 5%, again after charging; UPower
+	// takes over at 2%.
 	property int warnedAt: 101
 
 	onPercentChanged: root.warnLow()

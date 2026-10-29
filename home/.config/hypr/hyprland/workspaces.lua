@@ -1,8 +1,5 @@
--- The workspaces form one row, left to right across the monitors (by their
--- position) and by id on each: SUPER + 1..9 count along it, H and L go on past
--- the last window of a workspace to the next one, and SHIFT takes the window
--- along, past either end to a new workspace. Hyprland drops a workspace once
--- it is empty and left, so the row has no gaps; the ids show nowhere.
+-- The workspaces are one row across the monitors: SUPER + 1..9 count along it, H / L
+-- go past a workspace's last window, SHIFT takes the window along.
 
 local nowhere = { x = math.huge, y = math.huge }
 local opposite = { left = "right", right = "left" }
@@ -50,10 +47,8 @@ local function new_last(workspaces)
 	return top + 1
 end
 
--- The id of a new workspace before the start of the row: the first workspace
--- and every one above it move one id up, the highest first, as an id in use
--- cannot be taken (the bar refreshes on the change, Bar.qml). A workspace
--- object follows its workspace, so the first id is read once.
+-- A new id before the row's start: every workspace moves one id up, highest
+-- first, as an id in use cannot be taken.
 local function new_first(workspaces)
 	local free = workspaces[1].id
 	local ids = {}
@@ -71,9 +66,7 @@ local function new_first(workspaces)
 	return free
 end
 
--- Whether a window of `win`'s workspace lies to the `dir` side of it. Focus
--- in a direction wraps round at the edge of the screen, so it is asked only
--- when there is something to go to.
+-- Whether `win`'s workspace has a window to the `dir` side (focus wraps at the edge).
 local function anything_beyond(win, dir)
 	if win == nil or win.workspace == nil then
 		return false
@@ -105,9 +98,8 @@ local function window_at_side(ws, side)
 	return best
 end
 
--- Into a workspace another monitor shows already the window flies over; one
--- that slides in brings it along, in its new place at once, instead of the
--- window flying there while the workspace slides.
+-- Onto another monitor's workspace the window flies; a workspace that slides in
+-- brings it along in place.
 local function move(win, id)
 	local target = hl.get_workspace(id)
 	local slides = target == nil or not target.visible
@@ -122,9 +114,8 @@ local function move(win, id)
 	end
 end
 
--- Sends `win` to place `n` of the row, or past an end of it (0, #row + 1) to
--- a new workspace there; not when the window is alone on the workspace at
--- that end, as the new one would only take its place.
+-- Sends `win` to place `n` of the row, or past an end to a new workspace (not
+-- when it is alone at that end).
 local function send(win, workspaces, n)
 	local ws = workspaces[n]
 	if ws == nil then
@@ -170,11 +161,8 @@ function M.throw(dir)
 		return
 	end
 	local n = i + (dir == "left" and -1 or 1)
-	-- Dwindle splits the window nearest the cursor, on the cursor's side of
-	-- it: with the cursor at the edge the window comes in by (M.focus's
-	-- entry), thrown right it lands first in the row, thrown left last (or
-	-- above and below, when that window splits top and bottom). The cursor
-	-- waits in the outer gap, over no window to take the focus on the way.
+	-- Dwindle splits the window nearest the cursor, on its side: the cursor waits
+	-- in the gap the window came in by.
 	local edge = workspaces[n] and window_at_side(workspaces[n], opposite[dir])
 	local m = edge and workspaces[n].monitor
 	if m ~= nil then

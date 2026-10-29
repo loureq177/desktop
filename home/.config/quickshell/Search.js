@@ -16,10 +16,8 @@ function fieldScore(text, ql) {
 	return h.indexOf(ql) !== -1 ? 2 : -1;
 }
 
-// How well q matches a thing described by fields, [[text, weight], ...] best
-// field first: the first field that matches gives its weight plus its
-// fieldScore. Lower is better; everything matches nothing typed (0), -1 is no
-// match.
+// How well q matches fields [[text, weight], ...]: the first match's weight plus
+// its fieldScore; lower is better, -1 none, 0 when nothing is typed.
 function matchScore(fields, q) {
 	var ql = (q || "").toLowerCase().trim();
 	if (ql === "")

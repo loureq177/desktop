@@ -14,9 +14,8 @@ DeviceList {
 	radioOn: btAdapter?.enabled ?? false
 	scanning: btAdapter?.discovering ?? false
 
-	// Paired devices first, the connected ones on top; then the nearby ones
-	// that have a name. Their own: without one, BlueZ makes the address the
-	// alias, which is `name`.
+	// Paired devices first, connected on top, then nearby ones with a name of their own
+	// (BlueZ uses the address otherwise).
 	items: {
 		var paired = [];
 		var nearby = [];

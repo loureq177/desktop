@@ -3,9 +3,8 @@ import Quickshell
 import Quickshell.Wayland
 import QtQuick
 
-// A card in the middle of the screen over a dim: the launcher. It has the
-// keyboard while shown; Esc or a click on the dim asks to dismiss it. The card fades in (and grows, scaled by `progress`
-// itself).
+// The launcher's card over a dim: it has the keyboard; Esc or a click on the dim
+// dismisses it.
 PanelWindow {
 	id: root
 

@@ -5,12 +5,8 @@ import Quickshell.Io
 import Quickshell.Services.UPower
 import QtQuick
 
-// What the session's scripts have switched on. Each leaves a file in
-// $XDG_RUNTIME_DIR while it is on: awake-toggle, power-save, record-screen and
-// dictation, which writes what it is doing into its own. battery-care writes
-// "on" or "off", and nothing where the battery has no charge limit. The
-// screens being shared, which Hyprland reports. And night light, which
-// hyprsunset tells when asked: its schedule (hyprsunset.conf) changes it too.
+// What the session's scripts switched on, from their files in $XDG_RUNTIME_DIR,
+// plus screen sharing (Hyprland) and night light (hyprsunset).
 Singleton {
 	id: root
 
@@ -30,9 +26,7 @@ Singleton {
 			nightLightQuery.running = true;
 	}
 
-	// Until the schedule's next change; 4500 K as in hyprsunset.conf. Off
-	// reads back 6000 K, as hyprsunset's identity profile does: `identity`
-	// alone leaves the warm temperature to be read.
+	// Until the schedule's next change, at 4500 K; off reads back 6000 K.
 	function toggleNightLight(): void {
 		nightLight = !nightLight;
 		Quickshell.execDetached(["sh", "-c", nightLight ? "hyprctl hyprsunset temperature 4500"

@@ -3,10 +3,8 @@ import "ListNav.js" as ListNav
 import QtQuick
 import QtQuick.Controls
 
-// A list the keyboard and the pointer pick from, with one highlight for both:
-// J / K and the arrows, g / G, Enter or a click for `activated`. Its rows are
-// ListRow. With `wrap`, step() goes round at the ends on a fresh press
-// (ListNav.wrap).
+// A list picked from by keyboard and pointer, one highlight for both: J / K, arrows,
+// g / G, Enter or click; `wrap` goes round at the ends.
 ListView {
 	id: list
 

@@ -4,14 +4,8 @@ import "../../widgets/ListNav.js" as ListNav
 import QtQuick
 import QtQuick.Layouts
 
-// The Wi-Fi and Bluetooth pages: a header with the radio switch, the list of
-// networks or devices, and what stands in for it while the radio is off.
-//
-// Each of `items` is an object with key, name, icon, connected, saved (can be
-// forgotten), detail (the status line when idle), dim, open (an open lock
-// after the name: most networks have a lock, so the odd one out is marked)
-// and battery (0..1, -1 for none). The page asks before forgetting
-// and tracks one action at a time (startPending).
+// The Wi-Fi and Bluetooth pages: radio switch, list, and what shows while off.
+// `items`: { key, name, icon, connected, saved, detail, dim, open, battery }.
 FocusScope {
 	id: root
 

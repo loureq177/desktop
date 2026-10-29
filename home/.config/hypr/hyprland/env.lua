@@ -22,9 +22,7 @@ for _, prefix in ipairs({ "XCURSOR", "HYPRCURSOR" }) do
 	env(prefix .. "_SIZE", tostring(ui.font.size_cursor))
 end
 env("SAL_USE_VCLPLUGIN", "gtk3")
--- NVDEC drops parts of keyframes in wf-recorder's screencasts (blocks of the
--- previous frame stay on screen until the next keyframe), so GStreamer players
--- decode H.264 with libav (gst-libav) instead.
+-- NVDEC drops parts of keyframes in wf-recorder's casts: libav decodes H.264.
 env("GST_PLUGIN_FEATURE_RANK", "nvh264dec:NONE")
 
 return { set = env, exported = exported }
