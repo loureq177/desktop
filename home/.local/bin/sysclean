@@ -49,7 +49,7 @@ avail_bytes() {
         awk 'NR>1 && !seen[$1]++ {sum+=$2} END {print sum+0}'
 }
 
-# What needs root, run as `sysclean --root` (pkexec or sudo). It finds what to
+# What needs root, run as `sysclean --root` under sudo. It finds what to
 # remove by itself: nothing it deletes comes from the caller.
 root_steps() {
     _log_info "Checking for orphaned packages..."
@@ -134,7 +134,7 @@ if [ "$AUTO" = 1 ]; then
     done
 else
     # All root steps run in one `sysclean --root`, so there is one prompt.
-    "$(as_root)" "$SELF" --root || _log_warn "Root steps did not finish (exit $?); cleaning the rest."
+    sudo "$SELF" --root || _log_warn "Root steps did not finish (exit $?); cleaning the rest."
 fi
 
 _log_info "Cleaning Paru AUR cache..."
@@ -214,8 +214,8 @@ else
 fi
 
 _log_info "Checking for failed systemd services..."
-failed_sys=$(systemctl --failed --no-legend --no-pager 2>/dev/null || true)
-failed_user=$(systemctl --user --failed --no-legend --no-pager 2>/dev/null || true)
+failed_sys=$(systemctl --failed --plain --no-legend --no-pager 2>/dev/null || true)
+failed_user=$(systemctl --user --failed --plain --no-legend --no-pager 2>/dev/null || true)
 
 if [ -n "$failed_sys" ]; then
     _log_warn "Failed system services:"
@@ -231,6 +231,16 @@ if [ "$failed_services" = 0 ]; then
     _log_ok "No failed services."
     _log_info "System is clean."
 else
+    # systemd keeps a unit failed until a reset or a reboot, so once shown
+    # they are reset: the next run lists only what failed since. Why they
+    # failed stays in the journal. --auto keeps them for a run someone reads.
+    if [ "$AUTO" = 0 ]; then
+        mapfile -t units < <(awk '{print $1}' <<<"$failed_sys")
+        [ -z "$failed_sys" ] || sudo systemctl reset-failed -- "${units[@]}" || true
+        mapfile -t units < <(awk '{print $1}' <<<"$failed_user")
+        [ -z "$failed_user" ] || systemctl --user reset-failed -- "${units[@]}" || true
+        echo "  Reset; why one failed: journalctl -b -u UNIT (--user -u for user ones)"
+    fi
     _log_info "Cleaned, but some services have failed (see above)."
 fi
 

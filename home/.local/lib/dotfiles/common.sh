@@ -46,14 +46,3 @@ run_if() {
     fi
     [ "$rc" -ne 124 ] || echo "  (skipped $tool - timed out)"
 }
-
-# What asks for root: the quickshell polkit dialog in the Hyprland session,
-# sudo in a tty or over ssh, where there is no dialog and pkexec's own text
-# agent fails on polkit 127 (polkit-org/polkit#686).
-as_root() {
-    if [ -n "${WAYLAND_DISPLAY:-}" ]; then
-        echo pkexec
-    else
-        echo sudo
-    fi
-}
