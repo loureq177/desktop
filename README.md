@@ -7,7 +7,7 @@ I focused on:
 
 - Very fast and easy navigation with keyboard only and mouse as well.
 - Polished, cosistent look and feel.
-- Ease of use
+- Ease of use and full customizability
 - Compatibility with both laptops and PC's
 - Low resource usage
 
@@ -20,19 +20,20 @@ functionality.
 
 ### Sane defaults
 
-- **Hyprland:** Web apps on special workspaces with shortcuts (quickly respond
-  to message, check calendar, change music...)
+- **Hyprland:** Tiling windows, web apps on special workspaces with shortcuts
+  (quickly respond to message, save task, check calendar, change music...)
 - **Quickshell**:
-    - Launcher (apps, `/` actions, clipboard, emoji, keys)
+    - Launcher (apps, `/actions`, clipboard, emoji, keys)
     - quick actions, notifications, OSD
     - Weather module
     - RAM usage indicatorr
-- **hyprlock**: password or fingerprint
-- **Github theme everywhere**: `~/.config/ui/ui.toml`, applied with `apply-ui`
-- Screenshots, screen recording with mic and camera!!, OCR
+- **Hyprlock**: password or fingerprint
+- **Github theme**: `~/.config/ui/ui.toml`, change it with `apply-ui`
+- Screenshots with edits, screen recording with mic and camera!!, OCR
 - **Dictation** with whisper-cpp under `SUPER + D`
 - Battery care, power saver, awake-mode, night-light
 - `sysupdate` and `sysclean` scripts
+- A notification when the system runs out of RAM and kills an app
 - Wallpaper swither with grow animation (SUPER + P)
 
 ### Laptop features
