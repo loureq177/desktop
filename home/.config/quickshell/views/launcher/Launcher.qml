@@ -3,15 +3,13 @@ import "../../widgets"
 import QtQuick
 import QtQuick.Layouts
 
-// One search field over four lists (LauncherPane): the apps (with the commands,
-// arithmetic and files), the emoji, the clipboard history and the keys. The
-// other three open from their keys or as commands; Backspace in the empty
-// field goes back to the apps.
+// One search field over the lists (LauncherPane): apps, emoji, clipboard, keys,
+// session and settings; Backspace in the empty field goes back to the apps.
 ModalWindow {
 	id: root
 
 	property string scope: "apps"
-	readonly property var panes: ({ apps: apps, emoji: emoji, clipboard: clipboard, keys: keys })
+	readonly property var panes: ({ apps: apps, emoji: emoji, clipboard: clipboard, keys: keys, session: session, settings: settings })
 	readonly property var pane: panes[scope]
 
 	shown: Panels.active === "launcher"
@@ -34,6 +32,14 @@ ModalWindow {
 			search.clear();
 			search.focusInput();
 			root.pane.opened();
+		}
+	}
+
+	Connections {
+		target: root.pane
+		function onQueryRequested(text) {
+			search.text = text;
+			search.focusInput();
 		}
 	}
 
@@ -88,11 +94,15 @@ ModalWindow {
 				leftRightNavigate: root.pane.grid
 
 				onAccepted: root.pane.activate()
-				onCancelled: Panels.close("launcher")
+				onCancelled: {
+					if (!root.pane.back())
+						Panels.close("launcher");
+				}
+				onResetRequested: root.pane.resetValue()
 				onStepped: (delta, repeat) => root.pane.step(delta, repeat)
 				onSteppedColumn: (delta, repeat) => root.pane.stepColumn(delta, repeat)
 				onErased: {
-					if (root.scope !== "apps")
+					if (!root.pane.back() && root.scope !== "apps")
 						Panels.open("launcher", "apps");
 				}
 
@@ -149,6 +159,20 @@ ModalWindow {
 					id: keys
 					anchors.fill: parent
 					visible: root.scope === "keys"
+					query: visible ? search.text : ""
+				}
+
+				SessionPane {
+					id: session
+					anchors.fill: parent
+					visible: root.scope === "session"
+					query: visible ? search.text : ""
+				}
+
+				SettingsPane {
+					id: settings
+					anchors.fill: parent
+					visible: root.scope === "settings"
 					query: visible ? search.text : ""
 				}
 			}

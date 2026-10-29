@@ -5,13 +5,8 @@ import Quickshell.Widgets
 import QtQuick
 import QtQuick.Layouts
 
-// The rows of the apps' and the keys' lists. Each item is
-//   { label, subtitle, icon, lineIcon, run }
-// and maybe `chord` (its keys, as caps), `accent` (the calculator's green),
-// `heading` (the section it opens when it differs from the row before) and
-// `confirm` (the verb of what runs on a second Enter only). `icon` is a theme
-// icon or one of the shell's (icons/); without one the row shows `lineIcon`.
-// `run` returning false keeps the launcher open.
+// Rows of the launcher's lists: { label, subtitle, icon, lineIcon, run } and maybe chord,
+// accent, heading, confirm, setting; run returning false keeps the launcher.
 SelectList {
 	id: list
 
@@ -140,7 +135,13 @@ SelectList {
 				font.pixelSize: Theme.fontSizeSmall
 				color: row.armed ? Theme.warning : Theme.textDim
 				elide: Text.ElideRight
-				text: row.armed ? "Press Enter again to " + row.modelData.confirm : (row.modelData.subtitle ?? "")
+				text: row.armed ? "Press " + (row.modelData.chord ? row.modelData.chord + " or " : "") + "Enter again to " + row.modelData.confirm : (row.modelData.subtitle ?? "")
+			}
+
+			SettingValue {
+				visible: row.modelData.setting !== undefined
+				setting: row.modelData.setting ?? null
+				selected: row.selected
 			}
 
 			KeyCaps {

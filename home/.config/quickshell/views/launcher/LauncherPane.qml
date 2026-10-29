@@ -13,6 +13,9 @@ Item {
 	// A grid: Left and Right move to the next cell, Up and Down by a row.
 	property bool grid: false
 
+	// The field's text, set from here (a value to edit).
+	signal queryRequested(string text)
+
 	// `repeat`: the key is held down.
 	function step(delta: int, repeat: bool): void {
 	}
@@ -21,6 +24,16 @@ Item {
 	}
 
 	function activate(): void {
+	}
+
+	// Escape, or Backspace when empty: true when the list stepped back on its own
+	// (out of an edit), keeping the launcher open.
+	function back(): bool {
+		return false;
+	}
+
+	// Ctrl+R: what the selected row holds, back to its default.
+	function resetValue(): void {
 	}
 
 	// The launcher opened on this list, or left it.

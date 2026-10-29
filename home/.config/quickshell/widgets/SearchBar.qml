@@ -21,6 +21,7 @@ Rectangle {
 	signal steppedColumn(int delta, bool repeat)
 	// Backspace in an empty field.
 	signal erased()
+	signal resetRequested()
 
 	function focusInput() {
 		input.focus = true;
@@ -86,6 +87,8 @@ Rectangle {
 					event.isAutoRepeat || bar.accepted();
 				else if (key === Qt.Key_Escape)
 					event.isAutoRepeat || bar.cancelled();
+				else if (ctrl && key === Qt.Key_R)
+					event.isAutoRepeat || bar.resetRequested();
 				else if (!ctrl || (key !== Qt.Key_H && key !== Qt.Key_L))
 					return;
 				event.accepted = true;

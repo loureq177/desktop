@@ -32,9 +32,8 @@ def header(source, suffix):
     return "".join(f"{mark} {line}\n" for line in lines) + "\n"
 
 
-# @section_key@ is a value from ui.toml ([border] size -> @border_size@); a
-# [colors] entry is also there by its own name, as "#rrggbb", and @name:bare@
-# drops the "#".
+# @section_key@ is a ui.toml value ([border] size → @border_size@); colours are also
+# there by name as "#rrggbb", and @name:bare@ drops the "#".
 def render(template, values):
     def value(match):
         text = str(values[match.group(1)])
@@ -77,7 +76,86 @@ def apply_gtk(cfg):
             subprocess.run(["gsettings", "set", schema, key, value], capture_output=True)
 
 
+# --set section.key=value: changes that one line of ui.toml, keeping its comments and
+# the value's kind; refused when it would not parse or the key is not there.
+def set_value(assignment):
+    path = CONFIG_DIR / "ui" / "ui.toml"
+    name, _, raw = assignment.partition("=")
+    section, _, key = name.strip().partition(".")
+    text = path.read_text()
+    old = tomllib.loads(text).get(section, {}).get(key)
+    if old is None:
+        sys.exit(f"apply-ui: no {section}.{key} in ui.toml")
+    if isinstance(old, bool):
+        value = "true" if raw.strip().lower() in ("true", "1", "on", "yes") else "false"
+    elif isinstance(old, (int, float)):
+        number = float(raw)
+        value = str(int(number)) if isinstance(old, int) else repr(number)
+    else:
+        value = json.dumps(raw)
+    lines = text.splitlines(keepends=True)
+    current = None
+    for i, line in enumerate(lines):
+        header = re.match(r"\s*\[([^\]]+)\]", line)
+        if header:
+            current = header.group(1).strip()
+        elif current == section and re.match(rf"\s*{re.escape(key)}\s*=", line):
+            lines[i] = re.sub(r"=.*", f"= {value}", line.rstrip("\n"), count=1) + "\n"
+            break
+    new = "".join(lines)
+    tomllib.loads(new)
+    path.write_text(new)
+
+
+# --dump: what the shell's settings list of ui.toml, as JSON: every value
+# with its kind, and what the themes and fonts can be, from what is installed.
+def dump():
+    with open(CONFIG_DIR / "ui" / "ui.toml", "rb") as f:
+        cfg = tomllib.load(f)
+    values = []
+    for section, table in cfg.items():
+        for key, value in table.items():
+            kind = "bool" if isinstance(value, bool) else "int" if isinstance(value, int) else "float" if isinstance(value, float) else "str"
+            if section == "colors":
+                kind = "color"
+            values.append({"section": section, "key": key, "value": value, "kind": kind})
+
+    roots = [Path.home() / ".local/share/icons", Path.home() / ".icons", Path("/usr/share/icons")]
+    icons, cursors = set(), set()
+    for root in roots:
+        for theme in root.glob("*/index.theme"):
+            dirs = {d.name for d in theme.parent.iterdir() if d.is_dir()}
+            if "cursors" in dirs:
+                cursors.add(theme.parent.name)
+            if dirs - {"cursors", "cursors_scalable", "hyprcursors"}:
+                icons.add(theme.parent.name)
+    gtk = {d.parent.name for root in (Path.home() / ".themes", Path("/usr/share/themes")) for d in root.glob("*/gtk-3.0")}
+    gtk.add("Adwaita")
+    gtk.add("Adwaita-dark")
+
+    def families(*pattern):
+        out = subprocess.run(["fc-list", *pattern, "family"], capture_output=True, text=True).stdout
+        return sorted({line.split(",")[0].strip() for line in out.splitlines() if line.strip()})
+
+    choices = {
+        "theme.icon": sorted(icons - {"hicolor", "default"}),
+        "theme.cursor": sorted(cursors - {"default"}),
+        "theme.gtk": sorted(gtk),
+        "font.family": families(":"),
+        "font.mono": families(":spacing=mono"),
+    }
+    print(json.dumps({"values": values, "choices": choices}))
+
+
 def main():
+    if "--dump" in sys.argv:
+        dump()
+        return
+
+    for arg in sys.argv[1:]:
+        if arg.startswith("--set="):
+            set_value(arg[len("--set="):])
+
     with open(CONFIG_DIR / "ui" / "ui.toml", "rb") as f:
         cfg = tomllib.load(f)
 
@@ -109,6 +187,10 @@ def main():
 
     apply_gtk(cfg)
     print("  \033[32m✓\033[0m GNOME/GTK settings updated")
+
+    # The shell reads ui.js once, as it starts.
+    if subprocess.run(["systemctl", "--user", "try-restart", "quickshell.service"], capture_output=True).returncode == 0:
+        print("  \033[32m✓\033[0m Shell restarted")
 
 
 if __name__ == "__main__":
