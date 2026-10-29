@@ -1,0 +1,187 @@
+#!/usr/bin/env bash
+# Runs this desktop in a virtual machine, installed from the working tree.
+#
+#   tests/vm                  open the VM "desktop", made on first use
+#   tests/vm NAME             another VM, e.g. one per experiment
+#   tests/vm --new [NAME]     throw the VM away and make it again
+#   tests/vm --no-install     make it, but leave install.sh to be run by hand
+#   tests/vm --rm NAME        delete the VM and its disk
+#
+# A fresh Arch cloud image boots, logs in as "test" (password "test") on tty1,
+# runs install.sh and reboots into the desktop. The repo is mounted in the VM
+# at ~/Projects/desktop, live: edits here show up there. Snapshots, memory,
+# CPUs, VMs of other distros: virt-manager, which this opens. Everything runs
+# as you (qemu:///session), with no daemon, group or root; only the missing
+# packages are installed with sudo.
+set -euo pipefail
+
+REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$REPO/home/.local/lib/dotfiles/common.sh"
+
+CONNECT=qemu:///session
+IMAGE_URL=https://geo.mirror.pkgbuild.com/images/latest/Arch-Linux-x86_64-cloudimg.qcow2
+CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/desktop-vm"
+# The session's default storage pool: virt-manager lists the disks there.
+DISKS="${XDG_DATA_HOME:-$HOME/.local/share}/libvirt/images"
+
+name=desktop
+new=0
+install=1
+remove=0
+while (($#)); do
+    case "$1" in
+    --new) new=1 ;;
+    --no-install) install=0 ;;
+    --rm) remove=1 ;;
+    -h | --help)
+        sed -n '2,15s/^# \{0,1\}//p' "${BASH_SOURCE[0]}"
+        exit 0
+        ;;
+    -*)
+        _log_error "Unknown argument: $1 (see --help)"
+        exit 2
+        ;;
+    *) name="$1" ;;
+    esac
+    shift
+done
+
+virsh() { command virsh --connect "$CONNECT" "$@"; }
+
+need_packages() {
+    local missing
+    missing="$(pacman -T virt-manager libvirt qemu-desktop passt)" || true
+    [[ -n "$missing" ]] || return 0
+    _log_info "Installing ${missing//$'\n'/ }..."
+    # shellcheck disable=SC2086
+    sudo pacman -S --needed --noconfirm $missing
+}
+
+# virt-manager opens qemu:///system on its own, which needs libvirtd.
+connect_virt_manager() {
+    local key=org.virt-manager.virt-manager.connections
+    [[ "$(gsettings get "$key" uris 2>/dev/null)" == "@as []" ]] || return 0
+    gsettings set "$key" uris "['$CONNECT']"
+    gsettings set "$key" autoconnect "['$CONNECT']"
+}
+
+# A month-old image is fine: install.sh upgrades the system first.
+fetch_image() {
+    IMAGE="$CACHE/arch.qcow2"
+    [[ -s "$IMAGE" && -z "$(find "$IMAGE" -mtime +30)" ]] && return 0
+    _log_info "Downloading the Arch Linux cloud image..."
+    mkdir -p "$CACHE"
+    local sum
+    sum="$(curl -fsSL "$IMAGE_URL.SHA256" | cut -d' ' -f1)"
+    curl -fL --retry 2 -o "$IMAGE.part" "$IMAGE_URL"
+    if [[ "$(sha256sum "$IMAGE.part" | cut -d' ' -f1)" != "$sum" ]]; then
+        rm -f "$IMAGE.part"
+        _log_error "The image does not match its checksum."
+        exit 1
+    fi
+    mv "$IMAGE.part" "$IMAGE"
+}
+
+# The GPU that renders the VM: not the NVIDIA card of a hybrid laptop, which
+# would stay awake for it. Empty lets libvirt choose. egl-headless hands
+# virt-manager finished frames: a frame passed as a GPU buffer (spice gl=on)
+# stays black when the host's desktop runs on the other GPU.
+render_node() {
+    local node
+    for node in /sys/class/drm/renderD*; do
+        [[ -e "$node/device/driver" ]] || continue
+        [[ "$(basename "$(readlink "$node/device/driver")")" == nvidia ]] && continue
+        echo "/dev/dri/${node##*/}"
+        return
+    done
+}
+
+# cloud-init: the user, the repo mount and autologin on tty1, where the first
+# login runs install.sh. Its own autologin replaces this one.
+write_cloud_init() {
+    local dir="$1" first_login
+    if ((install)); then
+        first_login='"$HOME/Projects/desktop/install.sh" && sudo reboot'
+    else
+        first_login="echo 'Install the desktop: ~/Projects/desktop/install.sh'"
+    fi
+    cat >"$dir/user-data" <<EOF
+#cloud-config
+users:
+  - name: test
+    uid: $(id -u)
+    plain_text_passwd: test
+    lock_passwd: false
+    shell: /bin/bash
+    sudo: ALL=(ALL) NOPASSWD:ALL
+write_files:
+  - path: /etc/systemd/system/getty@tty1.service.d/autologin.conf
+    content: |
+      [Service]
+      ExecStart=
+      ExecStart=-/sbin/agetty --autologin test --noclear %I \$TERM
+  - path: /home/test/.bash_profile
+    owner: test:test
+    defer: true
+    content: |
+      [[ -f ~/.bashrc ]] && . ~/.bashrc
+      if [[ "\$(tty)" == /dev/tty1 ]]; then
+          until mountpoint -q ~/Projects/desktop; do sleep 1; done
+          $first_login
+      fi
+runcmd:
+  - install -d -o test -g test /home/test/Projects /home/test/Projects/desktop
+  - echo 'desktop /home/test/Projects/desktop 9p trans=virtio,version=9p2000.L,msize=1048576 0 0' >>/etc/fstab
+  - mount /home/test/Projects/desktop
+  - systemctl daemon-reload
+  - systemctl restart getty@tty1
+EOF
+    printf 'instance-id: %s-%s\nlocal-hostname: %s\n' "$name" "$(date +%s)" "$name" >"$dir/meta-data"
+}
+
+create_vm() {
+    fetch_image
+    _log_info "Making the VM $name..."
+    local disk="$DISKS/$name.qcow2" dir node
+    mkdir -p "$DISKS"
+    cp --reflink=auto "$IMAGE" "$disk"
+    qemu-img resize -q "$disk" 40G
+    dir="$(mktemp -d)"
+    trap 'rm -rf "$dir"' EXIT
+    write_cloud_init "$dir"
+    node="$(render_node)"
+    virt-install --connect "$CONNECT" --name "$name" --osinfo archlinux --import \
+        --memory 4096 --vcpus 4 \
+        --memballoon virtio,freePageReporting=on \
+        --disk "path=$disk,bus=virtio" \
+        --network passt,model=virtio \
+        --filesystem "source.dir=$REPO,target.dir=desktop,accessmode=squash" \
+        --video virtio,accel3d=yes \
+        --graphics spice,listen=none \
+        --graphics "egl-headless${node:+,gl.rendernode=$node}" \
+        --cloud-init "user-data=$dir/user-data,meta-data=$dir/meta-data" \
+        --noautoconsole
+    _log_ok "VM $name made. The first boot installs the desktop and reboots."
+}
+
+remove_vm() {
+    virsh dominfo "$name" &>/dev/null || return 0
+    virsh destroy "$name" &>/dev/null || true
+    virsh undefine "$name" --remove-all-storage --snapshots-metadata >/dev/null
+    _log_ok "VM $name removed."
+}
+
+need_packages
+if ((remove)); then
+    remove_vm
+    exit 0
+fi
+((new)) && remove_vm
+if virsh dominfo "$name" &>/dev/null; then
+    [[ "$(virsh domstate "$name")" == running ]] || virsh start "$name" >/dev/null
+else
+    create_vm
+fi
+connect_virt_manager
+# Off the terminal: its GTK warnings would look like this script hanging.
+setsid -f virt-manager --connect "$CONNECT" --show-domain-console "$name" >/dev/null 2>&1
