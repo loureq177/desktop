@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+BROWSER="${1:-}"
+APP_URL="${2:-}"
+shift 2 || true
+
+if [ -z "$BROWSER" ] || [ -z "$APP_URL" ]; then
+    echo "Usage: chromium-webapp <browser> <app-url> [args...]" >&2
+    exit 1
+fi
+
+# A profile of their own, as the Firefox web apps have: signed in once, apart from
+# the browser. The window is named after the URL's host (specials.lua matches it).
+DATA_DIR="${XDG_DATA_HOME:-$HOME/.local/share}"
+PROFILE_DIR="$DATA_DIR/webapps-$(basename "$BROWSER")"
+
+exec "$BROWSER" \
+    --user-data-dir="$PROFILE_DIR" \
+    --ozone-platform=wayland \
+    --no-first-run \
+    --no-default-browser-check \
+    --app="$APP_URL" "$@"

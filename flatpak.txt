@@ -1,3 +1,2 @@
-com.spotify.Client
 io.github.screwys.Rufin
 org.gnome.gitlab.YaLTeR.VideoTrimmer

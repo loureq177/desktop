@@ -1,34 +1,8 @@
 -- Special workspaces, one app each, started when opened empty; `key` toggles it
--- with SUPER + SHIFT. The shell's names match (quickshell/Specials.js).
+-- with SUPER + SHIFT. Chosen with apply-apps (hyprland/apps.lua).
 
-local bin = os.getenv("HOME") .. "/.local/bin"
-
-local function webapp(name, url, title, key, desc)
-	return {
-		id = name,
-		exe = bin .. "/firefox-webapp " .. name .. " " .. url,
-		class = "webapps",
-		title = ".*" .. title .. ".*",
-		key = key,
-		desc = desc or title,
-	}
-end
-
-local specials = {
-	calendar = webapp("calendar", "https://calendar.google.com", "Calendar", "C"),
-	mail = webapp("gmail", "https://mail.google.com", "Gmail", "E", "Mail"),
-	tasks = webapp("tasks", "https://tasks.google.com", "Tasks", "T"),
-	whatsapp = webapp("whatsapp", "https://web.whatsapp.com", "WhatsApp", "W"),
-	spotify = {
-		exe = "flatpak run com.spotify.Client",
-		class = "spotify",
-		key = "S",
-		desc = "Spotify",
-	},
-	btop = { exe = "ghostty +new-window -e btop", key = "B", desc = "Activity Monitor" },
-	yazi = { exe = "ghostty +new-window -e yazi", key = "F", desc = "Files" },
-	jolt = { exe = "ghostty +new-window -e jolt" },
-}
+local apps = require("hyprland.apps")
+local specials = apps.specials
 
 for name, app in pairs(specials) do
 	local ws = "special:" .. name
@@ -51,12 +25,28 @@ hl.on("workspace.created", function(ws)
 	end
 end)
 
--- Web apps started hidden so their notifications come early. They share one
--- Firefox (windows named after the first app), so each is moved as it opens.
-local background = { "mail", "calendar", "whatsapp" }
+-- Apps started hidden so their notifications come early, one after another, each
+-- moved as it opens. Firefox web apps share one Firefox (windows named after the
+-- first app), Chromium's are named after the URL's host.
+local background = apps.background
+local first_firefox
+for _, name in ipairs(background) do
+	if first_firefox == nil and specials[name].firefox then
+		first_firefox = name
+	end
+end
+
+local function opened_by(w, app)
+	if app.host then
+		return w.class:find(app.host, 1, true) ~= nil
+	end
+	return w.class == (app.firefox and first_firefox or app.class)
+end
 
 hl.on("hyprland.start", function()
-	local class = specials[background[1]].id
+	if background[1] == nil then
+		return
+	end
 	local i = 0
 	local sub
 	local function start_next()
@@ -69,7 +59,7 @@ hl.on("hyprland.start", function()
 	end
 	sub = hl.on("window.open", function(w)
 		-- one opened on a special is the user's own (workspace.created)
-		if w.class ~= class or (w.workspace ~= nil and w.workspace.special) then
+		if not opened_by(w, specials[background[i]]) or (w.workspace ~= nil and w.workspace.special) then
 			return
 		end
 		hl.dispatch(hl.dsp.window.set_prop({ prop = "focus_on_activate", value = "0", window = w }))

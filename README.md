@@ -20,8 +20,10 @@ functionality.
 
 ### Sane defaults
 
-- **Hyprland:** Tiling windows, web apps on special workspaces with shortcuts
-  (quickly respond to message, save task, check calendar, change music...)
+- **Hyprland:** Tiling windows, your apps on special workspaces under
+  `SUPER + SHIFT + key` (quickly respond to a message, save a task, check the
+  calendar, change music...): picked while installing, again with
+  `apply-apps --pick`
 - **Quickshell**:
     - Launcher (apps, `/actions`, clipboard, emoji, keys)
     - quick actions, notifications, OSD
@@ -58,10 +60,18 @@ dependencies and symlinks.
 git clone https://github.com/loureq177/desktop.git ~/Projects/desktop && ~/Projects/desktop/install.sh
 ```
 
+It asks for your browser (Firefox, Chromium, Brave, Chrome, Zen) and your special
+workspaces: the standard set (calendar, mail, tasks, messages, music, files,
+activity, energy, each with a choice of app), more categories (AI, notes,
+social, video, maps, code, work chat, meetings...) and web apps of your own.
+Every special gets a key. The answers stay in `~/.config/apps/apps.toml`;
+`install.sh --defaults` skips the questions.
+
 The installer changes the system: packages (official, AUR, flatpak), `/etc`
-(zram, sysctl hardening, the lock screen's PAM), autologin on tty1, zsh as the
-login shell. It also clones and installs [`.files`](https://github.com/loureq177/.files)
-(zsh, Ghostty, nvim), which the login and the terminal need.
+(the session on tty1, zram, sysctl hardening, the lock screen's PAM), autologin
+on tty1. It also clones and installs [`.files`](https://github.com/loureq177/.files)
+(zsh as the login shell, Ghostty, nvim and the terminal tools);
+`--no-dotfiles` leaves it out and the desktop still starts.
 
 ## Keys
 

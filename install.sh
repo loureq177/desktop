@@ -6,11 +6,20 @@ cd "$(dirname "${BASH_SOURCE[0]:-$0}")"
 source home/.local/lib/dotfiles/common.sh
 
 NO_UPGRADE=0
+PICK=0
+DEFAULTS=0
+DOTFILES=1
 for arg in "$@"; do
     case "$arg" in
     --no-upgrade) NO_UPGRADE=1 ;;
+    --pick) PICK=1 ;;
+    --defaults) DEFAULTS=1 ;;
+    --no-dotfiles) DOTFILES=0 ;;
     -h | --help)
-        echo "Usage: $0 [--no-upgrade]"
+        echo "Usage: $0 [--no-upgrade] [--pick | --defaults] [--no-dotfiles]"
+        echo "  --pick         ask for the browser and the special workspaces again"
+        echo "  --defaults     the standard ones, without asking"
+        echo "  --no-dotfiles  leave out .files (zsh, Ghostty, nvim and the terminal tools)"
         exit 0
         ;;
     *)
@@ -30,12 +39,15 @@ if [ ! -f /etc/arch-release ]; then
 fi
 
 pkglist() { sed 's/\r$//' "$1" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' | grep -vE '^(#|$)' || true; }
+# A package list, or - for names on stdin.
 pac_install() {
     local pkgs
-    pkgs="$(pkglist "$1")"
+    pkgs="$(if [ "$1" = - ]; then cat; else pkglist "$1"; fi)"
     [[ -n "$pkgs" ]] || return 0
     printf '%s\n' "$pkgs" | sudo pacman -S --noconfirm --needed -
 }
+# What the chosen browser and specials need from one source (pacman, aur, flatpak).
+picked() { home/.local/bin/apply-apps --packages | awk -v source="$1" '$1 == source { print $2 }'; }
 # paru is not in the official repositories: build it once from the AUR.
 bootstrap_paru() {
     command -v paru &>/dev/null && return 0
@@ -77,6 +89,17 @@ fi
 pac_install packages.txt
 _log_ok "Pacman packages installed."
 
+# Asked once, the answers kept in ~/.config/apps/apps.toml; with no terminal to
+# ask in, the standard set.
+if [ "$PICK" -eq 1 ] || [ ! -f "${XDG_CONFIG_HOME:-$HOME/.config}/apps/apps.toml" ]; then
+    if [ "$DEFAULTS" -eq 0 ] && [ -t 0 ]; then
+        home/.local/bin/apply-apps --pick --no-reload
+    else
+        home/.local/bin/apply-apps --defaults --no-reload
+    fi
+fi
+picked pacman | pac_install -
+
 if compgen -G "/sys/class/power_supply/BAT*" >/dev/null 2>&1; then
     _log_info "Detected laptop hardware (battery found). Installing laptop packages..."
     pac_install packages-laptop.txt
@@ -86,14 +109,14 @@ fi
 if command -v flatpak &>/dev/null; then
     _log_info "Configuring Flatpak and installing applications..."
     flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
-    pkglist flatpak.txt | xargs -r -d '\n' flatpak install --user -y --or-update flathub
+    { pkglist flatpak.txt; picked flatpak; } | xargs -r -d '\n' flatpak install --user -y --or-update flathub
     _log_ok "Flatpaks installed."
 fi
 
-if pkglist aur.txt | grep -q .; then
+if { pkglist aur.txt; picked aur; } | grep -q .; then
     if bootstrap_paru; then
         _log_info "Installing AUR packages via paru..."
-        pkglist aur.txt | xargs -r -d '\n' paru -S --noconfirm --needed
+        { pkglist aur.txt; picked aur; } | xargs -r -d '\n' paru -S --noconfirm --needed
         _log_ok "AUR packages installed."
     else
         _log_warn "Could not build paru - skipping AUR packages."
@@ -101,15 +124,17 @@ if pkglist aur.txt | grep -q .; then
     fi
 fi
 
-# The terminal side (zsh, Ghostty, nvim) is .files': its .zshenv (ZDOTDIR) is how the
-# login shell finds the .zprofile that starts Hyprland. Skipped once it is linked.
-if [ ! -d ~/.files ]; then
-    _log_info "Cloning .files (the terminal configs)..."
-    git clone https://github.com/loureq177/.files.git ~/.files
-fi
-if [ ! -e ~/.zshenv ]; then
-    _log_info "Installing .files..."
-    bash ~/.files/install.sh
+# The terminal side (zsh as the login shell, Ghostty, nvim and their packages) is
+# .files'. The session starts without it (/etc/profile.d), so a failure only warns.
+if [ "$DOTFILES" -eq 1 ]; then
+    if [ ! -d ~/.files ]; then
+        _log_info "Cloning .files (the terminal configs)..."
+        git clone https://github.com/loureq177/.files.git ~/.files || _log_warn "Could not clone .files."
+    fi
+    if [ -f ~/.files/install.sh ]; then
+        _log_info "Installing .files..."
+        bash ~/.files/install.sh || _log_warn ".files did not install: the terminal keeps its defaults."
+    fi
 fi
 
 _log_info "Linking home/ into ~..."
@@ -123,7 +148,7 @@ fi
 stow --verbose --restow --target ~ home
 
 _log_info "Configuring autologin on tty1..."
-# No display manager: getty autologins $USER, .zprofile execs Hyprland, hyprlock locks.
+# No display manager: getty autologins $USER, /etc/profile.d execs Hyprland, hyprlock locks.
 # Nothing may write to tty1 (fbcon would take it, a ~0.7 s modeset), so login runs directly.
 autologin_conf=$(mktemp)
 cat >"$autologin_conf" <<EOF
@@ -140,13 +165,7 @@ rm -f "$autologin_conf"
 sudo systemctl unmask getty@tty1.service
 sudo systemctl enable getty@tty1.service || _log_warn "Failed to enable getty@tty1."
 
-# .zprofile is what turns the tty1 login into the Hyprland session.
-if [ -x /usr/bin/zsh ] && [ "$(getent passwd "$USER" 2>/dev/null | cut -d: -f7)" != /usr/bin/zsh ]; then
-    _log_info "Making zsh the login shell..."
-    sudo chsh -s /usr/bin/zsh "$USER" || _log_warn "Failed to change the login shell to zsh."
-fi
-
-_log_info "Installing system configs (zram, swap and hardening sysctls, zswap off, lock screen PAM, journal and coredump limits)..."
+_log_info "Installing system configs (the session on tty1, zram, swap and hardening sysctls, zswap off, lock screen PAM, journal and coredump limits)..."
 # etc/ mirrors /etc; the files are copied, not linked.
 while IFS= read -r -d '' src; do
     dest="/$src"
@@ -163,6 +182,9 @@ sudo sysctl --quiet --load /etc/sysctl.d/99-zram.conf || _log_warn "Failed to ap
 sudo systemctl restart systemd-journald || _log_warn "Failed to restart journald."
 sudo systemctl daemon-reload 2>/dev/null || true
 sudo systemctl start systemd-zram-setup@zram0.service 2>/dev/null || _log_warn "zram starts on the next boot."
+
+_log_info "Rendering the browser and special workspaces..."
+"$HOME/.local/bin/apply-apps" --no-reload || _log_warn "Failed to render ~/.config/apps/apps.toml."
 
 _log_info "Applying UI styles..."
 "$HOME/.local/bin/apply-ui" --no-reload || _log_warn "Failed to apply UI styles."

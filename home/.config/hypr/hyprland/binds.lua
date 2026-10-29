@@ -1,3 +1,4 @@
+local apps = require("hyprland.apps")
 local specials = require("hyprland.specials")
 local workspaces = require("hyprland.workspaces")
 
@@ -25,7 +26,7 @@ end
 
 do
 	local bind = section("Essential")
-	bind("SUPER + B", "Browser", exec("firefox"))
+	bind("SUPER + B", "Browser", exec(apps.browser.exec))
 	bind("SUPER + RETURN", "Terminal", exec("ghostty"))
 	bind("SUPER + space", "Launcher", exec("qs ipc call shell toggle launcher apps"))
 end

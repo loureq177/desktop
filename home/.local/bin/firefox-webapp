@@ -49,8 +49,9 @@ user_pref("app.shield.optoutstudies.enabled", false);
 user_pref("app.normandy.enabled", false);
 EOF
 
+# FIREFOX: another Firefox, such as Zen (apply-apps).
 exec env MOZ_APP_REMOTINGNAME="webapps" \
-    firefox \
+    "${FIREFOX:-firefox}" \
     --profile "$PROFILE_DIR" \
     --class="webapps" \
     --name="$APP_NAME" \

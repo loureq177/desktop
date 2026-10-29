@@ -1,5 +1,4 @@
 import "../.."
-import "../../Specials.js" as Specials
 import "../../Search.js" as Search
 import Quickshell
 import QtQuick

@@ -73,7 +73,6 @@ wl-clipboard
 wtype
 
 # Desktop applications the session binds or opens files with
-firefox
 fuse2
 ghostty
 gnome-calculator
@@ -89,61 +88,15 @@ showtime
 snapshot
 thunderbird
 
-# Terminal: shell, prompt and the tools the zsh config aliases
-zsh
-starship
-bat
-btop
-eza
-fd
-fzf
-ripgrep
-yazi
-zoxide
-chafa
-resvg
-jolt
-man-db
-tealdeer
+# The terminal (zsh, nvim and the tools they call) is .files' packages-arch.txt;
+# the browser and the specials' apps are what apply-apps --pick chose.
+
+# Used by the desktop's scripts and the actions menu
 trash-cli
-fastfetch
-
-# Editor and development
-neovim
-python-pynvim
-tree-sitter-cli
-git
-git-delta
-github-cli
-lazygit
-opencode
-bun
-cmake
-nodejs
-npm
-python-pip
-python-virtualenv
-ruff
-rust
-uv
-
-# Command-line utilities
-7zip
-dog
-dua-cli
-duf
-httpie
-hyperfine
-jless
-moreutils
-openbsd-netcat
-parallel
-strace
-unzip
 wev
-wget
-zip
 
-# This repo's own tooling: links the configs and runs tests/run
+# This repo's own tooling: links the configs, clones .files, runs apply-apps and tests/run
 stow
+git
+python
 bats

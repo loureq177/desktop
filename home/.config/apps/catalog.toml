@@ -1,0 +1,227 @@
+# What `apply-apps --pick` offers: the browser, and a special workspace per category
+# with one app of its list (the first is the default). Each special opens with
+# SUPER + SHIFT + its key, which every special must have.
+#
+# An app is a web app (`url`), a terminal program (`term`) or a program of its own
+# (`exec`, with the window `class` it opens). `icon` is the bar's (LineIcons.js,
+# the category's when left out), `app_icon` the launcher's (icons/ or a theme icon),
+# `desktop` the desktop entry the launcher lists as the special instead, `title`
+# what the web app's window title has in it (its name when left out), `player` the
+# MPRIS player it plays through. `pacman`, `aur` and `flatpak` are what it needs.
+
+# Taken by other SUPER + SHIFT binds (binds.lua).
+reserved = ["H", "J", "K", "L"]
+
+# `engine`: how its web apps run, as windows of a Firefox profile of their own or as
+# Chromium --app windows.
+browsers = [
+	{ id = "firefox", name = "Firefox", exec = "firefox", desktop = "firefox.desktop", engine = "firefox", pacman = ["firefox"] },
+	{ id = "chromium", name = "Chromium", exec = "chromium", desktop = "chromium.desktop", engine = "chromium", pacman = ["chromium"] },
+	{ id = "brave", name = "Brave", exec = "brave", desktop = "brave-browser.desktop", engine = "chromium", aur = ["brave-bin"] },
+	{ id = "chrome", name = "Google Chrome", exec = "google-chrome-stable", desktop = "google-chrome.desktop", engine = "chromium", aur = ["google-chrome"] },
+	{ id = "zen", name = "Zen Browser", exec = "zen-browser", desktop = "zen.desktop", engine = "firefox", aur = ["zen-browser-bin"] },
+]
+
+# `standard`: in the set the installer offers as a whole; `background`: started
+# hidden with the session, so its notifications come before it is first opened;
+# `bar = false` keeps it off the bar's row of specials.
+
+[[category]]
+id = "calendar"
+title = "Calendar"
+key = "C"
+icon = "calendar"
+standard = true
+background = true
+apps = [
+	{ name = "Google Calendar", url = "https://calendar.google.com", title = "Calendar", icon = "googlecalendar", app_icon = "icons/google-calendar.svg" },
+	{ name = "Outlook Calendar", url = "https://outlook.live.com/calendar", title = "Outlook", app_icon = "outlook-for-linux" },
+	{ name = "Proton Calendar", url = "https://calendar.proton.me", title = "Proton Calendar", app_icon = "org.gnome.Calendar" },
+]
+
+[[category]]
+id = "mail"
+title = "Mail"
+key = "E"
+icon = "mail"
+standard = true
+background = true
+apps = [
+	{ name = "Gmail", url = "https://mail.google.com", icon = "gmail", app_icon = "icons/gmail.svg" },
+	{ name = "Outlook", url = "https://outlook.live.com/mail", app_icon = "outlook-for-linux" },
+	{ name = "Proton Mail", url = "https://mail.proton.me", app_icon = "proton-mail" },
+]
+
+[[category]]
+id = "tasks"
+title = "Tasks"
+key = "T"
+icon = "circle-check"
+standard = true
+apps = [
+	{ name = "Google Tasks", url = "https://tasks.google.com", title = "Tasks", icon = "googletasks", app_icon = "icons/google-tasks.svg" },
+	{ name = "Todoist", url = "https://app.todoist.com", app_icon = "todoist" },
+	{ name = "TickTick", url = "https://ticktick.com/webapp", app_icon = "ticktick" },
+	{ name = "Microsoft To Do", url = "https://to-do.live.com", title = "To Do" },
+]
+
+[[category]]
+id = "messages"
+title = "Messages"
+key = "W"
+icon = "message-circle"
+standard = true
+background = true
+apps = [
+	{ name = "WhatsApp", url = "https://web.whatsapp.com", icon = "whatsapp", app_icon = "icons/whatsapp.svg" },
+	{ name = "Messenger", url = "https://www.messenger.com", app_icon = "messengerfordesktop" },
+	{ name = "Telegram", url = "https://web.telegram.org/a", app_icon = "telegram" },
+	{ name = "Google Messages", url = "https://messages.google.com/web", title = "Messages" },
+]
+
+[[category]]
+id = "music"
+title = "Music"
+key = "S"
+icon = "music"
+standard = true
+apps = [
+	{ name = "Spotify", exec = "flatpak run com.spotify.Client", class = "spotify", icon = "spotify", app_icon = "spotify", desktop = "com.spotify.Client", player = "spotify", flatpak = ["com.spotify.Client"] },
+	{ name = "YouTube Music", url = "https://music.youtube.com", app_icon = "youtube-music" },
+	{ name = "Tidal", url = "https://listen.tidal.com", title = "TIDAL", app_icon = "tidal" },
+	{ name = "Apple Music", url = "https://music.apple.com", app_icon = "apple-music" },
+	{ name = "SoundCloud", url = "https://soundcloud.com", app_icon = "soundcloud" },
+]
+
+[[category]]
+id = "activity"
+title = "Activity Monitor"
+desc = "Processes, memory, CPU"
+key = "B"
+icon = "memory-stick"
+standard = true
+bar = false
+apps = [
+	{ name = "btop", term = "btop", app_icon = "utilities-system-monitor", desktop = "btop", pacman = ["btop"] },
+]
+
+[[category]]
+id = "files"
+title = "Files"
+desc = "File manager"
+key = "F"
+icon = "folder"
+standard = true
+apps = [
+	{ name = "Yazi", term = "yazi", app_icon = "system-file-manager", desktop = "yazi", pacman = ["yazi"] },
+	{ name = "Nautilus", exec = "nautilus --new-window", class = "org.gnome.Nautilus", app_icon = "org.gnome.Nautilus", desktop = "org.gnome.Nautilus", pacman = ["nautilus"] },
+]
+
+[[category]]
+id = "energy"
+title = "Energy"
+desc = "Battery and energy use"
+key = "P"
+icon = "zap"
+standard = true
+apps = [
+	{ name = "jolt", term = "jolt", app_icon = "gnome-power-statistics", pacman = ["jolt"] },
+]
+
+[[category]]
+id = "ai"
+title = "AI"
+key = "A"
+icon = "sparkles"
+apps = [
+	{ name = "Claude", url = "https://claude.ai" },
+	{ name = "ChatGPT", url = "https://chatgpt.com" },
+	{ name = "Gemini", url = "https://gemini.google.com", app_icon = "gemini" },
+	{ name = "Perplexity", url = "https://www.perplexity.ai" },
+	{ name = "Grok", url = "https://grok.com" },
+	{ name = "Le Chat", url = "https://chat.mistral.ai" },
+]
+
+[[category]]
+id = "notes"
+title = "Notes"
+key = "N"
+icon = "pencil"
+apps = [
+	{ name = "Notion", url = "https://www.notion.so", app_icon = "notion" },
+	{ name = "Google Keep", url = "https://keep.google.com", title = "Keep", app_icon = "google-keep" },
+	{ name = "Obsidian", exec = "obsidian", class = "obsidian", app_icon = "obsidian", desktop = "obsidian", pacman = ["obsidian"] },
+]
+
+[[category]]
+id = "social"
+title = "Social"
+key = "X"
+icon = "message-square"
+apps = [
+	{ name = "X", url = "https://x.com", title = " X", app_icon = "twitter-x" },
+	{ name = "Bluesky", url = "https://bsky.app" },
+	{ name = "Reddit", url = "https://www.reddit.com", app_icon = "reddit" },
+	{ name = "LinkedIn", url = "https://www.linkedin.com" },
+]
+
+[[category]]
+id = "video"
+title = "Video"
+key = "Y"
+icon = "video"
+apps = [
+	{ name = "YouTube", url = "https://www.youtube.com", app_icon = "youtube" },
+	{ name = "Twitch", url = "https://www.twitch.tv" },
+	{ name = "Netflix", url = "https://www.netflix.com", app_icon = "netflix" },
+]
+
+[[category]]
+id = "photos"
+title = "Photos"
+key = "I"
+icon = "image"
+apps = [
+	{ name = "Google Photos", url = "https://photos.google.com", app_icon = "google-photos" },
+]
+
+[[category]]
+id = "maps"
+title = "Maps"
+key = "M"
+icon = "map-pin"
+apps = [
+	{ name = "Google Maps", url = "https://maps.google.com", app_icon = "google-maps" },
+	{ name = "OpenStreetMap", url = "https://www.openstreetmap.org", app_icon = "maps" },
+]
+
+[[category]]
+id = "code"
+title = "Code"
+key = "G"
+icon = "code"
+apps = [
+	{ name = "GitHub", url = "https://github.com", app_icon = "github" },
+	{ name = "GitLab", url = "https://gitlab.com", app_icon = "gitlab" },
+]
+
+[[category]]
+id = "work"
+title = "Work Chat"
+key = "D"
+icon = "message-square"
+apps = [
+	{ name = "Slack", url = "https://app.slack.com/client", app_icon = "slack" },
+	{ name = "Microsoft Teams", url = "https://teams.microsoft.com", title = "Teams", app_icon = "teams" },
+	{ name = "Discord", url = "https://discord.com/app", app_icon = "discord" },
+]
+
+[[category]]
+id = "meetings"
+title = "Meetings"
+key = "V"
+icon = "webcam"
+apps = [
+	{ name = "Google Meet", url = "https://meet.google.com", title = "Meet", app_icon = "google-meet" },
+	{ name = "Zoom", url = "https://app.zoom.us/wc", app_icon = "Zoom" },
+]

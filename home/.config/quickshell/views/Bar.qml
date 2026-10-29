@@ -1,6 +1,5 @@
 import ".."
 import "../widgets"
-import "../Specials.js" as Specials
 import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Services.Mpris
@@ -238,7 +237,7 @@ PanelWindow {
 				}
 			}
 
-			// Memory doubles as the btop special; the other open specials follow
+			// Memory doubles as the activity special; the other open specials follow
 			// it, side by side.
 			Row {
 				Layout.alignment: Qt.AlignVCenter
@@ -247,12 +246,12 @@ PanelWindow {
 					visible: Memory.percent >= 0
 					icon: "memory-stick"
 					value: Memory.percent + "%"
-					isActive: bar.visibleSpecial === "btop"
+					isActive: bar.visibleSpecial === "activity"
 					textColor: Memory.percent >= 90 ? Theme.critical
 						: Memory.percent >= 75 ? Theme.warning
 						: isActive ? Theme.accentBlue : Theme.textDim
-					onActivated: Hypr.toggleSpecial("btop")
-					onRightClicked: Hypr.closeSpecial("btop")
+					onActivated: Hypr.toggleSpecial("activity")
+					onRightClicked: Hypr.closeSpecial("activity")
 				}
 
 				// The app's mark (LineIcons.brands), as the tray shows its apps:
@@ -263,7 +262,7 @@ PanelWindow {
 					delegate: Pill {
 						required property string modelData
 						readonly property var special: Specials.find(modelData)
-						readonly property var player: bar.playerFor(modelData)
+						readonly property var player: special?.player ? bar.playerFor(special.player) : null
 
 						icon: special?.icon ?? ""
 						value: icon === "" ? modelData.charAt(0).toUpperCase() : ""

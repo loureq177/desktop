@@ -31,12 +31,9 @@ UNITS="home/.config/systemd/user"
     [[ "$bad" -eq 0 ]]
 }
 
-@test "the shell's own icons that Specials.js names are in the repo" {
-    local bad=0 icon
-    while IFS= read -r icon; do
-        [[ -f "$REPO/$QS/$icon" ]] || { echo "Specials.js: missing $icon" >&2; bad=1; }
-    done < <(grep -oE '"icons/[^"]+"' "$REPO/$QS/Specials.js" | tr -d '"')
-    [[ "$bad" -eq 0 ]]
+@test "catalog.toml has free keys and the shell's icons, and apply-apps renders all of it" {
+    run python3 "$BATS_TEST_DIRNAME/tools/apps_check.py" "$REPO"
+    assert_status 0
 }
 
 # --- script references -------------------------------------------------------
@@ -306,11 +303,12 @@ listed_packages() {
     # tools guarded by `command -v` (showtime, fwupdmgr, ...) are left out.
     local needed=(
         qs notify-send nmcli brightnessctl checkupdates pacdiff paccache cliphist wl-copy wl-paste wtype
-        hyprctl Hyprland hypridle hyprlock hyprsunset hyprpicker pw-record sox whisper-cli flock jq firefox grim slurp
+        hyprctl Hyprland hypridle hyprlock hyprsunset hyprpicker pw-record sox whisper-cli flock jq grim slurp
         tesseract canberra-gtk-play satty wf-recorder pactl wpctl v4l2-ctl ffplay powerprofilesctl
-        curl playerctl stow bat nvim zsh python3 gsettings systemd-inhibit xdg-open ghostty flatpak
-        yazi btop lazygit fzf git
+        curl playerctl stow python3 gsettings systemd-inhibit xdg-open ghostty flatpak git
     )
+    # Not here: the browser and the specials' apps (catalog.toml, checked above) and
+    # the terminal's tools (.files' packages-arch.txt).
     # Not installable from a list: install.sh builds paru from the AUR,
     # prime-run only matters on NVIDIA machines.
     local unit_bins
