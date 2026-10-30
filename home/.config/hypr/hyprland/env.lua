@@ -22,6 +22,8 @@ for _, prefix in ipairs({ "XCURSOR", "HYPRCURSOR" }) do
 	env(prefix .. "_SIZE", tostring(ui.font.size_cursor))
 end
 env("SAL_USE_VCLPLUGIN", "gtk3")
+-- Qt programs in the desktop's palette and icons (apply-ui renders qt6ct's files).
+env("QT_QPA_PLATFORMTHEME", "qt6ct")
 -- NVDEC drops parts of keyframes in wf-recorder's casts: libav decodes H.264.
 env("GST_PLUGIN_FEATURE_RANK", "nvh264dec:NONE")
 

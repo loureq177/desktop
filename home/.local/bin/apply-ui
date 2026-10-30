@@ -18,6 +18,8 @@ TEMPLATES = {
     "hyprlock-boot.conf": "hypr/hyprlock-boot.conf",
     "hyprtoolkit.conf": "hypr/hyprtoolkit.conf",
     "gtk.css": "gtk-3.0/gtk.css",
+    "qt6ct.conf": "qt6ct/qt6ct.conf",
+    "qt6ct-colors.conf": "qt6ct/colors/ui.conf",
 }
 
 COMMENT = {".lua": "--", ".js": "//"}
@@ -165,6 +167,9 @@ def main():
 
     values = {f"{section}_{key}": v for section, table in cfg.items() for key, v in table.items()}
     values |= cfg["colors"]
+    # "Adwaita Sans 12" as Qt reads a font: "Adwaita Sans,12".
+    family, _, size = cfg["font"]["ui"].rpartition(" ")
+    values["font_ui_qt"] = f"{family},{size}"
 
     # Everything is rendered before anything is written: a bad template
     # leaves the old files in place.
