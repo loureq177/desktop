@@ -140,25 +140,41 @@ EOF
 create_vm() {
     fetch_image
     _log_info "Making the VM $name..."
-    local disk="$DISKS/$name.qcow2" dir node
+    local disk="$DISKS/$name.qcow2" dir node log pid
     mkdir -p "$DISKS"
     cp --reflink=auto "$IMAGE" "$disk"
     qemu-img resize -q "$disk" 40G
     dir="$(mktemp -d)"
-    trap 'rm -rf "$dir"' EXIT
     write_cloud_init "$dir"
     node="$(render_node)"
-    virt-install --connect "$CONNECT" --name "$name" --osinfo archlinux --import \
-        --memory 4096 --vcpus 4 \
-        --memballoon virtio,freePageReporting=on \
-        --disk "path=$disk,bus=virtio" \
-        --network passt,model=virtio \
-        --filesystem "source.dir=$REPO,target.dir=desktop,accessmode=squash" \
-        --video virtio,accel3d=yes \
-        --graphics spice,listen=none \
-        --graphics "egl-headless${node:+,gl.rendernode=$node}" \
-        --cloud-init "user-data=$dir/user-data,meta-data=$dir/meta-data" \
-        --noautoconsole
+    log="$CACHE/$name-install.log"
+    # It stays until install.sh's reboot, which only stops the first boot, and starts the
+    # VM again. Without it (terminal closed) `tests/vm` does the same.
+    (
+        trap '' HUP
+        virt-install --connect "$CONNECT" --name "$name" --osinfo archlinux --import \
+            --memory 4096 --vcpus 4 \
+            --memballoon virtio,freePageReporting=on \
+            --disk "path=$disk,bus=virtio" \
+            --network passt,model=virtio \
+            --filesystem "source.dir=$REPO,target.dir=desktop,accessmode=squash" \
+            --video virtio,accel3d=yes \
+            --graphics spice,listen=none \
+            --graphics "egl-headless${node:+,gl.rendernode=$node}" \
+            --cloud-init "user-data=$dir/user-data,meta-data=$dir/meta-data" \
+            --events on_reboot=restart \
+            --wait -1 \
+            --noautoconsole
+        rm -rf "$dir"
+    ) >"$log" 2>&1 &
+    pid=$!
+    until virsh dominfo "$name" &>/dev/null; do
+        if ! kill -0 "$pid" 2>/dev/null; then
+            _log_error "virt-install failed, see $log"
+            exit 1
+        fi
+        sleep 1
+    done
     _log_ok "VM $name made. The first boot installs the desktop and reboots."
 }
 
