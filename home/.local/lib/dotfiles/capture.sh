@@ -22,12 +22,12 @@ stop_picker() {
 # Visible windows as slurp rects, skipping those hidden behind a fullscreen one.
 window_rects() {
     jq -r --argjson mons "$(timeout 5 hyprctl monitors -j 2>/dev/null || echo "[]")" '
-      [ $mons[]? | (if .specialWorkspace.id != 0 then .specialWorkspace.id else .activeWorkspace.id end) ] as $ws |
-      [ .[]? | select(.fullscreen != 0) | .workspace.id ] as $fs_ws |
+      [ $mons[]? | (if .specialWorkspace.name != "" then .specialWorkspace.name else .activeWorkspace.name end) ] as $ws |
+      [ .[]? | select(.fullscreen != 0) | .workspace.name ] as $fs_ws |
       .[]? | select(
         .mapped and (.hidden | not) and
-        (.workspace.id as $w | $ws | index($w)) and
-        ((.workspace.id as $w | $fs_ws | index($w) | not) or .fullscreen != 0 or .floating)
+        (.workspace.name as $w | $ws | index($w)) and
+        ((.workspace.name as $w | $fs_ws | index($w) | not) or .fullscreen != 0 or .floating)
       ) |
       "\(.at[0]),\(.at[1]) \(.size[0])x\(.size[1])"
     ' <<<"$(timeout 5 hyprctl clients -j 2>/dev/null || echo "[]")" 2>/dev/null || true
