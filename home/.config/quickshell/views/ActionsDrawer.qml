@@ -10,7 +10,6 @@ Drawer {
 	id: win
 
 	name: "actions"
-	cardWidth: 520
 	// "main", or the page of one tile ("wifi", "bluetooth").
 	property string subView: "main"
 	readonly property var pages: ({ main: mainPage, wifi: wifiPage, bluetooth: btPage })
@@ -32,10 +31,10 @@ Drawer {
 		navCol = i % 2;
 	}
 
-	// Sideways a slider moves by 5%, a row of tiles to its other tile.
+	// Sideways the volume moves by 2%, brightness by 5%, a row of tiles to its other tile.
 	function moveSide(delta: int): void {
 		if (navRow === 0)
-			Audio.setVolume(Audio.volume + 5 * delta);
+			Audio.setVolume(Audio.volume + 2 * delta);
 		else if (navRow < sliders.length)
 			Brightness.setPercent(Brightness.percent + 5 * delta);
 		else
@@ -231,9 +230,6 @@ Drawer {
 				if (tile?.page)
 					tile.open();
 				break;
-			case Qt.Key_Q:
-				Panels.close("actions");
-				break;
 			default:
 				tile = Array.from(tileGrid.children).find(t => t.key !== "" && event.key === t.key.charCodeAt(0));
 				if (!tile)
@@ -269,6 +265,7 @@ Drawer {
 			muted: Audio.muted
 			value: Audio.volume
 			iconInteractive: true
+			wheelStep: 2
 			onSelectRequested: win.navRow = 0
 			onIconClicked: Audio.toggleMute()
 			onScrubbed: v => Audio.setVolume(v)
@@ -339,6 +336,7 @@ Drawer {
 
 	WifiSubView {
 		id: wifiPage
+		panelOpen: win.settled
 		anchors.fill: parent
 		visible: win.subView === "wifi"
 		onBackRequested: win.subView = "main"
@@ -346,6 +344,7 @@ Drawer {
 
 	BluetoothSubView {
 		id: btPage
+		panelOpen: win.settled
 		anchors.fill: parent
 		visible: win.subView === "bluetooth"
 		onBackRequested: win.subView = "main"

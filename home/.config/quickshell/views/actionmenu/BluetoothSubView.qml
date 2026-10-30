@@ -1,18 +1,28 @@
 import "../.."
+import "../../widgets"
 import "."
 import QtQuick
+import QtQuick.Layouts
 
 DeviceList {
 	id: root
 
 	readonly property var btAdapter: Bt.adapter
+	// The device the name form is open for.
+	property var renaming: null
 
 	title: "Bluetooth"
-	subtitle: !radioOn ? "Off" : (scanning ? "Scanning for nearby devices…" : items.filter(i => i.saved).length + " paired devices")
+	readonly property int pairedCount: items.filter(i => i.saved).length
+	subtitle: !radioOn ? "Off" : (scanning ? "Scanning for nearby devices…" : pairedCount + (pairedCount === 1 ? " paired device" : " paired devices"))
 	offIcon: "bluetooth-off"
 	radioKey: Qt.Key_B
 	radioOn: btAdapter?.enabled ?? false
 	scanning: btAdapter?.discovering ?? false
+	renameable: true
+	// Ahead of the page only with nothing connected: discovery can make headphones stutter.
+	looking: radioOn && (visible || (panelOpen && Bt.connected.length === 0))
+	prompting: renaming !== null
+	extraHeight: prompting ? nameCard.implicitHeight + 12 : 0
 
 	// Paired devices first, connected on top, then nearby ones with a name of their own
 	// (BlueZ uses the address otherwise).
@@ -72,18 +82,40 @@ DeviceList {
 		return iconRules.find(r => r.bluez.test(bluez) || r.name.test(name))?.icon ?? "bluetooth";
 	}
 
-	onScanRequested: {
-		if (!btAdapter || !radioOn)
-			return;
-		btAdapter.discovering = true;
-		scanTimer.restart();
+	function openRename(item): void {
+		renaming = item;
+		nameInput.text = Bt.name(item.device);
+		nameInput.selectAll();
+		nameInput.forceActiveFocus();
+	}
+
+	function closeRename(): void {
+		renaming = null;
+		focusList();
+	}
+
+	// An empty one gives the device's own name back (BlueZ's alias).
+	function saveRename(): void {
+		renaming.device.name = nameInput.text.trim();
+		closeRename();
+	}
+
+	onLookingChanged: {
+		if (btAdapter)
+			btAdapter.discovering = looking;
+	}
+	Component.onDestruction: {
+		if (looking && btAdapter)
+			btAdapter.discovering = false;
 	}
 	onRadioToggled: {
-		if (!btAdapter)
-			return;
-		btAdapter.enabled = !btAdapter.enabled;
-		if (btAdapter.enabled)
-			scanRequested();
+		if (btAdapter)
+			btAdapter.enabled = !btAdapter.enabled;
+	}
+	onRenameRequested: item => openRename(item)
+	onVisibleChanged: {
+		if (!visible && prompting)
+			closeRename();
 	}
 	onActivated: item => {
 		if (item.saved) {
@@ -102,12 +134,36 @@ DeviceList {
 		item.device.forget();
 	}
 
-	Timer {
-		id: scanTimer
-		interval: 15000
-		onTriggered: {
-			if (root.btAdapter)
-				root.btAdapter.discovering = false;
+	FormCard {
+		id: nameCard
+		visible: root.prompting
+		title: "New name for \"" + (root.renaming?.name ?? "") + "\""
+		acceptText: "Save (Enter)"
+		onAccepted: root.saveRename()
+		onCancelled: root.closeRename()
+
+		Rectangle {
+			Layout.fillWidth: true
+			Layout.preferredHeight: 36
+			radius: Theme.roundingSubtle
+			color: Theme.glass(Theme.bgCard)
+			border.color: nameInput.activeFocus ? Theme.accentBlue : Theme.border
+			border.width: 1
+
+			TextInput {
+				id: nameInput
+				anchors.fill: parent
+				anchors.leftMargin: 10
+				anchors.rightMargin: 10
+				verticalAlignment: TextInput.AlignVCenter
+				font.family: Theme.fontMono
+				font.pixelSize: Theme.fontSizeSmall
+				color: Theme.textMain
+				selectionColor: Theme.accentBlue
+				clip: true
+				Keys.onEscapePressed: root.closeRename()
+				onAccepted: root.saveRename()
+			}
 		}
 	}
 }

@@ -1,6 +1,6 @@
 import QtQuick
 
-// The wheel over whole steps (a slider by 5%): a notch is a step, the touchpad one per
+// The wheel over whole steps (a slider's): a notch is a step, the touchpad one per
 // stepPixels travelled.
 MouseArea {
 	id: root

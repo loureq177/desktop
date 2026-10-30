@@ -11,7 +11,6 @@ Rectangle {
 	property bool danger: false
 	readonly property bool hovered: area.containsMouse
 	property color iconColor: !hovered ? Theme.textDim : danger ? Theme.critical : Theme.textMain
-	property real spin: 0
 
 	signal clicked()
 
@@ -29,7 +28,6 @@ Rectangle {
 		name: button.icon
 		size: button.iconSize
 		color: button.iconColor
-		rotation: button.spin
 	}
 
 	MouseArea {

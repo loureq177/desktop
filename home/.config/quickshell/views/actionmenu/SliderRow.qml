@@ -15,6 +15,8 @@ Rectangle {
 	property bool iconInteractive: false
 	signal selectRequested()
 	signal iconClicked()
+	// Percent a notch of the wheel moves it.
+	property int wheelStep: 5
 	signal scrubbed(real v)
 
 	Layout.fillWidth: true
@@ -132,12 +134,12 @@ Rectangle {
 		}
 	}
 
-	// A notch of the wheel is 5%, like H / L.
+	// A notch of the wheel moves as far as H / L.
 	WheelSteps {
 		z: 1
 		onStepped: delta => {
 			if (row.ready)
-				row.scrubbed(Math.max(0, Math.min(100, Math.round(row.value) - 5 * delta)));
+				row.scrubbed(Math.max(0, Math.min(100, Math.round(row.value) - row.wheelStep * delta)));
 		}
 	}
 }

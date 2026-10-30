@@ -24,8 +24,10 @@ Singleton {
 	}
 
 	function toggleMute(): void {
-		if (sink?.audio)
-			sink.audio.muted = !sink.audio.muted;
+		if (!sink?.audio)
+			return;
+		sink.audio.muted = !sink.audio.muted;
+		volumeSound.restart();
 	}
 
 	PwObjectTracker {

@@ -10,14 +10,10 @@ RowLayout {
 	property string subtitle: ""
 	property bool enabledState: false
 	property bool isScanning: false
-	property bool showPowerSwitch: true
-	property bool showScan: true
-	// The keys that scan and flip the switch, shown beside them.
-	property string scanKey: ""
+	// The key that flips the switch, shown beside it.
 	property string toggleKey: ""
 
 	signal backClicked()
-	signal scanClicked()
 	signal toggleClicked()
 
 	Layout.fillWidth: true
@@ -53,33 +49,10 @@ RowLayout {
 	}
 
 	HotkeyHint {
-		key: root.showScan && root.enabledState ? root.scanKey : ""
-		lit: scan.hovered
-	}
-
-	IconButton {
-		id: scan
-		visible: root.showScan && root.enabledState
-		icon: "refresh-cw"
-		iconColor: root.isScanning ? Theme.accentBlue : hovered ? Theme.textMain : Theme.textDim
-		onClicked: root.scanClicked()
-
-		NumberAnimation on spin {
-			running: root.isScanning
-			loops: Animation.Infinite
-			from: 0
-			to: 360
-			duration: 900
-		}
-	}
-
-	HotkeyHint {
-		key: root.showPowerSwitch ? root.toggleKey : ""
+		key: root.toggleKey
 	}
 
 	Rectangle {
-		id: powerSwitch
-		visible: root.showPowerSwitch
 		Layout.preferredWidth: 44
 		Layout.preferredHeight: 24
 		radius: 12
@@ -91,7 +64,6 @@ RowLayout {
 		Behavior on border.color { ColorAnimation { duration: Theme.animFast } }
 
 		Rectangle {
-			id: switchThumb
 			width: 18
 			height: 18
 			radius: 9

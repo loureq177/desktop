@@ -15,7 +15,7 @@ DeviceList {
 	property bool showPassword: false
 
 	title: "Wi-Fi"
-	subtitle: !radioOn ? "Off" : (scanning ? "Scanning…" : items.length + " networks found")
+	subtitle: !radioOn ? "Off" : (scanning ? "Scanning…" : items.length + (items.length === 1 ? " network found" : " networks found"))
 	offIcon: "wifi-off"
 	radioKey: Qt.Key_W
 	radioOn: Networking.wifiEnabled
@@ -93,7 +93,7 @@ DeviceList {
 		errorMessage = "";
 		clearPending();
 		passInput.text = "";
-		root.forceActiveFocus();
+		focusList();
 	}
 
 	function submitPassword(): void {
@@ -108,20 +108,22 @@ DeviceList {
 		passInput.forceActiveFocus();
 	}
 
-	function rescan(): void {
-		scanning = true;
+	// The scanner goes round every 10 s while the page is open, and rests after: scans take
+	// the radio off the network for a moment.
+	onLookingChanged: {
 		if (wifiDevice)
-			wifiDevice.scannerEnabled = true;
+			wifiDevice.scannerEnabled = looking;
+		if (!looking)
+			return;
+		scanning = true;
 		// Now rather than at the scanner's next round: Quickshell has no call for it.
 		Quickshell.execDetached(["nmcli", "device", "wifi", "rescan"]);
 		scanTimer.restart();
 	}
-
-	onScanRequested: rescan()
-	onRadioToggled: {
-		Networking.wifiEnabled = !Networking.wifiEnabled;
-		if (Networking.wifiEnabled)
-			rescan();
+	onRadioToggled: Networking.wifiEnabled = !Networking.wifiEnabled
+	Component.onDestruction: {
+		if (looking && wifiDevice)
+			wifiDevice.scannerEnabled = false;
 	}
 	onActivated: item => {
 		if (item.saved || !item.secured)
@@ -165,112 +167,67 @@ DeviceList {
 		onTriggered: root.scanning = false
 	}
 
-	Rectangle {
+	FormCard {
 		id: passwordCard
-		Layout.fillWidth: true
 		visible: root.prompting
-		radius: Theme.roundingElement
-		color: Theme.glass(Theme.bgMain)
-		border.color: Theme.accentBlue
-		border.width: 1
-		implicitHeight: passCol.implicitHeight + 20
+		title: "Enter password for \"" + (root.promptItem?.name ?? "") + "\""
+		busy: root.isPending(root.promptItem)
+		acceptText: busy ? "Connecting…" : "Connect (Enter)"
+		onAccepted: root.submitPassword()
+		onCancelled: root.closePrompt()
 
-		ColumnLayout {
-			id: passCol
-			anchors.fill: parent
-			anchors.margins: 12
-			spacing: 10
+		Rectangle {
+			Layout.fillWidth: true
+			Layout.preferredHeight: 36
+			radius: Theme.roundingSubtle
+			color: Theme.glass(Theme.bgCard)
+			border.color: passInput.activeFocus ? Theme.accentBlue : Theme.border
+			border.width: 1
 
 			RowLayout {
-				Layout.fillWidth: true
-				spacing: 8
+				anchors.fill: parent
+				anchors.leftMargin: 10
+				anchors.rightMargin: 8
+				spacing: 6
 
-				StyledText {
+				TextInput {
+					id: passInput
 					Layout.fillWidth: true
-					text: "Enter password for \"" + (root.promptItem?.name ?? "") + "\""
+					echoMode: root.showPassword ? TextInput.Normal : TextInput.Password
+					font.family: Theme.fontMono
 					font.pixelSize: Theme.fontSizeSmall
-					font.bold: true
-					elide: Text.ElideRight
-				}
+					color: Theme.textMain
+					selectionColor: Theme.accentBlue
+					clip: true
+					onAccepted: root.submitPassword()
 
-				CloseButton {
-					onClicked: root.closePrompt()
-				}
-			}
-
-			Rectangle {
-				Layout.fillWidth: true
-				Layout.preferredHeight: 36
-				radius: Theme.roundingSubtle
-				color: Theme.glass(Theme.bgCard)
-				border.color: passInput.activeFocus ? Theme.accentBlue : Theme.border
-				border.width: 1
-
-				RowLayout {
-					anchors.fill: parent
-					anchors.leftMargin: 10
-					anchors.rightMargin: 8
-					spacing: 6
-
-					TextInput {
-						id: passInput
-						Layout.fillWidth: true
-						echoMode: root.showPassword ? TextInput.Normal : TextInput.Password
-						font.family: Theme.fontMono
+					StyledText {
+						text: "Wi-Fi password…"
+						mono: true
 						font.pixelSize: Theme.fontSizeSmall
-						color: Theme.textMain
-						clip: true
-						onAccepted: root.submitPassword()
-
-						StyledText {
-							text: "Wi-Fi password…"
-							mono: true
-							font.pixelSize: Theme.fontSizeSmall
-							color: Theme.textMuted
-							visible: !passInput.text && !passInput.activeFocus
-							anchors.verticalCenter: parent.verticalCenter
-						}
-					}
-
-					IconButton {
-						Layout.preferredWidth: 26
-						Layout.preferredHeight: 26
-						icon: root.showPassword ? "eye-off" : "eye"
-						outlined: false
-						onClicked: root.showPassword = !root.showPassword
+						color: Theme.textMuted
+						visible: !passInput.text && !passInput.activeFocus
+						anchors.verticalCenter: parent.verticalCenter
 					}
 				}
-			}
 
-			StyledText {
-				readonly property bool connecting: root.isPending(root.promptItem)
-				visible: root.errorMessage !== "" || connecting
-				Layout.fillWidth: true
-				text: root.errorMessage !== "" ? root.errorMessage : root.pendingStatus
-				mono: true
-				font.pixelSize: Theme.fontSizeTiny
-				color: root.errorMessage !== "" ? Theme.critical : Theme.warning
-			}
-
-			RowLayout {
-				Layout.fillWidth: true
-				spacing: 8
-
-				Item { Layout.fillWidth: true }
-
-				TextButton {
-					text: "Cancel (Esc)"
-					onClicked: root.closePrompt()
-				}
-
-				TextButton {
-					readonly property bool connecting: root.isPending(root.promptItem)
-					primary: true
-					opacity: connecting ? 0.6 : 1.0
-					text: connecting ? "Connecting…" : "Connect (Enter)"
-					onClicked: root.submitPassword()
+				IconButton {
+					Layout.preferredWidth: 26
+					Layout.preferredHeight: 26
+					icon: root.showPassword ? "eye-off" : "eye"
+					outlined: false
+					onClicked: root.showPassword = !root.showPassword
 				}
 			}
+		}
+
+		StyledText {
+			visible: root.errorMessage !== "" || passwordCard.busy
+			Layout.fillWidth: true
+			text: root.errorMessage !== "" ? root.errorMessage : root.pendingStatus
+			mono: true
+			font.pixelSize: Theme.fontSizeTiny
+			color: root.errorMessage !== "" ? Theme.critical : Theme.warning
 		}
 	}
 }

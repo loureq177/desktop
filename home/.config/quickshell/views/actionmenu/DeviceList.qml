@@ -5,7 +5,8 @@ import QtQuick
 import QtQuick.Layouts
 
 // The Wi-Fi and Bluetooth pages: radio switch, list, and what shows while off.
-// `items`: { key, name, icon, connected, saved, detail, dim, open, battery }.
+// `items`: { key, name, icon, connected, saved, detail, dim, open, battery }. They look
+// for devices on their own while `looking`, from when the panel opens.
 FocusScope {
 	id: root
 
@@ -15,6 +16,10 @@ FocusScope {
 	property int radioKey: 0
 	property bool radioOn: false
 	property bool scanning: false
+	property bool panelOpen: false
+	property bool looking: panelOpen && radioOn
+	// R or the row's pencil asks for a new name.
+	property bool renameable: false
 	property var items: []
 	property string errorMessage: ""
 	// A form under the list (the Wi-Fi password) has the keys and the errors.
@@ -35,11 +40,11 @@ FocusScope {
 
 	signal backRequested()
 	signal radioToggled()
-	signal scanRequested()
 	// Enter or a click on a row that is not connected: connect, pair, ask.
 	signal activated(var item)
 	signal disconnectRequested(var item)
 	signal forgetConfirmed(var item)
+	signal renameRequested(var item)
 	signal promptKeyPressed(var event)
 	signal timedOut()
 
@@ -58,6 +63,11 @@ FocusScope {
 		pendingTimer.stop();
 		pendingKey = "";
 		pendingStatus = "";
+	}
+
+	// Back to the list from a form under it: the scope alone would hand the keys to the form's field.
+	function focusList(): void {
+		list.forceActiveFocus();
 	}
 
 	function toggleConnection(item): void {
@@ -79,11 +89,14 @@ FocusScope {
 		root.forgetConfirmed(item);
 	}
 
+	// The model set here, not bound: a new one sends the view to its first row, which would
+	// take currentKey along before this reads it.
 	onItemsChanged: {
-		var i = items.findIndex(item => item.key === currentKey);
+		var key = currentKey;
+		list.model = items;
+		var i = items.findIndex(item => item.key === key);
 		// Gone, or nothing there before: the first row.
-		if (i < 0 && items.length > 0)
-			currentKey = items[0].key;
+		currentKey = i < 0 ? (items[0]?.key ?? "") : key;
 		list.currentIndex = Math.max(0, i);
 	}
 	onRadioOnChanged: {
@@ -97,8 +110,6 @@ FocusScope {
 			errorMessage = "";
 			currentKey = items[0]?.key ?? "";
 			list.currentIndex = 0;
-			if (radioOn)
-				root.scanRequested();
 		} else {
 			clearPending();
 		}
@@ -129,7 +140,8 @@ FocusScope {
 		} else if (key === Qt.Key_X || key === Qt.Key_Delete) {
 			event.isAutoRepeat || forget(currentItem);
 		} else if (key === Qt.Key_R) {
-			root.scanRequested();
+			if (root.renameable && currentItem?.saved && !event.isAutoRepeat)
+				root.renameRequested(currentItem);
 		} else if (ListNav.back(event)) {
 			root.backRequested();
 		} else {
@@ -149,10 +161,8 @@ FocusScope {
 			subtitle: root.subtitle
 			enabledState: root.radioOn
 			isScanning: root.scanning
-			scanKey: "R"
 			toggleKey: String.fromCharCode(root.radioKey)
 			onBackClicked: root.backRequested()
-			onScanClicked: root.scanRequested()
 			onToggleClicked: root.radioToggled()
 		}
 
@@ -208,7 +218,6 @@ FocusScope {
 			scrollBar: true
 			highlightOver: true
 			spacing: 6
-			model: root.items
 			onCurrentIndexChanged: root.currentKey = root.items[currentIndex]?.key ?? ""
 			onActivated: index => root.toggleConnection(root.items[index])
 
@@ -220,8 +229,8 @@ FocusScope {
 				readonly property bool busy: root.isPending(modelData)
 
 				height: 50
-				color: connected ? Theme.alpha(Theme.accent, 0.08) : Theme.glass(Theme.bgMain)
-				border.color: connected ? Theme.alpha(Theme.accent, 0.32) : Theme.tileBorder
+				color: connected ? Theme.alpha(Theme.accentBlue, 0.08) : Theme.glass(Theme.bgMain)
+				border.color: connected ? Theme.alpha(Theme.accentBlue, 0.32) : Theme.tileBorder
 				border.width: 1
 
 				Behavior on color { ColorAnimation { duration: Theme.animFast } }
@@ -328,6 +337,16 @@ FocusScope {
 					}
 
 					IconButton {
+						visible: root.renameable && row.modelData.saved
+						implicitWidth: 26
+						implicitHeight: 26
+						icon: "pencil"
+						iconSize: 14
+						outlined: false
+						onClicked: root.renameRequested(row.modelData)
+					}
+
+					IconButton {
 						visible: row.modelData.saved || row.connected
 						implicitWidth: 26
 						implicitHeight: 26
@@ -347,25 +366,12 @@ FocusScope {
 				}
 			}
 
-			Column {
+			StyledText {
 				anchors.centerIn: parent
 				visible: root.items.length === 0 && !root.scanning
-				spacing: 8
-
-				StyledText {
-					anchors.horizontalCenter: parent.horizontalCenter
-					text: "Nothing found"
-					font.pixelSize: Theme.fontSizeSmall
-					color: Theme.textDim
-				}
-
-				StyledText {
-					anchors.horizontalCenter: parent.horizontalCenter
-					text: "Press R to scan again"
-					mono: true
-					font.pixelSize: Theme.fontSizeTiny
-					color: Theme.textMuted
-				}
+				text: "Nothing found"
+				font.pixelSize: Theme.fontSizeSmall
+				color: Theme.textDim
 			}
 		}
 	}
