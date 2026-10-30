@@ -22,6 +22,8 @@ Rectangle {
 	// Backspace in an empty field.
 	signal erased()
 	signal resetRequested()
+	// Delete with nothing after the cursor to delete.
+	signal removeRequested()
 
 	function focusInput() {
 		input.focus = true;
@@ -89,6 +91,8 @@ Rectangle {
 					event.isAutoRepeat || bar.cancelled();
 				else if (ctrl && key === Qt.Key_R)
 					event.isAutoRepeat || bar.resetRequested();
+				else if (key === Qt.Key_Delete && input.cursorPosition === input.text.length)
+					event.isAutoRepeat || bar.removeRequested();
 				else if (!ctrl || (key !== Qt.Key_H && key !== Qt.Key_L))
 					return;
 				event.accepted = true;

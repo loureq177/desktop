@@ -8,6 +8,8 @@ Row {
 
 	property string chord: ""
 	property bool highlighted: false
+	// Set here, not by the config: blue, as a changed setting is.
+	property bool changed: false
 
 	readonly property var parts: chord.split(/( \/ |, )/).reduce((out, p) => out.concat(p === " / " || p === ", "
 		? [{ text: p.trim(), cap: false }]
@@ -40,7 +42,7 @@ Row {
 				mono: true
 				font.pixelSize: Theme.fontSizeTiny
 				font.bold: true
-				color: root.highlighted ? Theme.textMain : Theme.textDim
+				color: root.changed ? Theme.accentBlue : root.highlighted ? Theme.textMain : Theme.textDim
 				text: parent.modelData.text
 			}
 

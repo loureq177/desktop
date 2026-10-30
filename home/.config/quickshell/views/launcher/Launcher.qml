@@ -26,8 +26,11 @@ ModalWindow {
 				return;
 			var next = root.panes[mode] ? mode : "apps";
 			// Another list in the open window: its contents fade in.
-			if (root.shown && !root.animating && next !== root.scope)
-				contentFade.restart();
+			if (next !== root.scope) {
+				root.pane.closed();
+				if (!root.animating)
+					contentFade.restart();
+			}
 			root.scope = next;
 			search.clear();
 			search.focusInput();
@@ -99,6 +102,7 @@ ModalWindow {
 						Panels.close("launcher");
 				}
 				onResetRequested: root.pane.resetValue()
+				onRemoveRequested: root.pane.removeValue()
 				onStepped: (delta, repeat) => root.pane.step(delta, repeat)
 				onSteppedColumn: (delta, repeat) => root.pane.stepColumn(delta, repeat)
 				onErased: {
@@ -115,6 +119,33 @@ ModalWindow {
 					onClicked: {
 						clipboard.wipe();
 						search.focusInput();
+					}
+				}
+
+				// The other lists, the open one in blue: a click on it goes back to the apps.
+				Repeater {
+					model: ["clipboard", "emoji", "keys", "settings"]
+
+					delegate: IconButton {
+						id: listButton
+						required property string modelData
+						readonly property var command: Commands.get(modelData)
+						readonly property string chord: Keybinds.chordFor(command.bind)
+						readonly property bool open: root.scope === modelData
+
+						implicitWidth: 28
+						implicitHeight: 28
+						icon: command.icon
+						outlined: false
+						iconColor: open ? Theme.accentBlue : hovered ? Theme.textMain : Theme.textDim
+						onClicked: Panels.open("launcher", open ? "apps" : modelData)
+
+						Tip {
+							text: listButton.command.name + (listButton.chord !== "" ? "  ·  " + listButton.chord : "")
+							visible: listButton.hovered
+							x: Math.round((listButton.width - width) / 2)
+							y: listButton.height + 6
+						}
 					}
 				}
 			}
@@ -168,6 +199,11 @@ ModalWindow {
 					visible: root.scope === "settings"
 					query: visible ? search.text : ""
 				}
+			}
+
+			ErrorBanner {
+				visible: message !== ""
+				message: root.pane.error
 			}
 
 			Rectangle {

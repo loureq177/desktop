@@ -6,12 +6,18 @@ import QtQuick
 import QtQuick.Layouts
 
 // Rows of the launcher's lists: { label, subtitle, icon, lineIcon, run } and maybe chord,
-// accent, heading, confirm, setting; run returning false keeps the launcher.
+// changed (the chord in blue), editing (the subtitle in blue), tooltip (on hover),
+// accent, heading, confirm, setting, armId; run returning false keeps the launcher.
 SelectList {
 	id: list
 
 	property var items: []
 	property string emptyText: ""
+	// The chord of the row being edited, as it is pressed: no new list per key.
+	property string editingChord: ""
+	// The row asking for a second press, by its armId, and what it says: no new list.
+	property string armedId: ""
+	property string armedText: ""
 	readonly property int headingHeight: 22
 	readonly property int preferredHeight: items.length === 0 ? 72
 		: items.length * Theme.rowHeight + items.filter((it, i) => headingAt(i) !== "").length * headingHeight
@@ -21,9 +27,22 @@ SelectList {
 		return h !== "" && (i === 0 || items[i - 1].heading !== h) ? h : "";
 	}
 
+	// The list is made again as a row changes: the row stays selected.
+	function keepIndex(change: var): void {
+		var index = currentIndex;
+		change();
+		Qt.callLater(() => currentIndex = Math.min(index, count - 1));
+	}
+
 	function reset(): void {
 		currentIndex = 0;
 		confirm.reset();
+	}
+
+	// At the top, at once: the launcher opens on the start of its list.
+	function rewind(): void {
+		positionViewAtBeginning();
+		reset();
 	}
 
 	wrap: true
@@ -38,7 +57,6 @@ SelectList {
 
 	Confirm {
 		id: confirm
-		interval: 4000
 	}
 
 	StyledText {
@@ -55,12 +73,21 @@ SelectList {
 		required property var modelData
 		readonly property string heading: list.headingAt(index)
 		readonly property bool armed: modelData.confirm !== undefined && confirm.armed === modelData.label
+		readonly property bool armedOutside: list.armedId !== "" && modelData.armId === list.armedId
 		readonly property color tint: modelData.accent ? Theme.accentGreen
-			: armed ? Theme.warning
+			: armed || armedOutside ? Theme.warning
 			: selected ? Theme.accentBlue : Theme.textDim
 
 		height: Theme.rowHeight + topInset
 		topInset: heading !== "" ? list.headingHeight : 0
+
+		// Under the row, from the label on.
+		Tip {
+			text: row.modelData.tooltip ?? ""
+			visible: row.hovered && text !== "" && !list.moving
+			x: 24 + Theme.rowIcon
+			y: row.height + 2
+		}
 
 		// The heading's name inside its divider: ── NAME ──────
 		RowLayout {
@@ -107,8 +134,9 @@ SelectList {
 					visible: name !== ""
 					anchors.fill: parent
 					implicitSize: Theme.rowIcon
-					// One the shell brings (icons/, the web apps'), or the theme's.
-					source: name.startsWith("icons/") ? "file://" + Quickshell.shellDir + "/" + name
+					// One the shell brings (icons/, the web apps', or made here as data:), or the theme's.
+					source: name.startsWith("data:") ? name
+						: name.startsWith("icons/") ? "file://" + Quickshell.shellDir + "/" + name
 						: name ? Quickshell.iconPath(name, true) : ""
 					asynchronous: true
 				}
@@ -133,9 +161,11 @@ SelectList {
 			StyledText {
 				Layout.fillWidth: true
 				font.pixelSize: Theme.fontSizeSmall
-				color: row.armed ? Theme.warning : Theme.textDim
+				color: row.armed || row.armedOutside ? Theme.warning : row.modelData.editing ? Theme.accentBlue : Theme.textDim
 				elide: Text.ElideRight
-				text: row.armed ? "Press " + (row.modelData.chord ? row.modelData.chord + " or " : "") + "Enter again to " + row.modelData.confirm : (row.modelData.subtitle ?? "")
+				text: row.armedOutside ? list.armedText
+					: row.armed ? "Press " + (row.modelData.chord ? row.modelData.chord + " or " : "") + "Enter again to " + row.modelData.confirm
+					: (row.modelData.subtitle ?? "")
 			}
 
 			SettingValue {
@@ -145,8 +175,9 @@ SelectList {
 			}
 
 			KeyCaps {
-				chord: row.modelData.chord ?? ""
+				chord: row.modelData.editing ? list.editingChord : (row.modelData.chord ?? "")
 				highlighted: row.selected
+				changed: row.modelData.changed ?? false
 			}
 		}
 	}

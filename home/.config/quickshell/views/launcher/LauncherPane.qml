@@ -10,6 +10,8 @@ Item {
 	property int preferredHeight: 0
 	// A line under the list, or nothing.
 	property string footer: ""
+	// What went wrong, in red under the list, or nothing.
+	property string error: ""
 	// A grid: Left and Right move to the next cell, Up and Down by a row.
 	property bool grid: false
 
@@ -34,6 +36,10 @@ Item {
 
 	// Ctrl+R: what the selected row holds, back to its default.
 	function resetValue(): void {
+	}
+
+	// Delete: the selected row goes, on the second press.
+	function removeValue(): void {
 	}
 
 	// The launcher opened on this list, or left it.

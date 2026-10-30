@@ -2,6 +2,15 @@ local apps = require("hyprland.apps")
 local specials = require("hyprland.specials")
 local workspaces = require("hyprland.workspaces")
 
+-- Keys changed in the shell's keys list (SUPER + /), from ~/.config/hypr/keys.lua:
+-- { ["Windows: Close window"] = { mods = "ALT", key = "W" } }; with no key (a line
+-- of several, 1..9 or H J K L) only the modifiers change, `off` removes the bind,
+-- `run` makes a new one under "Custom: name".
+local ok, moved = pcall(dofile, os.getenv("HOME") .. "/.config/hypr/keys.lua")
+if not ok or type(moved) ~= "table" then
+	moved = {}
+end
+
 -- The keys list shows the binds in this order, as "Section: what it does";
 -- same description and modifiers share one line.
 local function section(name)
@@ -11,11 +20,24 @@ local function section(name)
 		if opts.repeating == nil then
 			opts.repeating = false
 		end
+		local to = moved[opts.description]
+		if type(to) == "table" and to.off then
+			return
+		end
+		if type(to) == "table" and type(to.mods) == "string" then
+			local key = to.key or keys:match("([^%s+]+)%s*$")
+			keys = to.mods ~= "" and to.mods .. " + " .. key or key
+		end
 		hl.bind(keys, action, opts)
 	end
 end
 
 local exec = hl.dsp.exec_cmd
+
+-- A panel of the shell (Panels.qml), straight to it: no process per press.
+local function panel(name)
+	return hl.dsp.global("shell:" .. name)
+end
 
 -- A bind action that calls fn(arg).
 local function calls(fn, arg)
@@ -27,8 +49,12 @@ end
 do
 	local bind = section("Essential")
 	bind("SUPER + B", "Browser", exec(apps.browser.exec))
-	bind("SUPER + RETURN", "Terminal", exec("ghostty"))
-	bind("SUPER + space", "Launcher", exec("qs ipc call shell toggle launcher apps"))
+	bind(
+		"SUPER + RETURN",
+		"Terminal",
+		exec("gapplication action com.mitchellh.ghostty new-window || ghostty")
+	)
+	bind("SUPER + space", "Launcher", panel("launcher-apps"))
 end
 
 do
@@ -53,7 +79,8 @@ do
 		return d.x ~= 0 and calls(workspaces.focus, d.dir) or hl.dsp.focus({ direction = d.dir })
 	end)
 	each("SUPER + SHIFT + ", "Move window", function(d)
-		return d.x ~= 0 and calls(workspaces.throw, d.dir) or hl.dsp.window.swap({ direction = d.dir })
+		return d.x ~= 0 and calls(workspaces.throw, d.dir)
+			or hl.dsp.window.swap({ direction = d.dir })
 	end)
 	each("SUPER + CTRL + ", "Resize window", function(d)
 		return hl.dsp.window.resize({ x = d.x * 25, y = d.y * 25, relative = true })
@@ -94,14 +121,18 @@ end
 
 do
 	local bind = section("System & Tools")
-	bind("SUPER + A", "Actions", exec("qs ipc call shell toggle actions ''"))
-	bind("SUPER + S", "Settings", exec("qs ipc call shell toggle launcher settings"))
-	bind("SUPER + W", "Weather", exec("qs ipc call shell toggle weather ''"))
-	bind("SUPER + E", "Emojis", exec("qs ipc call shell toggle launcher emoji"))
-	bind("SUPER + V", "Clipboard history", exec("qs ipc call shell toggle launcher clipboard"))
-	bind("SUPER + slash", "Keybindings", exec("qs ipc call shell toggle launcher keys"))
+	bind("SUPER + A", "Actions", panel("actions"))
+	bind("SUPER + S", "Settings", panel("launcher-settings"))
+	bind("SUPER + W", "Weather", panel("weather"))
+	bind("SUPER + E", "Emojis", panel("launcher-emoji"))
+	bind("SUPER + V", "Clipboard history", panel("launcher-clipboard"))
+	bind("SUPER + slash", "Keybindings", panel("launcher-keys"))
 	-- And the desktop's own, in among them (wallpaper).
-	bind("SUPER + P", "Next wallpaper from ~/Pictures/Wallpapers", exec("~/.local/bin/wallpaper next"))
+	bind(
+		"SUPER + P",
+		"Next wallpaper from ~/Pictures/Wallpapers",
+		exec("~/.local/bin/wallpaper next")
+	)
 end
 
 do
@@ -112,7 +143,9 @@ do
 		bind("MOD5 + " .. key, "Scroll", function()
 			local win = hl.get_active_window()
 			local ghostty = win ~= nil and win.class == "com.mitchellh.ghostty"
-			hl.dispatch(hl.dsp.send_shortcut({ mods = ghostty and "CTRL SHIFT" or "MOD5", key = key }))
+			hl.dispatch(
+				hl.dsp.send_shortcut({ mods = ghostty and "CTRL SHIFT" or "MOD5", key = key })
+			)
 		end, { repeating = true })
 	end
 end
@@ -131,11 +164,7 @@ end
 
 do
 	local bind = section("Notifications")
-	bind(
-		"SUPER + N",
-		"Toggle notification center",
-		exec("qs ipc call shell toggle notifications ''")
-	)
+	bind("SUPER + N", "Toggle notification center", panel("notifications"))
 	bind(
 		"SUPER + period",
 		"Open latest notification",
@@ -166,13 +195,13 @@ do
 		{
 			"XF86AudioRaiseVolume",
 			"Volume up",
-			audio("wpctl set-volume -l 1.0 @DEFAULT_AUDIO_SINK@ 5%+"),
+			audio("wpctl set-volume -l 1.0 @DEFAULT_AUDIO_SINK@ 2%+"),
 			true,
 		},
 		{
 			"XF86AudioLowerVolume",
 			"Volume down",
-			audio("wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-"),
+			audio("wpctl set-volume @DEFAULT_AUDIO_SINK@ 2%-"),
 			true,
 		},
 		{
@@ -197,3 +226,23 @@ do
 		bind(m[1], m[2], exec(m[3]), { locked = true, repeating = m[4] })
 	end
 end
+
+do
+	local bind = section("Custom")
+	local names = {}
+	for desc, to in pairs(moved) do
+		if type(to) == "table" and type(to.run) == "string" and desc:find("^Custom: ") then
+			table.insert(names, desc)
+		end
+	end
+	table.sort(names)
+	for _, desc in ipairs(names) do
+		bind("", desc:sub(#"Custom: " + 1), exec(moved[desc].run))
+	end
+end
+
+-- The keys list takes new keys in here: none of the binds above, so they reach
+-- the shell. A submap needs one bind, on a key no keyboard has.
+hl.define_submap("keycapture", function()
+	hl.bind("XF86Tools", hl.dsp.submap("reset"))
+end)
