@@ -9,6 +9,8 @@ Drawer {
 	id: win
 
 	name: "notifications"
+	// The header, its line and what the list has; the drawer's most is the rest.
+	contentHeight: 32 + 1 + 2 * column.spacing + (list.count > 0 ? list.contentHeight : 140)
 
 	onOpened: {
 		list.currentIndex = 0;
@@ -22,6 +24,7 @@ Drawer {
 	}
 
 	ColumnLayout {
+		id: column
 		anchors.fill: parent
 		spacing: 12
 
@@ -41,8 +44,8 @@ Drawer {
 				implicitWidth: countLabel.implicitWidth + 12
 				implicitHeight: 20
 				radius: height / 2
-				color: Theme.alpha(Theme.accent, 0.2)
-				border.color: Theme.alpha(Theme.accent, 0.32)
+				color: Theme.alpha(Theme.accentBlue, 0.2)
+				border.color: Theme.alpha(Theme.accentBlue, 0.32)
 				border.width: 1
 
 				StyledText {
@@ -93,8 +96,6 @@ Drawer {
 			Keys.onPressed: event => {
 				if (event.key === Qt.Key_X && !event.isAutoRepeat && count > 0)
 					Notifications.dismiss(Notifications.history.get(currentIndex).nid);
-				else if (event.key === Qt.Key_Q)
-					Panels.close("notifications");
 			}
 
 			delegate: NotificationCard {

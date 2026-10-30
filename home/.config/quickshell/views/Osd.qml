@@ -37,15 +37,17 @@ PanelWindow {
 		kind = newKind;
 		if (newValue !== undefined)
 			value = newValue;
-		if (newMuted !== undefined)
-			muted = newMuted;
+		muted = newMuted === true;
 		shown = true;
 		hideTimer.restart();
 	}
 
 	visible: shown || card.opacity > 0
 	color: "transparent"
+	exclusionMode: ExclusionMode.Ignore
 	exclusiveZone: 0
+	// It only shows: clicks go through to what is under it.
+	mask: Region {}
 
 	WlrLayershell.layer: WlrLayer.Overlay
 	WlrLayershell.namespace: "quickshell"
@@ -59,7 +61,7 @@ PanelWindow {
 	}
 	margins.top: Theme.panelTop
 
-	implicitHeight: 84
+	implicitHeight: card.height
 
 	Timer {
 		id: hideTimer
@@ -71,7 +73,7 @@ PanelWindow {
 		id: card
 		anchors.centerIn: parent
 		width: 380
-		implicitHeight: 68
+		height: 68
 		opacity: win.shown ? 1 : 0
 
 		Behavior on opacity {

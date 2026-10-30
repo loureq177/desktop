@@ -99,7 +99,7 @@ Rectangle {
 				text: Qt.formatTime(new Date(root.time), "hh:mm")
 				mono: true
 				font.pixelSize: Theme.fontSizeSmall
-				color: Theme.textMuted
+				color: Theme.textDim
 			}
 		}
 
