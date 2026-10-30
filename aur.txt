@@ -2,6 +2,7 @@ aur-sync-vote
 bibata-cursor-git
 claude-code
 claude-desktop
+localsend
 pwvucontrol
 rustdesk-bin
 shellcheck-bin

@@ -48,6 +48,7 @@ noto-fonts
 noto-fonts-cjk
 noto-fonts-emoji
 papirus-icon-theme
+qt6ct
 ttf-jetbrains-mono-nerd
 
 # What the scripts in ~/.local/bin call
@@ -71,6 +72,10 @@ whisper-cpp
 wl-clip-persist
 wl-clipboard
 wtype
+android-tools
+scrcpy
+linux-headers
+v4l2loopback-dkms
 
 # Desktop applications the session binds or opens files with
 fuse2
