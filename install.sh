@@ -172,6 +172,8 @@ while IFS= read -r -d '' src; do
     sudo mkdir -p "$(dirname "$dest")"
     _install_etc_file "$src" "$dest" 644
 done < <(find etc -type f -print0 | sort -z)
+# Its old name: it would still start the session before locale.sh.
+sudo rm -f /etc/profile.d/hyprland-tty1.sh
 # dbus-broker-launch reloads itself on config changes (inotify); the stock
 # pacman hook's extra SIGHUP races that reload and times out after 90s.
 sudo mkdir -p /etc/pacman.d/hooks
@@ -210,6 +212,9 @@ while IFS= read -r unit; do
 done < <(grep -l '^\[Install\]' home/.config/systemd/user/*.{timer,service,socket} 2>/dev/null | sort)
 # Shipped by their packages, configured here; the session starts them.
 systemctl --user enable hypridle.service 2>/dev/null || _log_warn "Failed to enable hypridle.service."
+systemctl --user enable app-com.mitchellh.ghostty.service 2>/dev/null || _log_warn "Failed to enable Ghostty's service."
+# Balanced stays balanced on battery: quicker starts, for some 0.6 W; power-saver is the saving one.
+powerprofilesctl configure-battery-aware --disable 2>/dev/null || true
 systemctl --user enable hyprsunset.service 2>/dev/null || _log_warn "Failed to enable hyprsunset.service."
 systemctl --user enable wayland-pipewire-idle-inhibit.service 2>/dev/null ||
     _log_warn "Failed to enable wayland-pipewire-idle-inhibit.service."
