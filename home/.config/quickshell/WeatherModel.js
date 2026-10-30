@@ -1,171 +1,89 @@
 // ~/.config/weather.json: the place the forecast is for, coordinates and all.
 function parseLocationFile(raw) {
-	var unset = { name: "", latitude: null, longitude: null };
+	var data = {};
 	try {
-		var data = JSON.parse(String(raw || ""));
-		if (!data || typeof data !== "object") return unset;
-
-		var latitude = parseFloat(data.latitude);
-		var longitude = parseFloat(data.longitude);
-		var hasCoordinates = !isNaN(latitude) && !isNaN(longitude);
-		return {
-			name: typeof data.name === "string" ? data.name.trim() : "",
-			latitude: hasCoordinates ? latitude : null,
-			longitude: hasCoordinates ? longitude : null
-		};
-	} catch (e) {
-		return unset;
-	}
-}
-
-function dayName(dateString) {
-	if (!dateString) return "";
-	var d = new Date(dateString + "T12:00:00");
-	if (isNaN(d.getTime())) return "";
-	return ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][d.getDay()];
-}
-
-// Name of the line icon (widgets/LineIcons.js) for a WMO weather code.
-function iconForWmoCode(code, isDay) {
-	var c = parseInt(String(code || "0"), 10);
-	var day = (isDay === true || isDay === 1 || isDay === "1");
-
-	switch (c) {
-		case 0:
-			return day ? "sun" : "moon";
-		case 1:
-		case 2:
-			return day ? "cloud-sun" : "cloud-moon";
-		case 3:
-			return "cloud";
-		case 45:
-		case 48:
-			return "cloud-fog";
-		case 51:
-		case 53:
-		case 55:
-			return "cloud-drizzle";
-		case 56:
-		case 57:
-		case 66:
-		case 67:
-			return "cloud-hail";
-		case 61:
-		case 63:
-		case 65:
-		case 80:
-		case 81:
-		case 82:
-			return "cloud-rain";
-		case 71:
-		case 73:
-		case 75:
-		case 77:
-		case 85:
-		case 86:
-			return "cloud-snow";
-		case 95:
-		case 96:
-		case 99:
-			return "cloud-lightning";
-		default:
-			return day ? "sun" : "moon";
-	}
-}
-
-function parseOpenMeteoCurrent(report) {
-	var c = report && report.current ? report.current : null;
-	if (!c || c.temperature_2m === undefined || c.temperature_2m === null) return null;
-
-	var tempVal = Math.round(c.temperature_2m);
-	var feelsVal = Math.round(c.apparent_temperature !== undefined && c.apparent_temperature !== null ? c.apparent_temperature : c.temperature_2m);
-
+		data = JSON.parse(String(raw || "")) || {};
+	} catch (e) {}
+	var latitude = parseFloat(data.latitude);
+	var longitude = parseFloat(data.longitude);
+	var hasCoordinates = !isNaN(latitude) && !isNaN(longitude);
 	return {
-		tempNum: String(tempVal),
-		feelsLike: String(feelsVal) + "°C",
-		wind: Math.round(c.wind_speed_10m || 0) + " km/h",
-		humidity: String(Math.round(c.relative_humidity_2m || 0)) + "%",
-		icon: iconForWmoCode(c.weather_code || 0, Number(c.is_day) === 1)
+		name: typeof data.name === "string" ? data.name.trim() : "",
+		latitude: hasCoordinates ? latitude : null,
+		longitude: hasCoordinates ? longitude : null
+	};
+}
+
+function dayName(date) {
+	return ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][new Date(date + "T12:00:00").getDay()];
+}
+
+// The line icon (widgets/LineIcons.js) of a WMO weather code; a clear sky or few
+// clouds, and what is not listed, have a day and a night.
+var wmoIcons = {
+	3: "cloud",
+	45: "cloud-fog", 48: "cloud-fog",
+	51: "cloud-drizzle", 53: "cloud-drizzle", 55: "cloud-drizzle",
+	56: "cloud-hail", 57: "cloud-hail", 66: "cloud-hail", 67: "cloud-hail",
+	61: "cloud-rain", 63: "cloud-rain", 65: "cloud-rain", 80: "cloud-rain", 81: "cloud-rain", 82: "cloud-rain",
+	71: "cloud-snow", 73: "cloud-snow", 75: "cloud-snow", 77: "cloud-snow", 85: "cloud-snow", 86: "cloud-snow",
+	95: "cloud-lightning", 96: "cloud-lightning", 99: "cloud-lightning"
+};
+
+function iconForWmoCode(code, isDay) {
+	if (code === 1 || code === 2)
+		return isDay ? "cloud-sun" : "cloud-moon";
+	return wmoIcons[code] ?? (isDay ? "sun" : "moon");
+}
+
+// Open-Meteo's answer as the shell shows it; what is missing from it throws, and
+// Weather.qml says the forecast could not be read.
+function parseOpenMeteoCurrent(report) {
+	var c = report.current;
+	return {
+		tempNum: String(Math.round(c.temperature_2m)),
+		feelsLike: Math.round(c.apparent_temperature) + "°C",
+		wind: Math.round(c.wind_speed_10m) + " km/h",
+		humidity: Math.round(c.relative_humidity_2m) + "%",
+		icon: iconForWmoCode(c.weather_code, c.is_day === 1)
 	};
 }
 
 function parseOpenMeteoHourly(report) {
-	var hourly = report && report.hourly ? report.hourly : null;
-	if (!hourly || !hourly.time || !hourly.time.length) return [];
-
-	var result = [];
-	var limit = Math.min(hourly.time.length, 27);
-	for (var i = 0; i < limit; i++) {
-		var rawTime = hourly.time[i];
-		var hourStr = "";
-		if (i === 0) {
-			hourStr = "Now";
-		} else {
-			var parts = String(rawTime).split("T");
-			hourStr = parts[1] ? parts[1].slice(0, 5) : rawTime;
-		}
-		var code = hourly.weather_code ? hourly.weather_code[i] : 0;
-		var isDay = hourly.is_day ? Number(hourly.is_day[i]) === 1 : true;
-
-		result.push({
-			time: hourStr,
-			temp: Math.round(hourly.temperature_2m ? hourly.temperature_2m[i] : 0),
-			icon: iconForWmoCode(code, isDay),
-			pop: hourly.precipitation_probability ? Math.round(hourly.precipitation_probability[i] || 0) : 0
-		});
-	}
-	return result;
+	var h = report.hourly;
+	return h.time.map((time, i) => ({
+		time: i === 0 ? "Now" : time.split("T")[1].slice(0, 5),
+		temp: Math.round(h.temperature_2m[i]),
+		icon: iconForWmoCode(h.weather_code[i], h.is_day[i] === 1),
+		pop: Math.round(h.precipitation_probability[i] || 0)
+	}));
 }
 
 function parseTodayHighLow(report) {
-	var daily = report && report.daily ? report.daily : null;
-	if (!daily || !daily.temperature_2m_max || !daily.temperature_2m_min) {
-		return { high: "", low: "" };
-	}
-	var maxC = daily.temperature_2m_max[0];
-	var minC = daily.temperature_2m_min[0];
-	if (maxC === undefined || minC === undefined || maxC === null || minC === null) {
-		return { high: "", low: "" };
-	}
-	var maxVal = Math.round(maxC);
-	var minVal = Math.round(minC);
 	return {
-		high: String(maxVal) + "°",
-		low: String(minVal) + "°"
+		high: Math.round(report.daily.temperature_2m_max[0]) + "°",
+		low: Math.round(report.daily.temperature_2m_min[0]) + "°"
 	};
 }
 
-function parseOpenMeteoDaily(report, todayString) {
-	var daily = report && report.daily ? report.daily : null;
-	if (!daily || !daily.time) return [];
-
-	var result = [];
-	for (var i = 0; i < daily.time.length && result.length < 3; i++) {
-		var date = daily.time[i];
-		if (todayString && date <= todayString) continue;
-
-		var maxC = daily.temperature_2m_max ? daily.temperature_2m_max[i] : 0;
-		var minC = daily.temperature_2m_min ? daily.temperature_2m_min[i] : 0;
-
-		result.push({
-			date: date,
-			dayName: dayName(date),
-			maxTemp: String(Math.round(maxC)) + "°",
-			minTemp: String(Math.round(minC)) + "°",
-			icon: iconForWmoCode(daily.weather_code ? daily.weather_code[i] : 0, true)
-		});
-	}
-	return result;
+// The days after `today` (yyyy-MM-dd), three at most.
+function parseOpenMeteoDaily(report, today) {
+	var d = report.daily;
+	return d.time.map((date, i) => ({
+		date: date,
+		dayName: dayName(date),
+		maxTemp: Math.round(d.temperature_2m_max[i]) + "°",
+		minTemp: Math.round(d.temperature_2m_min[i]) + "°",
+		icon: iconForWmoCode(d.weather_code[i], true)
+	})).filter(day => day.date > today).slice(0, 3);
 }
 
 // Each hour's point on the chart: x mid-column, y from the warmest (top) to the
 // coldest; under 3° of spread draws as 3°.
 function chartPoints(hours, columnWidth, top, height) {
 	if (!hours || !hours.length) return [];
-	var temps = hours.map(function (h) { return h.temp; });
-	var maxT = Math.max.apply(null, temps);
-	var range = Math.max(3, maxT - Math.min.apply(null, temps));
-	return hours.map(function (h, i) {
-		return { x: i * columnWidth + columnWidth / 2, y: top + (maxT - h.temp) / range * height };
-	});
+	var temps = hours.map(h => h.temp);
+	var maxT = Math.max(...temps);
+	var range = Math.max(3, maxT - Math.min(...temps));
+	return hours.map((h, i) => ({ x: i * columnWidth + columnWidth / 2, y: top + (maxT - h.temp) / range * height }));
 }

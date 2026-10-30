@@ -2,20 +2,29 @@ import ".."
 import "../widgets"
 import "../WeatherModel.js" as WeatherModel
 import QtQuick
+import QtQuick.Effects
 import QtQuick.Layouts
 
 Drawer {
 	id: root
 
 	name: "weather"
-	fromTop: true
 	cardWidth: Math.min(576, width - 32)
 	contentHeight: weatherCol.implicitHeight
 
 	onOpened: {
 		Weather.refresh();
 		chartCanvas.requestPaint();
+		hourlyFlick.contentX = 0;
 		root.forceActiveFocus();
+	}
+
+	// H / L or the arrows page the hours.
+	Keys.onPressed: event => {
+		if (event.key === Qt.Key_H || event.key === Qt.Key_Left)
+			hourly.page(-1);
+		else if (event.key === Qt.Key_L || event.key === Qt.Key_Right)
+			hourly.page(1);
 	}
 
 	Column {
@@ -35,7 +44,6 @@ Drawer {
 				spacing: 14
 
 				LineIcon {
-					id: heroIcon
 					anchors.verticalCenter: parent.verticalCenter
 					name: Weather.current?.icon ?? ""
 					color: Theme.textMain
@@ -77,7 +85,7 @@ Drawer {
 
 						StyledText {
 							text: "↓" + (Weather.today.low || "—")
-							color: Theme.textMuted
+							color: Theme.textDim
 							font.pixelSize: Theme.fontSizeSmall
 							font.bold: true
 						}
@@ -93,10 +101,10 @@ Drawer {
 
 				Row {
 					anchors.right: parent.right
-					visible: Weather.location !== ""
 					spacing: 6
 
 					LineIcon {
+						visible: Weather.location !== ""
 						name: "map-pin"
 						color: Theme.accentBlue
 						size: Theme.fontSizeSmall
@@ -111,10 +119,14 @@ Drawer {
 						font.letterSpacing: 1
 						anchors.verticalCenter: parent.verticalCenter
 					}
+
+					CloseButton {
+						anchors.verticalCenter: parent.verticalCenter
+						onClicked: Panels.close("weather")
+					}
 				}
 
 				Row {
-					id: weatherStats
 					anchors.right: parent.right
 					visible: !!Weather.current
 					spacing: 20
@@ -132,7 +144,7 @@ Drawer {
 
 							StyledText {
 								text: modelData.label
-								color: Theme.textMuted
+								color: Theme.textDim
 								font.pixelSize: Theme.fontSizeTiny
 								font.letterSpacing: 1
 							}
@@ -153,7 +165,7 @@ Drawer {
 
 			StyledText {
 				Layout.alignment: Qt.AlignHCenter
-				text: Weather.lastError !== "" ? Weather.lastError : "Fetching weather..."
+				text: Weather.lastError !== "" ? Weather.lastError : "Fetching weather…"
 				color: Weather.lastError !== "" ? Theme.critical : Theme.textDim
 				font.pixelSize: Theme.fontSizeSmall
 				font.italic: Weather.lastError === ""
@@ -174,159 +186,232 @@ Drawer {
 			color: Theme.border
 		}
 
-		Flickable {
-			id: hourlyFlick
+		Item {
+			id: hourly
+
+			readonly property bool moreLeft: hourlyFlick.contentX > 1
+			readonly property bool moreRight: hourlyFlick.contentX < hourlyFlick.contentWidth - hourlyFlick.width - 1
+
 			visible: Weather.hourlyForecast && Weather.hourlyForecast.length > 0
 			width: parent.width
 			height: 164
-			contentWidth: Math.max(width, (Weather.hourlyForecast?.length ?? 0) * columnWidth)
-			contentHeight: height
-			flickableDirection: Flickable.HorizontalFlick
-			clip: true
 
-			// One column per hour; the curve runs between chartTop and
-			// chartTop + chartHeight, its fill down to chartBottom.
-			readonly property int columnWidth: 54
-			readonly property int chartTop: 78
-			readonly property int chartHeight: 50
-			readonly property int chartBottom: 132
-			readonly property var points: WeatherModel.chartPoints(Weather.hourlyForecast, columnWidth, chartTop, chartHeight)
-
-			onPointsChanged: chartCanvas.requestPaint()
-
-			WheelScroll {
-				flickable: hourlyFlick
-				horizontal: true
+			function page(direction: int): void {
+				hourlyPage.to = Math.max(0, Math.min(hourlyFlick.contentWidth - hourlyFlick.width, hourlyFlick.contentX + direction * hourlyFlick.width * 0.8));
+				hourlyPage.restart();
 			}
 
-			Item {
-				width: hourlyFlick.contentWidth
-				height: hourlyFlick.height
+			NumberAnimation {
+				id: hourlyPage
+				target: hourlyFlick
+				property: "contentX"
+				duration: Theme.animNormal
+				easing.type: Easing.BezierSpline
+				easing.bezierCurve: Theme.easeOutQuint
+			}
 
-				Canvas {
-					id: chartCanvas
-					anchors.fill: parent
-					antialiasing: true
+			Flickable {
+				id: hourlyFlick
+				anchors.fill: parent
+				contentWidth: Math.max(width, (Weather.hourlyForecast?.length ?? 0) * columnWidth)
+				contentHeight: height
+				flickableDirection: Flickable.HorizontalFlick
+				clip: true
+				layer.enabled: true
+				layer.effect: MultiEffect {
+					maskEnabled: true
+					maskSource: hourlyFade
+					maskThresholdMin: 0
+					maskSpreadAtMin: 1
+				}
 
-					function traceCurve(ctx, pts) {
-						for (var i = 0; i < pts.length - 1; i++) {
-							var cx = (pts[i].x + pts[i + 1].x) / 2;
-							ctx.bezierCurveTo(cx, pts[i].y, cx, pts[i + 1].y, pts[i + 1].x, pts[i + 1].y);
+				// One column per hour; the curve runs between chartTop and
+				// chartTop + chartHeight, its fill down to chartBottom.
+				readonly property int columnWidth: 54
+				readonly property int chartTop: 78
+				readonly property int chartHeight: 50
+				readonly property int chartBottom: 132
+				readonly property var points: WeatherModel.chartPoints(Weather.hourlyForecast, columnWidth, chartTop, chartHeight)
+
+				onPointsChanged: chartCanvas.requestPaint()
+
+				WheelScroll {
+					flickable: hourlyFlick
+					horizontal: true
+				}
+
+				Item {
+					width: hourlyFlick.contentWidth
+					height: hourlyFlick.height
+
+					Canvas {
+						id: chartCanvas
+						anchors.fill: parent
+						antialiasing: true
+
+						function traceCurve(ctx, pts) {
+							for (var i = 0; i < pts.length - 1; i++) {
+								var cx = (pts[i].x + pts[i + 1].x) / 2;
+								ctx.bezierCurveTo(cx, pts[i].y, cx, pts[i + 1].y, pts[i + 1].x, pts[i + 1].y);
+							}
+						}
+
+						onPaint: {
+							var ctx = getContext("2d");
+							ctx.reset();
+							var pts = hourlyFlick.points;
+							if (pts.length < 2)
+								return;
+							var last = pts[pts.length - 1];
+
+							ctx.beginPath();
+							ctx.moveTo(pts[0].x, hourlyFlick.chartBottom);
+							ctx.lineTo(pts[0].x, pts[0].y);
+							traceCurve(ctx, pts);
+							ctx.lineTo(last.x, hourlyFlick.chartBottom);
+							ctx.closePath();
+							var grad = ctx.createLinearGradient(0, hourlyFlick.chartTop, 0, hourlyFlick.chartBottom);
+							grad.addColorStop(0, Theme.alpha(Theme.accentBlue, 0.35));
+							grad.addColorStop(1, Theme.alpha(Theme.accentBlue, 0));
+							ctx.fillStyle = grad;
+							ctx.fill();
+
+							ctx.beginPath();
+							ctx.moveTo(pts[0].x, pts[0].y);
+							traceCurve(ctx, pts);
+							ctx.strokeStyle = Theme.accentBlue;
+							ctx.lineWidth = 2.5;
+							ctx.stroke();
+
+							for (var i = 0; i < pts.length; i++) {
+								ctx.beginPath();
+								ctx.arc(pts[i].x, pts[i].y, 4, 0, 2 * Math.PI);
+								ctx.fillStyle = Theme.accentBlue;
+								ctx.fill();
+								ctx.beginPath();
+								ctx.arc(pts[i].x, pts[i].y, 2, 0, 2 * Math.PI);
+								ctx.fillStyle = Theme.bgCard;
+								ctx.fill();
+							}
 						}
 					}
 
-					onPaint: {
-						var ctx = getContext("2d");
-						ctx.reset();
-						var pts = hourlyFlick.points;
-						if (pts.length < 2)
-							return;
-						var last = pts[pts.length - 1];
+					Repeater {
+						model: Weather.hourlyForecast
 
-						ctx.beginPath();
-						ctx.moveTo(pts[0].x, hourlyFlick.chartBottom);
-						ctx.lineTo(pts[0].x, pts[0].y);
-						traceCurve(ctx, pts);
-						ctx.lineTo(last.x, hourlyFlick.chartBottom);
-						ctx.closePath();
-						var grad = ctx.createLinearGradient(0, hourlyFlick.chartTop, 0, hourlyFlick.chartBottom);
-						grad.addColorStop(0, Theme.alpha(Theme.accent, 0.35));
-						grad.addColorStop(1, Theme.alpha(Theme.accent, 0));
-						ctx.fillStyle = grad;
-						ctx.fill();
+						Item {
+							required property var modelData
+							required property int index
+							// An icon or a temperature only where it changes.
+							readonly property var previous: Weather.hourlyForecast[index - 1] ?? null
 
-						ctx.beginPath();
-						ctx.moveTo(pts[0].x, pts[0].y);
-						traceCurve(ctx, pts);
-						ctx.strokeStyle = Theme.accentBlue;
-						ctx.lineWidth = 2.5;
-						ctx.stroke();
+							x: index * hourlyFlick.columnWidth
+							width: hourlyFlick.columnWidth
+							height: parent.height
 
-						for (var i = 0; i < pts.length; i++) {
-							ctx.beginPath();
-							ctx.arc(pts[i].x, pts[i].y, 4, 0, 2 * Math.PI);
-							ctx.fillStyle = Theme.accentBlue;
-							ctx.fill();
-							ctx.beginPath();
-							ctx.arc(pts[i].x, pts[i].y, 2, 0, 2 * Math.PI);
-							ctx.fillStyle = Theme.bgCard;
-							ctx.fill();
+							StyledText {
+								anchors.horizontalCenter: parent.horizontalCenter
+								y: 2
+								text: modelData.time
+								font.pixelSize: Theme.fontSizeTiny
+								font.bold: index === 0
+								color: index === 0 ? Theme.accentBlue : Theme.textDim
+							}
+
+							LineIcon {
+								anchors.horizontalCenter: parent.horizontalCenter
+								y: 21
+								name: previous?.icon === modelData.icon ? "" : modelData.icon
+								size: 19
+								color: Theme.textMain
+							}
+
+							Item {
+								visible: previous?.temp !== modelData.temp
+								anchors.horizontalCenter: parent.horizontalCenter
+								y: (hourlyFlick.points[index]?.y ?? 0) - tempNum.implicitHeight - 6
+								width: tempNum.implicitWidth
+								height: tempNum.implicitHeight
+
+								StyledText {
+									id: tempNum
+									anchors.centerIn: parent
+									text: modelData.temp
+									font.bold: true
+								}
+
+								StyledText {
+									anchors.left: tempNum.right
+									anchors.top: tempNum.top
+									anchors.topMargin: -1
+									text: "°"
+									font.pixelSize: Theme.fontSizeTiny
+									font.bold: true
+									color: Theme.textDim
+								}
+							}
+
+							Row {
+								visible: modelData.pop >= 10
+								anchors.horizontalCenter: parent.horizontalCenter
+								y: 138
+								spacing: 2
+
+								LineIcon {
+									name: "droplet"
+									size: 11
+									color: Theme.accentBlue
+									anchors.verticalCenter: parent.verticalCenter
+								}
+								StyledText {
+									text: modelData.pop + "%"
+									font.pixelSize: Theme.fontSizeTiny
+									color: Theme.accentBlue
+									anchors.verticalCenter: parent.verticalCenter
+								}
+							}
 						}
 					}
 				}
+			}
 
-				Repeater {
-					model: Weather.hourlyForecast
+			// The hours fade out on a side with more of them, a chevron there pages on.
+			Item {
+				id: hourlyFade
+				anchors.fill: parent
+				visible: false
+				layer.enabled: true
 
-					Item {
-						required property var modelData
-						required property int index
-
-						x: index * hourlyFlick.columnWidth
-						width: hourlyFlick.columnWidth
-						height: parent.height
-
-						StyledText {
-							anchors.horizontalCenter: parent.horizontalCenter
-							y: 2
-							text: modelData.time
-							font.pixelSize: Theme.fontSizeTiny
-							font.bold: index === 0
-							color: index === 0 ? Theme.accentBlue : Theme.textDim
-						}
-
-						LineIcon {
-							anchors.horizontalCenter: parent.horizontalCenter
-							y: 21
-							name: modelData.icon
-							size: 19
-							color: Theme.textMain
-						}
-
-						Item {
-							anchors.horizontalCenter: parent.horizontalCenter
-							y: (hourlyFlick.points[index]?.y ?? 0) - tempNum.implicitHeight - 6
-							width: tempNum.implicitWidth
-							height: tempNum.implicitHeight
-
-							StyledText {
-								id: tempNum
-								anchors.centerIn: parent
-								text: modelData.temp
-								font.bold: true
-							}
-
-							StyledText {
-								anchors.left: tempNum.right
-								anchors.top: tempNum.top
-								anchors.topMargin: -1
-								text: "°"
-								font.pixelSize: Theme.fontSizeTiny
-								font.bold: true
-								color: Theme.textDim
-							}
-						}
-
-						Row {
-							visible: modelData.pop >= 10
-							anchors.horizontalCenter: parent.horizontalCenter
-							y: 138
-							spacing: 2
-
-							LineIcon {
-								name: "droplet"
-								size: 11
-								color: Theme.accentBlue
-								anchors.verticalCenter: parent.verticalCenter
-							}
-							StyledText {
-								text: modelData.pop + "%"
-								font.pixelSize: Theme.fontSizeTiny
-								color: Theme.accentBlue
-								anchors.verticalCenter: parent.verticalCenter
-							}
-						}
+				Rectangle {
+					anchors.fill: parent
+					gradient: Gradient {
+						orientation: Gradient.Horizontal
+						GradientStop { position: 0; color: hourly.moreLeft ? "transparent" : "white" }
+						GradientStop { position: 0.1; color: "white" }
+						GradientStop { position: 0.9; color: "white" }
+						GradientStop { position: 1; color: hourly.moreRight ? "transparent" : "white" }
 					}
+				}
+			}
+
+			Repeater {
+				model: [{ side: -1, icon: "chevron-left" }, { side: 1, icon: "chevron-right" }]
+
+				delegate: IconButton {
+					required property var modelData
+					readonly property bool more: modelData.side < 0 ? hourly.moreLeft : hourly.moreRight
+
+					x: modelData.side < 0 ? 0 : hourly.width - width
+					y: 10
+					implicitWidth: 24
+					implicitHeight: 24
+					icon: modelData.icon
+					outlined: false
+					opacity: more ? 1 : 0
+					visible: opacity > 0
+					onClicked: hourly.page(modelData.side)
+
+					Behavior on opacity { NumberAnimation { duration: Theme.animFast } }
 				}
 			}
 		}
@@ -384,7 +469,7 @@ Drawer {
 
 								StyledText {
 									text: modelData.minTemp
-									color: Theme.textMuted
+									color: Theme.textDim
 								}
 							}
 						}
