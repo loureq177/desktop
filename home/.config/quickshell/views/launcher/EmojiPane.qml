@@ -13,11 +13,10 @@ LauncherPane {
 	property var emojis: []
 
 	icon: "smile"
-	placeholder: "Search emoji..."
+	placeholder: "Search emoji…"
 	grid: true
 	preferredHeight: count === 0 ? 72 : Math.ceil(count / columns) * cell
-	footer: current ? current.e + "  " + String(current.k || "").split(" ").slice(0, 3).join(" ")
-		: emojis.length === 0 ? "Loading emojis..." : "No matching emojis"
+	footer: current ? current.e + "  " + String(current.k || "").split(" ").slice(0, 3).join(" ") : ""
 
 	readonly property var items: {
 		var needle = query.trim().toLowerCase();
@@ -38,6 +37,11 @@ LauncherPane {
 
 	function activate(): void {
 		cells.activated(cells.currentIndex);
+	}
+
+	function opened(): void {
+		cells.positionViewAtBeginning();
+		cells.currentIndex = 0;
 	}
 
 	onQueryChanged: cells.currentIndex = 0
@@ -104,6 +108,6 @@ LauncherPane {
 		anchors.centerIn: parent
 		font.pixelSize: Theme.fontSizeSmall
 		color: Theme.textDim
-		text: pane.emojis.length === 0 ? "Loading emojis..." : "No matching emojis"
+		text: pane.emojis.length === 0 ? "Loading emojis…" : "Nothing matches"
 	}
 }

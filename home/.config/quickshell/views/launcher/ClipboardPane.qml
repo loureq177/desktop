@@ -14,7 +14,7 @@ LauncherPane {
 	property bool failed: false
 
 	icon: "clipboard"
-	placeholder: "Search copied items..."
+	placeholder: "Search copied items…"
 	preferredHeight: Theme.windowHeight
 
 	readonly property var items: entries.filter(e => e.preview.toLowerCase().includes(query.trim().toLowerCase()))
@@ -76,10 +76,6 @@ LauncherPane {
 
 	onQueryChanged: list.currentIndex = 0
 	onCurrentChanged: Qt.callLater(decoder.decode)
-	onVisibleChanged: {
-		if (!visible)
-			closed();
-	}
 
 	Confirm {
 		id: wipeConfirm
@@ -216,7 +212,7 @@ LauncherPane {
 		anchors.centerIn: list
 		font.pixelSize: Theme.fontSizeSmall
 		color: Theme.textDim
-		text: pane.failed ? "cliphist failed — is it installed?" : pane.entries.length === 0 ? "No clipboard entries" : "No match"
+		text: pane.failed ? "cliphist failed — is it installed?" : pane.entries.length === 0 ? "No clipboard entries" : "Nothing matches"
 	}
 
 	Rectangle {

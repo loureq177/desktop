@@ -1,6 +1,7 @@
 import "../.."
 import "../../Search.js" as Search
 import Quickshell
+import Quickshell.Io
 import QtQuick
 
 // The apps, specials and commands by name, and arithmetic; "/" lists only the commands.
@@ -11,7 +12,7 @@ LauncherPane {
 	readonly property bool commandsOnly: q.startsWith("/")
 
 	icon: commandsOnly ? "zap" : q.startsWith("=") ? "calculator" : "search"
-	placeholder: "Search " + apps.length + " apps or /actions..."
+	placeholder: "Search " + apps.length + " apps or /actions…"
 	preferredHeight: list.preferredHeight
 
 	function step(delta: int, repeat: bool): void {
@@ -20,6 +21,28 @@ LauncherPane {
 
 	function activate(): void {
 		list.activate();
+	}
+
+	// Today, for the calendar's icon: set as the launcher opens.
+	property int day: new Date().getDate()
+
+	function opened(): void {
+		day = new Date().getDate();
+		list.rewind();
+	}
+
+	// The icon with today's date in its <text id="day">.
+	function dated(icon: string): string {
+		if (icon !== "icons/google-calendar.svg" || calendarIcon.text() === "")
+			return icon;
+		return "data:image/svg+xml;utf8," + encodeURIComponent(calendarIcon.text().replace(/(id="day"[^>]*>)\d+</, "$1" + day + "<"));
+	}
+
+	FileView {
+		id: calendarIcon
+		path: Quickshell.shellDir + "/icons/google-calendar.svg"
+		blockLoading: true
+		printErrors: false
 	}
 
 	// Desktop entries a special workspace stands for are listed as that special
@@ -31,12 +54,12 @@ LauncherPane {
 			subtitle: [e.genericName, e.comment].find(d => d && d !== label) ?? "",
 			icon: e.icon,
 			entry: e,
-			run: () => Hypr.exec(e.runInTerminal ? ["ghostty", "-e"].concat(e.command) : e.command, e.workingDirectory)
+			run: () => Hypr.exec(Commands.entryCommand(e), e.workingDirectory)
 		};
 	}).concat(Specials.list.map(sp => ({
 		label: sp.app,
 		subtitle: sp.app !== sp.title ? sp.title : sp.desc,
-		icon: sp.appIcon.startsWith("icons/") ? sp.appIcon : (sp.desktop ? DesktopEntries.byId(sp.desktop)?.icon : "") || sp.appIcon,
+		icon: sp.appIcon.startsWith("icons/") ? pane.dated(sp.appIcon) : (sp.desktop ? DesktopEntries.byId(sp.desktop)?.icon : "") || sp.appIcon,
 		lineIcon: sp.icon,
 		keywords: [sp.name, sp.title, sp.keywords].join(" "),
 		run: () => Hypr.toggleSpecial(sp.name)
@@ -49,6 +72,7 @@ LauncherPane {
 		heading: pane.q === "/" ? c.group : "",
 		keywords: c.keywords,
 		confirm: c.confirm,
+		chord: c.bind ? Keybinds.chordFor(c.bind) : "",
 		run: c.run
 	}))
 

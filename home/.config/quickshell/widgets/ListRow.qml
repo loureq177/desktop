@@ -13,6 +13,7 @@ Rectangle {
 	// Room around the highlight on every side (the cells of a grid).
 	property int inset: 0
 	readonly property Item highlightArea: area
+	readonly property bool hovered: hover.hovered
 
 	width: view?.rowWidth ?? view?.width ?? 0
 	radius: Theme.roundingElement
@@ -25,6 +26,7 @@ Rectangle {
 		anchors.topMargin: row.topInset + row.inset
 
 		HoverSelect {
+			id: hover
 			enabled: !row.view.dragging
 			onSelected: row.view.currentIndex = row.index
 		}
