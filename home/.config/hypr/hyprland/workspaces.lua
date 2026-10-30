@@ -1,5 +1,6 @@
 -- The workspaces are one row across the monitors: SUPER + 1..9 count along it, H / L
--- go past a workspace's last window, SHIFT takes the window along.
+-- go past a workspace's last window (past the row's end, to one new workspace),
+-- SHIFT takes the window along. Swipes do the same along each monitor.
 
 local nowhere = { x = math.huge, y = math.huge }
 local opposite = { left = "right", right = "left" }
@@ -38,19 +39,24 @@ local function here()
 	return workspaces, nil
 end
 
--- The id of a new workspace past the end of the row.
+-- The id of a new workspace past the end of the row. Hyprland makes it on the focused
+-- monitor: the row's last one, or it would land in the middle of the row.
 local function new_last(workspaces)
 	local top = 0
 	for _, ws in ipairs(workspaces) do
 		top = math.max(top, ws.id)
 	end
+	local last = workspaces[#workspaces]
+	if last ~= nil and last.monitor ~= nil then
+		hl.dispatch(hl.dsp.focus({ monitor = last.monitor.name }))
+	end
 	return top + 1
 end
 
--- A new id before the row's start: every workspace moves one id up, highest
--- first, as an id in use cannot be taken.
-local function new_first(workspaces)
-	local free = workspaces[1].id
+-- A new id before the row's start, or before id `from`: the workspaces from there
+-- move one id up, highest first, as an id in use cannot be taken.
+local function new_first(workspaces, from)
+	local free = from or workspaces[1].id
 	local ids = {}
 	for _, ws in ipairs(workspaces) do
 		if ws.id >= free then
@@ -66,20 +72,87 @@ local function new_first(workspaces)
 	return free
 end
 
--- Whether `win`'s workspace has a window to the `dir` side (focus wraps at the edge).
+-- A swipe makes a new workspace only past the last; by id (use_r), also before the first: that
+-- from a first with windows, as with the keys, a free id before it, none before the next.
+local swipes_by_id = false
+
+local function sync_swipe()
+	local current = hl.get_active_workspace()
+	local workspaces, own, taken = row(), {}, {}
+	for _, ws in ipairs(workspaces) do
+		taken[ws.id] = true
+		if current ~= nil and ws.monitor ~= nil and ws.monitor.name == current.monitor.name then
+			table.insert(own, ws)
+		end
+	end
+	local first, second = own[1], own[2]
+	local by_id = first ~= nil and first.id == current.id and first.windows > 0
+	if by_id then
+		local room = false
+		for id = 1, first.id - 1 do
+			room = room or not taken[id]
+		end
+		if not room then
+			new_first(workspaces, first.id)
+			return sync_swipe()
+		end
+		for id = first.id + 1, (second and second.id or 1) - 1 do
+			if not taken[id] then
+				hl.dispatch(hl.dsp.workspace.change_id({ workspace = second.id, id = id }))
+				break
+			end
+		end
+	end
+	if by_id ~= swipes_by_id then
+		swipes_by_id = by_id
+		hl.config({ gestures = { workspace_swipe_use_r = by_id } })
+	end
+end
+
+for _, event in ipairs({
+	"workspace.active",
+	"workspace.removed",
+	"workspace.move_to_monitor",
+	"monitor.focused",
+	"monitor.removed",
+	"window.open",
+	"window.destroy",
+	"window.move_to_workspace",
+}) do
+	hl.on(event, sync_swipe)
+end
+sync_swipe()
+
+-- Whether Hyprland's focus and swap find a window on that side: a tiled one past `win`'s
+-- edge and level with it. Not from a floating or fullscreen `win`; floating ones never count.
 local function anything_beyond(win, dir)
-	if win == nil or win.workspace == nil then
+	if win == nil or win.workspace == nil or win.floating or win.fullscreen > 0 then
 		return false
 	end
-	for _, w in ipairs(hl.get_windows({ workspace = win.workspace, mapped = true })) do
-		if
-			not w.hidden
-			and (dir == "left" and w.at.x < win.at.x or dir == "right" and w.at.x > win.at.x)
-		then
+	for _, w in ipairs(hl.get_windows({ workspace = win.workspace, mapped = true, floating = false })) do
+		local past = dir == "left" and w.at.x + w.size.x <= win.at.x
+			or dir == "right" and w.at.x >= win.at.x + win.size.x
+		local level = math.min(w.at.y + w.size.y, win.at.y + win.size.y) - math.max(w.at.y, win.at.y)
+		if not w.hidden and past and level > 1 then
 			return true
 		end
 	end
 	return false
+end
+
+-- From a floating window Hyprland only looks among the floating ones: the nearest
+-- of any kind on that side, by its middle.
+local function nearest_from_floating(win, dir)
+	local middle = win.at.x + win.size.x / 2
+	local best, best_distance
+	for _, w in ipairs(hl.get_windows({ workspace = win.workspace, mapped = true })) do
+		local x = w.at.x + w.size.x / 2
+		local distance = dir == "left" and middle - x or x - middle
+		if not w.hidden and distance > 0 and (best == nil or distance < best_distance) then
+			best, best_distance = w, distance
+		end
+	end
+	return best
 end
 
 -- The tiled window of `ws` nearest its `side`, the top one of a column: the
@@ -114,30 +187,38 @@ local function move(win, id)
 	end
 end
 
--- Sends `win` to place `n` of the row, or past an end to a new workspace (not
--- when it is alone at that end).
+-- Sends `win` to place `n` of the row, or past an end to a new workspace; alone
+-- there, it leaves its old one empty, which Hyprland removes: still one new.
 local function send(win, workspaces, n)
 	local ws = workspaces[n]
-	if ws == nil then
-		local edge = workspaces[n < 1 and 1 or #workspaces]
-		if edge ~= nil and edge.id == win.workspace.id and win.workspace.windows <= 1 then
-			return
-		end
-	end
 	move(win, ws and ws.id or n < 1 and new_first(workspaces) or new_last(workspaces))
 end
 
 local M = {}
 
--- To the window on that side, or on past the edge to the next workspace.
+-- To the window on that side, or on past the edge to the next workspace; past
+-- the row's end to a new one, but from an empty one nowhere further.
 function M.focus(dir)
-	if anything_beyond(hl.get_active_window(), dir) then
+	local win = hl.get_active_window()
+	if anything_beyond(win, dir) then
 		hl.dispatch(hl.dsp.focus({ direction = dir }))
 		return
 	end
+	local beside = win ~= nil and win.floating and win.fullscreen == 0 and nearest_from_floating(win, dir)
+	if beside then
+		hl.dispatch(hl.dsp.focus({ window = beside }))
+		return
+	end
 	local workspaces, i = here()
-	local ws = i and workspaces[i + (dir == "left" and -1 or 1)]
+	if i == nil then
+		return
+	end
+	local n = i + (dir == "left" and -1 or 1)
+	local ws = workspaces[n]
 	if ws == nil then
+		if workspaces[i].windows > 0 then
+			hl.dispatch(hl.dsp.focus({ workspace = n < 1 and new_first(workspaces) or new_last(workspaces) }))
+		end
 		return
 	end
 	hl.dispatch(hl.dsp.focus({ workspace = ws.id }))

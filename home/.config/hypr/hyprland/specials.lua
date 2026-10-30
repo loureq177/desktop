@@ -68,9 +68,10 @@ hl.on("hyprland.start", function()
 			follow = false,
 			window = w,
 		}))
-		-- Back on, as misc:focus_on_activate is (look.lua): "unset" leaves it off.
+		-- Back as misc:focus_on_activate has it: "unset" leaves it off.
 		hl.timer(function()
-			hl.dispatch(hl.dsp.window.set_prop({ prop = "focus_on_activate", value = "1", window = w }))
+			local value = hl.get_config("misc.focus_on_activate") and "1" or "0"
+			hl.dispatch(hl.dsp.window.set_prop({ prop = "focus_on_activate", value = value, window = w }))
 		end, { timeout = 10000, type = "oneshot" })
 		start_next()
 	end)

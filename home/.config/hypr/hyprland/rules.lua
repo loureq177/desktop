@@ -58,6 +58,7 @@ hl.window_rule({
 })
 
 hl.window_rule({
+	name = "dialogs",
 	match = {
 		class = "^(org.gnome.*|com.saivert.pwvucontrol|xdg-desktop-portal-gtk)$",
 	},
