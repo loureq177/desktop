@@ -21,8 +21,9 @@ PanelWindow {
 	WlrLayershell.layer: WlrLayer.Overlay
 	WlrLayershell.namespace: "quickshell"
 
-	readonly property bool hasFullscreen: Hyprland.workspaces.values.find(w => w.monitor?.name === bar.screenName && w.active)?.hasFullscreen ?? false
-	visible: !hasFullscreen
+	// Quickshell's own id of the focused one is right, and at once.
+	readonly property int activeWorkspaceId: Hyprland.monitorFor(modelData)?.activeWorkspace?.id ?? -1
+	visible: !Hypr.fullscreenOn(modelData)
 
 	anchors {
 		top: true
@@ -53,9 +54,6 @@ PanelWindow {
 	Connections {
 		target: Hyprland
 		function onRawEvent(ev) {
-			// Quickshell keeps the old id of a workspace hyprland/workspaces.lua renumbered.
-			if (ev.name === "changeworkspaceid")
-				Hyprland.refreshWorkspaces();
 			if (ev.name !== "activespecial")
 				return;
 			var parts = String(ev.data ?? "").split(",");
@@ -92,6 +90,10 @@ PanelWindow {
 		// The panel this module opens, if any.
 		property string panel: ""
 		property bool custom: false
+		// A readout only: no hover, no clicks.
+		property bool interactive: true
+		// For a mark that shows the date.
+		property int iconDay: 0
 		readonly property bool hovered: pillArea.containsMouse
 		default property alias content: pillRow.data
 		signal activated()
@@ -101,7 +103,7 @@ PanelWindow {
 		implicitHeight: Theme.barHeight
 		implicitWidth: pillRow.implicitWidth + 14
 		visible: text !== "" || icon !== "" || value !== "" || custom
-		color: isActive ? Theme.alpha(Theme.accent, 0.16) : (pillArea.containsMouse ? bar.hoverColor : "transparent")
+		color: isActive ? Theme.alpha(Theme.accentBlue, 0.16) : (pillArea.containsMouse ? bar.hoverColor : "transparent")
 		radius: Theme.roundingElement
 
 		Behavior on color {
@@ -118,6 +120,7 @@ PanelWindow {
 			LineIcon {
 				anchors.verticalCenter: parent.verticalCenter
 				name: pill.icon
+				day: pill.iconDay
 				color: pill.textColor
 			}
 
@@ -144,6 +147,7 @@ PanelWindow {
 		MouseArea {
 			id: pillArea
 			anchors.fill: parent
+			enabled: pill.interactive
 			hoverEnabled: true
 			cursorShape: Qt.PointingHandCursor
 			acceptedButtons: Qt.LeftButton | Qt.RightButton
@@ -198,13 +202,12 @@ PanelWindow {
 				layer.effect: Halo {}
 
 				Repeater {
-					model: Hyprland.workspaces.values
-						.filter(w => w.monitor?.name === bar.screenName && !String(w.name).startsWith("special:"))
-						.sort((a, b) => a.id - b.id)
+					model: Hypr.workspaces.filter(w => w.monitor === bar.screenName)
 
 					delegate: Item {
 						id: wsButton
 						required property var modelData
+						readonly property bool active: bar.activeWorkspaceId === modelData.id
 
 						height: Theme.barHeight
 						width: wsDot.width + 10
@@ -212,10 +215,10 @@ PanelWindow {
 						Rectangle {
 							id: wsDot
 							anchors.centerIn: parent
-							width: wsButton.modelData.active ? 26 : 8
+							width: wsButton.active ? 26 : 8
 							height: 8
 							radius: 4
-							color: wsButton.modelData.active ? Theme.accentBlue : (wsArea.containsMouse ? Theme.textMain : Theme.textDim)
+							color: wsButton.active ? Theme.accentBlue : (wsArea.containsMouse ? Theme.textMain : Theme.textDim)
 
 							Behavior on width {
 								NumberAnimation { duration: Theme.animNormal; easing.type: Easing.OutCubic }
@@ -244,6 +247,7 @@ PanelWindow {
 
 				Pill {
 					visible: Memory.percent >= 0
+					interactive: Specials.find("activity") !== null
 					icon: "memory-stick"
 					value: Memory.percent + "%"
 					isActive: bar.visibleSpecial === "activity"
@@ -265,6 +269,7 @@ PanelWindow {
 						readonly property var player: special?.player ? bar.playerFor(special.player) : null
 
 						icon: special?.icon ?? ""
+						iconDay: clock.now.getDate()
 						value: icon === "" ? modelData.charAt(0).toUpperCase() : ""
 						isActive: modelData === bar.visibleSpecial
 						textColor: isActive ? Theme.accentBlue : (player?.isPlaying ? Theme.accentGreen : Theme.textDim)
@@ -281,44 +286,16 @@ PanelWindow {
 			}
 		}
 
-		RowLayout {
-			anchors.centerIn: parent
-			spacing: 4
-
-			Pill {
-				id: clock
-				property date now: new Date()
-				value: Qt.formatDateTime(now, "hh:mm")
-				onActivated: Hypr.toggleSpecial("calendar")
-
-				// Not SystemClock, which spins in the hour a DST change repeats; a second's tick
-				// is at most a second stale after resume.
-				Timer {
-					running: true
-					repeat: true
-					onTriggered: clock.now = new Date()
-				}
-			}
-
-			Pill {
-				visible: Weather.current !== null
-				icon: Weather.current?.icon ?? ""
-				value: Weather.current ? Weather.current.tempNum + "°" : ""
-				isActive: Panels.active === "weather"
-				panel: "weather"
-				onActivated: Panels.toggle("weather")
-			}
-		}
-
+		// What comes and goes stands first: the row grows to the left, so the rest stays put.
 		RowLayout {
 			anchors.right: parent.right
 			anchors.verticalCenter: parent.verticalCenter
-			spacing: 6
+			spacing: 0
 
 			// The tray apps that have something to show (Discord, Steam), in the bar's colour;
-			// click as the app does, right-click for its menu.
+			// click as the app does, right-click for its menu. Not LocalSend: always there.
 			Repeater {
-				model: SystemTray.items.values.filter(i => i.status !== Status.Passive)
+				model: SystemTray.items.values.filter(i => i.status !== Status.Passive && !i.title.includes("localsend"))
 
 				delegate: Pill {
 					id: trayPill
@@ -369,15 +346,27 @@ PanelWindow {
 
 			Pill {
 				visible: Modes.screencasts > 0
+				interactive: false
 				icon: "screen-share"
 				textColor: Theme.accentPurple
 				isActive: true
 			}
 
 			Pill {
-				visible: Modes.awake
-				icon: "coffee"
-				onActivated: Commands.run("awake")
+				visible: Modes.phoneCam
+				icon: "smartphone"
+				textColor: Theme.accentPurple
+				isActive: true
+				onActivated: Commands.run("phonecam")
+			}
+
+			Pill {
+				visible: Weather.current !== null
+				icon: Weather.current?.icon ?? ""
+				value: Weather.current ? Weather.current.tempNum + "°" : ""
+				isActive: Panels.active === "weather"
+				panel: "weather"
+				onActivated: Panels.toggle("weather")
 			}
 
 			Pill {
@@ -385,6 +374,14 @@ PanelWindow {
 				isActive: Panels.active === "actions"
 				panel: "actions"
 				onActivated: Panels.toggle("actions")
+
+				// Keep awake, quietly: Actions is where it is turned off.
+				LineIcon {
+					anchors.verticalCenter: parent.verticalCenter
+					visible: Modes.awake
+					name: "coffee"
+					color: Theme.textDim
+				}
 
 				// Only with a device: on or off says nothing worth the room.
 				LineIcon {
@@ -415,6 +412,21 @@ PanelWindow {
 				isActive: isOpen
 				panel: "notifications"
 				onActivated: Panels.toggle("notifications")
+			}
+
+			Pill {
+				id: clock
+				property date now: new Date()
+				value: Qt.formatDateTime(now, "hh:mm")
+				interactive: false
+
+				// Not SystemClock, which spins in the hour a DST change repeats; a second's tick
+				// is at most a second stale after resume.
+				Timer {
+					running: true
+					repeat: true
+					onTriggered: clock.now = new Date()
+				}
 			}
 		}
 	}

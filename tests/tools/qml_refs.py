@@ -38,6 +38,25 @@ def defined_in_qml(text):
     return names
 
 
+def icon_problems(root, sources):
+    """Line icons named in the QML: a name not in LineIcons.js draws nothing, without a word."""
+    known = set(re.findall(r"^\s*\"([\w-]+)\":\s*'", (root / "widgets/LineIcons.js").read_text(encoding="utf-8"), re.M))
+    problems, checked = [], 0
+    for path, text in sources.items():
+        named = re.findall(r"\b(?:icon|lineIcon|offIcon)\s*:\s*([^\n,]+)", text)
+        named += re.findall(r"\bLineIcon\s*\{[^{}]*?\bname\s*:\s*([^\n,]+)", text)
+        for expression in named:
+            # Not what a value is compared with: section === "colors" ? "droplet"
+            for name in re.findall(r'(?<![=!]=\s)"([a-z][a-z0-9-]*)"', expression):
+                checked += 1
+                if name not in known:
+                    problems.append(f"{path.relative_to(root)}: no line icon \"{name}\" in widgets/LineIcons.js")
+    print(f"checked {checked} icon names")
+    if checked == 0:
+        problems.append("found no icon names: the scan is broken")
+    return problems
+
+
 def main():
     root = Path(sys.argv[1]).resolve()
     sources = {p: strip_comments(p.read_text(encoding="utf-8")) for p in root.rglob("*.qml")}
@@ -72,6 +91,7 @@ def main():
     print(f"checked {checked} member uses of {', '.join(sorted(owners))}")
     if checked == 0:
         problems.append("found nothing to check: the scan is broken")
+    problems += icon_problems(root, sources)
     if problems:
         sys.exit("\n".join(sorted(set(problems))))
 
