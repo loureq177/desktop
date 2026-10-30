@@ -100,7 +100,7 @@ start_webcam() {
     local dev x y w h cam_w cam_h addr
     dev=$(webcam_device)
     if [[ -z "$dev" ]]; then
-        notify-send --app-name "Screen Record" -i "dialog-warning" "No Camera Found" "Recording without the camera overlay."
+        notify-send --app-name "Screen recording" -i "dialog-warning" "No camera found" "Recording without the camera overlay."
         return
     fi
     IFS=', x' read -r x y w h <<<"$1"
@@ -146,11 +146,11 @@ if pkill -INT -x wf-recorder; then
 
     if [[ -n "$FILE" && -f "$FILE" ]]; then
         ACTION=$(notify-send \
-            --app-name "Screen Record" \
+            --app-name "Screen recording" \
             -t 8000 \
             -i "camera-video" \
             -A "default=Play" \
-            "Screen Record" \
+            "Screen recording" \
             "Recording saved to:\n$FILE" 2>/dev/null || true)
 
         if [[ "$ACTION" == "default" ]]; then
@@ -164,7 +164,7 @@ if pkill -INT -x wf-recorder; then
         fi
     else
         play_sound dialog-warning
-        notify-send --app-name "Screen Record" -t 5000 "Recording Stopped" -i "camera-video" "Recording stopped. No file found."
+        notify-send --app-name "Screen recording" -t 5000 "Recording stopped" -i "camera-video" "Recording stopped. No file found."
     fi
     exit 0
 fi
@@ -215,6 +215,6 @@ if ! kill -0 "$REC_PID" 2>/dev/null; then
     rm -f "$STATUS_FILE"
     cleanup_extras
     play_sound dialog-warning
-    notify-send --app-name "Screen Record" -t 5000 -i "dialog-warning" "Recording Failed" "wf-recorder exited right after starting."
+    notify-send --app-name "Screen recording" -t 5000 -i "dialog-warning" "Recording failed" "wf-recorder exited right after starting."
     exit 1
 fi
