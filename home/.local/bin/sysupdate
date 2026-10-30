@@ -10,16 +10,16 @@ TASKS_LOG="$STATE/last.log"
 : >"$TASKS_LOG"
 source "$HOME/.local/lib/dotfiles/tasks.sh"
 
-# queue LABEL TOOL FUNCTION: a step of the rest, when TOOL is installed. The
+# queue LABEL TOOL FUNCTION: a step of the rest, started now when TOOL is installed. The
 # steps run at once (tasks.sh); a failing one does not stop the others.
 queue() {
     command -v "$2" >/dev/null 2>&1 || return 0
-    task "$1" "$3"
+    task_start "$1" "$3"
 }
 
 notify() {
     command -v notify-send >/dev/null 2>&1 || return 0
-    notify-send --app-name="System Update" --icon="$1" --urgency="$2" "$3" "$4" || true
+    notify-send --app-name="System update" --icon="$1" --urgency="$2" "$3" "$4" || true
 }
 
 # What needs a look once it is all done, said again at the end.
@@ -280,26 +280,28 @@ check_pacnew() {
     for f in "${files[@]}"; do
         attention+=("$f to merge: DIFFPROG=\"nvim -d\" pacdiff -s")
     done
-    notify dialog-warning normal "Pacnew Files Detected" "Configuration merge needed for:\n$(printf '%s\n' "${files[@]}")"
+    notify dialog-warning normal "Pacnew files detected" "Configuration merge needed for:\n$(printf '%s\n' "${files[@]}")"
 }
 
 # --- The run -----------------------------------------------------------------
 
 PACMAN_LOG=${PACMAN_LOG:-/var/log/pacman.log}
-RUN_START=${EPOCHREALTIME/./}
-# The password first, before any heading or spinner.
+# The password first, before any heading or spinner, and off the clock.
 if [[ -t 0 ]]; then
     sudo -v || exit 1
 fi
+RUN_START=${EPOCHREALTIME/./}
 
 pacman_log_start=0
 if [ -f "$PACMAN_LOG" ]; then
     pacman_log_start=$(wc -l <"$PACMAN_LOG" 2>/dev/null || echo 0)
 fi
 
-# Flatpak brings its own runtimes, nothing pacman installs: it downloads
-# while pacman does, and its line below is done or under way by then.
-command -v flatpak >/dev/null 2>&1 && task_start "Flatpak apps" update_flatpak
+# These need nothing pacman installs: they run while it does, and their lines below are
+# done or under way by then.
+queue "Flatpak apps" flatpak update_flatpak
+queue "Firmware" fwupdmgr check_firmware
+queue "tldr pages" tldr update_tldr
 
 _log_info "System packages"
 # pacman_view reads it in this shell, not in a pipe's: what it finds stays.
@@ -324,6 +326,13 @@ fi
 pacman_changes "$pacman_log_start" "${PACMAN_SIZE:+$PACMAN_SIZE · }$PACMAN_TIME"
 aur_log_start=$(wc -l <"$PACMAN_LOG" 2>/dev/null || echo 0)
 
+# These use what pacman has just updated (git, nvim, python): they start now, and run
+# while the AUR is looked at below, which needs pacman's lock and you, so it comes alone.
+queue "Zsh plugins" zsh update_zsh_plugins
+aur_votes_due && queue "AUR votes" aur-sync-vote sync_aur_votes
+queue "uv tools" uv update_uv_tools
+queue "Neovim plugins" nvim update_nvim_plugins
+
 if command -v paru >/dev/null 2>&1; then
     # AUR build scripts run as this user and come from strangers: paru shows
     # what changed and asks before building, so this part needs a terminal.
@@ -338,14 +347,6 @@ if command -v paru >/dev/null 2>&1; then
     fi
 fi
 
-# The rest uses what pacman has just updated (git, nvim, python), so it
-# starts after it, all at once.
-queue "Zsh plugins" zsh update_zsh_plugins
-aur_votes_due && queue "AUR votes" aur-sync-vote sync_aur_votes
-queue "Firmware" fwupdmgr check_firmware
-queue "tldr pages" tldr update_tldr
-queue "uv tools" uv update_uv_tools
-queue "Neovim plugins" nvim update_nvim_plugins
 run_tasks "Apps and tools"
 
 if [ -f "$TASKS_DIR/firmware" ]; then
@@ -372,9 +373,9 @@ if [ -f "$PACMAN_LOG" ] && [ "$pacman_log_start" -gt 0 ]; then
 fi
 if ((${#reboot_reasons[@]})); then
     attention+=("Restart: $(listing "${reboot_reasons[@]}")")
-    notify system-reboot critical "Reboot Recommended" "$(printf '%s\n' "${reboot_reasons[@]}")"
+    notify system-reboot critical "Reboot recommended" "$(printf '%s\n' "${reboot_reasons[@]}")"
 else
-    notify archlinux normal "Update Complete" "System update completed successfully."
+    notify archlinux normal "Update complete" "System update completed successfully."
 fi
 
 if ((${#attention[@]})); then
@@ -388,7 +389,7 @@ printf '\n'
 if ((TASKS_FAILED)); then
     printf '%s✗ Updated in %s, %d step(s) failed%s\n' "$_C_RED$_C_BOLD" "$(_task_time $((${EPOCHREALTIME/./} - RUN_START)))" "$TASKS_FAILED" "$_C_NC"
 else
-    printf '%s✓ Up to date · %s%s\n' "$_C_GREEN$_C_BOLD" "$(_task_time $((${EPOCHREALTIME/./} - RUN_START)))" "$_C_NC"
+    printf '%s%s\n' "$_C_BOLD" "$(_gradient "✓ Up to date · $(_task_time $((${EPOCHREALTIME/./} - RUN_START)))")"
 fi
 
 # In a window of its own (the launcher, the update notification) the summary

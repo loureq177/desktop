@@ -21,15 +21,32 @@ else
     _C_BLUE="" _C_PURPLE="" _C_GREEN="" _C_YELLOW="" _C_RED="" _C_DIM="" _C_BOLD="" _C_NC=""
 fi
 
+# TEXT running from the theme's blue into its purple, as a window's border does; plain
+# blue without the palette or the terminal.
+_gradient() {
+    local LC_ALL=C.UTF-8 text=$1 n=${#1} i out=""
+    if [[ -z "${UI_ACCENT_BLUE:-}" || -z "$_C_NC" ]] || ((n < 2)); then
+        printf '%s%s%s' "$_C_BLUE" "$text" "$_C_NC"
+        return
+    fi
+    local from=$UI_ACCENT_BLUE to=$UI_ACCENT_PURPLE
+    local r1=$((0x${from:0:2})) g1=$((0x${from:2:2})) b1=$((0x${from:4:2}))
+    local r2=$((0x${to:0:2})) g2=$((0x${to:2:2})) b2=$((0x${to:4:2}))
+    for ((i = 0; i < n; i++)); do
+        out+=$(printf '\033[38;2;%d;%d;%dm%s' $((r1 + (r2 - r1) * i / (n - 1))) $((g1 + (g2 - g1) * i / (n - 1))) $((b1 + (b2 - b1) * i / (n - 1))) "${text:i:1}")
+    done
+    printf '%s%s' "$out" "$_C_NC"
+}
+
 # A section's heading, then its lines under it.
 _log_info() { printf '\n%s●%s %s%s%s\n' "$_C_BLUE" "$_C_NC" "$_C_BOLD" "$*" "$_C_NC"; }
-_log_ok() { printf '  %s✓%s %s\n' "$_C_GREEN" "$_C_NC" "$*"; }
+_log_ok() { printf '  %s✓%s %s\n' "$_C_BLUE" "$_C_NC" "$*"; }
 _log_warn() { printf '  %s⚠%s %s\n' "$_C_YELLOW" "$_C_NC" "$*"; }
 _log_error() { printf '  %s✗%s %s\n' "$_C_RED" "$_C_NC" "$*" >&2; }
 
 # The last line of sysclean: how much disk space came back, in how long.
 _log_total() {
-    printf '\n%s%s✓ %s freed · %s%s\n' "$_C_GREEN" "$_C_BOLD" "$1" "$2" "$_C_NC"
+    printf '\n%s%s\n' "$_C_BOLD" "$(_gradient "✓ $1 freed · $2")"
 }
 
 # _join SEP ITEM...: the items with SEP between them.

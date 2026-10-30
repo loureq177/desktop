@@ -45,7 +45,7 @@ if (( total > 0 || pacnew_count > 0 )); then
         body="System configuration merge required."
     fi
     # Waits for the answer: the card or its button starts the upgrade.
-    action=$(notify-send --app-name "System Update" -i archlinux \
+    action=$(notify-send --app-name "System update" -i archlinux \
         -A "default=Update system" -A "update=Update system" \
         "$summary" "$body" 2>/dev/null || true)
     if [[ "$action" == default || "$action" == update ]]; then

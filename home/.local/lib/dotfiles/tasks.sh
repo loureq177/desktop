@@ -133,7 +133,7 @@ _task_row() {
     else
         text=${_TASK_TEXT[i]}
         case ${_TASK_KIND[i]} in
-        ok) mark="$_C_GREEN✓$_C_NC" ;;
+        ok) mark="$_C_BLUE✓$_C_NC" ;;
         warn) mark="$_C_YELLOW⚠$_C_NC" ;;
         fail) mark="$_C_RED✗$_C_NC" ;;
         esac
