@@ -3,7 +3,8 @@ import "../../Search.js" as Search
 import QtQuick
 
 // The settings (Settings) by section, typing searches them all: Enter edits, ←/→ steps,
-// blue was set here, Ctrl+R gives it back to the config, Esc steps out.
+// blue was set here, Ctrl+R gives it back to the config, Esc steps out. What a
+// setting does shows on hover.
 LauncherPane {
 	id: pane
 
@@ -25,29 +26,13 @@ LauncherPane {
 
 	icon: mode === "browse" ? "settings" : "pencil"
 	grid: mode === "browse"
-	placeholder: mode === "choose" ? "Pick " + editing.label.toLowerCase() + "..."
+	placeholder: mode === "choose" ? "Pick " + editing.label.toLowerCase() + "…"
 		: mode === "type" ? "A value for " + editing.label.toLowerCase() + range(editing)
-		: !Settings.loaded ? "Loading settings..."
-		: section !== "" ? "Search " + sectionLabel.toLowerCase() + "..."
-		: "Search " + Settings.entries.length + " settings..."
+		: !Settings.loaded ? "Loading settings…"
+		: section !== "" ? "Search " + sectionLabel.toLowerCase() + "…"
+		: "Search " + Settings.entries.length + " settings in " + Settings.sections.length + " categories…"
 	preferredHeight: list.preferredHeight
-	footer: {
-		if (Settings.lastError !== "")
-			return "⚠ " + Settings.lastError;
-		var e = current;
-		if (!e)
-			return mode === "browse" && section === "" && list.count > 0 ? "Enter opens the section · type to search every setting" : "";
-		if (mode === "type")
-			return "Enter sets it · Esc leaves it" + (e.source === "ui" ? " · the shell restarts with the new look" : "");
-		if (mode === "choose")
-			return "Enter picks it · Esc leaves it";
-		var keys = e.kind === "bool" ? "Enter or ←/→ switches" : e.kind === "enum" ? "←/→ or Enter picks" : "Enter types a value" + (e.kind === "int" || e.kind === "float" ? " · ←/→ steps" : "");
-		if (e.source === "ui")
-			keys = (e.kind === "bool" ? "Enter switches" : e.kind === "enum" ? "Enter picks" : "Enter types a value") + " · the shell restarts with it";
-		if (e.source === "hyprland")
-			return e.name + range(e) + " · Hyprland's default " + Settings.display(Object.assign({}, e, { value: e.defaultValue })) + " · " + keys + (Settings.changed(e) ? " · Ctrl+R: the config's" : "");
-		return e.name + " · " + keys;
-	}
+	error: Settings.lastError
 
 	// Every word typed matches somewhere ("blur passes"), the best fields
 	// first: the name, the option's own, its section, what it does.
@@ -62,6 +47,19 @@ LauncherPane {
 		return total;
 	}
 
+	// What it does, its name and default, and how it changes.
+	function tooltip(e: var): string {
+		if (e.source === "ui")
+			return e.name + " in ui.toml, for the whole desktop: the shell restarts with it";
+		var lines = [];
+		if (e.desc)
+			lines.push(e.desc.charAt(0).toUpperCase() + e.desc.slice(1));
+		lines.push(e.name + range(e) + " · default " + Settings.display(Object.assign({}, e, { value: e.defaultValue })));
+		if (Settings.changed(e))
+			lines.push("Set here: Ctrl+R gives it back to the config");
+		return lines.join("\n");
+	}
+
 	function range(e: var): string {
 		return e && e.min !== null && e.min !== undefined && e.max !== null && e.max !== undefined ? " (" + e.min + "–" + e.max + ")" : "";
 	}
@@ -74,7 +72,7 @@ LauncherPane {
 		var e = current;
 		if (!e || e.source === "ui")
 			return;
-		keepIndex(() => Settings.set(e, Settings.stepped(e, delta)));
+		list.keepIndex(() => Settings.set(e, Settings.stepped(e, delta)));
 	}
 
 	function activate(): void {
@@ -103,7 +101,7 @@ LauncherPane {
 
 	function resetValue(): void {
 		if (current)
-			keepIndex(() => Settings.reset(current));
+			list.keepIndex(() => Settings.reset(current));
 	}
 
 	function opened(): void {
@@ -112,19 +110,13 @@ LauncherPane {
 		section = "";
 		Settings.lastError = "";
 		Settings.refresh();
+		list.rewind();
 	}
 
 	function closed(): void {
 		mode = "browse";
 		editing = null;
 		section = "";
-	}
-
-	// The list is made again as a value changes: the row stays selected.
-	function keepIndex(change: var): void {
-		var index = list.currentIndex;
-		change();
-		Qt.callLater(() => list.currentIndex = Math.min(index, list.count - 1));
 	}
 
 	function enter(e: var): void {
@@ -139,7 +131,7 @@ LauncherPane {
 			return;
 		}
 		if (e.kind === "bool") {
-			keepIndex(() => Settings.set(e, !e.value));
+			list.keepIndex(() => Settings.set(e, !e.value));
 			return;
 		}
 		browseQuery = query;
@@ -170,7 +162,7 @@ LauncherPane {
 			var n = changedEntries.filter(e => e.section === s.key).length;
 			return {
 				label: s.label,
-				subtitle: (s.key === "look" ? "ui.toml · " : "Hyprland · ") + s.count + " settings" + (n > 0 ? " · " + n + " changed" : ""),
+				subtitle: (s.key === "look" ? "ui.toml · " : "Hyprland · ") + s.count + (s.count === 1 ? " setting" : " settings") + (n > 0 ? " · " + n + " changed" : ""),
 				lineIcon: s.icon,
 				run: () => {
 					pane.openSection(s.key);
@@ -219,7 +211,8 @@ LauncherPane {
 			var shown = pane.mode === "type" ? [pane.editing] : Search.rank(all, e => pane.score(e));
 			return shown.map(e => ({
 				label: e.label,
-				subtitle: pane.section === "" && pane.mode === "browse" ? e.group : e.desc,
+				subtitle: pane.section === "" && pane.mode === "browse" ? e.group : "",
+				tooltip: pane.mode === "browse" ? pane.tooltip(e) : "",
 				heading: pane.q !== "" || pane.mode !== "browse" ? "" : pane.section === "changed" ? e.group : e.sub,
 				lineIcon: e.icon,
 				setting: e,
@@ -230,6 +223,6 @@ LauncherPane {
 			}));
 		}
 
-		emptyText: !Settings.loaded ? "Loading settings..." : pane.section === "changed" && pane.q === "" ? "Nothing changed here" : "No setting by that name"
+		emptyText: !Settings.loaded ? "Loading settings…" : pane.section === "changed" && pane.q === "" ? "Nothing changed here" : "Nothing matches"
 	}
 }

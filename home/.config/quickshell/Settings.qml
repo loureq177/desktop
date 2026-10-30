@@ -20,14 +20,14 @@ Singleton {
 
 	readonly property string savedPath: Quickshell.env("HOME") + "/.config/hypr/settings.lua"
 
-	// Left out: what ui.toml decides (look.lua), changed there instead, Xwayland,
-	// which xwayland-satellite stands in for, and debug:*.
+	// Left out: what ui.toml decides (look.lua), changed there instead, Xwayland, which
+	// xwayland-satellite stands in for, what workspaces.lua keeps setting, and debug:*.
 	readonly property var notHere: [
 		"general:gaps_in", "general:gaps_out", "general:border_size",
 		"general:col.active_border", "general:col.inactive_border",
 		"decoration:rounding", "decoration:rounding_power",
 		"decoration:active_opacity", "decoration:inactive_opacity", "decoration:dim_special",
-		"decoration:shadow:color", "xwayland:enabled"
+		"decoration:shadow:color", "xwayland:enabled", "gestures:workspace_swipe_use_r"
 	]
 
 	readonly property var hyprIcons: ({
@@ -36,10 +36,14 @@ Singleton {
 		render: "eye", dwindle: "layout-grid", master: "layout-grid", scrolling: "layout-grid"
 	})
 
+	// ui.toml changes only through apply-ui, which restarts the shell.
 	function refresh(): void {
 		describe.running = true;
-		uiDump.running = true;
+		if (uiValues.length === 0)
+			uiDump.running = true;
 	}
+
+	Component.onCompleted: refresh()
 
 	// "col.inactive_border" -> "Color inactive border"
 	function humanize(text: string): string {
@@ -61,7 +65,6 @@ Singleton {
 			desc: "ui.toml · the whole desktop",
 			kind: choices ? "enum" : v.kind === "str" ? "text" : v.kind,
 			value: v.value,
-			step: v.kind === "float" ? 0.05 : 1,
 			choices: choices ? choices.map(c => ({ label: c, value: c })) : null,
 			icon: v.section === "colors" ? "droplet" : v.section === "font" ? "text" : "sparkles"
 		};
@@ -152,20 +155,16 @@ Singleton {
 		return e.source === "hyprland" && root.saved[e.name] !== undefined;
 	}
 
-	// The value typed for entry `e`, as the kind it is, or undefined.
+	// The value typed for entry `e`, as the kind it is, or undefined. Switches and
+	// choices are not typed.
 	function parse(e: var, text: string): var {
 		var t = text.trim();
-		if (e.kind === "int" || e.kind === "float") {
-			var n = Number(t.replace(",", "."));
-			if (t === "" || isNaN(n))
-				return undefined;
-			return clamp(e, e.kind === "int" ? Math.round(n) : n);
-		}
-		if (e.kind === "bool")
-			return ["on", "true", "1", "yes"].includes(t.toLowerCase());
-		if (e.kind === "enum")
-			return e.choices.find(c => String(c.label).toLowerCase() === t.toLowerCase())?.value;
-		return t;
+		if (e.kind !== "int" && e.kind !== "float")
+			return t;
+		var n = Number(t.replace(",", "."));
+		if (t === "" || isNaN(n))
+			return undefined;
+		return clamp(e, e.kind === "int" ? Math.round(n) : n);
 	}
 
 	function clamp(e: var, n: real): real {
@@ -252,13 +251,19 @@ Singleton {
 			+ "return {\n" + lines.join("\n") + (lines.length > 0 ? "\n" : "") + "}\n");
 	}
 
+	// Asked at every open: the same answer leaves the entries alone, or the list's rows
+	// would all be made again as the panel opens.
 	Process {
 		id: describe
+		property var answer
 		command: ["hyprctl", "descriptions", "-j"]
 		stdout: StdioCollector {
 			onStreamFinished: {
+				if (this.text === describe.answer)
+					return;
 				try {
 					root.hyprOptions = JSON.parse(this.text);
+					describe.answer = this.text;
 				} catch (e) {
 					root.lastError = "hyprctl descriptions: " + e;
 				}
@@ -268,24 +273,22 @@ Singleton {
 
 	Process {
 		id: uiDump
+		property var answer
 		command: [Quickshell.env("HOME") + "/.local/bin/apply-ui", "--dump"]
 		stdout: StdioCollector {
 			onStreamFinished: {
+				if (this.text === uiDump.answer)
+					return;
 				try {
 					var d = JSON.parse(this.text);
 					root.uiValues = d.values;
 					root.uiChoices = d.choices;
+					uiDump.answer = this.text;
 				} catch (e) {
 					root.lastError = "apply-ui --dump: " + e;
 				}
 			}
 		}
-	}
-
-	Process {
-		id: reload
-		command: ["sh", "-c", "hyprctl reload >/dev/null; \"$HOME/.local/bin/power-save\" --reapply >/dev/null 2>&1"]
-		onExited: describe.running = true
 	}
 
 	// Kept only once Hyprland took it.
@@ -325,7 +328,7 @@ Singleton {
 		onSaved: {
 			if (root.reloadWhenSaved) {
 				root.reloadWhenSaved = false;
-				reload.running = true;
+				Hypr.reload(() => describe.running = true);
 			}
 		}
 		onLoaded: {
