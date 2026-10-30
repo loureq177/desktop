@@ -6,7 +6,7 @@ UI and UX, and sane defaults.
 I focused on:
 
 - Very fast and easy navigation with keyboard only and mouse as well.
-- Polished, cosistent look and feel.
+- Polished, consistent look and feel.
 - Ease of use and full customizability
 - Compatibility with both laptops and PC's
 - Low resource usage
@@ -15,8 +15,8 @@ https://github.com/user-attachments/assets/d2909d79-4228-4f4d-b8bc-892f29cc3b61
 
 ## Features
 
-This desktop is minimalistic (~8k LOC), but it doesn't compromise on
-functionality.
+This desktop is minimalistic (~14k LOC, ~8k of them the shell), but it doesn't
+compromise on functionality.
 
 ### Sane defaults
 
@@ -28,18 +28,25 @@ functionality.
     - Launcher (apps, `/actions`, clipboard, emoji, keys)
     - quick actions, notifications, OSD
     - Weather module
-    - RAM usage indicatorr
+    - RAM usage indicator
     - Tray: the apps running in the background (Discord, Steam)
 - **Hyprlock**: password or fingerprint
-- **Github theme**: `~/.config/ui/ui.toml`, change it with `apply-ui`
+- **Github theme**: `~/.config/ui/ui.toml`, change it with `apply-ui`: the shell,
+  Hyprland, the lock screen, GTK and Qt programs (qt6ct)
 - Screenshots with edits, screen recording with mic and camera!!, OCR
 - **Dictation** with whisper-cpp under `SUPER + D`
 - Battery care, power saver, awake-mode, night-light
 - **Settings** under `SUPER + S`: every option of Hyprland, the theme and the
   desktop's modes, searchable, changed on the spot
+- **LocalSend** in the tray from the start, for files to and from the phone
+- **Keys** under `SUPER + /`: every bind, Enter gives it new keys, Delete twice
+  removes it, the first row adds a new one (kept in `~/.config/hypr/keys.lua`),
+  Ctrl+R gives the config's back
+- **Phone camera** in the launcher (`phone-cam`): the phone as a webcam over Wi-Fi,
+  no app on it, with scrcpy and a virtual `/dev/video10`
 - `sysupdate` and `sysclean` scripts, their steps run at once
 - A notification when the system runs out of RAM and kills an app
-- Wallpaper swither with grow animation (SUPER + P)
+- Wallpaper switcher with grow animation (SUPER + P)
 
 ### Laptop features
 
