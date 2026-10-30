@@ -7,30 +7,18 @@ import QtQuick
 
 // The drawers under the bar (Actions, notifications, weather) in one window; a
 // click elsewhere puts them away.
-PanelWindow {
+StandbyWindow {
 	id: root
 
 	readonly property var drawers: ["actions", "notifications", "weather"]
 	readonly property bool shown: drawers.includes(Panels.active)
 	readonly property real level: Math.max(actions.progress, notifications.progress, weather.progress)
 
-	visible: shown || level > 0
-	color: "transparent"
-	exclusionMode: ExclusionMode.Ignore
-	exclusiveZone: 0
+	open: shown || level > 0
 
 	WlrLayershell.layer: WlrLayer.Top
 	WlrLayershell.keyboardFocus: shown ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
 	WlrLayershell.namespace: "quickshell"
-
-	screen: Panels.screen
-
-	anchors {
-		top: true
-		bottom: true
-		left: true
-		right: true
-	}
 
 	// Taken when a drawer opens, kept while it leaves: the focus moving to
 	// another monitor closes it, and it must finish where it started.
@@ -46,7 +34,8 @@ PanelWindow {
 	}
 
 	Rectangle {
-		anchors.fill: parent
+		width: root.fullWidth
+		height: root.fullHeight
 		color: Theme.backdropColor
 		opacity: root.level
 
@@ -59,7 +48,8 @@ PanelWindow {
 
 	Item {
 		readonly property var drawers: root.drawers
-		anchors.fill: parent
+		width: root.fullWidth
+		height: root.fullHeight
 
 		ActionsDrawer {
 			id: actions

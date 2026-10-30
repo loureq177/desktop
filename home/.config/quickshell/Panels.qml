@@ -70,6 +70,18 @@ Singleton {
 		}
 	}
 
+	// What Hyprland's binds press (hl.dsp.global): `qs ipc` would start a process each time, 45 ms.
+	Variants {
+		model: ["launcher-apps", "launcher-settings", "launcher-emoji", "launcher-clipboard", "launcher-keys", "actions", "weather", "notifications"]
+
+		GlobalShortcut {
+			required property string modelData
+			appid: "shell"
+			name: modelData
+			onPressed: root.toggle(...modelData.split("-"))
+		}
+	}
+
 	IpcHandler {
 		target: "shell"
 

@@ -10,9 +10,18 @@ StartLimitBurst=5
 [Service]
 ExecStart=/usr/bin/quickshell --no-duplicate
 Environment=MALLOC_CONF=narenas:1,muzzy_decay_ms:0
+# The shell draws its own look: qt6ct's palette and fonts are for the other Qt programs.
+Environment=QT_QPA_PLATFORMTHEME=
+# Experiment: the shell hangs in NVIDIA's EGL after a resume; does it without explicit sync?
+Environment=__NV_DISABLE_EXPLICIT_SYNC=1
 SyslogIdentifier=quickshell
 Restart=on-failure
 RestartSec=1
+# A hang in the GPU driver leaves it "running": no ping from shell.qml's timer, no shell.
+# KILL, as ABRT opens Quickshell's crash window.
+NotifyAccess=all
+WatchdogSec=15
+WatchdogSignal=SIGKILL
 # What the shell started outlives it: a restart must not take the screen
 # recording or the dictation with it.
 KillMode=process

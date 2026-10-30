@@ -1,13 +1,12 @@
 import ".."
 import QtQuick
 
-// A card sliding in from the right under the bar (or the top) while Panels has `name`
-// open; replaced by another, it fades in place. Esc puts it away.
+// A card sliding in from the right under the bar while Panels has `name` open; replaced
+// by another, it fades in place. Esc or Q puts it away.
 FocusScope {
 	id: root
 
 	required property string name
-	property bool fromTop: false
 	property int cardWidth: Theme.drawerWidth
 	// The body's height; the card stops growing at maxHeight.
 	property int contentHeight: maxHeight
@@ -16,6 +15,8 @@ FocusScope {
 	// 0 off screen, 1 in place.
 	property real progress: 0
 	property bool handoff: false
+	// From the card at rest until it is gone: for what would stutter the slide.
+	readonly property bool settled: shown ? progress >= 1 && !anim.running : visible
 	default property alias body: bodySlot.data
 
 	// Also when it is opened again on another mode.
@@ -23,7 +24,7 @@ FocusScope {
 
 	// Well past the edge: the exit curve covers its last third in a frame or
 	// two, so the card has to be gone before that or it visibly stops short.
-	readonly property real offscreen: fromTop ? card.height + Theme.panelTop + 60 : (cardWidth + Theme.panelMargin) * 1.6
+	readonly property real offscreen: (cardWidth + Theme.panelMargin) * 1.6
 	readonly property real offset: handoff ? 0 : (1 - progress) * offscreen
 
 	anchors.fill: parent
@@ -52,7 +53,12 @@ FocusScope {
 		}
 	}
 
-	Keys.onEscapePressed: Panels.close(root.name)
+	Keys.onPressed: event => {
+		if (event.key === Qt.Key_Escape || event.key === Qt.Key_Q) {
+			Panels.close(root.name);
+			event.accepted = true;
+		}
+	}
 
 	NumberAnimation {
 		id: anim
@@ -64,8 +70,8 @@ FocusScope {
 	Rectangle {
 		id: card
 
-		x: root.fromTop ? Math.round((parent.width - width) / 2) : parent.width - width - Theme.panelMargin + root.offset
-		y: root.fromTop ? Theme.panelTop - root.offset : Theme.panelTop
+		x: parent.width - width - Theme.panelMargin + root.offset
+		y: Theme.panelTop
 		width: root.cardWidth
 		height: Math.min(root.maxHeight, root.contentHeight + Theme.paddingCard * 2)
 		opacity: root.handoff ? root.progress : 1

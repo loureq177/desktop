@@ -20,4 +20,12 @@ ShellRoot {
 	NotificationToasts {}
 
 	Osd {}
+
+	// Stops with the main thread, and systemd then restarts the shell (WatchdogSec).
+	Timer {
+		interval: 5000
+		running: true
+		repeat: true
+		onTriggered: Quickshell.execDetached(["systemd-notify", "WATCHDOG=1"])
+	}
 }

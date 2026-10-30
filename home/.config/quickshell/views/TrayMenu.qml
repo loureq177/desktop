@@ -61,7 +61,7 @@ PopupWindow {
 		color: Theme.glass(Theme.bgCard)
 		border.color: Theme.border
 		border.width: Theme.borderSize
-		radius: Theme.roundingElement + 4
+		radius: Theme.roundingWindow
 		focus: true
 
 		Keys.onEscapePressed: root.close()
