@@ -51,10 +51,10 @@ Singleton {
 
 	// The shell's own keys, shown nowhere else (not Esc and J / K, which every panel takes).
 	readonly property var shellEntries: [
-		{ category: "Mouse", chord: "RIGHT-CLICK BAR ICON", action: "Close a special workspace" },
+		{ category: "Mouse", chord: "RIGHT-CLICK BAR ICON", action: "Close a special workspace", special: true },
 		{ category: "Gestures", chord: "3 FINGERS ↔", action: "Switch workspace" },
-		{ category: "Gestures", chord: "3 FINGERS ↑", action: "Open the last special workspace" },
-		{ category: "Gestures", chord: "3 FINGERS ↓", action: "Hide the special workspace" }
+		{ category: "Gestures", chord: "3 FINGERS ↑", action: "Open the last special workspace", special: true },
+		{ category: "Gestures", chord: "3 FINGERS ↓", action: "Hide the special workspace", special: true }
 	]
 
 	// Hyprland's modifier bits, in the order a chord names them: as shown, as Lua writes them.
@@ -166,7 +166,7 @@ Singleton {
 	}
 
 	function listed(): var {
-		return root.parse(root.binds).concat(root.shellEntries).concat(root.removedLines());
+		return root.parse(root.binds).concat(root.shellEntries.filter(e => !e.special || Specials.list.length > 0)).concat(root.removedLines());
 	}
 
 	function reload(): void {

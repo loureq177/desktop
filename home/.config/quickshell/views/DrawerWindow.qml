@@ -16,7 +16,6 @@ StandbyWindow {
 
 	open: shown || level > 0
 
-	WlrLayershell.layer: WlrLayer.Top
 	WlrLayershell.keyboardFocus: shown ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
 	WlrLayershell.namespace: "quickshell"
 

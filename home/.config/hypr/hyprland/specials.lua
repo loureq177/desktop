@@ -16,6 +16,21 @@ local function name_of(ws)
 	return (ws.name:gsub("^special:", ""))
 end
 
+-- Hiding one over an empty workspace leaves the keyboard on its window, and the next
+-- panel to close brings it back, unless the cursor is over no surface: for that moment, it is.
+local function toggle(name)
+	local showing = hl.get_active_special_workspace()
+	local ws = hl.get_active_workspace()
+	if showing == nil or name_of(showing) ~= name or ws == nil or ws.windows > 0 then
+		hl.dispatch(hl.dsp.workspace.toggle_special(name))
+		return
+	end
+	local at, m = hl.get_cursor_pos(), ws.monitor
+	hl.dispatch(hl.dsp.cursor.move({ x = m.x + m.width / m.scale / 2, y = m.y + m.height / m.scale / 2 }))
+	hl.dispatch(hl.dsp.workspace.toggle_special(name))
+	hl.dispatch(hl.dsp.cursor.move({ x = at.x, y = at.y }))
+end
+
 -- A special workspace opened empty starts its app. The event comes once the
 -- workspace is set up, so one that a window was sent to is not empty.
 hl.on("workspace.created", function(ws)
@@ -29,28 +44,44 @@ end)
 -- moved as it opens. Firefox web apps share one Firefox (windows named after the
 -- first app), Chromium's are named after the URL's host.
 local background = apps.background
-local first_firefox
-for _, name in ipairs(background) do
-	if first_firefox == nil and specials[name].firefox then
-		first_firefox = name
-	end
+
+local function has_window(name)
+	return hl.get_windows({ workspace = "special:" .. name })[1] ~= nil
 end
 
-local function opened_by(w, app)
-	if app.host then
-		return w.class:find(app.host, 1, true) ~= nil
+-- The class Firefox gives its web apps: that of whichever was opened first.
+local function firefox_class()
+	local first
+	for _, name in ipairs(background) do
+		first = first or (specials[name].firefox and name)
 	end
-	return w.class == (app.firefox and first_firefox or app.class)
+	for _, w in ipairs(hl.get_windows()) do
+		local app = w.workspace ~= nil and w.workspace.special and specials[name_of(w.workspace)]
+		if app and app.firefox then
+			return w.class
+		end
+	end
+	return first
 end
 
-hl.on("hyprland.start", function()
-	if background[1] == nil then
-		return
-	end
+local function start_background()
+	local firefox = firefox_class()
 	local i = 0
 	local sub
+
+	local function opened_by(w, app)
+		if app.host then
+			return w.class:find(app.host, 1, true) ~= nil
+		end
+		return w.class == (app.firefox and firefox or app.class)
+	end
+
 	local function start_next()
 		i = i + 1
+		-- Opened by hand while the network was away.
+		while background[i] ~= nil and has_window(background[i]) do
+			i = i + 1
+		end
 		if background[i] == nil then
 			sub:remove()
 			return
@@ -76,6 +107,13 @@ hl.on("hyprland.start", function()
 		start_next()
 	end)
 	start_next()
+end
+
+-- Once there is internet, however long that takes; the session does not wait for it.
+hl.on("hyprland.start", function()
+	if background[1] ~= nil then
+		hl.exec_cmd([[sh -c 'until [ "$(nmcli -t -f CONNECTIVITY general || echo full)" = full ]; do sleep 2; done; hyprctl eval "require(\"hyprland.specials\").start_background()"']])
+	end
 end)
 
 -- Three fingers up bring back the special workspace used last, down put away
@@ -97,7 +135,7 @@ hl.gesture({
 			end
 		end
 		if last ~= nil then
-			hl.dispatch(hl.dsp.workspace.toggle_special(name_of(last.workspace)))
+			toggle(name_of(last.workspace))
 		end
 	end,
 })
@@ -108,9 +146,9 @@ hl.gesture({
 	action = function()
 		local ws = hl.get_active_special_workspace()
 		if ws ~= nil then
-			hl.dispatch(hl.dsp.workspace.toggle_special(name_of(ws)))
+			toggle(name_of(ws))
 		end
 	end,
 })
 
-return specials
+return { list = specials, toggle = toggle, start_background = start_background }

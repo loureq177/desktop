@@ -24,7 +24,6 @@ Singleton {
 		root.mode = newMode || "";
 		root.active = name;
 		root.opened(name, root.mode);
-		pointerRefresh.restart();
 	}
 
 	// Without a name, whatever is open. The arguments that may be left out are
@@ -39,14 +38,6 @@ Singleton {
 			root.close();
 		else
 			root.open(name, newMode);
-	}
-
-	// A panel taking the keyboard takes the pointer off the bar: the next click there
-	// would only bring it back.
-	Timer {
-		id: pointerRefresh
-		interval: 100
-		onTriggered: Hypr.refreshPointer()
 	}
 
 	// The window Hyprland last reported focused. A layer taking the keyboard
@@ -72,7 +63,7 @@ Singleton {
 
 	// What Hyprland's binds press (hl.dsp.global): `qs ipc` would start a process each time, 45 ms.
 	Variants {
-		model: ["launcher-apps", "launcher-settings", "launcher-emoji", "launcher-clipboard", "launcher-keys", "actions", "weather", "notifications"]
+		model: ["launcher-apps", "launcher-settings", "launcher-emoji", "launcher-clipboard", "launcher-keys", "launcher-windows", "actions", "weather", "notifications"]
 
 		GlobalShortcut {
 			required property string modelData

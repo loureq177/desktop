@@ -25,6 +25,8 @@ Variants {
 		WlrLayershell.layer: WlrLayer.Background
 		WlrLayershell.namespace: "wallpaper"
 		exclusionMode: ExclusionMode.Ignore
+		// No input: a surface under the cursor keeps the keyboard on a special just hidden.
+		mask: Region {}
 
 		anchors {
 			top: true

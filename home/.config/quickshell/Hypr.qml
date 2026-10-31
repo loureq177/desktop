@@ -61,7 +61,7 @@ Singleton {
 	}
 
 	function toggleSpecial(name: string): void {
-		dispatch("hl.dsp.workspace.toggle_special(" + quote(name) + ")");
+		dispatch("function() require(\"hyprland.specials\").toggle(" + quote(name) + ") end");
 	}
 
 	function focusWorkspace(id: int): void {
@@ -74,10 +74,10 @@ Singleton {
 		dispatch("hl.dsp.focus({ window = " + quote("class:" + regex) + " })");
 	}
 
-	// Moving the cursor to where it already is hands the pointer to whatever
-	// lies under it.
+	// Moving the cursor to where it already is hands the pointer to whatever lies under it.
+	// follow_mouse 2 for that moment: the keyboard stays, a pointer at rest has chosen nothing.
 	function refreshPointer(): void {
-		dispatch("hl.dsp.cursor.move({ x = hl.get_cursor_pos().x, y = hl.get_cursor_pos().y })");
+		dispatch("function() local was, c = hl.get_config(\"input.follow_mouse\"), hl.get_cursor_pos() hl.config({ input = { follow_mouse = 2 } }) hl.dispatch(hl.dsp.cursor.move({ x = c.x, y = c.y })) hl.config({ input = { follow_mouse = was } }) end");
 	}
 
 	// Closes the windows of special `name`, which removes it.
@@ -103,7 +103,7 @@ Singleton {
 	// One ask at a time: an event during one asks again once it is done.
 	Timer {
 		id: workspacesAsk
-		interval: 50
+		interval: 10
 		onTriggered: {
 			if (workspacesList.running)
 				restart();

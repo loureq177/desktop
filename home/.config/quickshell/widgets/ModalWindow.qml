@@ -20,7 +20,6 @@ StandbyWindow {
 	// way out has run, and takes it at once on the way in.
 	open: shown || progress > 0
 
-	WlrLayershell.layer: WlrLayer.Overlay
 	WlrLayershell.keyboardFocus: shown ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
 	WlrLayershell.namespace: "quickshell"
 

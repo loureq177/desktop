@@ -17,6 +17,8 @@ PanelWindow {
 	// Panels.screen, where it waits: its own `screen` would loop, as mapping sets that.
 	readonly property bool covered: Hypr.fullscreenOn(Panels.screen)
 	visible: open || !covered
+	// Under the bar, so it stays what the pointer is on; over a fullscreen window the bar is gone.
+	WlrLayershell.layer: covered ? WlrLayer.Overlay : WlrLayer.Top
 	color: "transparent"
 	exclusionMode: ExclusionMode.Ignore
 	exclusiveZone: 0
@@ -41,6 +43,15 @@ PanelWindow {
 	onOpenChanged: {
 		if (!open)
 			screen = Panels.screen;
+		pointerFollows.restart();
+	}
+
+	// A resting pointer stays with the surface it was on, though another now lies under it:
+	// the next click would go nowhere. Every panel grows and shrinks here, so all are covered.
+	Timer {
+		id: pointerFollows
+		interval: 40
+		onTriggered: Hypr.refreshPointer()
 	}
 
 	Connections {
