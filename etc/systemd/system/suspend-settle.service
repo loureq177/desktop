@@ -1,0 +1,12 @@
+# nvidia-suspend.service takes the VT at once, 60 ms after the lock begins: the panel freezes on
+# that frame, unlocked. This gives the lock screen time to reach it first.
+[Unit]
+Description=Let the lock screen reach the screen before sleep
+Before=nvidia-suspend.service systemd-suspend.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/sleep 0.8
+
+[Install]
+WantedBy=systemd-suspend.service

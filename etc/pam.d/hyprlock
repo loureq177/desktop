@@ -1,4 +1,11 @@
-# hyprlock's own file, plus the login keyring: autologin opens the session
-# without a password, so the unlock at login is what unlocks the keyring.
-auth        include     login
--auth       optional    pam_gnome_keyring.so
+# system-auth's password check, with two changes. Fingerprint unlocking ends hyprlock while it
+# waits for a password: authtok_err=die keeps that from counting as a failed login, and nodelay
+# keeps hyprlock from lingering seconds after it, when it cannot be locked again.
+# The login keyring: autologin opens the session without a password, so this unlocks it.
+auth       required                    pam_faillock.so      preauth nodelay
+auth       [success=1 authtok_err=die default=bad]  pam_unix.so  try_first_pass nullok nodelay
+auth       [default=die]               pam_faillock.so      authfail nodelay
+auth       optional                    pam_permit.so
+auth       required                    pam_env.so
+auth       required                    pam_faillock.so      authsucc
+-auth      optional                    pam_gnome_keyring.so
