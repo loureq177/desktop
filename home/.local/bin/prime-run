@@ -1,0 +1,4 @@
+#!/bin/sh
+# Asks for the NVIDIA GPU, which env.lua hides from Vulkan for everything else.
+unset VK_DRIVER_FILES VK_ICD_FILENAMES
+exec /usr/bin/prime-run "$@"

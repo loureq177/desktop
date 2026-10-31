@@ -1,8 +1,18 @@
--- Monitors where local.lua puts them, the rest beside; the laptop panel is off
--- with the lid closed and another screen connected.
+-- Monitors where local.lua puts them, the rest beside. With the lid closed the panel goes
+-- dark and, with another screen connected, out of reach, but it is never disabled: an
+-- unplug would leave no outputs, whose flapping kills clients, and a dock's outputs
+-- coming up during its modeset lost their signal.
 
 local machine = require("hyprland.machine")
 local laptop = machine.laptop
+
+-- Left of everything: "auto" monitors go right of the last one, and no edge touches it.
+local PARKED = "-20000x-20000"
+
+local M = {}
+
+-- The panel's name while it is parked: the row of workspaces leaves it out.
+M.parked = nil
 
 for _, m in ipairs(machine.monitors) do
 	hl.monitor({
@@ -24,63 +34,234 @@ local function lid_closed()
 	return out:find("closed", 1, true) ~= nil
 end
 
--- FALLBACK is Hyprland's stand-in while no real output is left.
-local function has_external()
-	for _, m in ipairs(hl.get_monitors()) do
-		local name = m.name or ""
-		if not name:find("^eDP") and name ~= "FALLBACK" then
-			return true
-		end
-	end
-	return false
+local function panel()
+	return laptop and hl.get_monitor(laptop.output)
 end
 
--- Applied again only when it changes: a rule for the panel is itself a
--- monitor change.
-local laptop_applied = nil
-local function place_laptop()
-	if laptop == nil then
-		return
+-- FALLBACK is Hyprland's stand-in while no real output is left.
+local function externals()
+	local p, out = panel(), {}
+	for _, m in ipairs(hl.get_monitors()) do
+		if m.name ~= "FALLBACK" and (p == nil or m.name ~= p.name) then
+			table.insert(out, m)
+		end
 	end
-	local position = "auto"
+	return out
+end
+
+local function panel_position()
 	for _, m in ipairs(machine.monitors) do
 		-- the output of a monitor rule ("DP-1", "desc:...") is a selector
 		if m.laptop and hl.get_monitor(m.output) ~= nil then
-			position = m.laptop
-			break
+			return m.laptop
 		end
 	end
-	local disabled = lid_closed() and has_external()
-	local state = tostring(disabled) .. " " .. position
-	if state == laptop_applied then
-		return
-	end
-	laptop_applied = state
-	hl.monitor({
-		output = laptop.output,
-		mode = laptop.mode or "preferred",
-		position = position,
-		scale = laptop.scale or 1,
-		disabled = disabled,
-	})
+	return "auto"
 end
 
-place_laptop()
-hl.on("monitor.added", place_laptop)
-hl.on("monitor.removed", place_laptop)
--- At login the outputs are still coming up when the session starts.
-hl.on("hyprland.start", function()
-	hl.timer(place_laptop, { timeout = 1500, type = "oneshot" })
+-- Applied again only when it changes: a rule for the panel is itself a monitor change.
+local applied = nil
+local function place()
+	if laptop == nil then
+		return
+	end
+	local p, others = panel(), externals()
+	local closed = lid_closed()
+	local parked = closed and others[1] ~= nil
+	local position = parked and PARKED or panel_position()
+	if position ~= applied then
+		applied = position
+		hl.monitor({
+			output = laptop.output,
+			mode = laptop.mode or "preferred",
+			position = position,
+			scale = laptop.scale or 1,
+		})
+	end
+	M.parked = parked and p and p.name or nil
+	if p == nil then
+		return
+	end
+	if parked then
+		for _, ws in ipairs(hl.get_workspaces()) do
+			if not ws.special and ws.windows > 0 and ws.monitor ~= nil and ws.monitor.name == p.name then
+				hl.dispatch(hl.dsp.workspace.move({ workspace = ws.id, monitor = others[1].name }))
+			end
+		end
+		if p.focused then
+			hl.dispatch(hl.dsp.focus({ monitor = others[1].name }))
+		end
+	end
+	if closed then
+		hl.dispatch(hl.dsp.dpms({ action = "off", monitor = p.name }))
+	end
+end
+
+local function dpms(action, name)
+	hl.dispatch(hl.dsp.dpms({ action = action, monitor = name }))
+end
+
+-- A dock's outputs share one link: turned on together, the second one keeps no picture while
+-- the driver says it is on. One at a time they all get one.
+local GAP = 1500
+local function one_by_one(names, step)
+	for i, name in ipairs(names) do
+		hl.timer(function()
+			step(name)
+		end, { timeout = 1 + (i - 1) * GAP, type = "oneshot" })
+	end
+end
+
+local function reconnect(names)
+	one_by_one(names, function(name)
+		dpms("off", name)
+		-- Longer than the fade to black: only its end really turns the screen off.
+		hl.timer(function()
+			dpms("on", name)
+		end, { timeout = 800, type = "oneshot" })
+	end)
+end
+
+local function external_names()
+	local names = {}
+	for _, m in ipairs(externals()) do
+		table.insert(names, m.name)
+	end
+	return names
+end
+
+-- By hand (Commands.qml), and after sleep: the way out of a black or frozen screen. Going back
+-- to the VT after sleep can leave the panel on its last frame; only this makes it draw again.
+function M.reconnect()
+	reconnect(external_names())
+end
+
+local asleep_since = nil
+
+function M.note_sleep()
+	asleep_since = os.time()
+end
+
+-- After a long sleep the panel can stay on its last frame until it is turned off once; every
+-- case so far slept 10 minutes or more. With no fade and at once, it falls within the waking up.
+function M.refresh_panel()
+	local p = panel()
+	local short = asleep_since ~= nil and os.time() - asleep_since < 300
+	asleep_since = nil
+	if p == nil or short or lid_closed() then
+		return
+	end
+	hl.animation({ leaf = "fadeDpms", enabled = false })
+	dpms("off", p.name)
+	hl.timer(function()
+		dpms("on", p.name)
+		hl.animation({ leaf = "fadeDpms", enabled = true, speed = 4, bezier = "default" })
+	end, { timeout = 30, type = "oneshot" })
+end
+
+-- What brings the screens back (hypridle.conf), all but a panel under a closed lid.
+function M.wake()
+	local p = panel()
+	if p ~= nil then
+		dpms(lid_closed() and "off" or "on", p.name)
+	end
+	one_by_one(external_names(), function(name)
+		dpms("on", name)
+	end)
+end
+
+-- For the row of workspaces, which starts with it.
+function M.panel_name()
+	local p = panel()
+	return p and p.name
+end
+
+-- Screens with nothing on them take workspaces from those holding several, left to right
+-- and in order, the last one all that is left; each screen keeps its first. A workspace is
+-- known by a window of it: moving one renumbers the row (workspaces.lua).
+local function spread()
+	local screens, held = {}, {}
+	for _, m in ipairs(hl.get_monitors()) do
+		if m.name ~= "FALLBACK" and m.name ~= M.parked then
+			table.insert(screens, m)
+			held[m.name] = {}
+		end
+	end
+	table.sort(screens, function(a, b)
+		if a.x ~= b.x then
+			return a.x < b.x
+		end
+		return a.y < b.y
+	end)
+	local seen = {}
+	for _, w in ipairs(hl.get_windows({ mapped = true })) do
+		local ws = w.workspace
+		if ws ~= nil and not ws.special and not seen[ws.id] and ws.monitor ~= nil and held[ws.monitor.name] ~= nil then
+			seen[ws.id] = true
+			table.insert(held[ws.monitor.name], { id = ws.id, window = w })
+		end
+	end
+	local empty, spare = {}, {}
+	for _, m in ipairs(screens) do
+		local items = held[m.name]
+		table.sort(items, function(a, b)
+			return a.id < b.id
+		end)
+		if items[1] == nil then
+			table.insert(empty, m.name)
+		end
+		for i = 2, #items do
+			table.insert(spare, items[i].window)
+		end
+	end
+	if empty[1] == nil or spare[1] == nil then
+		return
+	end
+	local active = hl.get_active_window()
+	for i, name in ipairs(empty) do
+		local shown
+		while spare[1] ~= nil and (shown == nil or i == #empty) do
+			local w = table.remove(spare, 1)
+			shown = shown or w
+			hl.dispatch(hl.dsp.workspace.move({ workspace = w.workspace.id, monitor = name }))
+		end
+		if shown ~= nil then
+			hl.dispatch(hl.dsp.focus({ workspace = shown.workspace.id }))
+		end
+	end
+	if active ~= nil then
+		hl.dispatch(hl.dsp.focus({ window = active }))
+	end
+end
+
+local settling = 0
+hl.on("monitor.added", function()
+	place()
+	settling = settling + 1
+	local mine = settling
+	hl.timer(function()
+		if mine == settling then
+			spread()
+		end
+	end, { timeout = 1000, type = "oneshot" })
 end)
 
-hl.bind("switch:on:Lid Switch", function()
-	place_laptop()
-	if not has_external() then
-		hl.dispatch(hl.dsp.dpms({ action = "off" }))
-	end
-end, { locked = true })
+-- At the event the monitor is still listed.
+hl.on("monitor.removed", function()
+	hl.timer(place, { timeout = 100, type = "oneshot" })
+end)
+
+place()
+-- At login the outputs are still coming up when the session starts.
+hl.on("hyprland.start", function()
+	hl.timer(place, { timeout = 1500, type = "oneshot" })
+end)
+
+hl.bind("switch:on:Lid Switch", place, { locked = true })
 
 hl.bind("switch:off:Lid Switch", function()
-	hl.dispatch(hl.dsp.dpms({ action = "on" }))
-	place_laptop()
+	place()
+	M.wake()
 end, { locked = true })
+
+return M

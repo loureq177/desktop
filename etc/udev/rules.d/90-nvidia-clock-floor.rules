@@ -1,0 +1,2 @@
+# Any screen on the NVIDIA GPU coming or going.
+ACTION=="change", SUBSYSTEM=="drm", KERNEL=="card[0-9]*", ATTRS{vendor}=="0x10de", RUN+="/usr/bin/systemctl --no-block start nvidia-clock-floor.service"

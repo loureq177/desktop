@@ -1,0 +1,6 @@
+[Unit]
+Description=NVIDIA clock floor while it drives an external screen
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh /etc/nvidia-clock-floor.sh

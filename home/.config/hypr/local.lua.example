@@ -9,14 +9,15 @@ return {
 	-- 	options = "altwin:swap_lalt_lwin",
 	-- },
 
-	-- Environment for the compositor and the session, e.g. the GPU order of a
-	-- hybrid laptop. `set` also exports the variable to the systemd session.
+	-- Environment for the compositor and the session, after env.lua's choice of
+	-- the integrated GPU, so it can overrule that. `set` also exports the variable
+	-- to the systemd session.
 	-- env = function(set)
 	-- 	set("AQ_DRM_DEVICES", "/dev/dri/card1:/dev/dri/card0")
 	-- end,
 
-	-- The built-in panel: off while the lid is closed and another monitor is
-	-- connected.
+	-- The built-in panel: dark while the lid is closed, and out of reach with
+	-- another monitor connected.
 	-- laptop = { output = "desc:BOE 0x0998", mode = "1920x1080@165" },
 
 	-- Monitor layout. `laptop` is where the panel goes while that monitor is

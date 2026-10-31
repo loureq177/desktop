@@ -38,7 +38,7 @@ hl.config({
 			-- live (non-xray) blur halves the frame rate on outputs driven through the multi-GPU blit
 			xray = true,
 			vibrancy = 0.4,
-			noise = 0.02,
+			noise = 0,
 		},
 	},
 	dwindle = {
@@ -51,8 +51,9 @@ hl.config({
 		force_default_wallpaper = 0,
 		disable_hyprland_logo = true,
 		focus_on_activate = true,
-		key_press_enables_dpms = true,
-		mouse_move_enables_dpms = true,
+		-- hypridle wakes the screens instead, one at a time (monitors.lua).
+		key_press_enables_dpms = false,
+		mouse_move_enables_dpms = false,
 		allow_session_lock_restore = true,
 	},
 })

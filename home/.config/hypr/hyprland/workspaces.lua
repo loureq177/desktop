@@ -2,18 +2,26 @@
 -- go past a workspace's last window (past the row's end, to one new workspace),
 -- SHIFT takes the window along. Swipes do the same along each monitor.
 
+local monitors = require("hyprland.monitors")
+
 local nowhere = { x = math.huge, y = math.huge }
 local opposite = { left = "right", right = "left" }
 
 local function row()
 	local out = {}
 	for _, ws in ipairs(hl.get_workspaces()) do
-		if not ws.special then
+		-- Not the closed panel's: focus would go where nothing can be seen.
+		if not ws.special and (ws.monitor == nil or ws.monitor.name ~= monitors.parked) then
 			table.insert(out, ws)
 		end
 	end
+	local panel = monitors.panel_name()
 	table.sort(out, function(a, b)
 		local ma, mb = a.monitor or nowhere, b.monitor or nowhere
+		-- The laptop's own come first, wherever the panel stands.
+		if (ma.name == panel) ~= (mb.name == panel) then
+			return ma.name == panel
+		end
 		if ma.x ~= mb.x then
 			return ma.x < mb.x
 		end
