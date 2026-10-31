@@ -22,19 +22,21 @@ compromise on functionality.
 
 - **Hyprland:** Tiling windows, your apps on special workspaces under
   `SUPER + SHIFT + key` (quickly respond to a message, save a task, check the
-  calendar, change music...): picked while installing, again with
+  calendar, change music...): optional, picked while installing, again with
   `apply-apps --pick`
 - **Quickshell**:
     - Launcher (apps, `/actions`, clipboard, emoji, keys)
     - quick actions, notifications, OSD
+    - Open windows under `SUPER + O`: a list of the launcher, every window with a
+      live picture, on any workspace; also a right-click on the launcher's icon
     - Weather module
-    - RAM usage indicator
+    - Memory on the bar above 70%, always in quick actions
     - Tray: the apps running in the background (Discord, Steam)
 - **Hyprlock**: password or fingerprint
 - **Github theme**: `~/.config/ui/ui.toml`, change it with `apply-ui`: the shell,
   Hyprland, the lock screen, GTK and Qt programs (qt6ct)
 - Screenshots with edits, screen recording with mic and camera!!, OCR
-- **Dictation** with whisper-cpp under `SUPER + D`
+- **Dictation** with Parakeet under `SUPER + D`, Polish and English mixed
 - Battery care, power saver, awake-mode, night-light
 - **Settings** under `SUPER + S`: every option of Hyprland, the theme and the
   desktop's modes, searchable, changed on the spot
@@ -67,12 +69,14 @@ dependencies and symlinks.
 git clone https://github.com/loureq177/desktop.git ~/Projects/desktop && ~/Projects/desktop/install.sh
 ```
 
-It asks for your browser (Firefox, Chromium, Brave, Chrome, Zen) and your special
-workspaces: the standard set (calendar, mail, tasks, messages, music, files,
-activity, energy, each with a choice of app), more categories (AI, notes,
-social, video, maps, code, work chat, meetings...) and web apps of your own.
-Every special gets a key. The answers stay in `~/.config/apps/apps.toml`;
-`install.sh --defaults` skips the questions.
+It first shows what it will do; Enter starts it, Ctrl+C stops it. Then the sudo
+password, once, and one screen of choices: your browser (Firefox, LibreWolf,
+Waterfox, Zen, Chromium, ungoogled-chromium, Brave or Chrome, which also runs the web
+apps) and the apps on special workspaces, each with its key, starting from the standard
+set (calendar, mail, tasks, messages, music, files, activity). `+ Add an app` offers the
+rest (notes, social, video, maps, code, work chat, meetings...) or your own, a site or a
+program. The answers stay in `~/.config/apps/apps.toml`; `install.sh --defaults` skips
+the questions.
 
 The installer changes the system: packages (official, AUR, flatpak), `/etc`
 (the session on tty1, zram, sysctl hardening, the lock screen's PAM), autologin
