@@ -1,6 +1,6 @@
 # shellcheck shell=bash
-# Steps run at once: `task LABEL FN` queues one, `task_start` starts it now, `run_tasks
-# TITLE` runs the rest; a step's last line is its summary (⚠ warns), all in $TASKS_LOG.
+# Steps run at once: `task LABEL FN` queues one, `run_tasks TITLE` runs them; a step's last
+# line is its summary (⚠ warns), all in $TASKS_LOG, `task_status TEXT` says how it is going.
 
 TASKS_DIR=$(mktemp -d "${TMPDIR:-/tmp}/tasks.XXXXXX")
 TASKS_LOG=${TASKS_LOG:-}
@@ -11,10 +11,7 @@ _TASK_PIDS=()
 _TASK_TEXT=()
 _TASK_KIND=()
 
-# A step started ahead is let finish when the script stops short (pacman
-# failed): Ctrl+C stops it with the rest.
 _tasks_cleanup() {
-    ((${#_TASK_PIDS[@]} == 0)) || wait "${_TASK_PIDS[@]}" 2>/dev/null || true
     rm -rf -- "$TASKS_DIR"
 }
 trap _tasks_cleanup EXIT
@@ -24,9 +21,8 @@ task() {
     _TASK_FUNCS+=("$2")
 }
 
-task_start() {
-    task "$@"
-    _task_spawn $((${#_TASK_LABELS[@]} - 1))
+task_status() {
+    printf '%s' "$1" >"$_TASK_STATUS.new" && mv -f -- "$_TASK_STATUS.new" "$_TASK_STATUS"
 }
 
 # Microseconds since the epoch, without a fork.
@@ -40,6 +36,7 @@ _task_spawn() {
     _task_now >"$TASKS_DIR/$i.start"
     (
         rc=0
+        _TASK_STATUS=$TASKS_DIR/$i.status
         "${_TASK_FUNCS[$i]}" >"$TASKS_DIR/$i.out" 2>&1 </dev/null || rc=$?
         _task_now >"$TASKS_DIR/$i.end"
         echo "$rc" >"$TASKS_DIR/$i.rc"
@@ -130,6 +127,7 @@ _task_row() {
     time=$(_task_time "$(_task_elapsed "$i")")
     if [[ -z "${_TASK_KIND[i]:-}" ]]; then
         mark=$(_task_spinner "$frame" $((i * 3)))
+        [[ -f "$TASKS_DIR/$i.status" ]] && text=$(<"$TASKS_DIR/$i.status")
     else
         text=${_TASK_TEXT[i]}
         case ${_TASK_KIND[i]} in
@@ -239,7 +237,7 @@ run_tasks() {
     ((n > 0)) || return 0
     started=$(_task_now)
     for ((i = 0; i < n; i++)); do
-        [[ -n "${_TASK_PIDS[i]:-}" ]] || _task_spawn "$i"
+        _task_spawn "$i"
         ((${#_TASK_LABELS[i]} > width)) && width=${#_TASK_LABELS[i]}
     done
     _tasks_sweep
@@ -252,5 +250,5 @@ run_tasks() {
     wait "${_TASK_PIDS[@]}" 2>/dev/null || true
     _tasks_report
     _TASK_LABELS=() _TASK_FUNCS=() _TASK_PIDS=() _TASK_TEXT=() _TASK_KIND=()
-    rm -f -- "$TASKS_DIR"/*.{start,end,rc,out}
+    rm -f -- "$TASKS_DIR"/*.{start,end,rc,out,status}
 }

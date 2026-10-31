@@ -10,11 +10,11 @@ TASKS_LOG="$STATE/last.log"
 : >"$TASKS_LOG"
 source "$HOME/.local/lib/dotfiles/tasks.sh"
 
-# queue LABEL TOOL FUNCTION: a step of the rest, started now when TOOL is installed. The
-# steps run at once (tasks.sh); a failing one does not stop the others.
+# queue LABEL TOOL FUNCTION: a step, when TOOL is installed. The steps run at once
+# (tasks.sh); a failing one does not stop the others.
 queue() {
     command -v "$2" >/dev/null 2>&1 || return 0
-    task_start "$1" "$3"
+    task "$1" "$3"
 }
 
 notify() {
@@ -43,92 +43,63 @@ listing() {
 
 # --- System packages ---------------------------------------------------------
 
-# pacman's stages as one changing spinner line (it prints a line per stage without a tty),
-# showing only warnings, errors and failing hooks; the changes come from pacman.log.
-pacman_view() {
-    local line buf="" stage="Syncing databases" frame=0 hooks=0 count="" size="" done_ops=0 rc start
-    local tty=0
-    [[ -t 1 ]] && tty=1
-    start=$(_task_now)
-    _tasks_sweep
-    ((tty)) && printf '\e[?25l'
-    while :; do
-        rc=0
-        IFS= read -r -t 0.08 line || rc=$?
-        if ((rc > 128)); then
-            buf+=$line
-        elif ((rc != 0)); then
-            line=$buf$line
-            [[ -z "$line" ]] && break
-            buf=""
-            rc=-1
-        else
-            line=$buf$line
-            buf=""
-        fi
-        if ((rc <= 0)); then
-            case $line in
-            "" | "no new news" | " there is nothing to do" | ":: Synchronizing package databases..." | ":: Starting full system upgrade..." | \
-                "resolving dependencies..." | "looking for conflicting packages..." | "checking dependencies..." | \
-                ":: Proceed with installation? [Y/n]"* | ":: Retrieving packages..." | " "*" is up to date" | \
-                "Total Installed Size:"* | "Net Upgrade Size:"*) ;;
-            " "*" downloading...")
-                [[ -n "$count" ]] && stage="Downloading $count packages${size:+, $size}"
-                ;;
-            "Packages ("*)
-                count=${line#Packages (}
-                count=${count%%)*}
-                ;;
-            "Total Download Size:"*)
-                size=${line#*:}
-                size=${size#"${size%%[![:space:]]*}"}
-                ;;
-            "checking keyring..." | "checking package integrity..." | "loading package files..." | \
-                "checking for file conflicts..." | "checking available disk space...")
-                stage="Checking packages"
-                ;;
-            ":: Processing package changes...") stage="Installing" ;;
-            "upgrading "*... | "installing "*... | "removing "*... | "reinstalling "*... | "downgrading "*...)
-                done_ops=$((done_ops + 1))
-                stage="${line%...}${count:+ ($done_ops/$count)}"
-                stage=${stage^}
-                ;;
-            ":: Running pre-transaction hooks..." | ":: Running post-transaction hooks...")
-                hooks=1
-                stage="Running hooks"
-                ;;
-            "("[0-9]*"/"[0-9]*") "*)
-                if ((hooks)); then
-                    stage=${line#*) }
-                    stage=${stage%...}
-                fi
-                ;;
-            *)
-                # A hook's own output is noise unless something went wrong.
-                if ((hooks)) && ! grep -qiE 'error|fail' <<<"$line"; then
-                    :
-                else
-                    ((tty)) && printf '\r\e[2K'
-                    case $line in
-                    "warning: "*) _log_warn "${line#warning: }" ;;
-                    "error: "*) _log_error "${line#error: }" 2>&1 ;;
-                    *) printf '    %s\n' "$line" ;;
-                    esac
-                fi
-                ;;
-            esac
-            ((rc == -1)) && break
-        fi
-        if ((tty)); then
-            printf '\r\e[2K  %s %s  %s%s%s' "$(_task_spinner "$frame" 0)" "$stage" \
-                "$_C_DIM" "$(_task_time $(($(_task_now) - start)))" "$_C_NC"
-            frame=$((frame + 1))
+# pacman's stages as the step's changing line (it prints a line per stage without a tty),
+# keeping only warnings, errors and failing hooks.
+pacman_stages() {
+    local line stage="Syncing databases" shown="" hooks=0 count="" done_ops=0
+    task_status "$stage"
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        case $line in
+        "" | "no new news" | " there is nothing to do" | ":: Synchronizing package databases..." | ":: Starting full system upgrade..." | \
+            "resolving dependencies..." | "looking for conflicting packages..." | "checking dependencies..." | \
+            ":: Proceed with installation? [Y/n]"* | ":: Retrieving packages..." | " "*" is up to date" | \
+            "Total Installed Size:"* | "Net Upgrade Size:"*) ;;
+        " "*" downloading...")
+            [[ -n "$count" ]] && stage="Downloading $count packages${PACMAN_SIZE:+, $PACMAN_SIZE}"
+            ;;
+        "Packages ("*)
+            count=${line#Packages (}
+            count=${count%%)*}
+            ;;
+        "Total Download Size:"*)
+            PACMAN_SIZE=${line#*:}
+            PACMAN_SIZE=${PACMAN_SIZE#"${PACMAN_SIZE%%[![:space:]]*}"}
+            ;;
+        "checking keyring..." | "checking package integrity..." | "loading package files..." | \
+            "checking for file conflicts..." | "checking available disk space...")
+            stage="Checking packages"
+            ;;
+        ":: Processing package changes...") stage="Installing" ;;
+        "upgrading "*... | "installing "*... | "removing "*... | "reinstalling "*... | "downgrading "*...)
+            done_ops=$((done_ops + 1))
+            stage="${line%...}${count:+ ($done_ops/$count)}"
+            stage=${stage^}
+            ;;
+        ":: Running pre-transaction hooks..." | ":: Running post-transaction hooks...")
+            hooks=1
+            stage="Running hooks"
+            ;;
+        "("[0-9]*"/"[0-9]*") "*)
+            if ((hooks)); then
+                stage=${line#*) }
+                stage=${stage%...}
+            fi
+            ;;
+        *)
+            # A hook's own output is noise unless something went wrong.
+            if ! ((hooks)) || grep -qiE 'error|fail' <<<"$line"; then
+                case $line in
+                "warning: "*) printf '%s\n' "${line#warning: }" >>"$TASKS_DIR/pacman.warnings" ;;
+                *) printf '%s\n' "${line#error: }" ;;
+                esac
+            fi
+            ;;
+        esac
+        if [[ "$stage" != "$shown" ]]; then
+            task_status "$stage"
+            shown=$stage
         fi
     done
-    ((tty)) && printf '\r\e[2K\e[?25h'
-    PACMAN_TIME=$(_task_time $(($(_task_now) - start)))
-    PACMAN_SIZE=$size
-    return 0
 }
 
 # What pacman changed since line $1 of its log: the count, then a package a line.
@@ -161,7 +132,39 @@ pacman_changes() {
     done
 }
 
-# --- The rest, all at once ---------------------------------------------------
+# --- The steps ---------------------------------------------------------------
+
+# The summary comes last, the packages stay for after the steps. pacman_stages reads in
+# this shell, not in a pipe's: what it finds stays.
+update_system() {
+    local rc
+    echo 1 >"$TASKS_DIR/pacman.exit"
+    pacman_stages < <({
+        rc=0
+        if command -v paru >/dev/null 2>&1; then
+            paru -Syu --repo --noconfirm 2>&1 || rc=$?
+        else
+            sudo pacman -Syu --noconfirm 2>&1 || rc=$?
+        fi
+        echo "$rc" >"$TASKS_DIR/pacman.exit"
+    } | tee -a "$TASKS_LOG")
+    rc=$(<"$TASKS_DIR/pacman.exit")
+    if [[ "$rc" != 0 ]]; then
+        return "$rc"
+    fi
+    pacman_changes "$pacman_log_start" "${PACMAN_SIZE:-}" >"$TASKS_DIR/pacman.changes"
+    head -n 1 "$TASKS_DIR/pacman.changes"
+}
+
+# Building needs pacman's lock and you, so it comes after the steps; looking does not.
+check_aur() {
+    paru -Qua --devel >"$TASKS_DIR/aur" 2>/dev/null || true
+    if [[ -s "$TASKS_DIR/aur" ]]; then
+        _log_warn "$(wc -l <"$TASKS_DIR/aur") to build: after the rest"
+    else
+        _log_ok "Nothing to update"
+    fi
+}
 
 # Zinit and its plugins in parallel (10× faster); what changed comes from the plugins'
 # commits. Own session: an interactive zsh grabs the terminal.
@@ -297,57 +300,38 @@ if [ -f "$PACMAN_LOG" ]; then
     pacman_log_start=$(wc -l <"$PACMAN_LOG" 2>/dev/null || echo 0)
 fi
 
-# These need nothing pacman installs: they run while it does, and their lines below are
-# done or under way by then.
+task "System packages" update_system
+queue "AUR" paru check_aur
 queue "Flatpak apps" flatpak update_flatpak
 queue "Firmware" fwupdmgr check_firmware
 queue "tldr pages" tldr update_tldr
-
-_log_info "System packages"
-# pacman_view reads it in this shell, not in a pipe's: what it finds stays.
-upgrade() {
-    if command -v paru >/dev/null 2>&1; then
-        paru -Syu --repo --noconfirm
-    else
-        sudo pacman -Syu --noconfirm
-    fi
-}
-echo 1 >"$TASKS_DIR/pacman.rc"
-pacman_view < <({
-    rc=0
-    upgrade 2>&1 || rc=$?
-    echo "$rc" >"$TASKS_DIR/pacman.rc"
-} | tee -a "$TASKS_LOG")
-rc=$(<"$TASKS_DIR/pacman.rc")
-if [[ "$rc" != 0 ]]; then
-    _log_error "Failed (exit $rc): all of it in ${TASKS_LOG/#$HOME/\~}"
-    exit "$rc"
-fi
-pacman_changes "$pacman_log_start" "${PACMAN_SIZE:+$PACMAN_SIZE · }$PACMAN_TIME"
-aur_log_start=$(wc -l <"$PACMAN_LOG" 2>/dev/null || echo 0)
-
-# These use what pacman has just updated (git, nvim, python): they start now, and run
-# while the AUR is looked at below, which needs pacman's lock and you, so it comes alone.
 queue "Zsh plugins" zsh update_zsh_plugins
 aur_votes_due && queue "AUR votes" aur-sync-vote sync_aur_votes
 queue "uv tools" uv update_uv_tools
 queue "Neovim plugins" nvim update_nvim_plugins
 
-if command -v paru >/dev/null 2>&1; then
-    # AUR build scripts run as this user and come from strangers: paru shows
-    # what changed and asks before building, so this part needs a terminal.
+run_tasks "Update"
+
+rc=$(<"$TASKS_DIR/pacman.exit")
+tail -n +2 "$TASKS_DIR/pacman.changes" 2>/dev/null || true
+if [[ -f "$TASKS_DIR/pacman.warnings" ]]; then
+    while IFS= read -r line; do
+        _log_warn "$line"
+    done <"$TASKS_DIR/pacman.warnings"
+fi
+
+# AUR build scripts run as this user and come from strangers: paru shows what changed
+# and asks before building, so this part needs a terminal.
+if [[ "$rc" == 0 && -s "$TASKS_DIR/aur" ]]; then
+    aur_log_start=$(wc -l <"$PACMAN_LOG" 2>/dev/null || echo 0)
     _log_info "AUR packages"
-    if [[ -z "$(paru -Qua --devel 2>/dev/null || true)" ]]; then
-        _log_ok "Nothing to update"
-    elif [[ -t 0 ]]; then
+    if [[ -t 0 ]]; then
         paru -Sua --devel || exit $?
         pacman_changes "$aur_log_start" ""
     else
         _log_warn "Skipped: AUR updates are reviewed before they are built. Run 'sysupdate' in a terminal."
     fi
 fi
-
-run_tasks "Apps and tools"
 
 if [ -f "$TASKS_DIR/firmware" ]; then
     _log_info "Firmware"
@@ -397,3 +381,5 @@ fi
 if [[ -t 0 ]] && ! [[ "$(ps -o comm= -p "$PPID" 2>/dev/null)" =~ ^(zsh|bash|fish|sh)$ ]]; then
     read -rsn1 -p $'\nPress any key to close.' || true
 fi
+
+exit "$rc"
