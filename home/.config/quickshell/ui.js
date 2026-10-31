@@ -6,7 +6,7 @@
 var config = {
     "rounding": {
         "window": 8,
-        "power": 2.0
+        "power": 3.0
     },
     "border": {
         "size": 2
@@ -17,7 +17,7 @@ var config = {
     },
     "opacity": {
         "active": 1.0,
-        "inactive": 0.96,
+        "inactive": 1.0,
         "dim_special": 0.2
     },
     "lock": {

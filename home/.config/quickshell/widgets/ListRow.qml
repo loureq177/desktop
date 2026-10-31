@@ -31,9 +31,16 @@ Rectangle {
 			onSelected: row.view.currentIndex = row.index
 		}
 
+		Press {
+			id: press
+			target: row
+			depth: 0.985
+		}
+
 		MouseArea {
 			anchors.fill: parent
 			cursorShape: Qt.PointingHandCursor
+			onPressed: press.restart()
 			onClicked: {
 				row.view.currentIndex = row.index;
 				row.view.activated(row.index);

@@ -302,8 +302,6 @@ Drawer {
 						Item {
 							required property var modelData
 							required property int index
-							// An icon or a temperature only where it changes.
-							readonly property var previous: Weather.hourlyForecast[index - 1] ?? null
 
 							x: index * hourlyFlick.columnWidth
 							width: hourlyFlick.columnWidth
@@ -321,13 +319,12 @@ Drawer {
 							LineIcon {
 								anchors.horizontalCenter: parent.horizontalCenter
 								y: 21
-								name: previous?.icon === modelData.icon ? "" : modelData.icon
+								name: modelData.icon
 								size: 19
 								color: Theme.textMain
 							}
 
 							Item {
-								visible: previous?.temp !== modelData.temp
 								anchors.horizontalCenter: parent.horizontalCenter
 								y: (hourlyFlick.points[index]?.y ?? 0) - tempNum.implicitHeight - 6
 								width: tempNum.implicitWidth

@@ -10,7 +10,7 @@ Rectangle {
 	property bool outlined: true
 	property bool danger: false
 	readonly property bool hovered: area.containsMouse
-	property color iconColor: !hovered ? Theme.textDim : danger ? Theme.critical : Theme.textMain
+	property color iconColor: Theme.textDim
 
 	signal clicked()
 
@@ -23,11 +23,22 @@ Rectangle {
 
 	Behavior on color { ColorAnimation { duration: Theme.animFast } }
 
-	LineIcon {
+	Press {
+		id: press
+		target: button
+	}
+
+	Lit {
 		anchors.centerIn: parent
-		name: button.icon
-		size: button.iconSize
-		color: button.iconColor
+		lit: button.hovered
+		rest: button.iconColor
+		towards: button.danger ? Theme.critical : Theme.textMain
+
+		LineIcon {
+			name: button.icon
+			size: button.iconSize
+			color: button.iconColor
+		}
 	}
 
 	MouseArea {
@@ -35,6 +46,7 @@ Rectangle {
 		anchors.fill: parent
 		hoverEnabled: true
 		cursorShape: Qt.PointingHandCursor
+		onPressed: press.restart()
 		onClicked: button.clicked()
 	}
 }

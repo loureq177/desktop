@@ -140,6 +140,8 @@ hyprland_verify() {
     local qsb=/usr/lib/qt6/bin/qsb
     [[ -x "$qsb" ]] || skip "needs Qt6 qsb"
     local dir="$REPO/home/.config/quickshell/shaders"
+    "$qsb" --qt6 -o "$BATS_TEST_TMPDIR/lit.frag.qsb" "$dir/lit.frag"
+    cmp "$BATS_TEST_TMPDIR/lit.frag.qsb" "$dir/lit.frag.qsb" || fail "lit.frag.qsb is stale"
     "$qsb" --qt6 -o "$BATS_TEST_TMPDIR/grow.frag.qsb" "$dir/grow.frag"
     cmp "$BATS_TEST_TMPDIR/grow.frag.qsb" "$dir/grow.frag.qsb" ||
         fail "grow.frag.qsb is stale: rebuild it with qsb --qt6 -o grow.frag.qsb grow.frag"

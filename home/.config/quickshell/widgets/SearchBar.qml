@@ -59,6 +59,7 @@ Rectangle {
 
 		TextInput {
 			id: input
+			renderType: TextInput.NativeRendering
 			Layout.fillWidth: true
 			Layout.alignment: Qt.AlignVCenter
 			font.family: Theme.fontMono

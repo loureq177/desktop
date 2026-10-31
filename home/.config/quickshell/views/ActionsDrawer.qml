@@ -102,9 +102,16 @@ Drawer {
 			onSelected: win.selectTile(tile)
 		}
 
+		Press {
+			id: tilePress
+			target: tile
+			depth: 0.97
+		}
+
 		MouseArea {
 			anchors.fill: parent
 			cursorShape: Qt.PointingHandCursor
+			onPressed: tilePress.restart()
 			onClicked: {
 				win.selectTile(tile);
 				tile.open();
@@ -141,6 +148,7 @@ Drawer {
 					enabled: tile.switchable
 					hoverEnabled: true
 					cursorShape: Qt.PointingHandCursor
+					onPressed: tilePress.restart()
 					onClicked: {
 						win.selectTile(tile);
 						tile.flip();
@@ -249,6 +257,26 @@ Drawer {
 				text: "Actions"
 				font.pixelSize: Theme.fontSizeLarge
 				font.bold: true
+			}
+
+			// Always here: the bar shows it only when it is high.
+			Row {
+				visible: Memory.percent >= 0
+				spacing: 6
+
+				LineIcon {
+					anchors.verticalCenter: parent.verticalCenter
+					name: "memory-stick"
+					color: Theme.textDim
+				}
+
+				StyledText {
+					anchors.verticalCenter: parent.verticalCenter
+					text: Memory.percent + "%"
+					mono: true
+					font.pixelSize: Theme.fontSizeSmall
+					color: Theme.textDim
+				}
 			}
 
 			CloseButton {

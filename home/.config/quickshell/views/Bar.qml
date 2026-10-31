@@ -2,6 +2,7 @@ import ".."
 import "../widgets"
 import Quickshell
 import Quickshell.Hyprland
+import Quickshell.Io
 import Quickshell.Services.Mpris
 import Quickshell.Services.SystemTray
 import Quickshell.Wayland
@@ -36,7 +37,13 @@ PanelWindow {
 		right: Theme.barMarginX
 	}
 
-	implicitHeight: Theme.barHeight
+	// Below the strip the window only has room for the faint cursor, and takes no input.
+	implicitHeight: Theme.barHeight + 30
+	mask: Region {
+		item: strip
+	}
+	exclusionMode: ExclusionMode.Normal
+	exclusiveZone: Theme.barHeight - Theme.barGapTrim
 
 	Component.onCompleted: Bars.add(bar)
 	Component.onDestruction: Bars.remove(bar)
@@ -73,6 +80,25 @@ PanelWindow {
 		return Mpris.players.values.find(p => ((p?.desktopEntry ?? "") + " " + (p?.identity ?? "")).toLowerCase().includes(special)) ?? null;
 	}
 
+	Leaving {
+		id: workspaceDots
+		values: Hypr.workspaces.filter(w => w.monitor === bar.screenName).map(w => w.id)
+	}
+
+	Leaving {
+		id: specialIcons
+		values: bar.specialsKey !== "" ? bar.specialsKey.split("\n") : []
+	}
+
+	// The name of the special under the pointer, beside the row: said in the row, it would
+	// push the next icon from under the pointer.
+	property string specialHint: ""
+	property string lastSpecialHint: ""
+	onSpecialHintChanged: {
+		if (specialHint !== "")
+			lastSpecialHint = specialHint;
+	}
+
 	// Colours: blue is on screen or wants attention, green running, dim off; readouts
 	// are textMain, the workspaces textDim.
 
@@ -92,30 +118,59 @@ PanelWindow {
 		property bool custom: false
 		// A readout only: no hover, no clicks.
 		property bool interactive: true
+		// Hover says more, but a click does nothing.
+		property bool clickable: true
+		// Hover shows something where the cursor would be: it fades to let that through.
+		property bool fadesCursor: false
+		// On the bar; it opens up and closes in place.
+		property bool shown: true
+		// Lit for a moment: something happened.
+		property real flash: 0
 		// For a mark that shows the date.
 		property int iconDay: 0
 		readonly property bool hovered: pillArea.containsMouse
+		readonly property bool wanted: shown && (text !== "" || icon !== "" || value !== "" || custom)
+		property real revealed: 0
 		default property alias content: pillRow.data
 		signal activated()
 		signal rightClicked()
+		// On the button's release: while it is held, Hyprland keeps the focus on the bar.
+		signal released()
 
 		Layout.alignment: Qt.AlignVCenter
 		implicitHeight: Theme.barHeight
-		implicitWidth: pillRow.implicitWidth + 14
-		visible: text !== "" || icon !== "" || value !== "" || custom
-		color: isActive ? Theme.alpha(Theme.accentBlue, 0.16) : (pillArea.containsMouse ? bar.hoverColor : "transparent")
+		implicitWidth: (pillRow.implicitWidth + 14) * revealed
+		visible: revealed > 0
+		opacity: revealed
+		clip: revealed < 1
+		color: isActive ? Theme.alpha(Theme.accentBlue, 0.16) : (hovered && clickable ? bar.hoverColor : "transparent")
 		radius: Theme.roundingElement
 
-		Behavior on color {
-			ColorAnimation { duration: Theme.animFast }
+		Component.onCompleted: revealed = Qt.binding(() => wanted ? 1 : 0)
+
+		Behavior on revealed {
+			NumberAnimation { duration: Theme.animFast; easing.type: Easing.OutCubic }
 		}
+		Behavior on color {
+			ColorAnimation { duration: Theme.animFast; easing.type: Easing.OutCubic }
+		}
+
+		Press {
+			id: pillPress
+			target: pillFace
+		}
+
+		Lit {
+			id: pillFace
+			anchors.centerIn: parent
+			halo: true
+			lit: pill.hovered
+			rest: pill.textColor
+			flash: pill.flash
 
 		Row {
 			id: pillRow
-			anchors.centerIn: parent
 			spacing: pill.custom ? 10 : 6
-			layer.enabled: true
-			layer.effect: Halo {}
 
 			LineIcon {
 				anchors.verticalCenter: parent.verticalCenter
@@ -138,10 +193,11 @@ PanelWindow {
 				visible: pill.value !== ""
 				text: pill.value
 				mono: true
-				font.pixelSize: Theme.fontSizeSmall
+				font.pixelSize: Theme.fontSizeBar
 				font.bold: true
 				color: pill.textColor
 			}
+		}
 		}
 
 		MouseArea {
@@ -149,15 +205,35 @@ PanelWindow {
 			anchors.fill: parent
 			enabled: pill.interactive
 			hoverEnabled: true
-			cursorShape: Qt.PointingHandCursor
+			cursorShape: pill.fadesCursor && bar.faintCursors ? Qt.BlankCursor : pill.clickable ? Qt.PointingHandCursor : Qt.ArrowCursor
+			onContainsMouseChanged: {
+				if (!pill.fadesCursor)
+					return;
+				if (containsMouse) {
+					bar.faintShape = pill.clickable ? "hand2" : "left_ptr";
+					bar.placeFaintCursor(pillArea, mouseX, mouseY);
+				} else {
+					bar.faintShape = "";
+				}
+			}
+			onPositionChanged: mouse => {
+				if (pill.fadesCursor)
+					bar.placeFaintCursor(pillArea, mouse.x, mouse.y);
+			}
 			acceptedButtons: Qt.LeftButton | Qt.RightButton
 			onPressed: mouse => {
+				if (pill.clickable)
+					pillPress.restart();
 				if (pill.panel === "" || mouse.button !== Qt.LeftButton)
 					bar.leavePanels(pill.panel);
 				if (mouse.button === Qt.RightButton)
 					pill.rightClicked();
 				else
 					pill.activated();
+			}
+			onClicked: mouse => {
+				if (mouse.button === Qt.LeftButton)
+					pill.released();
 			}
 		}
 	}
@@ -166,18 +242,51 @@ PanelWindow {
 		id: trayMenu
 	}
 
+	// The cursor's own image, nearly gone, in place of the real one: Qt cannot fade that.
+	readonly property string cursorDir: (Quickshell.env("XDG_CACHE_HOME") || Quickshell.env("HOME") + "/.cache") + "/cursor/"
+	readonly property var faintCursors: {
+		try {
+			return JSON.parse(cursorHotspots.text());
+		} catch (e) {
+			return null;
+		}
+	}
+	property string faintShape: ""
+	readonly property int cursorSize: Theme.ui.font.size_cursor
+
+	function placeFaintCursor(area: Item, x: real, y: real): void {
+		var at = area.mapToItem(strip, x, y);
+		var hot = faintCursors?.[faintShape];
+		if (hot) {
+			faintCursor.x = Math.round(at.x - hot.x * cursorSize);
+			faintCursor.y = Math.round(at.y - hot.y * cursorSize);
+		}
+	}
+
+	FileView {
+		id: cursorHotspots
+		path: bar.cursorDir + "hotspots"
+		blockLoading: true
+		printErrors: false
+	}
+
 	Item {
-		anchors.fill: parent
+		id: strip
+		width: parent.width
+		height: Theme.barHeight
 
 		MouseArea {
 			anchors.fill: parent
 			z: -1
 			enabled: Panels.active !== "" || bar.visibleSpecial !== ""
+			// Panels first; with none open, the click puts the special away.
+			property bool hides: false
 			onPressed: {
-				// Panels first; with none open, the click puts the special away.
-				if (Panels.active !== "")
-					Panels.close();
-				else
+				hides = Panels.active === "";
+				Panels.close();
+			}
+			onReleased: {
+				if (hides && bar.visibleSpecial !== "")
 					Hypr.toggleSpecial(bar.visibleSpecial);
 			}
 		}
@@ -188,11 +297,12 @@ PanelWindow {
 			spacing: 6
 
 			Pill {
-				icon: "layout-grid"
-				textColor: isActive ? Theme.accentBlue : Theme.textDim
+				icon: "search"
+				textColor: isActive ? Theme.accentBlue : Theme.textMain
 				isActive: Panels.active === "launcher"
 				panel: "launcher"
 				onActivated: Panels.toggle("launcher", "apps")
+				onRightClicked: Panels.toggle("launcher", "windows")
 			}
 
 			Row {
@@ -202,15 +312,26 @@ PanelWindow {
 				layer.effect: Halo {}
 
 				Repeater {
-					model: Hypr.workspaces.filter(w => w.monitor === bar.screenName)
+					model: ScriptModel {
+						values: workspaceDots.shown
+					}
 
 					delegate: Item {
 						id: wsButton
-						required property var modelData
-						readonly property bool active: bar.activeWorkspaceId === modelData.id
+						required property int modelData
+						readonly property bool active: bar.activeWorkspaceId === modelData
+						readonly property bool wanted: workspaceDots.values.includes(modelData)
+						property real revealed: 0
 
 						height: Theme.barHeight
-						width: wsDot.width + 10
+						width: (wsDot.width + 10) * revealed
+						opacity: revealed
+
+						Component.onCompleted: revealed = Qt.binding(() => wanted ? 1 : 0)
+
+						Behavior on revealed {
+							NumberAnimation { duration: Theme.animFast; easing.type: Easing.OutCubic }
+						}
 
 						Rectangle {
 							id: wsDot
@@ -223,7 +344,14 @@ PanelWindow {
 							Behavior on width {
 								NumberAnimation { duration: Theme.animNormal; easing.type: Easing.OutCubic }
 							}
-							Behavior on color { ColorAnimation { duration: Theme.animFast } }
+							Behavior on color {
+								ColorAnimation { duration: Theme.animFast; easing.type: Easing.OutCubic }
+							}
+						}
+
+						Press {
+							id: wsPress
+							target: wsDot
 						}
 
 						MouseArea {
@@ -231,56 +359,120 @@ PanelWindow {
 							anchors.fill: parent
 							hoverEnabled: true
 							cursorShape: Qt.PointingHandCursor
+							onPressed: wsPress.restart()
 							onClicked: {
 								bar.leavePanels("");
-								Hypr.focusWorkspace(wsButton.modelData.id);
+								Hypr.focusWorkspace(wsButton.modelData);
 							}
 						}
 					}
 				}
 			}
 
-			// Memory doubles as the activity special; the other open specials follow
-			// it, side by side.
+			// The activity special, with the memory's number once it is high; the other open
+			// specials follow it, side by side. Actions always has the number.
 			Row {
 				Layout.alignment: Qt.AlignVCenter
 
 				Pill {
-					visible: Memory.percent >= 0
+					readonly property bool high: Memory.percent > 70
+
+					shown: high || Hypr.specials.includes("activity")
 					interactive: Specials.find("activity") !== null
 					icon: "memory-stick"
-					value: Memory.percent + "%"
+					value: high ? Memory.percent + "%" : ""
 					isActive: bar.visibleSpecial === "activity"
 					textColor: Memory.percent >= 90 ? Theme.critical
 						: Memory.percent >= 75 ? Theme.warning
 						: isActive ? Theme.accentBlue : Theme.textDim
-					onActivated: Hypr.toggleSpecial("activity")
+					onReleased: Hypr.toggleSpecial("activity")
 					onRightClicked: Hypr.closeSpecial("activity")
 				}
 
 				// The app's mark (LineIcons.brands), as the tray shows its apps:
 				// blue while it is on screen, green while it plays something.
 				Repeater {
-					model: bar.specialsKey !== "" ? bar.specialsKey.split("\n") : []
+					model: ScriptModel {
+						values: specialIcons.shown
+					}
 
 					delegate: Pill {
+						id: specialPill
 						required property string modelData
 						readonly property var special: Specials.find(modelData)
 						readonly property var player: special?.player ? bar.playerFor(special.player) : null
 
+						// An app of your own has no mark: its theme icon, in the bar's colour.
+						readonly property string themeIcon: icon === "" && special?.appIcon !== "web-browser" ? Quickshell.iconPath(special?.appIcon ?? "", true) : ""
+
 						icon: special?.icon ?? ""
 						iconDay: clock.now.getDate()
-						value: icon === "" ? modelData.charAt(0).toUpperCase() : ""
+						custom: themeIcon !== ""
+						shown: specialIcons.values.includes(modelData)
+						value: icon === "" && themeIcon === "" ? modelData.charAt(0).toUpperCase() : ""
 						isActive: modelData === bar.visibleSpecial
 						textColor: isActive ? Theme.accentBlue : (player?.isPlaying ? Theme.accentGreen : Theme.textDim)
-						onActivated: Hypr.toggleSpecial(modelData)
+						// What it plays, or what it is.
+						readonly property string hint: player?.trackTitle ? [player.trackArtist, player.trackTitle].filter(t => t).join(" – ") : special?.title ?? modelData
+						// Leaving one comes after entering the next: only its own name goes.
+						onHoveredChanged: {
+							if (hovered)
+								bar.specialHint = hint;
+							else if (bar.specialHint === hint)
+								bar.specialHint = "";
+						}
+						onHintChanged: {
+							if (hovered)
+								bar.specialHint = hint;
+						}
+						Component.onDestruction: {
+							if (bar.specialHint === hint)
+								bar.specialHint = "";
+						}
+						onReleased: Hypr.toggleSpecial(modelData)
 						onRightClicked: Hypr.closeSpecial(modelData)
+
+						IconImage {
+							anchors.verticalCenter: parent.verticalCenter
+							visible: specialPill.themeIcon !== ""
+							implicitSize: 16
+							source: specialPill.themeIcon
+							layer.enabled: true
+							layer.effect: MultiEffect {
+								saturation: -1.0
+								colorization: 1.0
+								colorizationColor: specialPill.textColor
+							}
+						}
 					}
 				}
 			}
 
+			StyledText {
+				id: hintText
+				Layout.alignment: Qt.AlignVCenter
+				Layout.leftMargin: 2
+				Layout.maximumWidth: 360
+				visible: opacity > 0
+				text: bar.lastSpecialHint
+				font.pixelSize: Theme.fontSizeSmall
+				font.bold: true
+				color: Theme.textMain
+				elide: Text.ElideRight
+				opacity: bar.specialHint !== "" ? 1 : 0
+				layer.enabled: true
+				layer.effect: Halo {}
+				transform: Translate {
+					x: (hintText.opacity - 1) * 6
+				}
+
+				Behavior on opacity {
+					NumberAnimation { duration: Theme.animFast; easing.type: Easing.OutCubic }
+				}
+			}
+
 			Pill {
-				visible: Modes.powerSave
+				shown: Modes.powerSave
 				icon: "leaf"
 				onActivated: Commands.run("powersave")
 			}
@@ -295,7 +487,9 @@ PanelWindow {
 			// The tray apps that have something to show (Discord, Steam), in the bar's colour;
 			// click as the app does, right-click for its menu. Not LocalSend: always there.
 			Repeater {
-				model: SystemTray.items.values.filter(i => i.status !== Status.Passive && !i.title.includes("localsend"))
+				model: ScriptModel {
+					values: SystemTray.items.values.filter(i => i.status !== Status.Passive && !i.title.includes("localsend"))
+				}
 
 				delegate: Pill {
 					id: trayPill
@@ -328,7 +522,7 @@ PanelWindow {
 
 			Pill {
 				readonly property bool transcribing: Modes.dictation === "transcribing"
-				visible: Modes.dictation !== ""
+				shown: Modes.dictation !== ""
 				text: transcribing ? "…" : "●"
 				textColor: transcribing ? Theme.warning : Theme.critical
 				isActive: true
@@ -336,7 +530,7 @@ PanelWindow {
 			}
 
 			Pill {
-				visible: Modes.recording
+				shown: Modes.recording
 				text: "●"
 				value: "REC"
 				textColor: Theme.critical
@@ -345,7 +539,8 @@ PanelWindow {
 			}
 
 			Pill {
-				visible: Modes.screencasts > 0
+				// The list of open windows captures them too: nobody is watching then.
+				shown: Modes.screencasts > 0 && !(Panels.active === "launcher" && Panels.mode === "windows")
 				interactive: false
 				icon: "screen-share"
 				textColor: Theme.accentPurple
@@ -353,7 +548,7 @@ PanelWindow {
 			}
 
 			Pill {
-				visible: Modes.phoneCam
+				shown: Modes.phoneCam
 				icon: "smartphone"
 				textColor: Theme.accentPurple
 				isActive: true
@@ -361,7 +556,7 @@ PanelWindow {
 			}
 
 			Pill {
-				visible: Weather.current !== null
+				shown: Weather.current !== null
 				icon: Weather.current?.icon ?? ""
 				value: Weather.current ? Weather.current.tempNum + "°" : ""
 				isActive: Panels.active === "weather"
@@ -370,18 +565,13 @@ PanelWindow {
 			}
 
 			Pill {
+				id: system
+
 				custom: true
+				fadesCursor: true
 				isActive: Panels.active === "actions"
 				panel: "actions"
 				onActivated: Panels.toggle("actions")
-
-				// Keep awake, quietly: Actions is where it is turned off.
-				LineIcon {
-					anchors.verticalCenter: parent.verticalCenter
-					visible: Modes.awake
-					name: "coffee"
-					color: Theme.textDim
-				}
 
 				// Only with a device: on or off says nothing worth the room.
 				LineIcon {
@@ -391,34 +581,68 @@ PanelWindow {
 					color: Theme.textMain
 				}
 
+				// Only when down; online, only with no battery to open Actions by.
 				LineIcon {
 					anchors.verticalCenter: parent.verticalCenter
+					visible: !Net.online || !Battery.present
 					name: Net.icon
-					color: Net.online ? Theme.textMain : Theme.textDim
+					color: Modes.awake ? Theme.accentBlue : Net.online ? Theme.textMain : Theme.textDim
 				}
 
-				BatteryText {
+				BatteryIcon {
 					anchors.verticalCenter: parent.verticalCenter
-					font.pixelSize: Theme.fontSizeSmall
+					showPercent: system.hovered
+					// One colour at a time: running low comes first, then keep awake.
+					color: Modes.awake && !Battery.low ? Theme.accentBlue : Battery.color
 				}
 			}
 
 			Pill {
+				id: bell
 				readonly property int count: Notifications.history.count
-				readonly property bool isOpen: Panels.active === "notifications"
+				property int seen: 0
 
-				icon: Notifications.dnd ? "bell-off" : (count > 0 ? "bell-dot" : "bell")
-				textColor: Notifications.dnd ? Theme.warning : (count > 0 || isOpen ? Theme.accentBlue : Theme.textMain)
-				isActive: isOpen
+				icon: Notifications.dnd ? "bell-off" : count > 0 ? "bell-dot" : "bell"
+				textColor: count > 0 ? Theme.accentBlue : Theme.textDim
+				isActive: Panels.active === "notifications"
 				panel: "notifications"
 				onActivated: Panels.toggle("notifications")
+				onCountChanged: {
+					if (count > seen && !Notifications.dnd)
+						ring.restart();
+					seen = count;
+				}
+				Component.onCompleted: seen = count
+
+				// Lights up twice as one comes in.
+				SequentialAnimation {
+					id: ring
+					loops: 2
+					NumberAnimation { target: bell; property: "flash"; to: 1; duration: Theme.animFast; easing.type: Easing.OutCubic }
+					NumberAnimation { target: bell; property: "flash"; to: 0; duration: Theme.animNormal; easing.type: Easing.InOutSine }
+				}
 			}
 
 			Pill {
 				id: clock
 				property date now: new Date()
-				value: Qt.formatDateTime(now, "hh:mm")
-				interactive: false
+
+				custom: true
+				clickable: false
+				fadesCursor: true
+
+				Swap {
+					anchors.verticalCenter: parent.verticalCenter
+					swapped: clock.hovered
+					alt: clock.now.toLocaleDateString(Qt.locale("en_GB"), "d MMM").toLowerCase()
+
+					StyledText {
+						text: Qt.formatDateTime(clock.now, "hh:mm")
+						mono: true
+						font.bold: true
+						font.pixelSize: Theme.fontSizeBar
+					}
+				}
 
 				// Not SystemClock, which spins in the hour a DST change repeats; a second's tick
 				// is at most a second stale after resume.
@@ -428,6 +652,30 @@ PanelWindow {
 					onTriggered: clock.now = new Date()
 				}
 			}
+		}
+	}
+
+	Image {
+		id: faintCursor
+		z: 10
+		visible: bar.faintShape !== "" && bar.faintCursors !== null
+		source: bar.faintShape !== "" ? "file://" + bar.cursorDir + bar.faintShape + ".svg" : ""
+		sourceSize: Qt.size(bar.cursorSize, bar.cursorSize)
+		opacity: 0.3
+
+		onVisibleChanged: {
+			if (visible)
+				faintFade.restart();
+		}
+
+		NumberAnimation {
+			id: faintFade
+			target: faintCursor
+			property: "opacity"
+			from: 1
+			to: 0.015
+			duration: Theme.animNormal
+			easing.type: Easing.OutCubic
 		}
 	}
 }

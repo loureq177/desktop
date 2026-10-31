@@ -1,5 +1,6 @@
 pragma Singleton
 import Quickshell
+import Quickshell.Io
 import Quickshell.Services.UPower
 import QtQuick
 
@@ -9,13 +10,38 @@ Singleton {
 	readonly property var device: UPower.devices.values.find(d => d.isLaptopBattery && d.isPresent) ?? null
 	readonly property bool present: device !== null
 	readonly property int percent: device ? Math.round(device.percentage * 100) : 0
-	readonly property bool full: device?.state === UPowerDeviceState.FullyCharged
-	readonly property bool charging: device?.state === UPowerDeviceState.Charging || device?.state === UPowerDeviceState.PendingCharge
-	readonly property bool onBattery: UPower.onBattery
+	// The kernel's word, read here: plugging in a charger can come with no event at all,
+	// and UPower then only notices at its next poll, half a minute on.
+	property string status: ""
+	readonly property bool full: status === "Full"
+	readonly property bool charging: status === "Charging"
+	readonly property bool onBattery: status === "Discharging"
+	readonly property bool critical: !charging && !full && percent < 15
+	readonly property bool low: !charging && !full && percent < 30
+	// Green on the charger, then warning and critical as it runs down.
+	readonly property color color: charging || full ? Theme.accentGreen
+		: critical ? Theme.critical
+		: low ? Theme.warning
+		: Theme.textMain
 
 	// The lowest level warned of: once at 10% and 5%, again after charging; UPower
 	// takes over at 2%.
 	property int warnedAt: 101
+
+	Timer {
+		interval: 2000
+		running: root.present
+		repeat: true
+		triggeredOnStart: true
+		onTriggered: statusFile.reload()
+	}
+
+	FileView {
+		id: statusFile
+		path: root.device ? "/sys/class/power_supply/" + root.device.nativePath + "/status" : ""
+		printErrors: false
+		onLoaded: root.status = this.text().trim()
+	}
 
 	onPercentChanged: root.warnLow()
 	onOnBatteryChanged: root.warnLow()

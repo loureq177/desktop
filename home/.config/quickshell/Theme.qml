@@ -47,6 +47,7 @@ Singleton {
 	// glyphs (clock, temperature, emoji) have sizes of their own.
 	readonly property int fontSizeTiny: 12
 	readonly property int fontSizeSmall: 14
+	readonly property int fontSizeBar: 15
 	readonly property int fontSize: 16
 	// Titles and the search field.
 	readonly property int fontSizeLarge: 18
@@ -55,11 +56,13 @@ Singleton {
 	readonly property int barHeight: 30
 	readonly property int barMarginX: 20
 	readonly property int barMarginY: 4
+	// How much of the windows' outer gap the bar gives back on its side.
+	readonly property int barGapTrim: 4
 
 	// The drawers, the toasts and the OSD: below the bar, the drawers and the
 	// toasts at its right end.
 	readonly property int drawerWidth: 500
-	readonly property int panelTop: 54
+	readonly property int panelTop: 50
 	readonly property int panelMargin: ui.spacing.gaps_out
 	// Inside a notification card.
 	readonly property int notifPadV: 10

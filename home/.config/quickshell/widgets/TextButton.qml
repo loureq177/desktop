@@ -27,9 +27,18 @@ Rectangle {
 
 	Behavior on color { ColorAnimation { duration: Theme.animFast } }
 
+	Press {
+		id: press
+		target: root
+	}
+
+	Lit {
+		anchors.centerIn: parent
+		lit: root.hovered
+		rest: label.color
+
 	Row {
 		id: row
-		anchors.centerIn: parent
 		spacing: 5
 
 		LineIcon {
@@ -47,8 +56,9 @@ Rectangle {
 			text: root.text
 			font.pixelSize: Theme.fontSizeSmall
 			font.bold: root.primary
-			color: root.primary ? Theme.bgMain : root.danger ? Theme.critical : (root.hovered ? Theme.textMain : Theme.textDim)
+			color: root.primary ? Theme.bgMain : root.danger ? Theme.critical : Theme.textDim
 		}
+	}
 	}
 
 	MouseArea {
@@ -56,6 +66,7 @@ Rectangle {
 		anchors.fill: parent
 		hoverEnabled: true
 		cursorShape: Qt.PointingHandCursor
+		onPressed: press.restart()
 		onClicked: root.clicked()
 	}
 }
