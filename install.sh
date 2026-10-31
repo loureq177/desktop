@@ -17,7 +17,7 @@ for arg in "$@"; do
     --no-dotfiles) DOTFILES=0 ;;
     -h | --help)
         echo "Usage: $0 [--no-upgrade] [--pick | --defaults] [--no-dotfiles]"
-        echo "  --pick         ask for the browser and the special workspaces again"
+        echo "  --pick         ask for the browser and the apps again"
         echo "  --defaults     the standard ones, without asking"
         echo "  --no-dotfiles  leave out .files (zsh, Ghostty, nvim and the terminal tools)"
         exit 0
@@ -80,6 +80,50 @@ _install_etc_file() {
     _log_ok "Installed $dest"
 }
 
+# What is about to happen, and the only moment to say no; with nobody to ask, it just runs.
+show_plan() {
+    local dim="$_C_DIM" nc="$_C_NC"
+    _log_info "This installs the desktop on this machine"
+    printf '\n  Needed for it to work:\n'
+    printf '    · a system upgrade, then Hyprland, Quickshell and their packages\n'
+    printf '    · home/ linked into ~, its services enabled\n'
+    printf '    · /etc: the session and autologin on tty1, zram, sysctl hardening, lock screen PAM\n'
+    printf '\n%s  Up to you:\n' "$dim"
+    printf '    · browser and special workspaces: asked next, unless already answered\n'
+    printf '    · .files: zsh, Ghostty, nvim and the terminal tools (--no-dotfiles leaves it out)\n'
+    printf '    · the speech model for dictation, about 150 MB, if the download works\n%s' "$nc"
+    printf '\n  Enter starts, Ctrl+C stops.'
+    read -r _
+}
+needs_pick() { [ "$PICK" -eq 1 ] || [ ! -f "${XDG_CONFIG_HOME:-$HOME/.config}/apps/apps.toml" ]; }
+
+if [ -t 0 ] && [ "$DEFAULTS" -eq 0 ]; then
+    show_plan
+fi
+
+# The password once, first, as sysupdate and sysclean ask it; kept alive through the
+# questions and the long builds, which would otherwise stop and ask again.
+if [ -t 0 ]; then
+    sudo -v
+fi
+(while kill -0 "$$" 2>/dev/null; do
+    sudo -n true 2>/dev/null
+    sleep 60
+done) &
+sudo_keepalive=$!
+trap 'kill "$sudo_keepalive" 2>/dev/null' EXIT
+
+# Asked once, the answers kept in ~/.config/apps/apps.toml; with no terminal to
+# ask in, the standard set. apply-apps is Python, which a bare Arch may not have yet.
+if needs_pick; then
+    command -v python3 &>/dev/null || sudo pacman -S --noconfirm --needed python
+    if [ "$DEFAULTS" -eq 0 ] && [ -t 0 ]; then
+        home/.local/bin/apply-apps --pick --no-reload
+    else
+        home/.local/bin/apply-apps --defaults --no-reload
+    fi
+fi
+
 _log_info "Updating the system and installing official packages..."
 if [ "$NO_UPGRADE" -eq 1 ]; then
     _log_info "Skipping full system upgrade (--no-upgrade)."
@@ -89,15 +133,6 @@ fi
 pac_install packages.txt
 _log_ok "Pacman packages installed."
 
-# Asked once, the answers kept in ~/.config/apps/apps.toml; with no terminal to
-# ask in, the standard set.
-if [ "$PICK" -eq 1 ] || [ ! -f "${XDG_CONFIG_HOME:-$HOME/.config}/apps/apps.toml" ]; then
-    if [ "$DEFAULTS" -eq 0 ] && [ -t 0 ]; then
-        home/.local/bin/apply-apps --pick --no-reload
-    else
-        home/.local/bin/apply-apps --defaults --no-reload
-    fi
-fi
 picked pacman | pac_install -
 
 if compgen -G "/sys/class/power_supply/BAT*" >/dev/null 2>&1; then
@@ -183,24 +218,26 @@ sudo sysctl --quiet --load /etc/sysctl.d/99-zram.conf || _log_warn "Failed to ap
 # journald reads its limits only at start.
 sudo systemctl restart systemd-journald || _log_warn "Failed to restart journald."
 sudo systemctl daemon-reload 2>/dev/null || true
+sudo systemctl enable suspend-settle.service || _log_warn "Failed to enable suspend-settle."
+sudo udevadm control --reload-rules 2>/dev/null || true
 sudo systemctl start systemd-zram-setup@zram0.service 2>/dev/null || _log_warn "zram starts on the next boot."
 
-_log_info "Rendering the browser and special workspaces..."
+_log_info "Rendering the browser and the apps..."
 "$HOME/.local/bin/apply-apps" --no-reload || _log_warn "Failed to render ~/.config/apps/apps.toml."
 
 _log_info "Applying UI styles..."
 "$HOME/.local/bin/apply-ui" --no-reload || _log_warn "Failed to apply UI styles."
 
-whisper_model="${XDG_DATA_HOME:-$HOME/.local/share}/whisper/ggml-base.bin"
-if [ ! -s "$whisper_model" ]; then
+speech_model="${XDG_DATA_HOME:-$HOME/.local/share}/parakeet/ggml-parakeet-tdt-0.6b-v3-q8_0.bin"
+if [ ! -s "$speech_model" ]; then
     _log_info "Downloading the speech model for dictation..."
-    mkdir -p "$(dirname "$whisper_model")"
-    if curl -fL --retry 2 -o "$whisper_model.part" https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin; then
-        mv "$whisper_model.part" "$whisper_model"
+    mkdir -p "$(dirname "$speech_model")"
+    if curl -fL --retry 2 -o "$speech_model.part" https://huggingface.co/ggml-org/parakeet-GGUF/resolve/main/ggml-parakeet-tdt-0.6b-v3-q8_0.bin; then
+        mv "$speech_model.part" "$speech_model"
         _log_ok "Speech model installed."
     else
-        rm -f "$whisper_model.part"
-        _log_warn "Could not download $whisper_model - dictation stays off until it is there."
+        rm -f "$speech_model.part"
+        _log_warn "Could not download $speech_model - dictation stays off until it is there."
     fi
 fi
 

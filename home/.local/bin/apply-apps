@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-# The browser and the special workspaces: ~/.config/apps/apps.toml, rendered for
+# The browser, the web apps and the special workspaces: ~/.config/apps/apps.toml, rendered for
 # Hyprland (apps.lua), the shell (apps.json) and xdg-open (hyprland-mimeapps.list).
 #
 #   apply-apps              render apps.toml (the standard set when there is none)
-#   apply-apps --pick       ask for the browser and the specials, then render
+#   apply-apps --pick       ask for the browser and the apps, then render
 #   apply-apps --defaults   write the standard set without asking, then render
 #   apply-apps --packages   what the choices need, as "pacman|aur|flatpak NAME" lines
 #   --no-reload             leave the running Hyprland alone
@@ -58,6 +58,10 @@ def standard(catalog):
     return [special(c, c["apps"][0], c["key"]) for c in catalog["category"] if c.get("standard")]
 
 
+def by_id(catalog, browser_id):
+    return next((b for b in catalog["browsers"] if b["id"] == browser_id), catalog["browsers"][0])
+
+
 def load_choices(catalog):
     if CHOICES.exists():
         with open(CHOICES, "rb") as f:
@@ -80,8 +84,8 @@ def save(choices):
         "",
         f"browser = {toml_value(choices['browser'])}",
     ]
-    for s in choices["special"]:
-        lines += ["", "[[special]]"] + [f"{k} = {toml_value(v)}" for k, v in s.items()]
+    for item in choices.get("special", []):
+        lines += ["", "[[special]]"] + [f"{k} = {toml_value(v)}" for k, v in item.items()]
     APPS_DIR.mkdir(parents=True, exist_ok=True)
     CHOICES.write_text("\n".join(lines) + "\n")
     print(f"  \033[32m✓\033[0m Saved: {CHOICES}")
@@ -155,204 +159,253 @@ def fit(line, width):
     return out + RESET
 
 
-def done(screen, title, answer):
-    screen.draw([f"{GREEN}✔{RESET} {title}  {DIM}{answer}{RESET}"])
-
-
-# One of `options` ((label, note) pairs) or, with `multi`, any of them: ↑↓ or j/k
-# move, a digit jumps, space ticks, enter takes it.
-def choose(title, hint, options, default=0, multi=False, ticked=()):
-    cursor, ticked = default, set(ticked)
-    width = max(len(label) for label, _ in options) + 2
-    keys = "↑↓ move · space tick · enter confirm" if multi else "↑↓ move · enter select"
+# Every field on screen at once: ↑↓ or tab move, enter goes on, past the last it
+# takes them. `check` returns the answers, or an error to show. None for esc.
+def form(title, fields, check):
+    values, cursor, error = [""] * len(fields), 0, ""
     with Screen() as screen:
         while True:
-            lines = [f"{BOLD}{title}{RESET}", f"{DIM}{hint}{RESET}", ""]
-            for i, (label, note) in enumerate(options):
+            lines = [f"{BOLD}{title}{RESET}", ""]
+            for i, (label, example) in enumerate(fields):
                 here = i == cursor
-                box = (f"{GREEN}[✔]{RESET} " if i in ticked else "[ ] ") if multi else ""
-                mark = f"{BLUE}❯{RESET}" if here else " "
-                text = f"{BLUE}{label:<{width}}{RESET}" if here else f"{label:<{width}}"
-                lines.append(f" {mark} {box}{i + 1:>{len(str(len(options)))}}. {text}{DIM}{note}{RESET}")
-            lines += ["", f"{DIM}{keys} · ctrl+c quit{RESET}"]
+                shown = f"{values[i]}{BLUE}▏{RESET}" if here else values[i]
+                if not values[i]:
+                    shown += f"{DIM}{example}{RESET}"
+                lines.append(f" {BLUE + '❯' + RESET if here else ' '} {label:<16}{shown}")
+            lines += ["", f"{RED}{error}{RESET}" if error else f"{DIM}↑↓ tab move · enter next · esc cancel{RESET}"]
             screen.draw(lines)
             key = screen.key()
-            if key in ("up", "k"):
-                cursor = (cursor - 1) % len(options)
-            elif key in ("down", "j"):
-                cursor = (cursor + 1) % len(options)
-            elif key.isdigit() and 1 <= int(key) <= len(options):
-                cursor = int(key) - 1
-                if not multi:
-                    key = "enter"
-            if multi and key == " ":
-                ticked ^= {cursor}
-            if key == "enter":
-                if multi:
-                    done(screen, title, ", ".join(options[i][0] for i in sorted(ticked)) or "none")
-                    return sorted(ticked)
-                done(screen, title, options[cursor][0])
-                return cursor
-
-
-# The specials: space ticks one, ←→ (or h/l) changes its app. Rows are
-# [label, apps, app index, note]; returns the ticked rows' indexes.
-def choose_specials(rows, ticked):
-    cursor, ticked = 0, set(ticked)
-    width = max(len(row[0]) for row in rows) + 2
-    digits = len(str(len(rows)))
-    with Screen() as screen:
-        while True:
-            lines = [f"{BOLD}Special workspaces{RESET}", f"{DIM}one app each, opened with SUPER + SHIFT + a key{RESET}", ""]
-            for i, (label, apps, app, note) in enumerate(rows):
-                here = i == cursor
-                box = f"{GREEN}[✔]{RESET}" if i in ticked else "[ ]"
-                mark = f"{BLUE}❯{RESET}" if here else " "
-                name = f"{BLUE}{label:<{width}}{RESET}" if here else f"{label:<{width}}"
-                if len(apps) > 1:
-                    choice = f"‹ {apps[app]} ›  {DIM}{app + 1}/{len(apps)}{RESET}"
-                else:
-                    choice = f"{DIM}{note or apps[0]}{RESET}"
-                lines.append(f" {mark} {box} {i + 1:>{digits}}. {name}{choice}")
-            lines += ["", f"{DIM}↑↓ move · space tick · ←→ app · enter confirm · ctrl+c quit{RESET}"]
-            screen.draw(lines)
-            key = screen.key()
-            row = rows[cursor]
-            if key in ("up", "k"):
-                cursor = (cursor - 1) % len(rows)
-            elif key in ("down", "j"):
-                cursor = (cursor + 1) % len(rows)
-            elif key in ("left", "right", "h", "l") and len(row[1]) > 1:
-                row[2] = (row[2] + (1 if key in ("right", "l") else -1)) % len(row[1])
-                ticked.add(cursor)
-            elif key == " ":
-                ticked ^= {cursor}
-            elif key == "enter":
-                done(screen, "Special workspaces", ", ".join(rows[i][0] if rows[i][3] else rows[i][1][rows[i][2]] for i in sorted(ticked)) or "none")
-                return sorted(ticked)
-
-
-def text(title, check):
-    while True:
-        try:
-            answer = input(f"{BOLD}{title}{RESET} ").strip()
-        except EOFError:
-            raise Aborted
-        value = check(answer)
-        if value:
-            return value
-        print(f"{RED}  That is not it, once more.{RESET}")
-
-
-# Every special's key, on one screen: the letter pressed goes to the special under
-# the cursor, swapped with the one that had it. None may stay without one: a
-# special is there to be opened at once.
-def ask_keys(specials, reserved):
-    def next_empty(start):
-        return next((i for i in range(start, len(specials)) if not specials[i]["key"]), None)
-
-    cursor, error = next_empty(0) or 0, ""
-    with Screen() as screen:
-        while True:
-            count = {}
-            for s in specials:
-                count[s["key"]] = count.get(s["key"], 0) + 1
-            lines = [f"{BOLD}Keys{RESET}", f"{DIM}SUPER + SHIFT + the letter opens the special{RESET}", ""]
-            for i, s in enumerate(specials):
-                bad = not s["key"] or count[s["key"]] > 1
-                key = f"{RED}{s['key'] or '_'}{RESET}" if bad else f"{GREEN}{s['key']}{RESET}"
-                mark = f"{BLUE}❯{RESET}" if i == cursor else " "
-                lines.append(f" {mark} {key}  {s['title']:<17}{DIM}{s['app']}{RESET}")
-            lines += ["", f"{RED}{error}{RESET}" if error else f"{DIM}↑↓ move · a letter sets the key · enter confirm{RESET}"]
-            screen.draw(lines)
-            key, error = screen.key(), ""
-            if key in ("up", "down"):
-                cursor = (cursor + (1 if key == "down" else -1)) % len(specials)
+            error = ""
+            if key == "esc":
+                return None
+            if key == "up":
+                cursor = (cursor - 1) % len(fields)
+            elif key in ("down", "\t"):
+                cursor = (cursor + 1) % len(fields)
             elif key == "backspace":
-                specials[cursor]["key"] = ""
-            elif len(key) == 1 and key.isalpha() and key.isascii():
-                letter = key.upper()
-                if letter in reserved:
-                    error = f"{letter} moves windows (SUPER + SHIFT + {' '.join(reserved)})"
-                else:
-                    for s in specials:
-                        if s["key"] == letter:
-                            s["key"] = specials[cursor]["key"]
-                    specials[cursor]["key"] = letter
-                    after = next_empty(0)
-                    cursor = cursor if after is None else after
+                values[cursor] = values[cursor][:-1]
             elif key == "enter":
-                if all(s["key"] and count[s["key"]] == 1 for s in specials):
-                    done(screen, "Keys", "  ".join(f"{s['key']} {s['app']}" for s in specials))
-                    return
-                error = "Each special needs a letter of its own"
+                if cursor < len(fields) - 1:
+                    cursor += 1
+                else:
+                    answers = check(values)
+                    if isinstance(answers, dict):
+                        return answers
+                    error = answers
+            elif len(key) == 1 and key.isprintable():
+                values[cursor] += key
 
 
 def slug(text):
     return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
 
 
-def url_of(answer):
-    url = answer if "://" in answer or not answer else "https://" + answer
-    return url if urlsplit(url).hostname else ""
+# What an app of your own runs: a dotted word is a site, the rest a command.
+def target_of(answer):
+    if not answer:
+        return None
+    if " " in answer or answer[0] in "/~" or not ("://" in answer or "." in answer):
+        return {"exec": answer}
+    url = answer if "://" in answer else "https://" + answer
+    return {"url": url} if urlsplit(url).hostname else None
+
+
+# A row is a title, what ←→ walks through and a key; only the browser cannot be off.
+def rows_of(catalog, current):
+    first_time = not CHOICES.exists()
+    had = {s["name"]: s for s in current.get("special", [])}
+    browsers = catalog["browsers"]
+    rows = [{
+        "title": "Browser",
+        "browser": True,
+        "options": [b["name"] for b in browsers],
+        "at": next((i for i, b in enumerate(browsers) if b["id"] == current.get("browser")), 0),
+    }, {"gap": True}]
+    for c in catalog["category"]:
+        names = [a["name"] for a in c["apps"]]
+        s = had.get(c["id"])
+        at = names.index(s["app"]) + 1 if s and s["app"] in names else 0
+        if first_time and c.get("standard"):
+            at = 1
+        rows.append({"title": c["title"], "category": c, "options": ["off"] + names, "at": at, "key": s["key"] if s else c["key"]})
+    # Also what the catalog no longer has under that name.
+    for s in current.get("special", []):
+        known = any(c["id"] == s["name"] and any(a["name"] == s["app"] for a in c["apps"]) for c in catalog["category"])
+        if not known:
+            rows.append({"title": s["app"], "own": s, "options": ["off", s.get("url") or s.get("exec") or s.get("term", "")], "at": 1, "key": s["key"]})
+    rows.append({"gap": True})
+    rows.append({"title": "+ Add an app", "add": True})
+    return rows
+
+
+def can_be_off(row):
+    return "category" in row or "own" in row
+
+
+def on(row):
+    return can_be_off(row) and row["at"] > 0
+
+
+# A letter that is free, else none: pressing one is then all it takes.
+def turn_on(row, rows, reserved):
+    row["at"] = max(row["at"], 1)
+    taken = {r["key"] for r in rows if on(r) and r is not row}
+    if row["key"] in taken or row["key"] in reserved:
+        row["key"] = ""
+
+
+def scrolled(items, cursor, room):
+    top = max(0, min(cursor - room // 2, len(items) - room))
+    return top, items[top : top + room]
+
+
+def neighbour(shown, cursor, by):
+    i = (cursor + by) % len(shown)
+    while "gap" in shown[i]:
+        i = (i + by) % len(shown)
+    return shown[i]
+
+
+# What is on, nothing to step through: everything can be changed from here. Returns what
+# enter did and the row it was on.
+def ask(catalog, rows, row):
+    reserved = catalog["reserved"]
+    error = ""
+    with Screen() as screen:
+        while True:
+            shown = [r for r in rows if not can_be_off(r) or on(r)]
+            if row not in shown:
+                row = next(r for r in shown if "add" in r)
+            cursor = shown.index(row)
+            lines = [f"{BOLD}Browser and apps{RESET}", f"{DIM}Each app opens on a special workspace with SUPER + SHIFT + its letter{RESET}", ""]
+            top, part = scrolled(shown, cursor, max(os.get_terminal_size().lines - 7, 3))
+            for i, r in enumerate(part, top):
+                if "gap" in r:
+                    lines.append("")
+                    continue
+                here = i == cursor
+                mark = f"{BLUE}❯{RESET}" if here else " "
+                title = f"{BLUE}{r['title']}{RESET}" if here else r["title"]
+                if "add" in r:
+                    lines.append(f" {mark} {title}")
+                    continue
+                pad = " " * (18 - len(r["title"]))
+                key = "   "
+                if on(r):
+                    key = f"{GREEN}{r['key']}{RESET}  " if r["key"] else f"{RED}_{RESET}  "
+                value = r["options"][r["at"]]
+                many = len(r["options"]) > (1 if "browser" in r else 2)
+                lines.append(f" {mark} {title}{pad}{key}" + (f"{DIM}‹{RESET} {value} {DIM}›{RESET}" if many else value))
+            lines += ["", f"{RED}{error}{RESET}" if error else f"{DIM}↑↓ move · ←→ change · a letter sets the key · ⌫ remove · enter save · esc cancel{RESET}"]
+            screen.draw(lines)
+            key, error = screen.key(), ""
+            if key == "up":
+                row = neighbour(shown, cursor, -1)
+            elif key == "down":
+                row = neighbour(shown, cursor, 1)
+            elif key == "esc":
+                raise Aborted
+            elif key in ("left", "right") and "options" in row:
+                by = -1 if key == "left" else 1
+                # The first option of a row that can be off is "off": ⌫ does that.
+                first = 1 if can_be_off(row) else 0
+                row["at"] = (row["at"] - first + by) % (len(row["options"]) - first) + first
+            elif key == "backspace" and can_be_off(row):
+                row["at"] = 0
+                row = neighbour(shown, cursor, 1)
+            elif key == "enter" and "add" in row:
+                return "add", row
+            elif key == "enter":
+                missing = next((r for r in rows if on(r) and not r["key"]), None)
+                if missing is None:
+                    return "save", row
+                row, error = missing, f"{missing['title']} needs a letter: press one"
+            elif len(key) == 1 and key.isalpha() and key.isascii() and can_be_off(row):
+                letter = key.upper()
+                if letter in reserved:
+                    error = f"{letter} moves windows (SUPER + SHIFT + {' '.join(reserved)})"
+                    continue
+                for other in rows:
+                    if other is not row and on(other) and other["key"] == letter:
+                        other["key"] = row["key"]
+                row["key"] = letter
+
+
+# What is off, then a new one of your own. None for esc.
+def choose_addition(rows):
+    items = [r for r in rows if can_be_off(r) and not on(r)] + [{"title": "Your own app", "new": True}]
+    cursor = 0
+    width = max(len(item["title"]) for item in items) + 2
+    with Screen() as screen:
+        while True:
+            lines = [f"{BOLD}Add an app{RESET}", ""]
+            top, part = scrolled(items, cursor, max(os.get_terminal_size().lines - 5, 3))
+            for i, item in enumerate(part, top):
+                here = i == cursor
+                title = f"{BLUE}{item['title']:<{width}}{RESET}" if here else f"{item['title']:<{width}}"
+                note = ", ".join(item["options"][1:]) if "options" in item else "a site or a command"
+                lines.append(f" {BLUE + '❯' + RESET if here else ' '} {title}{DIM}{note}{RESET}")
+            lines += ["", f"{DIM}↑↓ move · enter add · esc back{RESET}"]
+            screen.draw(lines)
+            key = screen.key()
+            if key == "up":
+                cursor = (cursor - 1) % len(items)
+            elif key == "down":
+                cursor = (cursor + 1) % len(items)
+            elif key == "esc":
+                return None
+            elif key == "enter":
+                return items[cursor]
 
 
 def pick(catalog, current):
-    reserved = catalog["reserved"]
-    categories = catalog["category"]
-    browsers = catalog["browsers"]
-    had = {s["name"]: s for s in current["special"]}
+    rows = rows_of(catalog, current)
+    row = rows[0]
 
-    ids = [b["id"] for b in browsers]
-    print()
-    i = choose(
-        "Browser",
-        "SUPER + B, the links you open, and what the web apps run in",
-        [(b["name"], "") for b in browsers],
-        ids.index(current["browser"]) if current["browser"] in ids else 0,
-    )
-    browser = ids[i]
+    def check(values):
+        name, target = values[0].strip(), target_of(values[1].strip())
+        if not slug(name):
+            return "Give it a name"
+        return {"name": name, "target": target} if target else "Give it a URL or a command"
 
-    # Categories, then the web apps of your own already there, then a new one.
-    own = [s for s in current["special"] if s["name"] not in {c["id"] for c in categories}]
-    rows = []
-    for c in categories:
-        names = [a["name"] for a in c["apps"]]
-        old = had.get(c["id"], {}).get("app")
-        rows.append([c["title"], names, names.index(old) if old in names else 0, ""])
-    rows += [[s["app"], [s["app"]], 0, s["url"]] for s in own] + [["Your own web app", [""], 0, "a name and a URL"]]
-    ticked = [i for i, c in enumerate(categories) if c["id"] in had] if had else [i for i, c in enumerate(categories) if c.get("standard")]
-    ticked += [len(categories) + i for i in range(len(own))]
-    picked = choose_specials(rows, ticked)
-
+    while True:
+        sys.stdout.write("\033[H\033[2J")
+        action, row = ask(catalog, rows, row)
+        if action == "save":
+            break
+        sys.stdout.write("\033[H\033[2J")
+        item = choose_addition(rows)
+        if item is None:
+            continue
+        if "new" not in item:
+            turn_on(item, rows, catalog["reserved"])
+            row = item
+            continue
+        sys.stdout.write("\033[H\033[2J")
+        answers = form("Your own app", [("Name", "Claude"), ("URL or command", "claude.ai, claude-desktop")], check)
+        if answers:
+            taken = {c["id"] for c in catalog["category"]} | {r["own"]["name"] for r in rows if "own" in r}
+            ws = slug(answers["name"])
+            while ws in taken:
+                ws += "-2"
+            own = {"name": ws, "key": "", "title": answers["name"], "app": answers["name"], **answers["target"], "icon": ""}
+            row = {"title": answers["name"], "own": own, "options": ["off", next(iter(answers["target"].values()))], "at": 1, "key": ""}
+            rows.insert(len(rows) - 2, row)
+    sys.stdout.write("\033[H\033[2J")
     specials = []
-    for n in picked:
-        if n < len(categories):
-            c = categories[n]
-            old = had.get(c["id"], {})
-            specials.append(special(c, c["apps"][rows[n][2]], old.get("key", c["key"])))
-        elif n < len(categories) + len(own):
-            specials.append(dict(own[n - len(categories)]))
-        else:
-            while True:
-                name = text("Name (e.g. X):", lambda a: a if slug(a) else "")
-                url = text("URL (e.g. x.com):", url_of)
-                ws = slug(name)
-                while ws in {c["id"] for c in categories} or ws in {s["name"] for s in specials}:
-                    ws += "-web"
-                specials.append({"name": ws, "key": "", "title": name, "app": name, "url": url, "icon": ""})
-                if choose("Another web app of your own?", "", [("No", ""), ("Yes", "")]) == 0:
-                    break
-
-    # A default key someone earlier in the list has is left for you to press.
+    for row in rows:
+        if on(row) and "category" in row:
+            c = row["category"]
+            specials.append(special(c, c["apps"][row["at"] - 1], row["key"]))
+        elif on(row):
+            specials.append(dict(row["own"], key=row["key"]))
+    # An app of your own under a category's name, with that category turned on too.
     seen = set()
     for s in specials:
-        if s["key"] in seen or s["key"] in reserved:
-            s["key"] = ""
-        seen.add(s["key"])
-    if specials:
-        ask_keys(specials, reserved)
-    return {"browser": browser, "special": specials}
+        while s["name"] in seen:
+            s["name"] += "-2"
+        seen.add(s["name"])
+    return {"browser": catalog["browsers"][rows[0]["at"]]["id"], "special": specials}
 
 
 # --- rendering ---------------------------------------------------------------
@@ -376,6 +429,34 @@ def lua_table(d, indent):
             value = ("true" if v else "false") if isinstance(v, bool) else json.dumps(v, ensure_ascii=False)
         items.append(f"{pad}{key} = {value},")
     return "{\n" + "\n".join(items) + "\n" + "\t" * (indent - 1) + "}"
+
+
+# The desktop entry of a command of your own, when installed: its icon, its window, and
+# the launcher then lists the special in its place.
+def desktop_entry(command):
+    try:
+        words = shlex.split(command)
+    except ValueError:
+        return {}
+    words[0] = words[0].rsplit("/", 1)[-1]
+    data = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local/share"))
+    for folder in (data / "applications", Path("/usr/share/applications")):
+        for path in sorted(folder.glob("*.desktop")):
+            fields = {}
+            for line in path.read_text(errors="ignore").splitlines()[1:]:
+                if line.startswith("["):
+                    break
+                fields.update([line.split("=", 1)] if "=" in line else [])
+            try:
+                run = shlex.split(fields.get("Exec", ""))
+            except ValueError:
+                continue
+            if run and [run[0].rsplit("/", 1)[-1]] + run[1 : len(words)] == words:
+                found = {"desktop": path.stem}
+                found.update({"app_icon": fields["Icon"]} if "Icon" in fields else {})
+                found.update({"class": re.escape(fields["StartupWMClass"])} if "StartupWMClass" in fields else {})
+                return found
+    return {}
 
 
 # What Hyprland runs and matches for one special (hyprland/specials.lua).
@@ -427,9 +508,8 @@ def shell_special(s):
 
 
 def render(catalog, choices):
-    browsers = {b["id"]: b for b in catalog["browsers"]}
-    browser = browsers.get(choices["browser"], catalog["browsers"][0])
-    specials = choices.get("special", [])
+    browser = by_id(catalog, choices["browser"])
+    specials = [{**desktop_entry(s["exec"]), **s} if "exec" in s else s for s in choices.get("special", [])]
 
     hypr = {
         "browser": {"exec": browser["exec"]},
@@ -455,14 +535,25 @@ def render(catalog, choices):
         print(f"  \033[32m✓\033[0m Generated: {path}")
 
 
-def packages(catalog, choices):
-    browser = next((b for b in catalog["browsers"] if b["id"] == choices["browser"]), catalog["browsers"][0])
+def needed(catalog, choices):
+    items = [by_id(catalog, choices["browser"])] + choices.get("special", [])
     for source in ("pacman", "aur", "flatpak"):
-        names = list(browser.get(source, []))
-        for s in choices.get("special", []):
-            names += s.get(source, [])
+        names = [name for item in items for name in item.get(source, [])]
         for name in dict.fromkeys(names):
-            print(source, name)
+            yield source, name
+
+
+def packages(catalog, choices):
+    for source, name in needed(catalog, choices):
+        print(source, name)
+
+
+# --pick by itself installs nothing: says what is still to install, and how.
+def report_missing(catalog, choices):
+    run = subprocess.run(["pacman", "-Qq"], capture_output=True, text=True)
+    missing = [name for source, name in needed(catalog, choices) if source != "flatpak" and name not in run.stdout.split()]
+    if missing:
+        print(f"  {DIM}Not installed yet:{RESET} paru -S --needed {' '.join(missing)}")
 
 
 def main():
@@ -492,6 +583,8 @@ def main():
         save(choices)
 
     render(catalog, choices)
+    if "--pick" in args and "--no-reload" not in args:
+        report_missing(catalog, choices)
 
     if "--no-reload" not in args and subprocess.run(["pgrep", "-x", "Hyprland"], capture_output=True).returncode == 0:
         subprocess.run(["hyprctl", "reload"], capture_output=True)
