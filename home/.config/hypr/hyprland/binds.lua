@@ -55,6 +55,7 @@ do
 		exec("gapplication action com.mitchellh.ghostty new-window || ghostty")
 	)
 	bind("SUPER + space", "Launcher", panel("launcher-apps"))
+	bind("SUPER + O", "Open windows", panel("launcher-windows"))
 end
 
 do
@@ -102,7 +103,7 @@ do
 	-- In the order of their keys.
 	local bind = section("Special Workspaces")
 	local keyed = {}
-	for name, app in pairs(specials) do
+	for name, app in pairs(specials.list) do
 		if app.key then
 			table.insert(keyed, { name = name, app = app })
 		end
@@ -114,7 +115,9 @@ do
 		bind(
 			"SUPER + SHIFT + " .. sp.app.key,
 			sp.app.desc,
-			hl.dsp.workspace.toggle_special(sp.name)
+			function()
+				specials.toggle(sp.name)
+			end
 		)
 	end
 end

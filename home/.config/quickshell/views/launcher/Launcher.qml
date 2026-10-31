@@ -3,13 +3,13 @@ import "../../widgets"
 import QtQuick
 import QtQuick.Layouts
 
-// One search field over the lists (LauncherPane): apps, emoji, clipboard, keys
-// and settings; Backspace in the empty field goes back to the apps.
+// One search field over the lists (LauncherPane): apps, open windows, emoji, clipboard,
+// keys and settings; Backspace in the empty field goes back to the apps.
 ModalWindow {
 	id: root
 
 	property string scope: "apps"
-	readonly property var panes: ({ apps: apps, emoji: emoji, clipboard: clipboard, keys: keys, settings: settings })
+	readonly property var panes: ({ apps: apps, windows: windows, emoji: emoji, clipboard: clipboard, keys: keys, settings: settings })
 	readonly property var pane: panes[scope]
 
 	shown: Panels.active === "launcher"
@@ -17,6 +17,10 @@ ModalWindow {
 	onShownChanged: {
 		if (!shown)
 			root.pane.closed();
+	}
+	onProgressChanged: {
+		if (progress === 0)
+			windows.arrive();
 	}
 
 	Connections {
@@ -124,7 +128,7 @@ ModalWindow {
 
 				// The other lists, the open one in blue: a click on it goes back to the apps.
 				Repeater {
-					model: ["clipboard", "emoji", "keys", "settings"]
+					model: ["windows", "clipboard", "emoji", "keys", "settings"]
 
 					delegate: IconButton {
 						id: listButton
@@ -133,11 +137,12 @@ ModalWindow {
 						readonly property string chord: Keybinds.chordFor(command.bind)
 						readonly property bool open: root.scope === modelData
 
-						implicitWidth: 28
-						implicitHeight: 28
+						implicitWidth: 32
+						implicitHeight: 32
 						icon: command.icon
+						iconSize: 18
 						outlined: false
-						iconColor: open ? Theme.accentBlue : hovered ? Theme.textMain : Theme.textDim
+						iconColor: open ? Theme.accentBlue : Theme.textDim
 						onClicked: Panels.open("launcher", open ? "apps" : modelData)
 
 						Tip {
@@ -169,6 +174,13 @@ ModalWindow {
 					id: apps
 					anchors.fill: parent
 					visible: root.scope === "apps"
+					query: visible ? search.text : ""
+				}
+
+				WindowsPane {
+					id: windows
+					anchors.fill: parent
+					visible: root.scope === "windows"
 					query: visible ? search.text : ""
 				}
 

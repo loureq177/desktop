@@ -66,7 +66,7 @@ Singleton {
 		{ id: "record-cam", group: "capture", name: "Record screen with microphone and camera", desc: "Your voice and a camera overlay", icon: "webcam", keywords: "webcam", run: () => capture(bin + "record-screen --mic --cam") }
 	]).concat([
 		{ id: "screenshot", group: "capture", bind: "Capture: Screenshot", name: "Screenshot", desc: "An area, a window, or click for the screen", icon: "camera", run: () => capture(bin + "screenshot region") },
-		{ id: "dictation", group: "capture", bind: "Capture: Dictation", name: "Dictation", desc: "Types what you say", icon: "audio-lines", active: Modes.dictation !== "", keywords: "speech voice whisper", run: () => script("dictation") },
+		{ id: "dictation", group: "capture", bind: "Capture: Dictation", name: "Dictation", desc: "Types what you say", icon: "audio-lines", active: Modes.dictation !== "", keywords: "speech voice", run: () => script("dictation") },
 		{ id: "phonecam", group: "capture", name: "Phone camera", desc: "The phone as this computer's webcam, over Wi-Fi", icon: "smartphone", active: Modes.phoneCam, keywords: "webcam android scrcpy", run: () => script("phone-cam") },
 		{ id: "picker", group: "capture", name: "Color picker", desc: "Copies the hex value", icon: "pipette", run: () => capture("hyprpicker -a --notify") },
 		{ id: "ocr", group: "capture", name: "OCR", desc: "Copies text from the screen", icon: "scan-text", run: () => capture(bin + "ocr") },
@@ -82,6 +82,8 @@ Singleton {
 		{ id: "wifi", group: "connections", name: "Wi-Fi", desc: "Networks", icon: "wifi", keywords: "wifi internet", run: () => open("actions", "wifi") },
 		{ id: "bluetooth", group: "connections", name: "Bluetooth", desc: "Devices", icon: "bluetooth", keywords: "headphones", run: () => open("actions", "bluetooth") },
 
+		{ id: "windows", group: "system", bind: "Essential: Open windows", name: "Open windows", desc: "Every window, on any workspace", icon: "app-window", keywords: "overview apps switcher running", run: () => open("launcher", "windows") },
+		{ id: "reconnect", group: "system", name: "Reconnect monitors", desc: "Off and on again, for a black screen Hyprland thinks works", icon: "screen-share", keywords: "display screen signal", run: () => Hypr.dispatch("function() require(\"hyprland.monitors\").reconnect() end") },
 		{ id: "settings", group: "system", bind: "System & Tools: Settings", name: "Settings", desc: "Hyprland and the look", icon: "settings", keywords: "config preferences", run: () => open("launcher", "settings") },
 		{ id: "clipboard", group: "system", bind: "System & Tools: Clipboard history", name: "Clipboard", desc: "What was copied", icon: "clipboard", keywords: "history paste", run: () => open("launcher", "clipboard") },
 		{ id: "emoji", group: "system", bind: "System & Tools: Emojis", name: "Emoji", desc: "Pick one to paste", icon: "smile", keywords: "smiley", run: () => open("launcher", "emoji") },
