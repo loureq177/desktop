@@ -286,6 +286,34 @@ check_pacnew() {
     notify dialog-warning normal "Pacnew files detected" "Configuration merge needed for:\n$(printf '%s\n' "${files[@]}")"
 }
 
+# What the update added to Hyprland's and Quickshell's APIs: new abilities, said once. The
+# first run has nothing to compare with, and only remembers.
+API_SEEN="$STATE/api"
+API_NEWS="$STATE/api-news"
+API_SHOWN=40
+api_news() {
+    command -v desktop-api >/dev/null 2>&1 || return 0
+    local now added removed
+    now=$(desktop-api) || return 0
+    if [[ -f "$API_SEEN" ]]; then
+        # C: the order desktop-api sorts in.
+        added=$(LC_ALL=C comm -13 "$API_SEEN" <(printf '%s\n' "$now"))
+        removed=$(LC_ALL=C comm -23 "$API_SEEN" <(printf '%s\n' "$now"))
+        if [[ -n "$added$removed" ]]; then
+            {
+                [[ -z "$added" ]] || printf '%s\n' "$added"
+                [[ -z "$removed" ]] || sed 's/^/gone: /' <<<"$removed"
+            } >"$API_NEWS"
+            _log_info "New in Hyprland and Quickshell"
+            head -n "$API_SHOWN" "$API_NEWS" | sed 's/^/    /'
+            local lines
+            lines=$(wc -l <"$API_NEWS")
+            ((lines <= API_SHOWN)) || printf '    %s… %d more in %s%s\n' "$_C_DIM" "$((lines - API_SHOWN))" "$API_NEWS" "$_C_NC"
+        fi
+    fi
+    printf '%s\n' "$now" >"$API_SEEN"
+}
+
 # --- The run -----------------------------------------------------------------
 
 PACMAN_LOG=${PACMAN_LOG:-/var/log/pacman.log}
@@ -339,6 +367,7 @@ if [ -f "$TASKS_DIR/firmware" ]; then
 fi
 
 command -v pacdiff >/dev/null 2>&1 && check_pacnew
+api_news
 
 reboot_reasons=()
 if [ ! -d "/usr/lib/modules/$(uname -r)" ]; then
