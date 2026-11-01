@@ -16,8 +16,8 @@ hl.on("hyprland.start", function()
 		-- else is on screen. The hint is for the label under the field (hyprlock.conf).
 		"LOCK_HINT='First login requires a password' hyprlock --config ~/.config/hypr/hyprlock-boot.conf",
 
-		-- Restarted, not started: the target outlives Hyprland, so a plain start
-		-- would leave its services on the dead compositor.
+		-- Restarted, not started: Hyprland starts the target itself, maybe before these
+		-- variables reach the session, and its services must have them.
 		"sh -c 'dbus-update-activation-environment --systemd "
 			.. table.concat(env.exported, " ")
 			.. "; systemctl --user reset-failed; systemctl --user restart hyprland-session.target'",
