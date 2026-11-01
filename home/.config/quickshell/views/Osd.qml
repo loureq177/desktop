@@ -65,7 +65,7 @@ PanelWindow {
 
 	Timer {
 		id: hideTimer
-		interval: 1500
+		interval: 1200
 		onTriggered: win.shown = false
 	}
 
