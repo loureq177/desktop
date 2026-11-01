@@ -16,7 +16,7 @@ return {
     opacity = {
         active = 1.0,
         inactive = 1.0,
-        dim_special = 0.2,
+        dim_special = 0.4,
     },
     font = {
         mono = "JetBrainsMono Nerd Font Mono",
