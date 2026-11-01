@@ -33,11 +33,14 @@ local function row()
 	return out
 end
 
--- The row, and the place in it of the focused workspace: none while the focus
--- is on a special workspace.
+-- The row, and the place in it of the focused workspace; on a special workspace,
+-- of the one under it: leaving it goes on from there, as SUPER + 1..9 do.
 local function here()
 	local win = hl.get_active_window()
-	local current = win and win.workspace or hl.get_active_workspace()
+	local current = win and win.workspace
+	if current == nil or current.special then
+		current = hl.get_active_workspace()
+	end
 	local workspaces = row()
 	for i, ws in ipairs(workspaces) do
 		if current ~= nil and ws.id == current.id then
