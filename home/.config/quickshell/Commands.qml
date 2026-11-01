@@ -86,7 +86,7 @@ Singleton {
 		{ id: "reconnect", group: "system", name: "Reconnect monitors", desc: "Off and on again, for a black screen Hyprland thinks works", icon: "screen-share", keywords: "display screen signal", run: () => Hypr.dispatch("function() require(\"hyprland.monitors\").reconnect() end") },
 		{ id: "settings", group: "system", bind: "System & Tools: Settings", name: "Settings", desc: "Hyprland and the look", icon: "settings", keywords: "config preferences", run: () => open("launcher", "settings") },
 		{ id: "clipboard", group: "system", bind: "System & Tools: Clipboard history", name: "Clipboard", desc: "What was copied", icon: "clipboard", keywords: "history paste", run: () => open("launcher", "clipboard") },
-		{ id: "emoji", group: "system", bind: "System & Tools: Emojis", name: "Emoji", desc: "Pick one to paste", icon: "smile", keywords: "smiley", run: () => open("launcher", "emoji") },
+		{ id: "emoji", group: "system", bind: "System & Tools: Emojis", name: "Emoji", desc: "Pick one: pasted and copied", icon: "smile", keywords: "smiley", run: () => open("launcher", "emoji") },
 		{ id: "keys", group: "system", bind: "System & Tools: Keybindings", name: "Keybindings", desc: "See, change, remove or add keys", icon: "keyboard", keywords: "shortcuts hotkeys binds", run: () => open("launcher", "keys") },
 		{ id: "actions", group: "system", bind: "System & Tools: Actions", name: "Actions", desc: "Volume, brightness and the switches", icon: "sliders-horizontal", keywords: "quick settings", run: () => open("actions", "") },
 		{ id: "weather", group: "system", bind: "System & Tools: Weather", name: "Weather", desc: "The forecast", icon: "cloud-sun", run: () => open("weather", "") },

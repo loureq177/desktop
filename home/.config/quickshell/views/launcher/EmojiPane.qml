@@ -6,14 +6,14 @@ import Quickshell.Io
 import QtQuick
 
 // The emoji, a grid of them; Enter types the one picked into the focused
-// window. The footer names it.
+// window and copies it. The footer names it.
 LauncherPane {
 	id: pane
 
 	property var emojis: []
 
 	icon: "smile"
-	placeholder: "Search emoji…"
+	placeholder: "Search emoji, Enter pastes and copies…"
 	grid: true
 	preferredHeight: count === 0 ? 72 : Math.ceil(count / columns) * cell
 	footer: current ? current.e + "  " + String(current.k || "").split(" ").slice(0, 3).join(" ") : ""
