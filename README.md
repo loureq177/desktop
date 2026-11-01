@@ -44,8 +44,6 @@ compromise on functionality.
 - **Keys** under `SUPER + /`: every bind, Enter gives it new keys, Delete twice
   removes it, the first row adds a new one (kept in `~/.config/hypr/keys.lua`),
   Ctrl+R gives the config's back
-- **Phone camera** in the launcher (`phone-cam`): the phone as a webcam over Wi-Fi,
-  no app on it, with scrcpy and a virtual `/dev/video10`
 - `sysupdate` and `sysclean` scripts, their steps run at once
 - A notification when the system runs out of RAM and kills an app
 - Wallpaper switcher with grow animation (SUPER + P)

@@ -470,12 +470,6 @@ PanelWindow {
 					NumberAnimation { duration: Theme.animFast; easing.type: Easing.OutCubic }
 				}
 			}
-
-			Pill {
-				shown: Modes.powerSave
-				icon: "leaf"
-				onActivated: Commands.run("powersave")
-			}
 		}
 
 		// What comes and goes stands first: the row grows to the left, so the rest stays put.
@@ -548,11 +542,9 @@ PanelWindow {
 			}
 
 			Pill {
-				shown: Modes.phoneCam
-				icon: "smartphone"
-				textColor: Theme.accentPurple
-				isActive: true
-				onActivated: Commands.run("phonecam")
+				shown: Modes.powerSave
+				icon: "leaf"
+				onActivated: Commands.run("powersave")
 			}
 
 			Pill {
@@ -598,6 +590,23 @@ PanelWindow {
 			}
 
 			Pill {
+				id: clock
+				property date now: new Date()
+
+				clickable: false
+				fadesCursor: true
+				value: now.toLocaleDateString(Qt.locale("en_GB"), "d MMM").toLowerCase() + " " + Qt.formatDateTime(now, "hh:mm")
+
+				// Not SystemClock, which spins in the hour a DST change repeats; a second's tick
+				// is at most a second stale after resume.
+				Timer {
+					running: true
+					repeat: true
+					onTriggered: clock.now = new Date()
+				}
+			}
+
+			Pill {
 				id: bell
 				readonly property int count: Notifications.history.count
 				property int seen: 0
@@ -620,36 +629,6 @@ PanelWindow {
 					loops: 2
 					NumberAnimation { target: bell; property: "flash"; to: 1; duration: Theme.animFast; easing.type: Easing.OutCubic }
 					NumberAnimation { target: bell; property: "flash"; to: 0; duration: Theme.animNormal; easing.type: Easing.InOutSine }
-				}
-			}
-
-			Pill {
-				id: clock
-				property date now: new Date()
-
-				custom: true
-				clickable: false
-				fadesCursor: true
-
-				Swap {
-					anchors.verticalCenter: parent.verticalCenter
-					swapped: clock.hovered
-					alt: clock.now.toLocaleDateString(Qt.locale("en_GB"), "d MMM").toLowerCase()
-
-					StyledText {
-						text: Qt.formatDateTime(clock.now, "hh:mm")
-						mono: true
-						font.bold: true
-						font.pixelSize: Theme.fontSizeBar
-					}
-				}
-
-				// Not SystemClock, which spins in the hour a DST change repeats; a second's tick
-				// is at most a second stale after resume.
-				Timer {
-					running: true
-					repeat: true
-					onTriggered: clock.now = new Date()
 				}
 			}
 		}

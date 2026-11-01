@@ -72,10 +72,6 @@ whisper-cpp
 wl-clip-persist
 wl-clipboard
 wtype
-android-tools
-scrcpy
-linux-headers
-v4l2loopback-dkms
 
 # Desktop applications the session binds or opens files with
 fuse2
