@@ -1,0 +1,12 @@
+[Desktop Entry]
+# Overrides the package's: xdg-open ignores Terminal=true, so a clicked path needs its own window.
+Name=Yazi File Manager
+Icon=yazi
+Comment=Blazing fast terminal file manager written in Rust, based on async I/O
+Terminal=false
+TryExec=yazi
+Exec=ghostty +new-window -e yazi %f
+Type=Application
+MimeType=inode/directory
+Categories=System;FileManager;FileTools;ConsoleOnly
+Keywords=File;Manager;Explorer;Browser;Launcher
