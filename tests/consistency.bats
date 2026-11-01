@@ -142,8 +142,7 @@ UNITS="home/.config/systemd/user"
 
 @test "units the session target pulls in exist" {
     local unit
-    for unit in $(sed -n 's/^Wants=//p' "$REPO/$UNITS/hyprland-session.target"); do
-        [[ "$unit" == graphical-session* ]] && continue
+    for unit in $(sed -n 's/^Wants=//p' "$REPO/$UNITS/hyprland-session.target.d/session.conf"); do
         [[ -f "$REPO/$UNITS/$unit" ]] || fail "hyprland-session.target wants $unit, which is not in the repo"
     done
 }
@@ -158,12 +157,23 @@ UNITS="home/.config/systemd/user"
     cp -r "$REPO/$UNITS" "$HOME/.config/systemd/user"
     cp -r "$REPO/home/.local/bin" "$HOME/.local/bin"
     cd "$HOME/.config/systemd/user"
-    run systemd-analyze --user verify ./*.service ./*.timer ./*.socket ./*.target
+    run systemd-analyze --user verify ./*.service ./*.timer ./*.socket
     [[ "$output" != *"Failed to initialize manager"* ]] || skip "systemd cannot start a user manager here"
     # A system binary that is simply not installed on this machine is not a unit bug.
     local problems
     problems="$(grep -vE 'Command /usr/bin/\S+ is not executable|^$' <<<"$output" || true)"
     [[ -z "$problems" ]] || fail "$problems"
+}
+
+@test "desktop-api finds what the packages declare" {
+    [[ -f /usr/share/hypr/stubs/hl.meta.lua && -d /usr/lib/qt6/qml/Quickshell ]] || skip "needs Hyprland and Quickshell installed"
+    run "$REPO/home/.local/bin/desktop-api"
+    [[ "$status" == 0 ]] || fail "$output"
+    local symbol
+    for symbol in 'hyprland event window.open' 'hyprland option general.gaps_in' 'quickshell PanelWindow'; do
+        grep -qxF "$symbol" <<<"$output" || fail "no $symbol in its list"
+    done
+    [[ "$output" != *ConfigValueTypes* ]] || fail "lists the options twice"
 }
 
 # --- apply-ui ----------------------------------------------------------------
