@@ -478,6 +478,40 @@ PanelWindow {
 			}
 		}
 
+		// The day in the middle: a point goes from sunrise to sunset, and at night there is
+		// nothing. Whole pixels, so it draws once in a few minutes, not every second.
+		Item {
+			id: sunLine
+			readonly property real day: Weather.sunProgress(clock.now)
+
+			anchors.centerIn: parent
+			width: 220
+			height: 7
+			visible: opacity > 0
+			opacity: day >= 0 && Bars.osdScreen !== bar.screenName ? 1 : 0
+			layer.enabled: true
+			layer.effect: Halo {}
+
+			Behavior on opacity {
+				NumberAnimation { duration: Theme.animFast; easing.type: Easing.OutCubic }
+			}
+
+			Rectangle {
+				anchors.verticalCenter: parent.verticalCenter
+				width: parent.width
+				height: 1
+				color: Theme.alpha(Theme.textMain, 0.3)
+			}
+
+			Rectangle {
+				x: Math.round(Math.max(0, sunLine.day) * (parent.width - width))
+				width: 7
+				height: 7
+				radius: 3.5
+				color: Theme.warning
+			}
+		}
+
 		// What comes and goes stands first: the row grows to the left, so the rest stays put.
 		RowLayout {
 			anchors.right: parent.right
@@ -521,12 +555,34 @@ PanelWindow {
 			}
 
 			Pill {
+				id: dictationPill
 				readonly property bool transcribing: Modes.dictation === "transcribing"
 				shown: Modes.dictation !== ""
-				text: transcribing ? "…" : "●"
+				custom: true
+				text: transcribing ? "…" : ""
 				textColor: transcribing ? Theme.warning : Theme.critical
 				isActive: true
 				onActivated: Commands.script("dictation stop")
+
+				// The dot follows the voice: it stays small when the microphone hears nothing.
+				Item {
+					anchors.verticalCenter: parent.verticalCenter
+					visible: !dictationPill.transcribing
+					width: 18
+					height: 18
+
+					Rectangle {
+						anchors.centerIn: parent
+						width: 6 + 12 * Audio.micLevel
+						height: width
+						radius: width / 2
+						color: Theme.critical
+
+						Behavior on width {
+							NumberAnimation { duration: 60 }
+						}
+					}
+				}
 			}
 
 			Pill {
@@ -640,7 +696,7 @@ PanelWindow {
 						text: Qt.formatDateTime(clock.now, "hh:mm")
 						mono: true
 						font.bold: true
-						font.pixelSize: Theme.fontSizeBar
+						font.pixelSize: Theme.fontSizeClock
 					}
 				}
 

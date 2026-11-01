@@ -15,6 +15,9 @@ Singleton {
 	// Percent.
 	readonly property int volume: Math.round(Math.min(1, sink?.audio?.volume ?? 0) * 100)
 	readonly property string icon: muted ? "volume-x" : volume <= 1 ? "volume" : volume <= 50 ? "volume-1" : "volume-2"
+	// How loud the microphone is while dictating, 0..1: from a quiet room (-30 dB) to -6 dB.
+	// Quickshell's peak is the sample's cube root, 0.32 and 0.8 here.
+	readonly property real micLevel: Math.max(0, Math.min(1, (micPeak.peak - 0.32) / 0.48))
 
 	function setVolume(percent: real): void {
 		if (!sink?.audio)
@@ -32,6 +35,13 @@ Singleton {
 
 	PwObjectTracker {
 		objects: [root.sink, root.source].filter(n => n)
+	}
+
+	// A stream of its own on the source: only while dictation holds one open anyway.
+	PwNodePeakMonitor {
+		id: micPeak
+		node: root.source
+		enabled: Modes.dictation === "recording"
 	}
 
 	// One click once a drag or a run of key presses settles.
