@@ -4,6 +4,8 @@ import Quickshell
 import Quickshell.Wayland
 import QtQuick
 
+// What just changed, a line in the middle of the bar. It opens from there and takes that
+// bar's sun line for the moment. Over a fullscreen window there is no bar: it comes on glass.
 PanelWindow {
 	id: win
 
@@ -11,11 +13,13 @@ PanelWindow {
 	property int value: 0
 	property bool muted: false
 	property bool shown: false
+	property real revealed: shown ? 1 : 0
 
 	readonly property string icon: kind === "brightness" ? "sun"
 		: kind === "mic" ? (muted ? "mic-off" : "mic")
 		: kind === "wallpaper" ? "image"
 		: Audio.icon
+	readonly property color tone: muted ? Theme.textDim : Theme.accentBlue
 
 	// The wallpaper's name, and the folder SUPER + P goes through.
 	readonly property string home: Quickshell.env("HOME")
@@ -42,7 +46,9 @@ PanelWindow {
 		hideTimer.restart();
 	}
 
-	visible: shown || card.opacity > 0
+	onShownChanged: Bars.osdScreen = shown ? (screen?.name ?? "") : ""
+
+	visible: shown || revealed > 0
 	color: "transparent"
 	exclusionMode: ExclusionMode.Ignore
 	exclusiveZone: 0
@@ -59,9 +65,13 @@ PanelWindow {
 		left: true
 		right: true
 	}
-	margins.top: Theme.panelTop
+	margins.top: Theme.barMarginY
 
-	implicitHeight: card.height
+	implicitHeight: Theme.barHeight
+
+	Behavior on revealed {
+		NumberAnimation { duration: Theme.animFast; easing.type: Easing.OutCubic }
+	}
 
 	Timer {
 		id: hideTimer
@@ -70,93 +80,89 @@ PanelWindow {
 	}
 
 	Rectangle {
-		id: card
 		anchors.centerIn: parent
-		width: 380
-		height: 68
-		opacity: win.shown ? 1 : 0
-
-		Behavior on opacity {
-			NumberAnimation { duration: Theme.animFast }
-		}
-		color: Theme.glass(Theme.bgCard)
-		border.color: Theme.border
-		border.width: Theme.borderSize
+		width: (line.width + 2 * Theme.paddingCard) * win.revealed
+		height: parent.height
+		opacity: win.revealed
+		clip: win.revealed < 1
+		color: Hypr.fullscreenOn(win.screen) ? Theme.glass(Theme.bgCard) : "transparent"
 		radius: Theme.roundingElement
 
 		Row {
-			anchors.fill: parent
-			anchors.margins: 14
-			spacing: Theme.paddingItem
+			id: line
+			anchors.centerIn: parent
+			height: parent.height
+			spacing: 10
+			layer.enabled: true
+			layer.effect: Halo {}
 
 			LineIcon {
-				width: 36
 				anchors.verticalCenter: parent.verticalCenter
 				name: win.icon
-				size: 26
-				color: win.muted ? Theme.textDim : Theme.accentBlue
+				color: win.tone
 			}
 
-			Item {
-				width: parent.width - 36 - Theme.paddingItem
-				height: parent.height
-
-				StyledText {
-					anchors.fill: parent
-					horizontalAlignment: Text.AlignHCenter
-					verticalAlignment: Text.AlignVCenter
-					visible: win.kind !== "wallpaper"
-					text: win.kind === "mic" ? (win.muted ? "Muted" : "On") : win.value + "%"
-					mono: true
-					font.pixelSize: Theme.fontSizeSmall
-					font.bold: true
-				}
-
-				Column {
-					anchors.verticalCenter: parent.verticalCenter
-					width: parent.width
-					visible: win.kind === "wallpaper"
-					spacing: 2
-
-					StyledText {
-						width: parent.width
-						horizontalAlignment: Text.AlignHCenter
-						elide: Text.ElideMiddle
-						textFormat: Text.PlainText
-						text: win.wallpaperName
-						font.bold: true
-					}
-
-					StyledText {
-						width: parent.width
-						horizontalAlignment: Text.AlignHCenter
-						elide: Text.ElideMiddle
-						textFormat: Text.PlainText
-						text: win.wallpaperDir
-						mono: true
-						font.pixelSize: Theme.fontSizeSmall
-						color: Theme.textDim
-					}
-				}
+			Rectangle {
+				anchors.verticalCenter: parent.verticalCenter
+				visible: win.kind === "volume" || win.kind === "brightness"
+				width: 180
+				height: 4
+				radius: 2
+				color: Theme.alpha(Theme.textMain, 0.25)
 
 				Rectangle {
-					anchors.bottom: parent.bottom
-					anchors.horizontalCenter: parent.horizontalCenter
-					width: parent.width - 24
-					height: 6
-					radius: Theme.roundingSubtle
-					color: Theme.bgHover
-					visible: win.kind !== "mic" && win.kind !== "wallpaper"
+					width: parent.width * Math.min(100, Math.max(0, win.value)) / 100
+					height: parent.height
+					radius: parent.radius
+					color: win.tone
 
-					Rectangle {
-						anchors.left: parent.left
-						anchors.top: parent.top
-						anchors.bottom: parent.bottom
-						width: parent.width * Math.min(100, Math.max(0, win.value)) / 100
-						radius: Theme.roundingSubtle
-						color: win.muted ? Theme.textDim : Theme.accentBlue
+					Behavior on width {
+						NumberAnimation { duration: Theme.animFast; easing.type: Easing.OutCubic }
 					}
 				}
+			}
+
+			// A fixed room: the line does not shift between 9% and 10%.
+			StyledText {
+				anchors.verticalCenter: parent.verticalCenter
+				visible: win.kind === "volume" || win.kind === "brightness"
+				width: 38
+				horizontalAlignment: Text.AlignRight
+				text: win.value + "%"
+				mono: true
+				font.bold: true
+				font.pixelSize: Theme.fontSizeBar
+			}
+
+			StyledText {
+				anchors.verticalCenter: parent.verticalCenter
+				visible: win.kind === "mic"
+				text: win.muted ? "Muted" : "On"
+				font.bold: true
+				font.pixelSize: Theme.fontSizeBar
+			}
+
+			StyledText {
+				anchors.verticalCenter: parent.verticalCenter
+				visible: win.kind === "wallpaper"
+				width: Math.min(implicitWidth, 300)
+				elide: Text.ElideMiddle
+				textFormat: Text.PlainText
+				text: win.wallpaperName
+				font.bold: true
+				font.pixelSize: Theme.fontSizeBar
+			}
+
+			StyledText {
+				anchors.verticalCenter: parent.verticalCenter
+				visible: win.kind === "wallpaper"
+				width: Math.min(implicitWidth, 360)
+				elide: Text.ElideMiddle
+				textFormat: Text.PlainText
+				text: win.wallpaperDir
+				mono: true
+				font.pixelSize: Theme.fontSizeSmall
+				color: Theme.textDim
 			}
 		}
 	}

@@ -48,6 +48,8 @@ Singleton {
 	readonly property int fontSizeTiny: 12
 	readonly property int fontSizeSmall: 14
 	readonly property int fontSizeBar: 15
+	// The clock's figures: the one thing on the bar read at a glance.
+	readonly property int fontSizeClock: 18
 	readonly property int fontSize: 16
 	// Titles and the search field.
 	readonly property int fontSizeLarge: 18

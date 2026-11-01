@@ -14,10 +14,17 @@ Singleton {
 	property var today: ({ high: "", low: "" })
 	property var hourlyForecast: []
 	property var forecastDays: []
+	// Sunrise and sunset, by day.
+	property var sunDays: ({})
 	// Where the forecast is for.
 	property string location: ""
 	// What went wrong, while there is no forecast to show instead.
 	property string lastError: ""
+
+	// How far the sun is through the day at `now`, 0..1; -1 at night or with no forecast.
+	function sunProgress(now: date): real {
+		return WeatherModel.sunProgress(sunDays[Qt.formatDate(now, "yyyy-MM-dd")], now.getTime());
+	}
 
 	function refresh(): void {
 		var place = WeatherModel.parseLocationFile(placeFile.text());
@@ -45,7 +52,7 @@ Singleton {
 		forecastProc.command = ["curl", "-fsS", "--max-time", "6", "https://api.open-meteo.com/v1/forecast"
 			+ "?latitude=" + latitude
 			+ "&longitude=" + longitude
-			+ "&daily=weather_code,temperature_2m_max,temperature_2m_min"
+			+ "&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset"
 			+ "&current=temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,weather_code,is_day"
 			+ "&hourly=temperature_2m,precipitation_probability,weather_code,is_day"
 			+ "&forecast_hours=27"
@@ -109,6 +116,7 @@ Singleton {
 					root.hourlyForecast = WeatherModel.parseOpenMeteoHourly(report);
 					root.forecastDays = WeatherModel.parseOpenMeteoDaily(report, Qt.formatDate(new Date(), "yyyy-MM-dd"));
 					root.today = WeatherModel.parseTodayHighLow(report);
+					root.sunDays = WeatherModel.parseSunTimes(report);
 					root.lastError = "";
 				} catch (e) {
 					root.fail("Couldn't read the forecast");
