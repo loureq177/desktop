@@ -5,14 +5,14 @@ import QtQuick
 import QtQuick.Layouts
 
 // Volume, brightness and the switches of the desktop, with a page of their
-// own for Wi-Fi and Bluetooth.
+// own for Wi-Fi, Bluetooth and the night light.
 Drawer {
 	id: win
 
 	name: "actions"
-	// "main", or the page of one tile ("wifi", "bluetooth").
+	// "main", or the page of one tile ("wifi", "bluetooth", "nightlight").
 	property string subView: "main"
-	readonly property var pages: ({ main: mainPage, wifi: wifiPage, bluetooth: btPage })
+	readonly property var pages: ({ main: mainPage, wifi: wifiPage, bluetooth: btPage, nightlight: nightPage })
 	contentHeight: pages[subView].implicitHeight
 
 	// The keyboard's place: a slider's row, or a row and column of the tiles.
@@ -347,6 +347,8 @@ Drawer {
 			Tile {
 				key: "N"
 				command: "nightlight"
+				subtitle: active ? Modes.nightLightKelvin + " K" : ""
+				page: "nightlight"
 			}
 
 			Tile {
@@ -360,6 +362,13 @@ Drawer {
 				icon: active ? "bell-off" : "bell"
 			}
 		}
+	}
+
+	NightLightSubView {
+		id: nightPage
+		anchors.fill: parent
+		visible: win.subView === "nightlight"
+		onBackRequested: win.subView = "main"
 	}
 
 	WifiSubView {

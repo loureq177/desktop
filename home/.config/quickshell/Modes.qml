@@ -29,17 +29,34 @@ Singleton {
 			windowsLeft.restart();
 	}
 	property bool nightLight: false
+	// What the schedule turns it on at (hyprsunset.conf).
+	property int nightLightKelvin: 4500
 
 	function readNightLight(): void {
 		if (!nightLightQuery.running)
 			nightLightQuery.running = true;
 	}
 
-	// Until the schedule's next change, at 4500 K; off reads back 6000 K.
+	// Off reads back 6000 K.
+	function nightLightCommand(): string {
+		return nightLight ? "hyprctl hyprsunset temperature " + nightLightKelvin
+			: "hyprctl hyprsunset temperature 6000 && hyprctl hyprsunset identity";
+	}
+
+	// Until the schedule's next change.
 	function toggleNightLight(): void {
 		nightLight = !nightLight;
-		Quickshell.execDetached(["sh", "-c", nightLight ? "hyprctl hyprsunset temperature 4500"
-			: "hyprctl hyprsunset temperature 6000 && hyprctl hyprsunset identity"]);
+		Quickshell.execDetached(["sh", "-c", nightLightCommand()]);
+	}
+
+	// On at once; kept for the schedule once the slider rests.
+	function setNightLightKelvin(kelvin: int): void {
+		if (kelvin === nightLightKelvin && nightLight)
+			return;
+		nightLight = true;
+		nightLightKelvin = kelvin;
+		Quickshell.execDetached(["sh", "-c", nightLightCommand()]);
+		nightLightSave.restart();
 	}
 
 	Process {
@@ -53,6 +70,27 @@ Singleton {
 	Timer {
 		id: windowsLeft
 		interval: 600
+	}
+
+	FileView {
+		id: nightLightConfig
+		path: (Quickshell.env("XDG_CONFIG_HOME") || Quickshell.env("HOME") + "/.config") + "/hypr/hyprsunset.conf"
+		printErrors: false
+		onLoaded: {
+			var found = /temperature\s*=\s*(\d+)/.exec(text());
+			if (found)
+				root.nightLightKelvin = parseInt(found[1]);
+		}
+	}
+
+	// hyprsunset reads its schedule only as it starts, which also sets the screen by it:
+	// what is on now goes back on, once its socket is up.
+	Timer {
+		id: nightLightSave
+		interval: 500
+		onTriggered: Quickshell.execDetached(["sh", "-c",
+			"sed -i --follow-symlinks -E 's/(temperature *= *)[0-9]+/\\1" + root.nightLightKelvin + "/' '" + nightLightConfig.path + "'"
+			+ " && systemctl --user try-restart hyprsunset; sleep 0.5; " + root.nightLightCommand()])
 	}
 
 	component Marker: FileView {
