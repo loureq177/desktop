@@ -115,8 +115,8 @@ key = "F"
 icon = "folder"
 standard = true
 apps = [
-	{ name = "Yazi", term = "yazi", app_icon = "system-file-manager", desktop = "yazi", pacman = ["yazi"] },
 	{ name = "Nautilus", exec = "nautilus --new-window", class = "org.gnome.Nautilus", app_icon = "org.gnome.Nautilus", desktop = "org.gnome.Nautilus", pacman = ["nautilus"] },
+	{ name = "Yazi", term = "yazi", app_icon = "system-file-manager", desktop = "yazi", pacman = ["yazi"] },
 ]
 
 [[category]]
