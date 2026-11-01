@@ -38,8 +38,8 @@ compromise on functionality.
 - Screenshots with edits, screen recording with mic and camera!!, OCR
 - **Dictation** with Parakeet under `SUPER + D`, Polish and English mixed
 - Battery care, power saver, awake-mode, night-light
-- **Settings** under `SUPER + S`: every option of Hyprland, the theme and the
-  desktop's modes, searchable, changed on the spot
+- **Settings** under `SUPER + S`: displays, Wi-Fi, Bluetooth, audio, and every option
+  of Hyprland and the theme, searchable, changed on the spot
 - **LocalSend** in the tray from the start, for files to and from the phone
 - **Keys** under `SUPER + /`: every bind, Enter gives it new keys, Delete twice
   removes it, the first row adds a new one (kept in `~/.config/hypr/keys.lua`),

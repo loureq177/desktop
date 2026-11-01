@@ -58,7 +58,7 @@ Row {
 		anchors.verticalCenter: parent.verticalCenter
 		text: "‹"
 		color: Theme.textDim
-		opacity: root.selected ? 1 : 0
+		opacity: root.selected && !root.setting?.stepless ? 1 : 0
 	}
 
 	StyledText {
@@ -78,7 +78,7 @@ Row {
 		anchors.verticalCenter: parent.verticalCenter
 		text: "›"
 		color: Theme.textDim
-		opacity: root.selected ? 1 : 0
+		opacity: root.selected && !root.setting?.stepless ? 1 : 0
 	}
 
 	Rectangle {

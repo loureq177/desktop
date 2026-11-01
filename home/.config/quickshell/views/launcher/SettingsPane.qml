@@ -2,8 +2,8 @@ import "../.."
 import "../../Search.js" as Search
 import QtQuick
 
-// The settings (Settings) by section, typing searches them all: Enter edits, ←/→ steps,
-// blue was set here, Ctrl+R gives it back to the config, Esc steps out. What a
+// Displays, Wi-Fi, Bluetooth, audio and Hyprland, typing searches them all: Enter edits,
+// ←/→ steps, blue was set here, Ctrl+R gives it back to the config, Esc steps out. What a
 // setting does shows on hover.
 LauncherPane {
 	id: pane
@@ -12,9 +12,10 @@ LauncherPane {
 	// "type" a value for it.
 	property string mode: "browse"
 	property var editing: null
-	// The section browsed: "" lists the sections, "changed" what settings.lua holds.
+	// The page browsed: "" the first, "hyprland" Hyprland's sections, "changed" what settings.lua holds.
 	property string section: ""
 	property int sectionIndex: 0
+	property int hyprlandIndex: 0
 	// Where browsing was, to come back to.
 	property string browseQuery: ""
 	property int browseIndex: 0
@@ -30,7 +31,7 @@ LauncherPane {
 		: mode === "type" ? "A value for " + editing.label.toLowerCase() + range(editing)
 		: !Settings.loaded ? "Loading settings…"
 		: section !== "" ? "Search " + sectionLabel.toLowerCase() + "…"
-		: "Search " + Settings.entries.length + " settings in " + Settings.sections.length + " categories…"
+		: "Search " + Settings.entries.length + " settings…"
 	preferredHeight: list.preferredHeight
 	error: Settings.lastError
 
@@ -51,6 +52,10 @@ LauncherPane {
 	function tooltip(e: var): string {
 		if (e.source === "ui")
 			return e.name + " in ui.toml, for the whole desktop: the shell restarts with it";
+		if (e.source === "display" && Settings.changed(e))
+			return e.desc + "\nSet here: Ctrl+R gives it back to the config";
+		if (e.source !== "hyprland")
+			return e.desc;
 		var lines = [];
 		if (e.desc)
 			lines.push(e.desc.charAt(0).toUpperCase() + e.desc.slice(1));
@@ -70,7 +75,7 @@ LauncherPane {
 
 	function stepColumn(delta: int, repeat: bool): void {
 		var e = current;
-		if (!e || e.source === "ui")
+		if (!e || e.source === "ui" || e.stepless)
 			return;
 		list.keepIndex(() => Settings.set(e, Settings.stepped(e, delta)));
 	}
@@ -83,17 +88,20 @@ LauncherPane {
 		if (mode !== "browse")
 			leave();
 		else if (section !== "")
-			openSection("");
+			openSection(["displays", "audio", "hyprland"].includes(section) ? "" : "hyprland");
 		else
 			return false;
 		return true;
 	}
 
-	// Into a section (its own list, its own search), or back out to the sections.
+	// Into a page (its own list, its own search), or back out to where it was opened from.
 	function openSection(key: string): void {
-		var index = key === "" ? sectionIndex : 0;
-		if (key !== "")
+		var out = key === "" || (key === "hyprland" && section !== "");
+		var index = !out ? 0 : key === "" ? sectionIndex : hyprlandIndex;
+		if (!out && section === "")
 			sectionIndex = list.currentIndex;
+		else if (!out)
+			hyprlandIndex = list.currentIndex;
 		section = key;
 		pane.queryRequested("");
 		Qt.callLater(() => list.currentIndex = index);
@@ -110,6 +118,7 @@ LauncherPane {
 		section = "";
 		Settings.lastError = "";
 		Settings.refresh();
+		Brightness.read();
 		list.rewind();
 	}
 
@@ -138,6 +147,7 @@ LauncherPane {
 		browseIndex = list.currentIndex;
 		editing = e;
 		mode = e.kind === "enum" ? "choose" : "type";
+		list.currentIndex = 0;
 		Settings.lastError = "";
 		pane.queryRequested(mode === "type" ? (e.kind === "color" && e.source === "hyprland" ? Settings.hyprColorInput(String(e.value)) : String(e.value)) : "");
 	}
@@ -153,6 +163,31 @@ LauncherPane {
 		pane.queryRequested(browseQuery);
 		var index = browseIndex;
 		Qt.callLater(() => list.currentIndex = index);
+	}
+
+	function page(label: string, subtitle: string, icon: string, run: var): var {
+		return { label: label, subtitle: subtitle, lineIcon: icon, run: run };
+	}
+
+	function openPage(key: string): var {
+		return () => {
+			pane.openSection(key);
+			return false;
+		};
+	}
+
+	// Wi-Fi and Bluetooth have their pages in Actions.
+	readonly property var actionsPages: [
+		page("Wi-Fi", Net.wifiStatus, Net.wifiUp ? "wifi" : "wifi-off", () => Commands.get("wifi").run()),
+		page("Bluetooth", Bt.status, Bt.icon, () => Commands.get("bluetooth").run())
+	]
+
+	function pageRows(): var {
+		var screens = Settings.monitors.map(m => m.width + "x" + m.height + " · " + Math.round(m.refreshRate) + " Hz").join(", ");
+		return [page("Displays", screens, "monitor", openPage("displays"))].concat(actionsPages, [
+			page("Audio", Audio.sink?.description ?? "", Audio.icon, openPage("audio")),
+			page("Hyprland", Settings.hyprlandEntries.length + " settings, and the look", "layout-grid", openPage("hyprland"))
+		]);
 	}
 
 	// What settings.lua holds first, then the look and Hyprland's sections.
@@ -192,7 +227,15 @@ LauncherPane {
 		id: list
 		anchors.fill: parent
 
-		items: {
+		// Displays and audio answer later than the keypress: a new model would go back to the top.
+		onRowsChanged: {
+			var index = currentIndex;
+			items = rows;
+			currentIndex = Math.min(index, count - 1);
+		}
+		Component.onCompleted: items = rows
+
+		readonly property var rows: {
 			if (pane.mode === "choose")
 				return Search.rank(pane.editing.choices, c => Search.matchScore([[String(c.label), 0]], pane.q)).map(c => ({
 					label: String(c.label),
@@ -203,13 +246,18 @@ LauncherPane {
 						return false;
 					}
 				}));
-			if (pane.mode === "browse" && pane.section === "" && pane.q === "")
+			if (pane.mode === "browse" && pane.q === "" && pane.section === "")
+				return pane.pageRows();
+			if (pane.mode === "browse" && pane.q === "" && pane.section === "hyprland")
 				return pane.sectionRows();
 			var all = pane.section === "" ? Settings.entries
+				: pane.section === "hyprland" ? Settings.hyprlandEntries
 				: pane.section === "changed" ? pane.changedEntries
 				: Settings.entries.filter(e => e.section === pane.section);
 			var shown = pane.mode === "type" ? [pane.editing] : Search.rank(all, e => pane.score(e));
-			return shown.map(e => ({
+			// Typed on the first page: the two that live in Actions are found too.
+			var pages = pane.mode === "browse" && pane.section === "" ? pane.actionsPages.filter(p => Search.matchScore([[p.label, 0]], pane.q) !== -1) : [];
+			return pages.concat(shown.map(e => ({
 				label: e.label,
 				subtitle: pane.section === "" && pane.mode === "browse" ? e.group : "",
 				tooltip: pane.mode === "browse" ? pane.tooltip(e) : "",
@@ -220,7 +268,7 @@ LauncherPane {
 					pane.enter(e);
 					return false;
 				}
-			}));
+			})));
 		}
 
 		emptyText: !Settings.loaded ? "Loading settings…" : pane.section === "changed" && pane.q === "" ? "Nothing changed here" : "Nothing matches"

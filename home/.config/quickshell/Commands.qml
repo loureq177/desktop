@@ -82,7 +82,7 @@ Singleton {
 		{ id: "bluetooth", group: "connections", name: "Bluetooth", desc: "Devices", icon: "bluetooth", keywords: "headphones", run: () => open("actions", "bluetooth") },
 
 		{ id: "windows", group: "system", bind: "Essential: Open windows", name: "Open windows", desc: "Every window, on any workspace", icon: "app-window", keywords: "overview apps switcher running", run: () => open("launcher", "windows") },
-		{ id: "settings", group: "system", bind: "System & Tools: Settings", name: "Settings", desc: "Hyprland and the look", icon: "settings", keywords: "config preferences", run: () => open("launcher", "settings") },
+		{ id: "settings", group: "system", bind: "System & Tools: Settings", name: "Settings", desc: "Displays, Wi-Fi, Bluetooth, audio, Hyprland", icon: "settings", keywords: "config preferences", run: () => open("launcher", "settings") },
 		{ id: "clipboard", group: "system", bind: "System & Tools: Clipboard history", name: "Clipboard", desc: "What was copied", icon: "clipboard", keywords: "history paste", run: () => open("launcher", "clipboard") },
 		{ id: "emoji", group: "system", bind: "System & Tools: Emojis", name: "Emoji", desc: "Pick one to paste", icon: "smile", keywords: "smiley", run: () => open("launcher", "emoji") },
 		{ id: "keys", group: "system", bind: "System & Tools: Keybindings", name: "Keybindings", desc: "See, change, remove or add keys", icon: "keyboard", keywords: "shortcuts hotkeys binds", run: () => open("launcher", "keys") },

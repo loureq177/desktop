@@ -3,8 +3,8 @@ import Quickshell
 import Quickshell.Io
 import QtQuick
 
-// What the settings list can change: the look (apply-ui) and Hyprland's options
-// (kept in ~/.config/hypr/settings.lua); kind is bool, int, float, enum, text or color.
+// What the settings list can change: the screens (displays.lua), audio, the look (apply-ui)
+// and Hyprland's options (settings.lua); kind is bool, int, float, enum, text or color.
 Singleton {
 	id: root
 
@@ -19,6 +19,10 @@ Singleton {
 	readonly property bool loaded: hyprOptions.length > 0
 
 	readonly property string savedPath: Quickshell.env("HOME") + "/.config/hypr/settings.lua"
+
+	// The screens as Hyprland reports them; the mode and scale chosen here, by output.
+	property var monitors: []
+	property var savedDisplays: ({})
 
 	// Left out: what ui.toml decides (look.lua), changed there instead, Xwayland, which
 	// xwayland-satellite stands in for, what workspaces.lua keeps setting, and debug:*.
@@ -39,6 +43,7 @@ Singleton {
 	// ui.toml changes only through apply-ui, which restarts the shell.
 	function refresh(): void {
 		describe.running = true;
+		monitorsQuery.running = true;
 		if (uiValues.length === 0)
 			uiDump.running = true;
 	}
@@ -104,10 +109,100 @@ Singleton {
 		};
 	})
 
-	readonly property var entries: uiEntries.concat(hyprEntries)
+	// Known by description where there is one: connector names change per plug and boot.
+	function displayOutput(m: var): string {
+		return m.description ? "desc:" + m.description : m.name;
+	}
+
+	function currentMode(m: var): string {
+		return m.width + "x" + m.height + "@" + m.refreshRate.toFixed(2);
+	}
+
+	readonly property var displayEntries: {
+		var brightness = Brightness.percent < 0 ? [] : [{
+			id: "display:brightness",
+			source: "display",
+			name: "Brightness",
+			group: "Displays",
+			section: "displays",
+			sub: "",
+			label: "Brightness",
+			desc: "The built-in panel",
+			kind: "int",
+			value: Brightness.percent,
+			min: 0,
+			max: 100,
+			step: 5,
+			icon: "sun",
+			apply: v => Brightness.setPercent(v)
+		}];
+		return root.monitors.reduce((list, m) => {
+			var output = displayOutput(m);
+			var modes = (m.availableModes ?? []).map(s => s.replace(/Hz$/, ""));
+			if (!modes.includes(currentMode(m)))
+				modes.unshift(currentMode(m));
+			var common = {
+				source: "display",
+				output: output,
+				group: "Displays › " + (m.description || m.name),
+				section: "displays",
+				sub: m.description || m.name,
+				desc: m.name,
+				kind: "enum",
+				stepless: true
+			};
+			return list.concat([
+				Object.assign({}, common, {
+					id: "display:" + m.name + ":mode",
+					name: m.name + " mode",
+					label: "Resolution and refresh",
+					value: currentMode(m),
+					choices: modes.map(s => ({ label: s.replace("@", " · ").replace(/\.00$/, "") + " Hz", value: s })),
+					icon: "monitor",
+					apply: v => root.setDisplay(m, v, m.scale)
+				}),
+				Object.assign({}, common, {
+					id: "display:" + m.name + ":scale",
+					name: m.name + " scale",
+					label: "Scale",
+					value: m.scale,
+					// Hyprland takes only those that leave whole logical pixels.
+					choices: [1, 1.25, 1.5, 1.75, 2].filter(v => Number.isInteger(m.width / v) && Number.isInteger(m.height / v)).concat([m.scale]).filter((v, i, all) => all.indexOf(v) === i).sort((a, b) => a - b).map(v => ({ label: Math.round(v * 100) + "%", value: v })),
+					icon: "sliders-horizontal",
+					apply: v => root.setDisplay(m, currentMode(m), v)
+				})
+			]);
+		}, brightness);
+	}
+
+	readonly property var audioEntries: {
+		var common = { source: "audio", group: "Audio", section: "audio", desc: "" };
+		var device = (name, sinks, node, icon) => Object.assign({}, common, {
+			id: "audio:" + name, name: name, label: name, sub: "Devices", kind: "enum", stepless: true, icon: icon,
+			value: node?.id ?? -1, choices: Audio.devices(sinks), apply: v => Audio.choose(v)
+		});
+		var level = (name, value, icon, apply) => Object.assign({}, common, {
+			id: "audio:" + name, name: name, label: name, sub: "Levels", kind: "int", min: 0, max: 100, step: 2, icon: icon, value: value, apply: apply
+		});
+		var mute = (name, value, apply) => Object.assign({}, common, {
+			id: "audio:" + name, name: name, label: name, sub: "Levels", kind: "bool", icon: "volume-x", value: value, apply: apply
+		});
+		return [
+			device("Output", true, Audio.sink, "speaker"),
+			device("Input", false, Audio.source, "mic"),
+			level("Output volume", Audio.volume, "volume-2", v => Audio.setVolume(v)),
+			mute("Output muted", Audio.muted, () => Audio.toggleMute()),
+			level("Input volume", Audio.inputVolume, "mic", v => Audio.setInputVolume(v)),
+			mute("Input muted", Audio.inputMuted, () => Audio.toggleInputMute())
+		];
+	}
+
+	readonly property var entries: displayEntries.concat(audioEntries, uiEntries, hyprEntries)
+	// What the Hyprland page holds, the look first.
+	readonly property var hyprlandEntries: uiEntries.concat(hyprEntries)
 
 	// The entries by their first part, in the order they come: { key, label, icon, count }.
-	readonly property var sections: entries.reduce((list, e) => {
+	readonly property var sections: hyprlandEntries.reduce((list, e) => {
 		var s = list.find(x => x.key === e.section);
 		if (s)
 			s.count++;
@@ -152,6 +247,8 @@ Singleton {
 
 	// Set here, so in settings.lua.
 	function changed(e: var): bool {
+		if (e.source === "display")
+			return root.savedDisplays[e.output] !== undefined;
 		return e.source === "hyprland" && root.saved[e.name] !== undefined;
 	}
 
@@ -194,6 +291,14 @@ Singleton {
 	function reset(e: var): void {
 		if (!changed(e))
 			return;
+		if (e.source === "display") {
+			var kept = Object.assign({}, root.savedDisplays);
+			delete kept[e.output];
+			root.savedDisplays = kept;
+			displayForget.output = e.output;
+			writeDisplays();
+			return;
+		}
 		var next = Object.assign({}, root.saved);
 		delete next[e.name];
 		root.saved = next;
@@ -209,7 +314,9 @@ Singleton {
 		root.lastError = "";
 		if (value === undefined || String(value) === String(e.value))
 			return;
-		if (e.source === "ui") {
+		if (e.apply) {
+			e.apply(value);
+		} else if (e.source === "ui") {
 			Hypr.exec([Quickshell.env("HOME") + "/.local/bin/apply-ui", "--set=" + e.name + "=" + String(value)]);
 		} else {
 			if (e.kind === "color")
@@ -242,6 +349,26 @@ Singleton {
 	// "decoration:blur:passes" -> { ["decoration"] = { ["blur"] = { ["passes"] = v } } }
 	function luaTree(name: string, value: string): string {
 		return name.split(/[:.]/).reverse().reduce((inner, part) => "{ [" + Hypr.quote(part) + "] = " + inner + " }", value);
+	}
+
+	// The screen where it is, with the new mode and scale; kept once Hyprland took it.
+	function setDisplay(m: var, mode: string, scale: real): void {
+		displayApply.output = displayOutput(m);
+		displayApply.mode = mode;
+		displayApply.scale = scale;
+		displayApply.command = ["hyprctl", "dispatch", "function() hl.monitor({ output = " + Hypr.quote(displayApply.output)
+			+ ", mode = " + Hypr.quote(mode) + ", position = " + Hypr.quote(m.x + "x" + m.y) + ", scale = " + scale + " }) end"];
+		displayApply.running = true;
+	}
+
+	function writeDisplays(): void {
+		var lines = Object.keys(root.savedDisplays).sort().map(k => {
+			var d = root.savedDisplays[k];
+			return "\t[" + Hypr.quote(k) + "] = { mode = " + Hypr.quote(d.mode) + ", scale = " + d.scale + " },";
+		});
+		displaysFile.setText("-- Written by the shell's settings (SUPER + S): each screen's mode and scale\n"
+			+ "-- (hyprland/monitors.lua). A line taken out goes back to the config's.\n"
+			+ "return {\n" + lines.join("\n") + (lines.length > 0 ? "\n" : "") + "}\n");
 	}
 
 	function write(): void {
@@ -288,6 +415,83 @@ Singleton {
 					root.lastError = "apply-ui --dump: " + e;
 				}
 			}
+		}
+	}
+
+	Process {
+		id: monitorsQuery
+		command: ["hyprctl", "monitors", "-j"]
+		stdout: StdioCollector {
+			onStreamFinished: {
+				try {
+					root.monitors = JSON.parse(this.text).filter(m => m.name !== "FALLBACK");
+				} catch (e) {
+					root.lastError = "hyprctl monitors: " + e;
+				}
+			}
+		}
+	}
+
+	Process {
+		id: displayApply
+
+		property string output: ""
+		property string mode: ""
+		property real scale: 1
+
+		stdout: StdioCollector {
+			id: displayOut
+		}
+
+		onExited: {
+			var said = displayOut.text.trim();
+			if (said === "ok") {
+				var next = Object.assign({}, root.savedDisplays);
+				next[output] = { mode: mode, scale: scale };
+				root.savedDisplays = next;
+				root.writeDisplays();
+			} else {
+				root.lastError = said.replace(/^error: .*?:1: /, "");
+			}
+			monitorsAfter.restart();
+		}
+	}
+
+	// Once displays.lua no longer has it.
+	Process {
+		id: displayForget
+		property string output: ""
+		command: ["hyprctl", "dispatch", "function() require(\"hyprland.monitors\").forget(" + Hypr.quote(output) + ") end"]
+		onExited: {
+			output = "";
+			monitorsAfter.restart();
+		}
+	}
+
+	// Hyprland applies a rule on its next refresh.
+	Timer {
+		id: monitorsAfter
+		interval: 300
+		onTriggered: monitorsQuery.running = true
+	}
+
+	FileView {
+		id: displaysFile
+		path: Quickshell.env("HOME") + "/.config/hypr/displays.lua"
+		blockLoading: true
+		printErrors: false
+		onSaved: {
+			if (displayForget.output !== "")
+				displayForget.running = true;
+		}
+		onLoaded: {
+			var found = {};
+			for (const line of this.text().split("\n")) {
+				var m = /^\s*\["([^"]+)"\]\s*=\s*\{ mode = "([^"]+)", scale = ([0-9.]+) \},\s*$/.exec(line);
+				if (m)
+					found[m[1]] = { mode: m[2], scale: Number(m[3]) };
+			}
+			root.savedDisplays = found;
 		}
 	}
 
