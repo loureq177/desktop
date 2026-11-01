@@ -1,11 +1,12 @@
-# nvidia-suspend.service takes the VT at once, 60 ms after the lock begins: the panel freezes on
-# that frame, unlocked. This gives the lock screen time to reach it first.
+# The kernel moves to VT 63 as sleep begins and back on waking: the panel can freeze on the frame
+# it leaves, so the lock screen gets time to reach it, and VT 63 shows no blinking cursor.
 [Unit]
-Description=Let the lock screen reach the screen before sleep
+Description=Ready the screen for sleep: lock screen on the panel, no cursor on VT 63
 Before=nvidia-suspend.service systemd-suspend.service
 
 [Service]
 Type=oneshot
+ExecStart=/usr/bin/sh -c 'printf "\\033[?25l" > /dev/tty63'
 ExecStart=/usr/bin/sleep 0.8
 
 [Install]
