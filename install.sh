@@ -250,7 +250,7 @@ done < <(grep -l '^\[Install\]' home/.config/systemd/user/*.{timer,service,socke
 # Shipped by their packages, configured here; the session starts them.
 systemctl --user enable hypridle.service 2>/dev/null || _log_warn "Failed to enable hypridle.service."
 systemctl --user enable app-com.mitchellh.ghostty.service 2>/dev/null || _log_warn "Failed to enable Ghostty's service."
-# Balanced stays balanced on battery: quicker starts, for some 0.6 W; power-saver is the saving one.
+# Balanced stays balanced on battery: quicker starts, for some 0.6 W.
 powerprofilesctl configure-battery-aware --disable 2>/dev/null || true
 systemctl --user enable hyprsunset.service 2>/dev/null || _log_warn "Failed to enable hyprsunset.service."
 systemctl --user enable wayland-pipewire-idle-inhibit.service 2>/dev/null ||

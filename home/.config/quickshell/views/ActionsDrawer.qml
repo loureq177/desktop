@@ -21,8 +21,10 @@ Drawer {
 	readonly property var sliders: Brightness.percent >= 0 ? [volRow, briRow] : [volRow]
 	readonly property int rowCount: sliders.length + Math.ceil(tileGrid.children.length / 2)
 
+	// An odd last row: its empty place is the tile beside it.
 	function tileAt(r: int, c: int): Item {
-		return r < sliders.length ? null : tileGrid.children[(r - sliders.length) * 2 + c] ?? null;
+		var i = (r - sliders.length) * 2 + c;
+		return r < sliders.length ? null : tileGrid.children[i] ?? tileGrid.children[i - 1] ?? null;
 	}
 
 	function selectTile(tile: Item): void {
@@ -336,12 +338,6 @@ Drawer {
 				active: Bt.enabled
 				page: "bluetooth"
 				toggle: () => Bt.toggle()
-			}
-
-			Tile {
-				key: "S"
-				command: "powersave"
-				subtitle: active ? "60 Hz" : ""
 			}
 
 			Tile {

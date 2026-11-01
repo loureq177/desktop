@@ -73,7 +73,6 @@ Singleton {
 		{ id: "dnd", group: "modes", name: "Do not disturb", desc: "Silences notifications", icon: "bell-off", active: Notifications.dnd, tint: Theme.warning, keywords: "dnd", run: () => { Notifications.dnd = !Notifications.dnd; } },
 		{ id: "nightlight", group: "modes", name: "Night light", desc: "Turns on at 8 PM", icon: "moon", active: Modes.nightLight, tint: Theme.warning, keywords: "blue light", run: () => Modes.toggleNightLight() },
 		{ id: "awake", group: "modes", name: "Keep awake", desc: "The screen stays on", icon: "coffee", active: Modes.awake, keywords: "caffeine", run: () => script("awake-toggle") },
-		{ id: "powersave", group: "modes", name: "Battery saver", desc: "60 Hz, dimmer, fewer effects", icon: "leaf", active: Modes.powerSave, tint: Theme.accentGreen, keywords: "power save", run: () => script("power-save") },
 		...(Modes.batteryCareSupported ? [
 			{ id: "batterycare", group: "modes", name: "Battery care", desc: "Stops charging short of full", icon: "battery-medium", active: Modes.batteryCare, tint: Theme.accentGreen, keywords: "charge limit", run: () => script("battery-care") }
 		] : []),

@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# The cursor shader redraws the terminal every frame (~4 W), so only on AC. Modes.qml runs this
+# as the power source changes.
+exec 201>"${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/ghostty-effects.lock"
+flock -w 2 201 || exit 0
+
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}"
+GHOSTTY_PERF="$STATE_DIR/ghostty/perf.conf"
+GHOSTTY_SHADER="${XDG_CONFIG_HOME:-$HOME/.config}/ghostty/shaders/cursor_warp.glsl"
+
+# True on AC power, and on machines without an AC adapter (desktops).
+on_ac() {
+    local f found=false
+    for f in /sys/class/power_supply/ADP*/online /sys/class/power_supply/AC*/online; do
+        [[ -r "$f" ]] || continue
+        found=true
+        [[ "$(<"$f")" == 1 ]] && return 0
+    done
+    ! $found
+}
+
+# An empty custom-shader clears the list: no shader at all.
+shader="" anim=false
+if on_ac; then
+    shader="$GHOSTTY_SHADER" anim=true
+fi
+conf="# Managed by ghostty-effects. Do not edit.
+custom-shader = $shader
+custom-shader-animation = $anim"
+[[ "$(cat "$GHOSTTY_PERF" 2>/dev/null)" != "$conf" ]] || exit 0
+mkdir -p "${GHOSTTY_PERF%/*}"
+printf '%s\n' "$conf" >"$GHOSTTY_PERF"
+
+if systemctl --user is-active -q app-com.mitchellh.ghostty.service; then
+    systemctl --user reload app-com.mitchellh.ghostty.service
+else
+    pkill -SIGUSR2 -x ghostty
+fi || true

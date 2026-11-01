@@ -286,8 +286,7 @@ Singleton {
 	}
 
 
-	// Out of settings.lua, back to what the config has: Hyprland reads it
-	// again (and power-save puts its own back, as apply-ui has it).
+	// Out of settings.lua, back to what the config has: Hyprland reads it again.
 	function reset(e: var): void {
 		if (!changed(e))
 			return;

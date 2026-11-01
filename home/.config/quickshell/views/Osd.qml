@@ -193,7 +193,7 @@ PanelWindow {
 		}
 	}
 
-	// The brightness keys and power-save.
+	// The brightness keys.
 	Connections {
 		target: Brightness
 		function onAdjusted() {

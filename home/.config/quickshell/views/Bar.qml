@@ -542,12 +542,6 @@ PanelWindow {
 			}
 
 			Pill {
-				shown: Modes.powerSave
-				icon: "leaf"
-				onActivated: Commands.run("powersave")
-			}
-
-			Pill {
 				shown: Weather.current !== null
 				icon: Weather.current?.icon ?? ""
 				value: Weather.current ? Weather.current.tempNum + "°" : ""
