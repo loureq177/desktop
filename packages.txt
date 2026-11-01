@@ -91,7 +91,7 @@ gvfs-smb
 seahorse
 showtime
 snapshot
-thunderbird
+video-trimmer
 
 # The terminal (zsh, nvim and the tools they call) is .files' packages-arch.txt;
 # the browser and the specials' apps are what apply-apps --pick chose.

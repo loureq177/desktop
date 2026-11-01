@@ -1,2 +1,2 @@
-io.github.screwys.Rufin
-org.gnome.gitlab.YaLTeR.VideoTrimmer
+# Flatpak apps for every install, one id per line; none at the moment.
+# A picked browser or special can still bring one (apply-apps --packages).
