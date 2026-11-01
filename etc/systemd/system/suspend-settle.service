@@ -1,5 +1,5 @@
-# The kernel moves to VT 63 as sleep begins and back on waking: the panel can freeze on the frame
-# it leaves, so the lock screen gets time to reach it, and VT 63 shows no blinking cursor.
+# The kernel moves to VT 63 as sleep begins and back on waking, as nvidia.ko requires: the panel
+# can freeze on the frame it leaves, so the lock screen gets time to reach it, and VT 63 no cursor.
 [Unit]
 Description=Ready the screen for sleep: lock screen on the panel, no cursor on VT 63
 Before=nvidia-suspend.service systemd-suspend.service
