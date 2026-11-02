@@ -13,13 +13,18 @@ MouseArea {
 	// a panel opening hands this area a hover at 0,0 while the pointer is elsewhere.
 	readonly property string shortcut: mode !== "" ? panel + "-" + mode : panel
 	readonly property bool atRight: x > 0
+	// Gone while a drawer is open: a pointer resting here would keep the bar under it, and the
+	// drawer's focus grab can then hand the keyboard to the bar instead of the drawer.
+	readonly property bool covered: ["actions", "notifications", "weather"].includes(Panels.active)
 
-	width: 1
-	height: 1
+	width: covered ? 0 : 1
+	height: covered ? 0 : 1
 	hoverEnabled: true
 	onContainsMouseChanged: {
 		if (!containsMouse) {
-			away.restart();
+			// Shrinking is no leave: back under a resting pointer, it must not toggle again.
+			if (!covered)
+				away.restart();
 			return;
 		}
 		away.stop();
