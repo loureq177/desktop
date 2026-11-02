@@ -21,4 +21,8 @@ fi
 rm -f "$tmp"
 trap - EXIT INT TERM HUP
 sleep 0.05
-wtype -M shift -k Insert -m shift 2>/dev/null || true
+# A terminal pastes the selection on Shift+Insert, the clipboard on Ctrl+Shift+V.
+case "$(hyprctl activewindow -j 2>/dev/null | jq -r '.class // ""')" in
+*ghostty* | *kitty* | *foot* | *Alacritty* | *wezterm*) wtype -M ctrl -M shift -k v -m shift -m ctrl 2>/dev/null || true ;;
+*) wtype -M shift -k Insert -m shift 2>/dev/null || true ;;
+esac
