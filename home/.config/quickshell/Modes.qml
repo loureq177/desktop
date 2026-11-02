@@ -20,6 +20,14 @@ Singleton {
 	// "recording", "transcribing", or "" while it is off.
 	readonly property string dictation: dictationMarker.loaded ? dictationMarker.state : ""
 	property int screencasts: 0
+	// The launcher's list of windows captures them, which is no sharing. Hyprland calls a
+	// capture over half a second after its last frame, so that long past the list too.
+	readonly property bool listingWindows: windowsOpen || windowsLeft.running
+	readonly property bool windowsOpen: Panels.active === "launcher" && Panels.mode === "windows"
+	onWindowsOpenChanged: {
+		if (!windowsOpen)
+			windowsLeft.restart();
+	}
 	property bool nightLight: false
 
 	function readNightLight(): void {
@@ -40,6 +48,11 @@ Singleton {
 		stdout: StdioCollector {
 			onStreamFinished: root.nightLight = parseInt(this.text) < 6000
 		}
+	}
+
+	Timer {
+		id: windowsLeft
+		interval: 600
 	}
 
 	component Marker: FileView {

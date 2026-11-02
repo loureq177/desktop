@@ -612,8 +612,7 @@ PanelWindow {
 			}
 
 			Pill {
-				// The list of open windows captures them too: nobody is watching then.
-				shown: Modes.screencasts > 0 && !(Panels.active === "launcher" && Panels.mode === "windows")
+				shown: Modes.screencasts > 0 && !Modes.listingWindows
 				interactive: false
 				icon: "screen-share"
 				textColor: Theme.accentPurple
