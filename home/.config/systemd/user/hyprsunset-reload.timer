@@ -1,0 +1,9 @@
+[Unit]
+Description=Give hyprsunset the night temperature set since it started
+
+# A minute before the night profile in hyprsunset.conf: the screen is still neutral.
+[Timer]
+OnCalendar=*-*-* 19:59:00
+
+[Install]
+WantedBy=timers.target

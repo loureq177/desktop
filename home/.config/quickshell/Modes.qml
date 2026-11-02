@@ -81,14 +81,13 @@ Singleton {
 		}
 	}
 
-	// hyprsunset reads its schedule only as it starts, which also sets the screen by it:
-	// what is on now goes back on, once its socket is up.
+	// For the schedule only: a restart would pass through neutral, hiding the change, so
+	// hyprsunset-reload.timer restarts it before the night starts.
 	Timer {
 		id: nightLightSave
 		interval: 500
-		onTriggered: Quickshell.execDetached(["sh", "-c",
-			"sed -i --follow-symlinks -E 's/(temperature *= *)[0-9]+/\\1" + root.nightLightKelvin + "/' '" + nightLightConfig.path + "'"
-			+ " && systemctl --user try-restart hyprsunset; sleep 0.5; " + root.nightLightCommand()])
+		onTriggered: Quickshell.execDetached(["sed", "-i", "--follow-symlinks", "-E",
+			"s/(temperature *= *)[0-9]+/\\1" + root.nightLightKelvin + "/", nightLightConfig.path])
 	}
 
 	component Marker: FileView {

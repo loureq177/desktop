@@ -1,0 +1,8 @@
+[Unit]
+Description=Restart hyprsunset if its config changed since it started
+
+# hyprsunset reads its schedule only as it starts, and a restart passes through neutral.
+[Service]
+Type=oneshot
+ExecCondition=/bin/sh -c 'since=$(systemctl --user show hyprsunset -P ActiveEnterTimestamp) && [ -n "$since" ] && [ "$(stat -L -c %%Y %h/.config/hypr/hyprsunset.conf)" -gt "$(date -d "$since" +%%s)" ]'
+ExecStart=/usr/bin/systemctl --user try-restart hyprsunset.service
