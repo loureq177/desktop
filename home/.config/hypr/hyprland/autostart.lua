@@ -1,3 +1,4 @@
+local apps = require("hyprland.apps")
 local env = require("hyprland.env")
 local machine = require("hyprland.machine")
 
@@ -25,9 +26,11 @@ hl.on("hyprland.start", function()
 		-- The GTK settings of ui.toml, which apply-ui keeps.
 		"~/.local/bin/apply-ui --gtk",
 		"~/.local/bin/wallpaper init",
-		-- install.sh cannot do this before Firefox has made a profile.
-		"sh -c '~/.local/bin/firefox-apply >/dev/null 2>&1'",
 	}
+	-- .files' Firefox defaults; install.sh cannot apply them before Firefox has made a profile.
+	if apps.browser.exec == "firefox" then
+		table.insert(cmds, "sh -c '[ -x ~/.local/bin/firefox-apply ] && ~/.local/bin/firefox-apply'")
+	end
 	for _, cmd in ipairs(machine.autostart) do
 		table.insert(cmds, cmd)
 	end
