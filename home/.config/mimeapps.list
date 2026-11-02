@@ -17,5 +17,7 @@ image/jpeg=org.gnome.Loupe.desktop
 image/webp=org.gnome.Loupe.desktop
 image/gif=org.gnome.Loupe.desktop
 image/svg+xml=org.gnome.Loupe.desktop
+video/webm=org.gnome.Showtime.desktop
+video/ogg=org.gnome.Showtime.desktop
 x-scheme-handler/claude-cli=claude-code-url-handler.desktop
 x-scheme-handler/t3code=com.t3tools.T3Code.desktop
