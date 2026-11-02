@@ -31,6 +31,14 @@ local function toggle(name)
 	hl.dispatch(hl.dsp.cursor.move({ x = at.x, y = at.y }))
 end
 
+-- A swipe skips hide_special_on_workspace_change (input.lua): the special goes as with the keys.
+hl.on("workspace.active", function(ws)
+	local showing, current = hl.get_active_special_workspace(), hl.get_active_workspace()
+	if showing ~= nil and current ~= nil and current.id == ws.id then
+		toggle(name_of(showing))
+	end
+end)
+
 -- A special workspace opened empty starts its app. The event comes once the
 -- workspace is set up, so one that a window was sent to is not empty.
 hl.on("workspace.created", function(ws)
