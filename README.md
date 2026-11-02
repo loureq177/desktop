@@ -26,6 +26,7 @@ compromise on functionality.
   `apply-apps --pick`, which installs a new pick and swaps it in at once, browser too
 - **Quickshell**:
     - Launcher (apps, `/commands`, clipboard, emoji, keys)
+    - Files under `SUPER + G`: your home folder searched by name as you type, with fd
     - Actions, notifications, OSD
     - Hot corners: the top left opens the launcher, the top right Actions
     - Open windows under `SUPER + O`: a list of the launcher, every window with a

@@ -63,7 +63,7 @@ Singleton {
 
 	// What Hyprland's binds press (hl.dsp.global): `qs ipc` would start a process each time, 45 ms.
 	Variants {
-		model: ["launcher-apps", "launcher-settings", "launcher-emoji", "launcher-clipboard", "launcher-keys", "launcher-windows", "actions", "weather", "notifications"]
+		model: ["launcher-apps", "launcher-settings", "launcher-emoji", "launcher-clipboard", "launcher-keys", "launcher-windows", "launcher-files", "actions", "weather", "notifications"]
 
 		GlobalShortcut {
 			required property string modelData

@@ -52,6 +52,7 @@ ttf-jetbrains-mono-nerd
 
 # What the scripts in ~/.local/bin call
 cliphist
+fd
 flatpak
 fprintd
 fwupd

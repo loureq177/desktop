@@ -128,6 +128,7 @@ do
 	bind("SUPER + S", "Settings", panel("launcher-settings"))
 	bind("SUPER + W", "Weather", panel("weather"))
 	bind("SUPER + E", "Emojis", panel("launcher-emoji"))
+	bind("SUPER + G", "Search files", panel("launcher-files"))
 	bind("SUPER + V", "Clipboard history", panel("launcher-clipboard"))
 	bind("SUPER + slash", "Keybindings", panel("launcher-keys"))
 	-- And the desktop's own, in among them (wallpaper).
