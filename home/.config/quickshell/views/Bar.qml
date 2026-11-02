@@ -128,6 +128,7 @@ PanelWindow {
 		// For a mark that shows the date.
 		property int iconDay: 0
 		readonly property bool hovered: pillArea.containsMouse
+		readonly property real mouseX: pillArea.mouseX
 		readonly property bool wanted: shown && (text !== "" || icon !== "" || value !== "" || custom)
 		property real revealed: 0
 		default property alias content: pillRow.data
@@ -229,14 +230,14 @@ PanelWindow {
 
 	BarTip {
 		target: system
-		shown: system.hovered && !btHover.hovered && Battery.present && Panels.active !== "actions"
+		shown: system.hovered && !system.overBt && Battery.present && Panels.active !== "actions"
 		text: Battery.percent + "%"
 	}
 
 	BarTip {
 		target: btIcon
 		gap: (Theme.barHeight - btIcon.height) / 2 + 6
-		shown: btHover.hovered && btIcon.visible && Panels.active !== "actions"
+		shown: system.overBt && Panels.active !== "actions"
 		text: Bt.connected.map(d => Bt.name(d) + (d.batteryAvailable ? "  " + Math.round(d.battery * 100) + "%" : "")).join("\n")
 	}
 
@@ -548,6 +549,9 @@ PanelWindow {
 
 			Pill {
 				id: system
+				// The pill's MouseArea takes the hover: up to halfway into the gap after the icon.
+				readonly property bool overBt: hovered && btIcon.visible
+					&& mouseX < btIcon.mapToItem(system, btIcon.width + 5, 0).x
 
 				custom: true
 				isActive: Panels.active === "actions"
@@ -561,10 +565,6 @@ PanelWindow {
 					visible: Bt.connected.length > 0
 					name: Bt.icon
 					color: Theme.textMain
-
-					HoverHandler {
-						id: btHover
-					}
 				}
 
 				// Only when down; online, only with no battery to open Actions by.
