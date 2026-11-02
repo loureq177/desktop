@@ -12,7 +12,7 @@ LauncherPane {
 	readonly property bool commandsOnly: q.startsWith("/")
 
 	icon: commandsOnly ? "zap" : q.startsWith("=") ? "calculator" : "search"
-	placeholder: "Search " + apps.length + " apps or /actions…"
+	placeholder: "Search " + apps.length + " apps or /commands…"
 	preferredHeight: list.preferredHeight
 
 	function step(delta: int, repeat: bool): void {

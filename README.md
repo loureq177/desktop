@@ -25,13 +25,13 @@ compromise on functionality.
   calendar, change music...): optional, picked while installing, again with
   `apply-apps --pick`
 - **Quickshell**:
-    - Launcher (apps, `/actions`, clipboard, emoji, keys)
-    - quick actions, notifications, OSD
-    - Hot corners: the top left opens the launcher, the top right quick actions
+    - Launcher (apps, `/commands`, clipboard, emoji, keys)
+    - Actions, notifications, OSD
+    - Hot corners: the top left opens the launcher, the top right Actions
     - Open windows under `SUPER + O`: a list of the launcher, every window with a
       live picture, on any workspace; also a right-click on the launcher's icon
     - Weather module
-    - Memory on the bar above 70%, always in quick actions
+    - Memory on the bar above 70%, always in Actions
     - Tray: the apps running in the background (Discord, Steam)
 - **Hyprlock**: password or fingerprint
 - **Github theme**: `~/.config/ui/ui.toml`, change it with `apply-ui`: the shell,
@@ -91,7 +91,7 @@ on tty1. It also clones and installs [`.files`](https://github.com/loureq177/.fi
 | ---------------- | ------------- |
 | `SUPER + /`      | All keys      |
 | `SUPER + Space`  | Launcher      |
-| `SUPER + A`      | Quick actions |
+| `SUPER + A`      | Actions       |
 | `SUPER + N`      | Notifications |
 | `SUPER + S`      | Settings      |
 | `SUPER + Escape` | Lock          |
