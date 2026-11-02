@@ -1,5 +1,21 @@
 [Default Applications]
 inode/directory=org.gnome.Nautilus.desktop
+# xdg-open asks file(1), which names code by its content and knows no parent type.
 text/plain=nvim.desktop
+text/x-shellscript=nvim.desktop
+application/x-shellscript=nvim.desktop
+text/x-script.python=nvim.desktop
+text/x-python=nvim.desktop
+text/javascript=nvim.desktop
+application/json=nvim.desktop
+text/xml=nvim.desktop
+text/x-c=nvim.desktop
+text/markdown=nvim.desktop
+inode/x-empty=nvim.desktop
+image/png=org.gnome.Loupe.desktop
+image/jpeg=org.gnome.Loupe.desktop
+image/webp=org.gnome.Loupe.desktop
+image/gif=org.gnome.Loupe.desktop
+image/svg+xml=org.gnome.Loupe.desktop
 x-scheme-handler/claude-cli=claude-code-url-handler.desktop
 x-scheme-handler/t3code=com.t3tools.T3Code.desktop
