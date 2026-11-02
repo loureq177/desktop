@@ -128,11 +128,32 @@ pacman_changes() {
         [[ -n "${counts[$verb]:-}" ]] && said+=("${counts[$verb]} $verb")
     done
     _log_ok "$(listing "${said[@]}")${what:+ · $what}"
+    # By name; three or more with the same start and the same change are one line.
+    local -A size=() seen=()
+    local key
     for l in "${lines[@]}"; do
         IFS=$'\t' read -r verb name ver <<<"$l"
+        key="${name%%-*} $verb $ver"
+        size[$key]=$((${size[$key]:-0} + 1))
+    done
+    local -a names=() vers=()
+    local i
+    width=0
+    while IFS=$'\t' read -r verb name ver; do
+        key="${name%%-*} $verb $ver"
+        if ((size[$key] >= 3)); then
+            [[ -z "${seen[$key]:-}" ]] || continue
+            seen[$key]=1
+            name+=" +$((size[$key] - 1))"
+        fi
         ver=${ver// -> / → }
         [[ "$verb" == upgraded ]] || ver="$verb $ver"
-        printf '    %-*s  %s%s%s\n' "$width" "$name" "$_C_DIM" "$ver" "$_C_NC"
+        names+=("$name")
+        vers+=("$ver")
+        ((${#name} > width)) && width=${#name}
+    done < <(printf '%s\n' "${lines[@]}" | sort -t $'\t' -k2,2)
+    for i in "${!names[@]}"; do
+        printf '    %-*s  %s%s%s\n' "$width" "${names[$i]}" "$_C_DIM" "${vers[$i]}" "$_C_NC"
     done
 }
 
@@ -164,7 +185,7 @@ update_system() {
 check_aur() {
     paru -Qua --devel >"$TASKS_DIR/aur" 2>/dev/null || true
     if [[ -s "$TASKS_DIR/aur" ]]; then
-        _log_warn "$(wc -l <"$TASKS_DIR/aur") to build: after the rest"
+        _log_ok "$(wc -l <"$TASKS_DIR/aur") to build, after the rest"
     else
         _log_ok "Nothing to update"
     fi
@@ -345,7 +366,10 @@ queue "Neovim plugins" nvim update_nvim_plugins
 run_tasks "Update"
 
 rc=$(<"$TASKS_DIR/pacman.exit")
-tail -n +2 "$TASKS_DIR/pacman.changes" 2>/dev/null || true
+if [[ -n "$(tail -n +2 "$TASKS_DIR/pacman.changes" 2>/dev/null)" ]]; then
+    _log_info "System packages"
+    tail -n +2 "$TASKS_DIR/pacman.changes"
+fi
 if [[ -f "$TASKS_DIR/pacman.warnings" ]]; then
     while IFS= read -r line; do
         _log_warn "$line"
@@ -375,7 +399,7 @@ api_news
 
 reboot_reasons=()
 if [ ! -d "/usr/lib/modules/$(uname -r)" ]; then
-    reboot_reasons+=("the running kernel ($(uname -r)) is gone from disk")
+    reboot_reasons+=("the running kernel $(uname -r) is gone")
 fi
 if [ -f "$PACMAN_LOG" ] && [ "$pacman_log_start" -gt 0 ]; then
     upgraded_critical=$(tail -n "+$((pacman_log_start + 1))" "$PACMAN_LOG" 2>/dev/null |
@@ -385,11 +409,17 @@ if [ -f "$PACMAN_LOG" ] && [ "$pacman_log_start" -gt 0 ]; then
         tr '\n' ' ' || true)
     if [ -n "$upgraded_critical" ]; then
         read -ra critical <<<"$upgraded_critical"
-        reboot_reasons+=("$(listing "${critical[@]}") updated")
+        # A kernel gone says linux already.
+        [[ -d "/usr/lib/modules/$(uname -r)" ]] || mapfile -t critical < <(printf '%s\n' "${critical[@]}" | grep -vxE 'linux(-zen|-lts)?' || true)
+        ((${#critical[@]} == 0)) || reboot_reasons+=("$(listing "${critical[@]}") updated")
     fi
 fi
 if ((${#reboot_reasons[@]})); then
-    attention+=("Restart: $(listing "${reboot_reasons[@]}")")
+    reason=${reboot_reasons[0]}
+    for r in "${reboot_reasons[@]:1}"; do
+        reason+="; $r"
+    done
+    attention+=("Restart: $reason")
     notify system-reboot critical "Reboot recommended" "$(printf '%s\n' "${reboot_reasons[@]}")"
 else
     notify archlinux normal "Update complete" "System update completed successfully."
