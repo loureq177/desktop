@@ -11,6 +11,7 @@
 --ignore=service\.json
 --ignore=\.zwc$
 --ignore=local\.lua
+--ignore=hyprsunset\.conf
 --ignore=config\.local
 --ignore=backup\.conf
 --ignore=\.ruff_cache

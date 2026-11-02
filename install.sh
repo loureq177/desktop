@@ -174,6 +174,17 @@ fi
 
 _log_info "Linking home/ into ~..."
 mkdir -p ~/.config ~/.local/share ~/.local/state ~/.local/bin ~/.cache
+# The night light's slider writes its temperature here: a file of this machine, not a link
+# into the repo (an older install's link keeps its value).
+sunset=~/.config/hypr/hyprsunset.conf
+if [ -L "$sunset" ] || [ ! -e "$sunset" ]; then
+    mkdir -p ~/.config/hypr
+    if [ -e "$sunset" ]; then
+        cp --remove-destination "$(readlink -f "$sunset")" "$sunset"
+    else
+        cp -f home/.config/hypr/hyprsunset.conf.example "$sunset"
+    fi
+fi
 if ! err="$(stow --simulate --restow --target ~ home 2>&1)"; then
     _log_error "stow pre-flight failed (existing files in the way):"
     printf '%s\n' "$err" >&2
