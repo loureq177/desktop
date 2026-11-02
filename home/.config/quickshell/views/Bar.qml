@@ -229,8 +229,15 @@ PanelWindow {
 
 	BarTip {
 		target: system
-		shown: system.hovered && Battery.present && Panels.active !== "actions"
+		shown: system.hovered && !btHover.hovered && Battery.present && Panels.active !== "actions"
 		text: Battery.percent + "%"
+	}
+
+	BarTip {
+		target: btIcon
+		gap: (Theme.barHeight - btIcon.height) / 2 + 6
+		shown: btHover.hovered && btIcon.visible && Panels.active !== "actions"
+		text: Bt.connected.map(d => Bt.name(d) + (d.batteryAvailable ? "  " + Math.round(d.battery * 100) + "%" : "")).join("\n")
 	}
 
 	HotCorner {
@@ -549,10 +556,15 @@ PanelWindow {
 
 				// Only with a device: on or off says nothing worth the room.
 				LineIcon {
+					id: btIcon
 					anchors.verticalCenter: parent.verticalCenter
 					visible: Bt.connected.length > 0
 					name: Bt.icon
 					color: Theme.textMain
+
+					HoverHandler {
+						id: btHover
+					}
 				}
 
 				// Only when down; online, only with no battery to open Actions by.
@@ -596,40 +608,37 @@ PanelWindow {
 					font.pixelSize: Theme.fontSizeBar
 				}
 
-				// The dot's room is part of the row: the hover's light covers only what the row holds.
-				Item {
+				StyledText {
+					id: time
 					anchors.verticalCenter: parent.verticalCenter
-					width: time.implicitWidth + 9
-					height: time.implicitHeight
+					text: Qt.formatDateTime(clock.now, "hh:mm")
+					mono: true
+					font.bold: true
+					font.pixelSize: Theme.fontSizeBar
+				}
 
-					StyledText {
-						id: time
-						text: Qt.formatDateTime(clock.now, "hh:mm")
-						mono: true
-						font.bold: true
-						font.pixelSize: Theme.fontSizeBar
-					}
+				// In the pill's margin, out of the row: the time keeps its place at the bar's end.
+				// Not lit with the row, whose light is cut to what the row holds.
+				Rectangle {
+					id: mark
+					readonly property bool kept: clock.count > 0
 
-					Rectangle {
-						id: mark
-						readonly property bool kept: clock.count > 0
+					parent: clock
+					x: clock.width - 2
+					y: (clock.height - time.implicitHeight) / 2 + 3
+					width: 6
+					height: 6
+					radius: 3
+					visible: kept || Notifications.dnd
+					color: !kept ? "transparent" : Notifications.dnd ? Theme.warning : Theme.accentBlue
+					border.width: kept ? 0 : 1.5
+					border.color: Theme.warning
 
-						x: time.implicitWidth + 3
-						y: 3
-						width: 6
-						height: 6
-						radius: 3
-						visible: kept || Notifications.dnd
-						color: !kept ? "transparent" : Notifications.dnd ? Theme.warning : Theme.accentBlue
-						border.width: kept ? 0 : 1.5
-						border.color: Theme.warning
-
-						// Pops once as one comes in.
-						SequentialAnimation {
-							id: arrived
-							NumberAnimation { target: mark; property: "scale"; to: 1.8; duration: Theme.animFast; easing.type: Easing.OutCubic }
-							NumberAnimation { target: mark; property: "scale"; to: 1; duration: Theme.animNormal; easing.type: Easing.InOutSine }
-						}
+					// Pops once as one comes in.
+					SequentialAnimation {
+						id: arrived
+						NumberAnimation { target: mark; property: "scale"; to: 1.8; duration: Theme.animFast; easing.type: Easing.OutCubic }
+						NumberAnimation { target: mark; property: "scale"; to: 1; duration: Theme.animNormal; easing.type: Easing.InOutSine }
 					}
 				}
 

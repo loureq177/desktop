@@ -10,10 +10,12 @@ PopupWindow {
 	property bool shown: false
 	property string text: ""
 	property bool up: false
+	// From the target's bottom: more for an icon, to sit as low as a whole module's tip.
+	property real gap: 6
 
 	anchor.item: target
 	anchor.rect.x: 0
-	anchor.rect.y: target.height + 6
+	anchor.rect.y: target.height + gap
 	anchor.rect.width: target.width
 	anchor.rect.height: 1
 	anchor.edges: Edges.Top
