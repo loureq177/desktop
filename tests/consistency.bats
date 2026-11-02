@@ -122,6 +122,7 @@ UNITS="home/.config/systemd/user"
     local -A owner=(
         [etc/systemd/zram-generator.conf]=zram-generator
         [etc/pam.d/hyprlock]=hyprlock
+        [etc/xdg/reflector/reflector.conf]=reflector
     )
     local file
     for file in "${!owner[@]}"; do

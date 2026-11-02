@@ -219,6 +219,7 @@ sudo sysctl --quiet --load /etc/sysctl.d/99-zram.conf || _log_warn "Failed to ap
 sudo systemctl restart systemd-journald || _log_warn "Failed to restart journald."
 sudo systemctl daemon-reload 2>/dev/null || true
 sudo systemctl enable suspend-settle.service || _log_warn "Failed to enable suspend-settle."
+sudo systemctl enable reflector.timer || _log_warn "Failed to enable reflector.timer."
 sudo udevadm control --reload-rules 2>/dev/null || true
 sudo systemctl start systemd-zram-setup@zram0.service 2>/dev/null || _log_warn "zram starts on the next boot."
 

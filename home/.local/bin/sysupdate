@@ -52,10 +52,14 @@ pacman_stages() {
         case $line in
         "" | "no new news" | " there is nothing to do" | ":: Synchronizing package databases..." | ":: Starting full system upgrade..." | \
             "resolving dependencies..." | "looking for conflicting packages..." | "checking dependencies..." | \
-            ":: Proceed with installation? [Y/n]"* | ":: Retrieving packages..." | " "*" is up to date" | \
+            ":: Proceed with installation? [Y/n]"* | " "*" is up to date" | \
             "Total Installed Size:"* | "Net Upgrade Size:"*) ;;
         " "*" downloading...")
             [[ -n "$count" ]] && stage="Downloading $count packages${PACMAN_SIZE:+, $PACMAN_SIZE}"
+            ;;
+        # Without a terminal pacman prints no line per package: this is the whole download.
+        ":: Retrieving packages...")
+            stage="Downloading${count:+ $count packages}${PACMAN_SIZE:+, $PACMAN_SIZE}"
             ;;
         "Packages ("*)
             count=${line#Packages (}

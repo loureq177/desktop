@@ -59,6 +59,7 @@ grim
 jq
 libnotify
 pacman-contrib
+reflector
 satty
 slurp
 sox
