@@ -23,7 +23,7 @@ compromise on functionality.
 - **Hyprland:** Tiling windows, your apps on special workspaces under
   `SUPER + SHIFT + key` (quickly respond to a message, save a task, check the
   calendar, change music...): optional, picked while installing, again with
-  `apply-apps --pick`
+  `apply-apps --pick`, which installs a new pick and swaps it in at once, browser too
 - **Quickshell**:
     - Launcher (apps, `/commands`, clipboard, emoji, keys)
     - Actions, notifications, OSD

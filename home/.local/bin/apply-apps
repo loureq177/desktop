@@ -7,13 +7,18 @@
 #   apply-apps --defaults   write the standard set without asking, then render
 #   apply-apps --packages   what the choices need, as "pacman|aur|flatpak NAME" lines
 #   --no-reload             leave the running Hyprland alone
+#
+# In the running session a special whose app changed (or is off) closes its old windows:
+# the new app opens with it. --pick also installs what a new choice needs.
 
 import json
 import os
 import re
 import shlex
+import shutil
 import subprocess
 import sys
+import time
 import tomllib
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -548,12 +553,63 @@ def packages(catalog, choices):
         print(source, name)
 
 
-# --pick by itself installs nothing: says what is still to install, and how.
-def report_missing(catalog, choices):
-    run = subprocess.run(["pacman", "-Qq"], capture_output=True, text=True)
-    missing = [name for source, name in needed(catalog, choices) if source != "flatpak" and name not in run.stdout.split()]
-    if missing:
-        print(f"  {DIM}Not installed yet:{RESET} paru -S --needed {' '.join(missing)}")
+# What a new choice needs and is not there yet: paru for pacman's and the AUR's, flatpak for its own.
+def install_missing(catalog, choices):
+    installed = set(subprocess.run(["pacman", "-Qq"], capture_output=True, text=True).stdout.split())
+    native = [name for source, name in needed(catalog, choices) if source != "flatpak" and name not in installed]
+    flat = [name for source, name in needed(catalog, choices)
+            if source == "flatpak" and subprocess.run(["flatpak", "info", name], capture_output=True).returncode != 0]
+    if native:
+        if shutil.which("paru"):
+            print(f"  Installing {' '.join(native)}")
+            subprocess.run(["paru", "-S", "--needed", *native])
+        else:
+            print(f"  {DIM}Not installed yet:{RESET} paru -S --needed {' '.join(native)}")
+    if flat:
+        print(f"  Installing {' '.join(flat)}")
+        subprocess.run(["flatpak", "install", "--user", "-y", "flathub", *flat])
+
+
+# What each special ran when apps.lua was last rendered, by name.
+def rendered_exes():
+    try:
+        text = (APPS_DIR / "apps.lua").read_text()
+    except OSError:
+        return {}
+    pairs = re.findall(r'\bid = ("(?:[^"\\]|\\.)*"),.*?\bexe = ("(?:[^"\\]|\\.)*"),', text, re.DOTALL)
+    return {json.loads(name): json.loads(exe) for name, exe in pairs}
+
+
+# The specials whose app is not what it ran before close their old windows; the next opening
+# starts the new app, and one started hidden with the session starts again now.
+def swap(catalog, choices, before):
+    browser = by_id(catalog, choices["browser"])
+    now = {s["name"]: s for s in choices.get("special", [])}
+    changed = [name for name, exe in before.items() if name not in now or hypr_special(now[name], browser)["exe"] != exe]
+    if not changed:
+        return
+    run = subprocess.run(["hyprctl", "clients", "-j"], capture_output=True, text=True)
+    try:
+        clients = json.loads(run.stdout)
+    except ValueError:
+        return
+    old = [c["address"] for c in clients if c["workspace"]["name"].removeprefix("special:") in changed and c["workspace"]["name"].startswith("special:")]
+    for address in old:
+        subprocess.run(["hyprctl", "dispatch", f'hl.dsp.window.close({{ window = "address:{address}" }})'], capture_output=True)
+    left = old
+    for _ in range(30):
+        if not left:
+            break
+        time.sleep(0.1)
+        run = subprocess.run(["hyprctl", "clients", "-j"], capture_output=True, text=True)
+        left = [c["address"] for c in json.loads(run.stdout or "[]") if c["address"] in old]
+    gone = [name for name in changed if name in now]
+    if gone:
+        print(f"  \033[32m✓\033[0m Swapped: {', '.join(gone)} open with the new app")
+    if left:
+        print(f"  {DIM}{len(left)} old window(s) asked to stay open: close them by hand{RESET}")
+    if any(now[name].get("background") for name in gone):
+        subprocess.run(["hyprctl", "eval", 'require("hyprland.specials").start_background()'], capture_output=True)
 
 
 def main():
@@ -582,13 +638,15 @@ def main():
             sys.exit("\napply-apps: nothing changed")
         save(choices)
 
+    before = rendered_exes()
     render(catalog, choices)
     if "--pick" in args and "--no-reload" not in args:
-        report_missing(catalog, choices)
+        install_missing(catalog, choices)
 
     if "--no-reload" not in args and subprocess.run(["pgrep", "-x", "Hyprland"], capture_output=True).returncode == 0:
         subprocess.run(["hyprctl", "reload"], capture_output=True)
         print("  \033[32m✓\033[0m Hyprland reloaded")
+        swap(catalog, choices, before)
 
 
 if __name__ == "__main__":
