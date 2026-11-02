@@ -2,7 +2,6 @@ import ".."
 import "../widgets"
 import Quickshell
 import Quickshell.Hyprland
-import Quickshell.Io
 import Quickshell.Services.Mpris
 import Quickshell.Services.SystemTray
 import Quickshell.Wayland
@@ -32,9 +31,8 @@ PanelWindow {
 		right: true
 	}
 
-	// Screen wide for its corners. Below the strip it only has room for the faint cursor;
-	// only the strip and the corners take input.
-	implicitHeight: Theme.barMarginY + Theme.barHeight + 30
+	// Screen wide for its corners; only the strip and the corners take input.
+	implicitHeight: Theme.barMarginY + Theme.barHeight
 	mask: Region {
 		item: strip
 
@@ -123,8 +121,6 @@ PanelWindow {
 		property bool interactive: true
 		// Hover says more, but a click does nothing.
 		property bool clickable: true
-		// Hover shows something where the cursor would be: it fades to let that through.
-		property bool fadesCursor: false
 		// On the bar; it opens up and closes in place.
 		property bool shown: true
 		// Lit for a moment: something happened.
@@ -208,21 +204,7 @@ PanelWindow {
 			anchors.fill: parent
 			enabled: pill.interactive
 			hoverEnabled: true
-			cursorShape: pill.fadesCursor && bar.faintCursors ? Qt.BlankCursor : pill.clickable ? Qt.PointingHandCursor : Qt.ArrowCursor
-			onContainsMouseChanged: {
-				if (!pill.fadesCursor)
-					return;
-				if (containsMouse) {
-					bar.faintShape = pill.clickable ? "hand2" : "left_ptr";
-					bar.placeFaintCursor(pillArea, mouseX, mouseY);
-				} else {
-					bar.faintShape = "";
-				}
-			}
-			onPositionChanged: mouse => {
-				if (pill.fadesCursor)
-					bar.placeFaintCursor(pillArea, mouse.x, mouse.y);
-			}
+			cursorShape: pill.clickable ? Qt.PointingHandCursor : Qt.ArrowCursor
 			acceptedButtons: Qt.LeftButton | Qt.RightButton
 			onPressed: mouse => {
 				if (pill.clickable)
@@ -243,34 +225,6 @@ PanelWindow {
 
 	TrayMenu {
 		id: trayMenu
-	}
-
-	// The cursor's own image, nearly gone, in place of the real one: Qt cannot fade that.
-	readonly property string cursorDir: (Quickshell.env("XDG_CACHE_HOME") || Quickshell.env("HOME") + "/.cache") + "/cursor/"
-	readonly property var faintCursors: {
-		try {
-			return JSON.parse(cursorHotspots.text());
-		} catch (e) {
-			return null;
-		}
-	}
-	property string faintShape: ""
-	readonly property int cursorSize: Theme.ui.font.size_cursor
-
-	function placeFaintCursor(area: Item, x: real, y: real): void {
-		var at = area.mapToItem(faintCursor.parent, x, y);
-		var hot = faintCursors?.[faintShape];
-		if (hot) {
-			faintCursor.x = Math.round(at.x - hot.x * cursorSize);
-			faintCursor.y = Math.round(at.y - hot.y * cursorSize);
-		}
-	}
-
-	FileView {
-		id: cursorHotspots
-		path: bar.cursorDir + "hotspots"
-		blockLoading: true
-		printErrors: false
 	}
 
 	HotCorner {
@@ -539,31 +493,22 @@ PanelWindow {
 
 			Pill {
 				id: dictationPill
-				readonly property bool transcribing: Modes.dictation === "transcribing"
-				shown: Modes.dictation !== ""
+				// Only while listening: the transcription takes a moment, so stopping closes it.
+				shown: Modes.dictation === "recording"
 				custom: true
-				text: transcribing ? "…" : ""
-				textColor: transcribing ? Theme.warning : Theme.critical
+				textColor: Theme.critical
 				isActive: true
 				onActivated: Commands.script("dictation stop")
 
-				// The dot follows the voice: it stays small when the microphone hears nothing.
-				Item {
+				// The microphone grows a little with the voice, and stays put in a quiet room.
+				LineIcon {
 					anchors.verticalCenter: parent.verticalCenter
-					visible: !dictationPill.transcribing
-					width: 18
-					height: 18
+					name: "mic"
+					color: Theme.critical
+					scale: 1 + 0.3 * Audio.micLevel
 
-					Rectangle {
-						anchors.centerIn: parent
-						width: 6 + 12 * Audio.micLevel
-						height: width
-						radius: width / 2
-						color: Theme.critical
-
-						Behavior on width {
-							NumberAnimation { duration: 60 }
-						}
+					Behavior on scale {
+						NumberAnimation { duration: 60 }
 					}
 				}
 			}
@@ -606,7 +551,6 @@ PanelWindow {
 				id: system
 
 				custom: true
-				fadesCursor: true
 				isActive: Panels.active === "actions"
 				panel: "actions"
 				onActivated: Panels.toggle("actions")
@@ -629,56 +573,71 @@ PanelWindow {
 
 				BatteryIcon {
 					anchors.verticalCenter: parent.verticalCenter
-					showPercent: system.hovered
 					// One colour at a time: running low comes first, then keep awake.
 					color: Modes.awake && !Battery.low ? Theme.accentBlue : Battery.color
 				}
 			}
 
+			// The date and the time, and the notifications behind a click, as on a Mac. A dot at
+			// the time's corner: blue for notifications kept, a dim ring for do not disturb.
 			Pill {
-				id: bell
+				id: clock
+				property date now: new Date()
 				readonly property int count: Notifications.history.count
 				property int seen: 0
 
-				icon: Notifications.dnd ? "bell-off" : count > 0 ? "bell-dot" : "bell"
-				textColor: count > 0 ? Theme.accentBlue : Theme.textDim
+				custom: true
 				isActive: Panels.active === "notifications"
 				panel: "notifications"
 				onActivated: Panels.toggle("notifications")
 				onCountChanged: {
 					if (count > seen && !Notifications.dnd)
-						ring.restart();
+						arrived.restart();
 					seen = count;
 				}
 				Component.onCompleted: seen = count
 
-				// Lights up twice as one comes in.
-				SequentialAnimation {
-					id: ring
-					loops: 2
-					NumberAnimation { target: bell; property: "flash"; to: 1; duration: Theme.animFast; easing.type: Easing.OutCubic }
-					NumberAnimation { target: bell; property: "flash"; to: 0; duration: Theme.animNormal; easing.type: Easing.InOutSine }
-				}
-			}
-
-			Pill {
-				id: clock
-				property date now: new Date()
-
-				custom: true
-				clickable: false
-				fadesCursor: true
-
-				Swap {
+				StyledText {
 					anchors.verticalCenter: parent.verticalCenter
-					swapped: clock.hovered
-					alt: clock.now.toLocaleDateString(Qt.locale("en_GB"), "d MMM").toLowerCase()
+					text: clock.now.toLocaleDateString(Qt.locale("en_GB"), "ddd d MMM")
+					font.bold: true
+					font.pixelSize: Theme.fontSizeBar
+				}
+
+				// The dot's room is part of the row: the hover's light covers only what the row holds.
+				Item {
+					anchors.verticalCenter: parent.verticalCenter
+					width: time.implicitWidth + 7
+					height: time.implicitHeight
 
 					StyledText {
+						id: time
 						text: Qt.formatDateTime(clock.now, "hh:mm")
 						mono: true
 						font.bold: true
 						font.pixelSize: Theme.fontSizeBar
+					}
+
+					Rectangle {
+						id: mark
+						readonly property bool kept: clock.count > 0
+
+						x: time.implicitWidth + 1
+						y: 3
+						width: 6
+						height: 6
+						radius: 3
+						visible: kept || Notifications.dnd
+						color: !kept ? "transparent" : Notifications.dnd ? Theme.textDim : Theme.accentBlue
+						border.width: kept ? 0 : 1.5
+						border.color: Theme.textDim
+
+						// Pops once as one comes in.
+						SequentialAnimation {
+							id: arrived
+							NumberAnimation { target: mark; property: "scale"; to: 1.8; duration: Theme.animFast; easing.type: Easing.OutCubic }
+							NumberAnimation { target: mark; property: "scale"; to: 1; duration: Theme.animNormal; easing.type: Easing.InOutSine }
+						}
 					}
 				}
 
@@ -690,30 +649,6 @@ PanelWindow {
 					onTriggered: clock.now = new Date()
 				}
 			}
-		}
-	}
-
-	Image {
-		id: faintCursor
-		z: 10
-		visible: bar.faintShape !== "" && bar.faintCursors !== null
-		source: bar.faintShape !== "" ? "file://" + bar.cursorDir + bar.faintShape + ".svg" : ""
-		sourceSize: Qt.size(bar.cursorSize, bar.cursorSize)
-		opacity: 0.3
-
-		onVisibleChanged: {
-			if (visible)
-				faintFade.restart();
-		}
-
-		NumberAnimation {
-			id: faintFade
-			target: faintCursor
-			property: "opacity"
-			from: 1
-			to: 0.015
-			duration: Theme.animNormal
-			easing.type: Easing.OutCubic
 		}
 	}
 }

@@ -3,11 +3,9 @@
 import json
 import os
 import re
-import shutil
 import subprocess
 import sys
 import tomllib
-import zipfile
 from pathlib import Path
 
 CONFIG_DIR = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
@@ -54,28 +52,6 @@ def write(path, content):
     print(f"  \033[32m✓\033[0m Generated: {path}")
 
 
-# The shell draws the hand and the arrow itself where the real cursor would cover what hover
-# shows. A theme without hyprcursors leaves nothing here, and the shell the real cursor.
-def extract_cursors(theme):
-    out = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "cursor"
-    shutil.rmtree(out, ignore_errors=True)
-    hotspots = {}
-    for root in (Path.home() / ".local/share/icons", Path.home() / ".icons", Path("/usr/share/icons")):
-        for name in ("hand2", "left_ptr"):
-            hlc = root / theme / "hyprcursors" / f"{name}.hlc"
-            if name in hotspots or not hlc.is_file():
-                continue
-            with zipfile.ZipFile(hlc) as z:
-                meta = dict(re.findall(r"^(hotspot_[xy])\s*=\s*([\d.]+)", z.read("meta.hl").decode(), re.M))
-                if f"{name}.svg" not in z.namelist():
-                    continue
-                out.mkdir(parents=True, exist_ok=True)
-                (out / f"{name}.svg").write_bytes(z.read(f"{name}.svg"))
-            hotspots[name] = {"x": float(meta["hotspot_x"]), "y": float(meta["hotspot_y"])}
-    if len(hotspots) == 2:
-        (out / "hotspots").write_text(json.dumps(hotspots))
-
-
 # GTK and the portals read these from dconf. Hyprland sets them again at every
 # start (--gtk): dconf needs the session bus, which install.sh may not have.
 def apply_gtk(cfg):
@@ -91,7 +67,6 @@ def apply_gtk(cfg):
     }
     for key, value in gsettings.items():
         subprocess.run(["gsettings", "set", "org.gnome.desktop.interface", key, value], capture_output=True)
-    extract_cursors(cfg["theme"]["cursor"])
 
     # The file chooser opens in the folder the program runs in (home, for
     # the portal), not in Recent, and lists folders first, dotfiles included.
