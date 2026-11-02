@@ -12,16 +12,8 @@ LauncherPane {
 	readonly property bool commandsOnly: q.startsWith("/")
 
 	icon: commandsOnly ? "zap" : q.startsWith("=") ? "calculator" : "search"
-	placeholder: hints[Math.max(opening, 0) % hints.length]
+	placeholder: "Search " + apps.length + " apps or /actions…"
 	preferredHeight: list.preferredHeight
-
-	// The empty field teaches one thing an opening; keys are read from the binds, so they stay true.
-	readonly property var hints: ["Search " + apps.length + " apps or /actions…", "12*7 calculates, Enter copies"].concat(
-		["keys", "clipboard", "windows", "emoji", "dictation", "actions"].map(id => Commands.get(id))
-			.filter(c => Keybinds.chordFor(c.bind) !== "")
-			.map(c => Keybinds.chordFor(c.bind) + " · " + c.desc),
-		Keybinds.shellEntries.map(e => e.chord + " · " + e.action))
-	property int opening: -1
 
 	function step(delta: int, repeat: bool): void {
 		list.step(delta, repeat);
@@ -36,7 +28,6 @@ LauncherPane {
 
 	function opened(): void {
 		day = new Date().getDate();
-		opening++;
 		list.rewind();
 	}
 

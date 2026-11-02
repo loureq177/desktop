@@ -25,8 +25,7 @@ compromise on functionality.
   calendar, change music...): optional, picked while installing, again with
   `apply-apps --pick`
 - **Quickshell**:
-    - Launcher (apps, `/actions`, clipboard, emoji, keys); its empty field teaches
-      one key or gesture an opening
+    - Launcher (apps, `/actions`, clipboard, emoji, keys)
     - quick actions, notifications, OSD
     - Open windows under `SUPER + O`: a list of the launcher, every window with a
       live picture, on any workspace; also a right-click on the launcher's icon
