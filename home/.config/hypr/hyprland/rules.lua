@@ -58,9 +58,10 @@ hl.window_rule({
 })
 
 hl.window_rule({
-	name = "dialogs",
+	-- Small tools and the file picker; GNOME's apps tile like the rest.
+	name = "small-tools",
 	match = {
-		class = "^(org.gnome.*|com.saivert.pwvucontrol|xdg-desktop-portal-gtk)$",
+		class = "^(org.gnome.Calculator|com.saivert.pwvucontrol|xdg-desktop-portal-gtk)$",
 	},
 	float = true,
 	center = true,
