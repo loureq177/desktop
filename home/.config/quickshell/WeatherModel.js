@@ -66,23 +66,6 @@ function parseTodayHighLow(report) {
 	};
 }
 
-// Each day's sunrise and sunset in milliseconds, by yyyy-MM-dd.
-function parseSunTimes(report) {
-	var d = report.daily;
-	var days = {};
-	d.time.forEach((date, i) => {
-		days[date] = { rise: new Date(d.sunrise[i]).getTime(), set: new Date(d.sunset[i]).getTime() };
-	});
-	return days;
-}
-
-// How far the sun is through `day` at `now`, 0..1; -1 at night or for a day not known.
-function sunProgress(day, now) {
-	if (!day || now < day.rise || now > day.set)
-		return -1;
-	return (now - day.rise) / (day.set - day.rise);
-}
-
 // The days after `today` (yyyy-MM-dd), three at most.
 function parseOpenMeteoDaily(report, today) {
 	var d = report.daily;
