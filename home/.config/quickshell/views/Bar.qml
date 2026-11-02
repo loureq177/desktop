@@ -127,6 +127,8 @@ PanelWindow {
 		property real flash: 0
 		// For a mark that shows the date.
 		property int iconDay: 0
+		// Room on each side of the content.
+		property int inset: 7
 		readonly property bool hovered: pillArea.containsMouse
 		readonly property real mouseX: pillArea.mouseX
 		readonly property bool wanted: shown && (text !== "" || icon !== "" || value !== "" || custom)
@@ -139,7 +141,7 @@ PanelWindow {
 
 		Layout.alignment: Qt.AlignVCenter
 		implicitHeight: Theme.barHeight
-		implicitWidth: (pillRow.implicitWidth + 14) * revealed
+		implicitWidth: (pillRow.implicitWidth + inset * 2) * revealed
 		visible: revealed > 0
 		opacity: revealed
 		clip: revealed < 1
@@ -591,6 +593,8 @@ PanelWindow {
 				property int seen: 0
 
 				custom: true
+				// Room for the dot on the right, the same on the left: the text stays centred.
+				inset: 14
 				isActive: Panels.active === "notifications"
 				panel: "notifications"
 				onActivated: Panels.toggle("notifications")
@@ -617,14 +621,13 @@ PanelWindow {
 					font.pixelSize: Theme.fontSizeBar
 				}
 
-				// In the pill's margin, out of the row: the time keeps its place at the bar's end.
-				// Not lit with the row, whose light is cut to what the row holds.
+				// In the pill's margin, out of the row, whose light is cut to what the row holds.
 				Rectangle {
 					id: mark
 					readonly property bool kept: clock.count > 0
 
 					parent: clock
-					x: clock.width - 2
+					x: clock.width - clock.inset + 5
 					y: (clock.height - time.implicitHeight) / 2 + 3
 					width: 6
 					height: 6
