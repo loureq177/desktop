@@ -432,7 +432,7 @@ PanelWindow {
 				Layout.maximumWidth: 360
 				visible: opacity > 0
 				text: bar.lastSpecialHint
-				font.pixelSize: Theme.fontSizeSmall
+				font.pixelSize: Theme.fontSizeBar
 				font.bold: true
 				color: Theme.textMain
 				elide: Text.ElideRight

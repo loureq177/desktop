@@ -82,7 +82,7 @@ Rectangle {
 				anchors.left: parent.left
 				anchors.right: parent.right
 				anchors.verticalCenter: parent.verticalCenter
-				height: slideArea.pressed ? 22 : 20
+				height: slideArea.pressed ? 20 : 18
 				radius: Theme.roundingElement
 				color: Theme.bgHover
 				border.color: slideArea.containsMouse || slideArea.pressed ? Theme.tileBorderHover : Theme.tileBorder
