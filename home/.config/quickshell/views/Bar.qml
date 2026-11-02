@@ -227,6 +227,12 @@ PanelWindow {
 		id: trayMenu
 	}
 
+	BarTip {
+		target: system
+		shown: system.hovered && Battery.present && Panels.active !== "actions"
+		text: Battery.percent + "%"
+	}
+
 	HotCorner {
 		id: launcherCorner
 		panel: "launcher"
@@ -579,7 +585,7 @@ PanelWindow {
 			}
 
 			// The date and the time, and the notifications behind a click, as on a Mac. A dot at
-			// the time's corner: blue for notifications kept, a dim ring for do not disturb.
+			// the time's corner: blue for notifications kept, yellow for do not disturb, as its tile.
 			Pill {
 				id: clock
 				property date now: new Date()
@@ -599,7 +605,7 @@ PanelWindow {
 
 				StyledText {
 					anchors.verticalCenter: parent.verticalCenter
-					text: clock.now.toLocaleDateString(Qt.locale("en_GB"), "ddd d MMM")
+					text: clock.now.toLocaleDateString(Qt.locale("en_GB"), "d MMM")
 					font.bold: true
 					font.pixelSize: Theme.fontSizeBar
 				}
@@ -607,7 +613,7 @@ PanelWindow {
 				// The dot's room is part of the row: the hover's light covers only what the row holds.
 				Item {
 					anchors.verticalCenter: parent.verticalCenter
-					width: time.implicitWidth + 7
+					width: time.implicitWidth + 9
 					height: time.implicitHeight
 
 					StyledText {
@@ -622,15 +628,15 @@ PanelWindow {
 						id: mark
 						readonly property bool kept: clock.count > 0
 
-						x: time.implicitWidth + 1
+						x: time.implicitWidth + 3
 						y: 3
 						width: 6
 						height: 6
 						radius: 3
 						visible: kept || Notifications.dnd
-						color: !kept ? "transparent" : Notifications.dnd ? Theme.textDim : Theme.accentBlue
+						color: !kept ? "transparent" : Notifications.dnd ? Theme.warning : Theme.accentBlue
 						border.width: kept ? 0 : 1.5
-						border.color: Theme.textDim
+						border.color: Theme.warning
 
 						// Pops once as one comes in.
 						SequentialAnimation {
