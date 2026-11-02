@@ -27,6 +27,7 @@ compromise on functionality.
 - **Quickshell**:
     - Launcher (apps, `/actions`, clipboard, emoji, keys)
     - quick actions, notifications, OSD
+    - Hot corners: the top left opens the launcher, the top right quick actions
     - Open windows under `SUPER + O`: a list of the launcher, every window with a
       live picture, on any workspace; also a right-click on the launcher's icon
     - Weather module

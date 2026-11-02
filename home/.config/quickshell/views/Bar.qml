@@ -31,19 +31,22 @@ PanelWindow {
 		left: true
 		right: true
 	}
-	margins {
-		top: Theme.barMarginY
-		left: Theme.barMarginX
-		right: Theme.barMarginX
-	}
 
-	// Below the strip the window only has room for the faint cursor, and takes no input.
-	implicitHeight: Theme.barHeight + 30
+	// Screen wide for its corners. Below the strip it only has room for the faint cursor;
+	// only the strip and the corners take input.
+	implicitHeight: Theme.barMarginY + Theme.barHeight + 30
 	mask: Region {
 		item: strip
+
+		Region {
+			item: launcherCorner
+		}
+		Region {
+			item: actionsCorner
+		}
 	}
 	exclusionMode: ExclusionMode.Normal
-	exclusiveZone: Theme.barHeight - Theme.barGapTrim
+	exclusiveZone: Theme.barMarginY + Theme.barHeight - Theme.barGapTrim
 
 	Component.onCompleted: Bars.add(bar)
 	Component.onDestruction: Bars.remove(bar)
@@ -255,7 +258,7 @@ PanelWindow {
 	readonly property int cursorSize: Theme.ui.font.size_cursor
 
 	function placeFaintCursor(area: Item, x: real, y: real): void {
-		var at = area.mapToItem(strip, x, y);
+		var at = area.mapToItem(faintCursor.parent, x, y);
 		var hot = faintCursors?.[faintShape];
 		if (hot) {
 			faintCursor.x = Math.round(at.x - hot.x * cursorSize);
@@ -270,9 +273,23 @@ PanelWindow {
 		printErrors: false
 	}
 
+	HotCorner {
+		id: launcherCorner
+		panel: "launcher"
+		mode: "apps"
+	}
+
+	HotCorner {
+		id: actionsCorner
+		x: parent.width - width
+		panel: "actions"
+	}
+
 	Item {
 		id: strip
-		width: parent.width
+		x: Theme.barMarginX
+		y: Theme.barMarginY
+		width: parent.width - Theme.barMarginX * 2
 		height: Theme.barHeight
 
 		MouseArea {
