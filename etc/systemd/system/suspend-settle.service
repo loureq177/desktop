@@ -3,6 +3,7 @@
 [Unit]
 Description=Ready the screen for sleep: lock screen on the panel, no cursor on VT 63
 Before=nvidia-suspend.service systemd-suspend.service
+ConditionPathExists=/usr/lib/systemd/system/nvidia-suspend.service
 
 [Service]
 Type=oneshot
