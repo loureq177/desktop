@@ -16,7 +16,6 @@ qt6-wayland
 xdg-desktop-portal
 xdg-desktop-portal-gtk
 xdg-desktop-portal-hyprland
-xorg-xhost
 xwayland-satellite
 gnome-keyring
 networkmanager
@@ -77,7 +76,7 @@ scrcpy
 linux-headers
 v4l2loopback-dkms
 
-# Desktop applications the session binds or opens files with
+# The desktop's own applications; fuse2 runs AppImages (SKLauncher)
 fuse2
 ghostty
 gnome-calculator
@@ -95,10 +94,6 @@ video-trimmer
 
 # The terminal (zsh, nvim and the tools they call) is .files' packages-arch.txt;
 # the browser and the specials' apps are what apply-apps --pick chose.
-
-# Used by the desktop's scripts and the actions menu
-trash-cli
-wev
 
 # This repo's own tooling: links the configs, clones .files, runs apply-apps and tests/run
 stow
