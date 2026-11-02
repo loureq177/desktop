@@ -14,13 +14,35 @@ local M = {}
 -- The panel's name while it is parked: the row of workspaces leaves it out.
 M.parked = nil
 
-for _, m in ipairs(machine.monitors) do
+-- The mode and scale set in the shell's settings (SUPER + S), by output, over local.lua's.
+-- Read each time: the shell writes them while this runs.
+local function displays()
+	local ok, saved = pcall(dofile, os.getenv("HOME") .. "/.config/hypr/displays.lua")
+	return ok and type(saved) == "table" and saved or {}
+end
+
+local function rule(m, position)
+	local chosen = displays()[m.output] or {}
 	hl.monitor({
 		output = m.output,
-		mode = m.mode or "preferred",
-		position = m.position or "auto",
-		scale = m.scale or 1,
+		mode = chosen.mode or m.mode or "preferred",
+		position = position,
+		scale = chosen.scale or m.scale or 1,
 	})
+end
+
+local listed = {}
+if laptop then
+	listed[laptop.output] = true
+end
+for _, m in ipairs(machine.monitors) do
+	listed[m.output] = true
+	rule(m, m.position or "auto")
+end
+for output in pairs(displays()) do
+	if not listed[output] then
+		rule({ output = output }, "auto")
+	end
 end
 hl.monitor({ output = "", mode = "preferred", position = "auto", scale = 1 })
 
@@ -71,12 +93,7 @@ local function place()
 	local position = parked and PARKED or panel_position()
 	if position ~= applied then
 		applied = position
-		hl.monitor({
-			output = laptop.output,
-			mode = laptop.mode or "preferred",
-			position = position,
-			scale = laptop.scale or 1,
-		})
+		rule(laptop, position)
 	end
 	M.parked = parked and p and p.name or nil
 	if p == nil then
@@ -130,8 +147,8 @@ local function external_names()
 	return names
 end
 
--- By hand (Commands.qml), and after sleep: the way out of a black or frozen screen. Going back
--- to the VT after sleep can leave the panel on its last frame; only this makes it draw again.
+-- After sleep: the way out of a black or frozen screen. Going back to the VT after sleep can
+-- leave the panel on its last frame; only this makes it draw again.
 function M.reconnect()
 	reconnect(external_names())
 end
@@ -168,6 +185,19 @@ function M.wake()
 	one_by_one(external_names(), function(name)
 		dpms("on", name)
 	end)
+end
+
+-- Taken out of displays.lua: a reload leaves a screen under the catch-all rule as it was.
+function M.forget(output)
+	if laptop and output == laptop.output then
+		return rule(laptop, applied or "auto")
+	end
+	for _, m in ipairs(machine.monitors) do
+		if m.output == output then
+			return rule(m, m.position or "auto")
+		end
+	end
+	rule({ output = output }, "auto")
 end
 
 -- For the row of workspaces, which starts with it.

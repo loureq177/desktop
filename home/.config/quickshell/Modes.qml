@@ -14,9 +14,7 @@ Singleton {
 	readonly property bool batteryCareSupported: batteryCareMarker.loaded
 	readonly property bool batteryCare: batteryCareMarker.loaded && batteryCareMarker.state === "on"
 	readonly property bool awake: awakeMarker.loaded
-	readonly property bool powerSave: powerSaveMarker.loaded
 	readonly property bool recording: recordingMarker.loaded
-	readonly property bool phoneCam: phoneCamMarker.loaded
 	// "recording", "transcribing", or "" while it is off.
 	readonly property string dictation: dictationMarker.loaded ? dictationMarker.state : ""
 	property int screencasts: 0
@@ -105,18 +103,8 @@ Singleton {
 	}
 
 	Marker {
-		id: powerSaveMarker
-		path: root.runDir + "/powersave_mode"
-	}
-
-	Marker {
 		id: recordingMarker
 		path: root.runDir + "/recording_status"
-	}
-
-	Marker {
-		id: phoneCamMarker
-		path: root.runDir + "/phone_cam"
 	}
 
 	Marker {
@@ -153,18 +141,17 @@ Singleton {
 		}
 	}
 
-	// power-save follows the power source: AC ends power-save mode, and
-	// Ghostty's effects switch with it. Also once the session is up.
+	// Ghostty's effects follow the power source. Also once the session is up.
 	Connections {
 		target: UPower
 		function onOnBatteryChanged() {
-			powerSync.restart();
+			effectsSync.restart();
 		}
 	}
 
 	Timer {
-		id: powerSync
+		id: effectsSync
 		running: true
-		onTriggered: Quickshell.execDetached([Quickshell.env("HOME") + "/.local/bin/power-save", "--sync"])
+		onTriggered: Quickshell.execDetached([Quickshell.env("HOME") + "/.local/bin/ghostty-effects"])
 	}
 }

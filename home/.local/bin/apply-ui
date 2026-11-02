@@ -189,7 +189,6 @@ def main():
     print("\033[34m[INFO]\033[0m Reloading running UI components...")
     if subprocess.run(["pgrep", "-x", "Hyprland"], capture_output=True).returncode == 0:
         subprocess.run(["hyprctl", "reload"], capture_output=True)
-        subprocess.run([str(Path.home() / ".local/bin/power-save"), "--reapply"], capture_output=True)
         print("  \033[32m✓\033[0m Hyprland reloaded")
 
     apply_gtk(cfg)

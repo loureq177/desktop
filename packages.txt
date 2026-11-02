@@ -73,10 +73,6 @@ whisper-cpp
 wl-clip-persist
 wl-clipboard
 wtype
-android-tools
-scrcpy
-linux-headers
-v4l2loopback-dkms
 
 # The desktop's own applications; fuse2 runs AppImages (SKLauncher)
 fuse2

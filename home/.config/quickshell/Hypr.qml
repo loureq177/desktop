@@ -26,7 +26,7 @@ Singleton {
 	property var afterReload: []
 	property bool reloadAgain: false
 
-	// Hyprland reads its config again and power-save puts its own back; then `done`.
+	// Hyprland reads its config again; then `done`.
 	// One asked for meanwhile runs after, so it reads what was written since.
 	function reload(done): void {
 		if (done)
@@ -137,7 +137,7 @@ Singleton {
 
 	Process {
 		id: reloader
-		command: ["sh", "-c", "hyprctl reload >/dev/null; \"$HOME/.local/bin/power-save\" --reapply >/dev/null 2>&1"]
+		command: ["hyprctl", "reload"]
 		onExited: {
 			if (root.reloadAgain) {
 				root.reloadAgain = false;

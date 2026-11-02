@@ -39,15 +39,13 @@ compromise on functionality.
   Hyprland, the lock screen, GTK and Qt programs (qt6ct)
 - Screenshots with edits, screen recording with mic and camera!!, OCR
 - **Dictation** with Parakeet under `SUPER + D`, Polish and English mixed
-- Battery care, power saver, awake-mode, night-light
-- **Settings** under `SUPER + S`: every option of Hyprland, the theme and the
-  desktop's modes, searchable, changed on the spot
+- Battery care, awake-mode, night-light
+- **Settings** under `SUPER + S`: displays, Wi-Fi, Bluetooth, audio, and every option
+  of Hyprland and the theme, searchable, changed on the spot
 - **LocalSend** in the tray from the start, for files to and from the phone
 - **Keys** under `SUPER + /`: every bind, Enter gives it new keys, Delete twice
   removes it, the first row adds a new one (kept in `~/.config/hypr/keys.lua`),
   Ctrl+R gives the config's back
-- **Phone camera** in the launcher (`phone-cam`): the phone as a webcam over Wi-Fi,
-  no app on it, with scrcpy and a virtual `/dev/video10`
 - `sysupdate` and `sysclean` scripts, their steps run at once; an update lists what it added to Hyprland and Quickshell
 - A notification when the system runs out of RAM and kills an app
 - Wallpaper switcher with grow animation (SUPER + P)
@@ -55,7 +53,6 @@ compromise on functionality.
 ### Laptop features
 
 - Prioritizes low battery usage
-- Battery saver
 - Battery care
 - Keep awake (close the lid and your agent doesn't stop)
 - Gestures for special workspace open/close and workspace switching

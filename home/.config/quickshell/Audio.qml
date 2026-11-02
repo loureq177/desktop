@@ -14,6 +14,8 @@ Singleton {
 	readonly property bool muted: sink?.audio?.muted ?? false
 	// Percent.
 	readonly property int volume: Math.round(Math.min(1, sink?.audio?.volume ?? 0) * 100)
+	readonly property bool inputMuted: source?.audio?.muted ?? false
+	readonly property int inputVolume: Math.round(Math.min(1, source?.audio?.volume ?? 0) * 100)
 	readonly property string icon: muted ? "volume-x" : volume <= 1 ? "volume" : volume <= 50 ? "volume-1" : "volume-2"
 	// How loud the microphone is while dictating, 0..1: from a quiet room (-30 dB) to -6 dB.
 	// Quickshell's peak is the sample's cube root, 0.32 and 0.8 here.
@@ -31,6 +33,32 @@ Singleton {
 			return;
 		sink.audio.muted = !sink.audio.muted;
 		volumeSound.restart();
+	}
+
+	function setInputVolume(percent: real): void {
+		if (source?.audio)
+			source.audio.volume = Math.max(0, Math.min(100, Math.round(percent))) / 100;
+	}
+
+	function toggleInputMute(): void {
+		if (source?.audio)
+			source.audio.muted = !source.audio.muted;
+	}
+
+	// The output or the input, by the node's id.
+	function choose(id: int): void {
+		var node = Pipewire.nodes.values.find(n => n.id === id);
+		if (!node)
+			return;
+		if (node.isSink)
+			Pipewire.preferredDefaultAudioSink = node;
+		else
+			Pipewire.preferredDefaultAudioSource = node;
+	}
+
+	// What can be chosen: { label, value }.
+	function devices(sinks: bool): var {
+		return Pipewire.nodes.values.filter(n => n.audio && !n.isStream && n.isSink === sinks).map(n => ({ label: n.description || n.nickname || n.name, value: n.id }));
 	}
 
 	PwObjectTracker {

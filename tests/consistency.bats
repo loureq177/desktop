@@ -345,10 +345,10 @@ listed_packages() {
 
 # --- misc --------------------------------------------------------------------
 
-@test "the ghostty shader power-save turns on is in the repo" {
+@test "the ghostty shader ghostty-effects turns on is in the repo" {
     local shader
-    shader="$(grep -oE '^GHOSTTY_SHADER=.*/ghostty/shaders/[a-z_]+\.glsl' "$REPO/home/.local/bin/power-save")"
-    [[ -n "$shader" ]] || fail "power-save no longer names its shader"
+    shader="$(grep -oE '^GHOSTTY_SHADER=.*/ghostty/shaders/[a-z_]+\.glsl' "$REPO/home/.local/bin/ghostty-effects")"
+    [[ -n "$shader" ]] || fail "ghostty-effects no longer names its shader"
     [[ -f "$REPO/home/.config/ghostty/shaders/${shader##*/}" ]] || fail "missing ${shader##*/}"
 }
 

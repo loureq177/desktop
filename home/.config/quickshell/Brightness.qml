@@ -10,7 +10,7 @@ Singleton {
 
 	property int percent: -1
 
-	// The keys or power-save changed it: the OSD shows the new level.
+	// The keys changed it: the OSD shows the new level.
 	signal adjusted()
 
 	function read(): void {
@@ -46,8 +46,6 @@ Singleton {
 	Process {
 		id: query
 
-		property bool announce: false
-
 		command: ["brightnessctl", "-c", "backlight", "-m"]
 		stdout: StdioCollector {
 			// "amdgpu_bl1,backlight,128,50%,255"
@@ -55,9 +53,6 @@ Singleton {
 				var value = parseInt(this.text.split("\n")[0].split(",")[3]);
 				if (!isNaN(value))
 					root.percent = Math.max(0, Math.min(100, value));
-				if (query.announce && root.percent >= 0)
-					root.adjusted();
-				query.announce = false;
 			}
 		}
 	}
@@ -80,10 +75,6 @@ Singleton {
 		}
 		function down(): void {
 			root.step(-10);
-		}
-		function refresh(): void {
-			query.announce = true;
-			root.read();
 		}
 	}
 }

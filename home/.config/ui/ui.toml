@@ -15,7 +15,7 @@ gaps_out = 20
 [opacity]
 active = 1.0
 inactive = 1.0
-dim_special = 0.20
+dim_special = 0.40
 
 # The blurred desktop behind the lock screen (hyprlock).
 [lock]

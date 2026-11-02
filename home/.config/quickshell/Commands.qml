@@ -67,14 +67,12 @@ Singleton {
 	]).concat([
 		{ id: "screenshot", group: "capture", bind: "Capture: Screenshot", name: "Screenshot", desc: "An area, a window, or click for the screen", icon: "camera", run: () => capture(bin + "screenshot region") },
 		{ id: "dictation", group: "capture", bind: "Capture: Dictation", name: "Dictation", desc: "Types what you say", icon: "audio-lines", active: Modes.dictation !== "", keywords: "speech voice", run: () => script("dictation") },
-		{ id: "phonecam", group: "capture", name: "Phone camera", desc: "The phone as this computer's webcam, over Wi-Fi", icon: "smartphone", active: Modes.phoneCam, keywords: "webcam android scrcpy", run: () => script("phone-cam") },
 		{ id: "picker", group: "capture", name: "Color picker", desc: "Copies the hex value", icon: "pipette", run: () => capture("hyprpicker -a --notify") },
 		{ id: "ocr", group: "capture", name: "OCR", desc: "Copies text from the screen", icon: "scan-text", run: () => capture(bin + "ocr") },
 
 		{ id: "dnd", group: "modes", name: "Do not disturb", desc: "Silences notifications", icon: "bell-off", active: Notifications.dnd, tint: Theme.warning, keywords: "dnd", run: () => { Notifications.dnd = !Notifications.dnd; } },
 		{ id: "nightlight", group: "modes", name: "Night light", desc: "Turns on at 8 PM", icon: "moon", active: Modes.nightLight, tint: Theme.warning, keywords: "blue light", run: () => Modes.toggleNightLight() },
 		{ id: "awake", group: "modes", name: "Keep awake", desc: "The screen stays on", icon: "coffee", active: Modes.awake, keywords: "caffeine", run: () => script("awake-toggle") },
-		{ id: "powersave", group: "modes", name: "Battery saver", desc: "60 Hz, dimmer, fewer effects", icon: "leaf", active: Modes.powerSave, tint: Theme.accentGreen, keywords: "power save", run: () => script("power-save") },
 		...(Modes.batteryCareSupported ? [
 			{ id: "batterycare", group: "modes", name: "Battery care", desc: "Stops charging short of full", icon: "battery-medium", active: Modes.batteryCare, tint: Theme.accentGreen, keywords: "charge limit", run: () => script("battery-care") }
 		] : []),
@@ -83,8 +81,7 @@ Singleton {
 		{ id: "bluetooth", group: "connections", name: "Bluetooth", desc: "Devices", icon: "bluetooth", keywords: "headphones", run: () => open("actions", "bluetooth") },
 
 		{ id: "windows", group: "system", bind: "Essential: Open windows", name: "Open windows", desc: "Every window, on any workspace", icon: "app-window", keywords: "overview apps switcher running", run: () => open("launcher", "windows") },
-		{ id: "reconnect", group: "system", name: "Reconnect monitors", desc: "Off and on again, for a black screen Hyprland thinks works", icon: "screen-share", keywords: "display screen signal", run: () => Hypr.dispatch("function() require(\"hyprland.monitors\").reconnect() end") },
-		{ id: "settings", group: "system", bind: "System & Tools: Settings", name: "Settings", desc: "Hyprland and the look", icon: "settings", keywords: "config preferences", run: () => open("launcher", "settings") },
+		{ id: "settings", group: "system", bind: "System & Tools: Settings", name: "Settings", desc: "Displays, Wi-Fi, Bluetooth, audio, Hyprland", icon: "settings", keywords: "config preferences", run: () => open("launcher", "settings") },
 		{ id: "files", group: "system", bind: "System & Tools: Search files", name: "Search files", desc: "Files and folders in your home", icon: "folder", keywords: "find documents", run: () => open("launcher", "files") },
 		{ id: "clipboard", group: "system", bind: "System & Tools: Clipboard history", name: "Clipboard", desc: "What was copied", icon: "clipboard", keywords: "history paste", run: () => open("launcher", "clipboard") },
 		{ id: "emoji", group: "system", bind: "System & Tools: Emojis", name: "Emoji", desc: "Pick one: pasted and copied", icon: "smile", keywords: "smiley", run: () => open("launcher", "emoji") },

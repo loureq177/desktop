@@ -447,12 +447,6 @@ PanelWindow {
 					NumberAnimation { duration: Theme.animFast; easing.type: Easing.OutCubic }
 				}
 			}
-
-			Pill {
-				shown: Modes.powerSave
-				icon: "leaf"
-				onActivated: Commands.run("powersave")
-			}
 		}
 
 		// What comes and goes stands first: the row grows to the left, so the rest stays put.
@@ -534,14 +528,6 @@ PanelWindow {
 				icon: "screen-share"
 				textColor: Theme.accentPurple
 				isActive: true
-			}
-
-			Pill {
-				shown: Modes.phoneCam
-				icon: "smartphone"
-				textColor: Theme.accentPurple
-				isActive: true
-				onActivated: Commands.run("phonecam")
 			}
 
 			Pill {
