@@ -13,7 +13,10 @@ PanelWindow {
 	property int value: 0
 	property bool muted: false
 	property bool shown: false
-	property real revealed: shown ? 1 : 0
+	property real revealed: 0
+	// A fresh window's first frame comes late: the growth waits for it, or it starts a third grown.
+	property bool drawn: false
+	readonly property bool open: shown && drawn
 
 	readonly property string icon: kind === "brightness" ? "sun"
 		: kind === "mic" ? (muted ? "mic-off" : "mic")
@@ -21,15 +24,7 @@ PanelWindow {
 		: Audio.icon
 	readonly property color tone: muted ? Theme.textDim : Theme.accentBlue
 
-	// The wallpaper's name, and the folder SUPER + P goes through.
-	readonly property string home: Quickshell.env("HOME")
 	readonly property string wallpaperName: Wallpaper.path.replace(/^.*\//, "").replace(/\.[^.]*$/, "")
-	readonly property string wallpaperDir: {
-		var dir = Wallpaper.path.replace(/\/[^/]*$/, "");
-		var shown = dir.startsWith(home + "/") ? "~" + dir.slice(home.length) : dir;
-		// One of the desktop's own, which SUPER + P goes through with the user's.
-		return dir === home + "/.config/hypr/wallpapers" ? "Built in · add yours to ~/Pictures/Wallpapers" : shown;
-	}
 
 	// Actions has sliders for both, which show the change already.
 	function show(newKind, newValue, newMuted) {
@@ -49,6 +44,17 @@ PanelWindow {
 	onShownChanged: Bars.osdScreen = shown ? (screen?.name ?? "") : ""
 
 	visible: shown || revealed > 0
+	onVisibleChanged: {
+		if (!visible)
+			drawn = false;
+	}
+	// In as the drawers come in, out as the bar's pills go.
+	onOpenChanged: {
+		reveal.stop();
+		reveal.to = open ? 1 : 0;
+		reveal.easing.type = open ? Easing.BezierSpline : Easing.OutCubic;
+		reveal.start();
+	}
 	color: "transparent"
 	exclusionMode: ExclusionMode.Ignore
 	exclusiveZone: 0
@@ -69,8 +75,20 @@ PanelWindow {
 
 	implicitHeight: Theme.barHeight
 
-	Behavior on revealed {
-		NumberAnimation { duration: Theme.animFast; easing.type: Easing.OutCubic }
+	NumberAnimation {
+		id: reveal
+		target: win
+		property: "revealed"
+		duration: Theme.animNormal
+		easing.bezierCurve: Theme.easeOutQuint
+	}
+
+	Connections {
+		target: face.Window.window
+		enabled: win.visible && !win.drawn
+		function onFrameSwapped() {
+			win.drawn = true;
+		}
 	}
 
 	Timer {
@@ -80,6 +98,7 @@ PanelWindow {
 	}
 
 	Rectangle {
+		id: face
 		anchors.centerIn: parent
 		width: (line.width + 2 * Theme.paddingCard) * win.revealed
 		height: parent.height
@@ -151,18 +170,6 @@ PanelWindow {
 				text: win.wallpaperName
 				font.bold: true
 				font.pixelSize: Theme.fontSizeBar
-			}
-
-			StyledText {
-				anchors.verticalCenter: parent.verticalCenter
-				visible: win.kind === "wallpaper"
-				width: Math.min(implicitWidth, 360)
-				elide: Text.ElideMiddle
-				textFormat: Text.PlainText
-				text: win.wallpaperDir
-				mono: true
-				font.pixelSize: Theme.fontSizeSmall
-				color: Theme.textDim
 			}
 		}
 	}
