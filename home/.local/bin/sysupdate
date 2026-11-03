@@ -41,6 +41,12 @@ listing() {
     printf '%s' "$out"
 }
 
+# "a, b, c": a summary's details.
+commas() {
+    local IFS=,
+    printf '%s' "$*" | sed 's/,/, /g'
+}
+
 # --- System packages ---------------------------------------------------------
 
 # pacman's stages as the step's changing line (it prints a line per stage without a tty),
@@ -127,7 +133,7 @@ pacman_changes() {
     for verb in upgraded installed downgraded reinstalled removed; do
         [[ -n "${counts[$verb]:-}" ]] && said+=("${counts[$verb]} $verb")
     done
-    _log_ok "$(listing "${said[@]}")${what:+ · $what}"
+    _log_ok "$(listing "${said[@]}" | sed 's/upgraded/updated/')${what:+ · $what}"
     # By name; three or more with the same start and the same change are one line.
     local -A size=() seen=()
     local key
@@ -155,6 +161,137 @@ pacman_changes() {
     for i in "${!names[@]}"; do
         printf '    %-*s  %s%s%s\n' "$width" "${names[$i]}" "$_C_DIM" "${vers[$i]}" "$_C_NC"
     done
+}
+
+# --- AUR ---------------------------------------------------------------------
+
+AUR_CLONES=${XDG_CACHE_HOME:-$HOME/.cache}/paru/clone
+
+# Read, never sourced: the maintainers, the upstream and the hosts sources come from.
+pkgbuild_facts() {
+    local text=$1 url
+    url=$(sed -nE 's/^url=["'\'']?([^"'\'' ]*).*/\1/p' <<<"$text" | head -n 1)
+    printf '%s\n' "$(sed -nE 's/^#[[:space:]]*Maintainer:[[:space:]]*//p' <<<"$text" | sed -E 's/[[:space:]]*<[^>]*>//; s/[[:space:]]+$//' | paste -sd, | sed 's/,/, /g')"
+    printf '%s\n' "$(sed -E 's#^(https?://)?(www\.)?##' <<<"$url")"
+    grep -v -e '^[[:space:]]*#' -e '^url=' <<<"$text" | sed -e "s#\${url}#$url#g" -e "s#\$url#$url#g" |
+        grep -oE '[a-z+]+://[^/"'\'' )]+' | sed -E 's#.*://##; s#^www\.##' | sort -u | paste -sd, | sed 's/,/, /g'
+}
+
+# "  label  now", and what it was when that changed.
+aur_fact() {
+    local label=$1 now=$2 was=$3
+    if [[ -n "$was" && "$was" != "$now" ]]; then
+        printf '      %-9s %s%s%s  %s(was %s)%s\n' "$label" "$_C_YELLOW" "${now:-none}" "$_C_NC" "$_C_DIM" "$was" "$_C_NC"
+    else
+        printf '      %-9s %s\n' "$label" "${now:-none}"
+    fi
+}
+
+# Y on Enter; one key, no Enter needed.
+ask_yes() {
+    local key
+    printf '    %s %s[Y/n]%s ' "$1" "$_C_DIM" "$_C_NC"
+    read -rsn1 key || key=n
+    if [[ -z "$key" || "$key" == [yY] ]]; then
+        printf 'yes\n'
+        return 0
+    fi
+    printf 'no\n'
+    return 1
+}
+
+# Who and where for one package, against what was last built; the whole of it on request.
+# Agreed to build: its clone remembers the version as seen (paru's AUR_SEEN).
+aur_review() {
+    local name=$1 old=$2 new=$3 base dir last="" head text was_text=""
+    base=$(curl -fsS --max-time 10 "https://aur.archlinux.org/rpc/v5/info?arg[]=$name" 2>/dev/null | jq -r '.results[0].PackageBase // empty' 2>/dev/null || true)
+    base=${base:-$name}
+    dir=$AUR_CLONES/$base
+    printf '    %s%s%s  %s%s → %s%s\n' "$_C_BOLD" "$name" "$_C_NC" "$_C_DIM" "$old" "$new" "$_C_NC"
+    if [[ -d "$dir/.git" ]]; then
+        git -C "$dir" fetch -q origin 2>/dev/null || true
+    else
+        mkdir -p "$AUR_CLONES"
+        git clone -q "https://aur.archlinux.org/$base.git" "$dir" 2>/dev/null || true
+    fi
+    head=$(git -C "$dir" rev-parse -q --verify origin/HEAD 2>/dev/null || git -C "$dir" rev-parse -q --verify HEAD 2>/dev/null || true)
+    if [[ -z "$head" ]]; then
+        _log_warn "Could not fetch $base's build files"
+        return 1
+    fi
+    [[ -f "$dir/.git/AUR_SEEN" ]] && last=$(git -C "$dir" rev-parse -q --verify "$(<"$dir/.git/AUR_SEEN")^{commit}" 2>/dev/null || true)
+    text=$(git -C "$dir" show "$head:PKGBUILD" 2>/dev/null || true)
+    [[ -n "$last" ]] && was_text=$(git -C "$dir" show "$last:PKGBUILD" 2>/dev/null || true)
+    local -a now was=("" "" "")
+    mapfile -t now < <(pkgbuild_facts "$text")
+    [[ -n "$was_text" ]] && mapfile -t was < <(pkgbuild_facts "$was_text")
+    aur_fact "by" "${now[0]}" "${was[0]}"
+    aur_fact "upstream" "${now[1]}" "${was[1]}"
+    aur_fact "sources" "${now[2]}" "${was[2]}"
+    if [[ "$last" == "$head" ]]; then
+        printf '      %sBuild files unchanged%s\n' "$_C_DIM" "$_C_NC"
+    elif ask_yes "See $([[ -n "$last" ]] && echo "what changed" || echo "the build files")?"; then
+        if [[ -n "$last" ]]; then
+            git -C "$dir" -c color.ui=always diff -U100000 "$last" "$head" -- . ':!.SRCINFO' | less -R
+        else
+            git -C "$dir" ls-tree -r --name-only "$head" | grep -vx '.SRCINFO' | while read -r f; do
+                printf '%s==> %s%s\n' "$_C_BOLD" "$f" "$_C_NC"
+                git -C "$dir" show "$head:$f"
+            done | less -R
+        fi
+        ask_yes "Build $name?" || return 1
+    fi
+    printf '%s\n' "$head" >"$dir/.git/AUR_SEEN"
+    printf '\n'
+}
+
+# makepkg's and pacman's stages as the step's line; the rest kept for when it fails.
+aur_stages() {
+    local line stage="Fetching" shown="Fetching" pkg=""
+    task_status "$stage"
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        printf '%s\n' "$line" >>"$TASKS_DIR/aur.out"
+        case $line in
+        "==> Making package: "*)
+            pkg=${line#==> Making package: }
+            pkg=${pkg%% *}
+            stage="Preparing $pkg"
+            ;;
+        "==> Retrieving sources..." | "  -> Downloading "*) stage="Downloading $pkg" ;;
+        "==> Validating "*) stage="Verifying $pkg" ;;
+        "==> Starting prepare()"*) stage="Preparing $pkg" ;;
+        "==> Starting build()"*) stage="Building $pkg" ;;
+        "==> Starting check()"*) stage="Testing $pkg" ;;
+        "==> Starting package()"* | "==> Creating package"*) stage="Packaging $pkg" ;;
+        "checking keyring..." | "checking package integrity..." | "loading package files..." | \
+            "checking for file conflicts..." | "checking available disk space...") stage="Checking packages" ;;
+        "upgrading "*... | "installing "*... | "reinstalling "*... | "downgrading "*...)
+            stage="${line%...}"
+            stage=${stage^}
+            ;;
+        ":: Running post-transaction hooks...") stage="Running hooks" ;;
+        esac
+        if [[ "$stage" != "$shown" ]]; then
+            task_status "$stage"
+            shown=$stage
+        fi
+    done
+}
+
+build_aur() {
+    local rc
+    echo 1 >"$TASKS_DIR/aur.exit"
+    aur_stages < <({
+        rc=0
+        paru -S --skipreview --noconfirm "${aur_picked[@]}" 2>&1 || rc=$?
+        echo "$rc" >"$TASKS_DIR/aur.exit"
+    } | tee -a "$TASKS_LOG")
+    rc=$(<"$TASKS_DIR/aur.exit")
+    if [[ "$rc" != 0 ]]; then
+        tail -n 15 "$TASKS_DIR/aur.out"
+        return "$rc"
+    fi
+    pacman_changes "$aur_log_start" "" | head -n 1
 }
 
 # --- The steps ---------------------------------------------------------------
@@ -185,9 +322,11 @@ update_system() {
 check_aur() {
     paru -Qua --devel >"$TASKS_DIR/aur" 2>/dev/null || true
     if [[ -s "$TASKS_DIR/aur" ]]; then
-        _log_ok "$(wc -l <"$TASKS_DIR/aur") to build, after the rest"
+        local -a names
+        mapfile -t names < <(awk '{ print $1 }' "$TASKS_DIR/aur")
+        _log_ok "${#names[@]} to build · $(commas "${names[@]}")"
     else
-        _log_ok "Nothing to update"
+        _log_ok "Up to date"
     fi
 }
 
@@ -209,26 +348,25 @@ update_zsh_plugins() {
         updated+=("${d#*---}")
     done
     if ((${#updated[@]})); then
-        _log_ok "Updated $(listing "${updated[@]}") (of ${#before[@]})"
+        _log_ok "${#updated[@]} updated · $(commas "${updated[@]}")"
     else
-        _log_ok "${#before[@]} checked, none updated"
+        _log_ok "Up to date"
     fi
 }
 
 # Lazy's sync log runs to hundreds of lines; the lockfile diff says what moved.
 update_nvim_plugins() {
-    local lock="${XDG_CONFIG_HOME:-$HOME/.config}/nvim/lazy-lock.json" old_lock="" new_lock="" total
+    local lock="${XDG_CONFIG_HOME:-$HOME/.config}/nvim/lazy-lock.json" old_lock="" new_lock=""
     local -a changed
     [ -f "$lock" ] && old_lock=$(<"$lock")
     run_captured nvim --headless "+Lazy! sync" +qa || return 1
     [ -f "$lock" ] || return 0
     new_lock=$(<"$lock")
-    total=$(grep -c '^ *"' <<<"$new_lock" || true)
     mapfile -t changed < <(diff <(printf '%s\n' "$old_lock") <(printf '%s\n' "$new_lock") | sed -nE 's/^> *"([^"]+)".*/\1/p' || true)
     if ((${#changed[@]})); then
-        _log_ok "Updated $(listing "${changed[@]}") (of $total)"
+        _log_ok "${#changed[@]} updated · $(commas "${changed[@]}")"
     else
-        _log_ok "$total checked, none updated"
+        _log_ok "Up to date"
     fi
 }
 
@@ -244,7 +382,7 @@ sync_aur_votes() {
         run_captured aur-sync-vote || return 1
         printf '%s\n' "$OUT"
         touch "$AUR_VOTES_STAMP"
-        _log_ok "Synced (again in a week)"
+        _log_ok "Synced"
     else
         touch "$AUR_VOTES_STAMP"
         _log_warn "Off: 'aur-sync-vote --remember' turns it on"
@@ -259,7 +397,7 @@ check_firmware() {
     fwupdmgr get-updates --no-unreported-check >/dev/null 2>&1 || rc=$?
     if [ "$rc" -eq 0 ]; then
         touch "$TASKS_DIR/firmware"
-        _log_warn "Updates found: installed after the rest"
+        _log_warn "Updates to install"
     else
         _log_ok "Up to date"
     fi
@@ -273,16 +411,16 @@ update_flatpak() {
     run_captured flatpak update -y --noninteractive || return 1
     printf '%s\n' "$OUT"
     if ((${#apps[@]})); then
-        _log_ok "Updated $(listing "${apps[@]}")"
+        _log_ok "${#apps[@]} updated · $(commas "${apps[@]}")"
     else
-        _log_ok "Nothing to update"
+        _log_ok "Up to date"
     fi
 }
 
 update_tldr() {
     run_captured tldr --update || return 1
     printf '%s\n' "$OUT"
-    _log_ok "Pages updated"
+    _log_ok "Up to date"
 }
 
 # "Updated ruff v0.6.1 -> v0.6.2" for each tool that moved.
@@ -292,9 +430,9 @@ update_uv_tools() {
     local -a moved
     mapfile -t moved < <(sed -nE 's/^Updated ([^ ]+) v?([^ ]+) -> v?([^ ]+).*/\1 \2 → \3/p' <<<"$OUT")
     if ((${#moved[@]})); then
-        _log_ok "Updated $(listing "${moved[@]}")"
+        _log_ok "${#moved[@]} updated · $(commas "${moved[@]}")"
     else
-        _log_ok "Nothing to upgrade"
+        _log_ok "Up to date"
     fi
 }
 
@@ -376,14 +514,23 @@ if [[ -f "$TASKS_DIR/pacman.warnings" ]]; then
     done <"$TASKS_DIR/pacman.warnings"
 fi
 
-# AUR build scripts run as this user and come from strangers: paru shows what changed
-# and asks before building, so this part needs a terminal.
+# AUR build scripts run as this user and come from strangers: who wrote them and where they
+# fetch from is shown, the rest on request, so this part needs a terminal.
 if [[ "$rc" == 0 && -s "$TASKS_DIR/aur" ]]; then
-    aur_log_start=$(wc -l <"$PACMAN_LOG" 2>/dev/null || echo 0)
     _log_info "AUR packages"
     if [[ -t 0 ]]; then
-        paru -Sua --devel || exit $?
-        pacman_changes "$aur_log_start" ""
+        aur_picked=()
+        mapfile -t aur_lines <"$TASKS_DIR/aur"
+        for l in "${aur_lines[@]}"; do
+            read -r name old _ new <<<"$l"
+            aur_review "$name" "$old" "$new" && aur_picked+=("$name")
+        done
+        if ((${#aur_picked[@]})); then
+            sudo -v || exit 1
+            aur_log_start=$(wc -l <"$PACMAN_LOG" 2>/dev/null || echo 0)
+            task "AUR packages" build_aur
+            run_tasks "Build"
+        fi
     else
         _log_warn "Skipped: AUR updates are reviewed before they are built. Run 'sysupdate' in a terminal."
     fi

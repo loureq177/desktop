@@ -118,6 +118,16 @@ _task_settle() {
     _TASK_TEXT[i]=$line
 }
 
+# A summary's details, after its " · ", dimmed; $2 colours the rest.
+_task_paint() {
+    local text=$1 color=$2
+    if [[ "$text" == *" · "* ]]; then
+        printf '%s%s%s · %s%s' "$color" "${text%%" · "*}" "$_C_NC$_C_DIM" "${text#*" · "}" "$_C_NC"
+    else
+        printf '%s%s%s' "$color" "$text" "$_C_NC"
+    fi
+}
+
 # Step i's line: mark, label, time, summary; cut at the edge while redrawn, wrapped
 # when final.
 _task_row() {
@@ -143,18 +153,22 @@ _task_row() {
     local color=""
     [[ "${_TASK_KIND[i]:-}" == fail ]] && color=$_C_RED
     if ((${#text} <= room)); then
-        printf '%s  %s %-*s  %s%6s%s  %s%s%s\n' "$_T_CL" "$mark" "$width" "$label" "$_C_DIM" "$time" "$_C_NC" "$color" "$text" "$_C_NC"
+        printf '%s  %s %-*s  %s%6s%s  %s\n' "$_T_CL" "$mark" "$width" "$label" "$_C_DIM" "$time" "$_C_NC" "$(_task_paint "$text" "$color")"
     elif [[ "$final" == 0 ]]; then
-        printf '%s  %s %-*s  %s%6s%s  %s%s…%s\n' "$_T_CL" "$mark" "$width" "$label" "$_C_DIM" "$time" "$_C_NC" "$color" "${text:0:room-1}" "$_C_NC"
+        printf '%s  %s %-*s  %s%6s%s  %s…\n' "$_T_CL" "$mark" "$width" "$label" "$_C_DIM" "$time" "$_C_NC" "$(_task_paint "${text:0:room-1}" "$color")"
     else
-        local first=1 part
+        # Past the " · ", a wrapped line is all details.
+        local first=1 part dim=0
         while IFS= read -r part; do
             if ((first)); then
-                printf '%s  %s %-*s  %s%6s%s  %s%s%s\n' "$_T_CL" "$mark" "$width" "$label" "$_C_DIM" "$time" "$_C_NC" "$color" "$part" "$_C_NC"
+                printf '%s  %s %-*s  %s%6s%s  %s\n' "$_T_CL" "$mark" "$width" "$label" "$_C_DIM" "$time" "$_C_NC" "$(_task_paint "$part" "$color")"
                 first=0
+            elif ((dim)); then
+                printf '%s%*s%s%s%s\n' "$_T_CL" "$indent" "" "$_C_DIM" "$part" "$_C_NC"
             else
-                printf '%s%*s%s%s%s\n' "$_T_CL" "$indent" "" "$color" "$part" "$_C_NC"
+                printf '%s%*s%s\n' "$_T_CL" "$indent" "" "$(_task_paint "$part" "$color")"
             fi
+            [[ "$part" == *" · "* ]] && dim=1
         done < <(fold -s -w "$room" <<<"$text" | sed 's/ *$//')
     fi
 }
