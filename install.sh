@@ -4,6 +4,7 @@ cd "$(dirname "${BASH_SOURCE[0]:-$0}")"
 
 # The status lines the installed scripts print too.
 source home/.local/lib/dotfiles/common.sh
+PKGBUILDS_DIR=$PWD/home/.local/share/pkgbuilds
 source home/.local/lib/dotfiles/pkgbuilds.sh
 
 NO_UPGRADE=0
@@ -149,7 +150,7 @@ if command -v flatpak &>/dev/null; then
     _log_ok "Flatpaks installed."
 fi
 
-# pkgbuilds/: from their makers' releases, the newest one when it can be found.
+# home/.local/share/pkgbuilds: from their makers' releases, the newest one when it can be found.
 _log_info "Building packages from their makers' releases..."
 while IFS= read -r name; do
     pacman -Q "$name" &>/dev/null && continue

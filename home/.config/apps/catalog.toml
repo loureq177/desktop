@@ -88,7 +88,7 @@ key = "S"
 icon = "music"
 standard = true
 apps = [
-	{ name = "Spotify", exec = "spotify", class = "Spotify", icon = "spotify", app_icon = "spotify-client", desktop = "spotify", player = "spotify", aur = ["spotify"] },
+	{ name = "Spotify", exec = "com.spotify.Client", class = "spotify", icon = "spotify", app_icon = "spotify-client", desktop = "com.spotify.Client", player = "spotify", flatpak = ["com.spotify.Client"] },
 	{ name = "YouTube Music", url = "https://music.youtube.com", app_icon = "youtube-music" },
 	{ name = "Tidal", url = "https://listen.tidal.com", title = "TIDAL", app_icon = "tidal" },
 	{ name = "Apple Music", url = "https://music.apple.com", app_icon = "apple-music" },

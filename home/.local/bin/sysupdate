@@ -297,7 +297,7 @@ build_aur() {
 
 # --- Built here --------------------------------------------------------------
 
-# The installed ones of pkgbuilds/ against their makers' newest releases.
+# The installed ones of ~/.local/share/pkgbuilds against their makers' newest releases.
 check_builds() {
     local name installed latest
     local -a due=() unknown=()
@@ -364,7 +364,7 @@ update_system() {
 }
 
 # Building needs pacman's lock and you, so it comes after the steps; looking does not.
-# pkgbuilds/ share names with the AUR's: they are not its to update.
+# ~/.local/share/pkgbuilds share names with the AUR's: they are not its to update.
 check_aur() {
     paru -Qua --devel 2>/dev/null | awk 'NR == FNR { own[$1]; next } !($1 in own)' <(pkgbuild_names) - >"$TASKS_DIR/aur" || true
     if [[ -s "$TASKS_DIR/aur" ]]; then

@@ -114,7 +114,7 @@ UNITS="home/.config/systemd/user"
         grep -qx "$pkg" "$REPO/packages.txt" || fail "packages.txt does not install $pkg"
     done
     grep -q 'enable wayland-pipewire-idle-inhibit.service' "$REPO/install.sh"
-    [[ -f "$REPO/pkgbuilds/wayland-pipewire-idle-inhibit/PKGBUILD" ]]
+    [[ -f "$REPO/home/.local/share/pkgbuilds/wayland-pipewire-idle-inhibit/PKGBUILD" ]]
 }
 
 @test "every /etc config has its package in the lists" {
@@ -298,10 +298,10 @@ listed_packages() {
     need pacman
     pacman -Si pacman >/dev/null 2>&1 || skip "no pacman sync database"
     local dir pkg bad=0
-    for dir in "$REPO"/pkgbuilds/*/; do
+    for dir in "$REPO"/home/.local/share/pkgbuilds/*/; do
         pkg=$(basename "$dir")
         if pacman -Si "$pkg" >/dev/null 2>&1; then
-            echo "$pkg is in the official repos now: move it from pkgbuilds/ to packages.txt" >&2
+            echo "$pkg is in the official repos now: move it from home/.local/share/pkgbuilds to packages.txt" >&2
             bad=1
         fi
     done
@@ -310,7 +310,7 @@ listed_packages() {
 
 @test "every PKGBUILD says where its newest release is" {
     local f
-    for f in "$REPO"/pkgbuilds/*/PKGBUILD; do
+    for f in "$REPO"/home/.local/share/pkgbuilds/*/PKGBUILD; do
         grep -q '^_latest()' "$f" || fail "${f#"$REPO"/} has no _latest"
     done
 }
@@ -335,7 +335,7 @@ listed_packages() {
 
     local provided
     provided="$(
-        { listed_packages "$REPO"/{packages.txt,packages-laptop.txt}; ls "$REPO/pkgbuilds"; echo base; } |
+        { listed_packages "$REPO"/{packages.txt,packages-laptop.txt}; ls "$REPO/home/.local/share/pkgbuilds"; echo base; } |
             while IFS= read -r pkg; do pactree -lu "$pkg" 2>/dev/null || pactree -slu "$pkg" 2>/dev/null || echo "$pkg"; done | sort -u
     )"
 

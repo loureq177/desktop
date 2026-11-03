@@ -1,7 +1,8 @@
 # shellcheck shell=bash
-# The repo's pkgbuilds/: packages built from their makers' releases instead of the AUR.
+# ~/.local/share/pkgbuilds: packages built from their makers' releases instead of the AUR,
+# this repo's and the machine layer's.
 
-PKGBUILDS_DIR=$(readlink -f "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../../../../pkgbuilds")
+PKGBUILDS_DIR=${PKGBUILDS_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/pkgbuilds}
 
 pkgbuild_names() {
     local f
@@ -27,7 +28,11 @@ pkgbuild_install() {
     local name=$1 version=${2:-} dir=${XDG_CACHE_HOME:-$HOME/.cache}/pkgbuilds/${1:?}
     rm -rf "$dir"
     mkdir -p "$dir"
-    cp -r "$PKGBUILDS_DIR/$name/." "$dir/" || return 1
+    cp -rL "$PKGBUILDS_DIR/$name/." "$dir/" || return 1
+    # Signed sources: the keys they are checked against.
+    if [[ -d "$dir/keys/pgp" ]]; then
+        gpg --quiet --import "$dir"/keys/pgp/*.asc 2>/dev/null || return 1
+    fi
     if [[ -n "$version" ]] && ! grep -qx "pkgver=$version" "$dir/PKGBUILD"; then
         sed -i "s/^pkgver=.*/pkgver=$version/" "$dir/PKGBUILD"
         (cd "$dir" && updpkgsums) || return 1
