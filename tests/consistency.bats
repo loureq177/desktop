@@ -114,7 +114,7 @@ UNITS="home/.config/systemd/user"
         grep -qx "$pkg" "$REPO/packages.txt" || fail "packages.txt does not install $pkg"
     done
     grep -q 'enable wayland-pipewire-idle-inhibit.service' "$REPO/install.sh"
-    grep -qx wayland-pipewire-idle-inhibit "$REPO/aur.txt"
+    [[ -f "$REPO/pkgbuilds/wayland-pipewire-idle-inhibit/PKGBUILD" ]]
 }
 
 @test "every /etc config has its package in the lists" {
@@ -272,7 +272,7 @@ listed_packages() {
 }
 
 @test "package lists have no duplicates or malformed names" {
-    local lists=("$REPO"/{packages.txt,packages-laptop.txt,aur.txt})
+    local lists=("$REPO"/{packages.txt,packages-laptop.txt})
     local dups
     dups="$(listed_packages "${lists[@]}" | sort | uniq -d)"
     [[ -z "$dups" ]] || fail "listed more than once:" "$dups"
@@ -294,17 +294,25 @@ listed_packages() {
     [[ -z "$missing" ]] || fail "$missing"
 }
 
-@test "AUR packages are not in the official repositories" {
+@test "packages built here are not in the official repositories" {
     need pacman
     pacman -Si pacman >/dev/null 2>&1 || skip "no pacman sync database"
-    local pkg bad=0
-    while IFS= read -r pkg; do
+    local dir pkg bad=0
+    for dir in "$REPO"/pkgbuilds/*/; do
+        pkg=$(basename "$dir")
         if pacman -Si "$pkg" >/dev/null 2>&1; then
-            echo "$pkg is in the official repos now: move it from aur.txt to packages.txt" >&2
+            echo "$pkg is in the official repos now: move it from pkgbuilds/ to packages.txt" >&2
             bad=1
         fi
-    done < <(listed_packages "$REPO/aur.txt")
+    done
     [[ "$bad" -eq 0 ]]
+}
+
+@test "every PKGBUILD says where its newest release is" {
+    local f
+    for f in "$REPO"/pkgbuilds/*/PKGBUILD; do
+        grep -q '^_latest()' "$f" || fail "${f#"$REPO"/} has no _latest"
+    done
 }
 
 @test "the package lists install every program the scripts and units need" {
@@ -320,14 +328,14 @@ listed_packages() {
     )
     # Not here: the browser and the specials' apps (catalog.toml, checked above) and
     # the terminal's tools (.files' packages-arch.txt).
-    # Not installable from a list: install.sh builds paru from the AUR,
+    # Not installable from a list: install.sh builds paru from the AUR for a picked app,
     # prime-run only matters on NVIDIA machines.
     local unit_bins
     mapfile -t unit_bins < <(grep -ohE '^Exec[A-Za-z]*=-?/usr/bin/[A-Za-z0-9_.-]+' "$REPO/$UNITS"/*.service | sed 's|.*/||' | sort -u)
 
     local provided
     provided="$(
-        { listed_packages "$REPO"/{packages.txt,packages-laptop.txt,aur.txt}; echo base; } |
+        { listed_packages "$REPO"/{packages.txt,packages-laptop.txt}; ls "$REPO/pkgbuilds"; echo base; } |
             while IFS= read -r pkg; do pactree -lu "$pkg" 2>/dev/null || pactree -slu "$pkg" 2>/dev/null || echo "$pkg"; done | sort -u
     )"
 

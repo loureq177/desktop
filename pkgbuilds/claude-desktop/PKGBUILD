@@ -1,0 +1,65 @@
+# Anthropic's own .deb, from their apt repository; verify() checks it against the
+# repository's index, signed with their release key (anthropic.pgp).
+
+pkgname=claude-desktop
+pkgver=4.4212.0
+pkgrel=1
+pkgdesc="Claude desktop app, from Anthropic's apt repository"
+arch=('x86_64')
+url="https://claude.com/download"
+license=('LicenseRef-Proprietary')
+# The .deb's Depends in Arch's names; QEMU and OVMF run Cowork's virtual machine.
+depends=('alsa-lib' 'at-spi2-core' 'bubblewrap' 'cairo' 'dbus' 'expat' 'gcc-libs' 'glib2' 'glibc'
+    'gtk3' 'hicolor-icon-theme' 'libcap-ng' 'libcups' 'libdrm' 'libnotify' 'libpipewire'
+    'libseccomp' 'libsecret' 'libx11' 'libxcb' 'libxcomposite' 'libxdamage' 'libxext'
+    'libxfixes' 'libxkbcommon' 'libxrandr' 'libxtst' 'mesa' 'nspr' 'nss' 'pango' 'socat'
+    'systemd-libs' 'util-linux-libs' 'virtiofsd' 'xdg-desktop-portal' 'xdg-utils'
+    'qemu-system-x86' 'edk2-ovmf')
+conflicts=('claude-desktop-bin')
+# Prebuilt Electron: stripping breaks it.
+options=('!strip' '!debug')
+_repo=https://downloads.claude.ai/claude-desktop/apt/stable
+source=("claude-desktop.sh" "anthropic.pgp" "$_repo/pool/main/c/claude-desktop/${pkgname}_${pkgver}_amd64.deb")
+sha256sums=('SKIP' 'SKIP' 'SKIP')
+
+# The repository's package list, once the signature on its index checks out.
+_packages() {
+    local key=$1 tmp sum
+    tmp=$(mktemp -d) || return 1
+    gpg --dearmor <"$key" >"$tmp/key.gpg" &&
+        curl -fsS --max-time 30 -o "$tmp/InRelease" "$_repo/dists/stable/InRelease" &&
+        gpgv --quiet --keyring "$tmp/key.gpg" --output "$tmp/Release" "$tmp/InRelease" 2>/dev/null &&
+        curl -fsS --max-time 30 -o "$tmp/Packages" "$_repo/dists/stable/main/binary-amd64/Packages" &&
+        sum=$(awk '/^SHA256:/ { s = 1; next } /^[^ ]/ { s = 0 } s && $3 == "main/binary-amd64/Packages" { print $1 }' "$tmp/Release") &&
+        [[ -n "$sum" ]] && sha256sum --quiet -c <<<"$sum  $tmp/Packages" &&
+        cat "$tmp/Packages"
+    local rc=$?
+    rm -rf "$tmp"
+    return "$rc"
+}
+
+# The newest version in the signed index (sysupdate asks).
+_latest() {
+    _packages anthropic.pgp | sed -n 's/^Version: //p' | sort -V | tail -n 1
+}
+
+verify() {
+    local deb="${pkgname}_${pkgver}_amd64.deb" sum
+    sum=$(_packages anthropic.pgp | awk -v f="pool/main/c/claude-desktop/$deb" '
+        /^Filename:/ { hit = ($2 == f) } hit && /^SHA256:/ { print $2; exit }') || return 1
+    [[ -n "$sum" ]] && sha256sum --quiet -c <<<"$sum  $deb"
+}
+
+package() {
+    tar -xf data.tar.xz -C "$pkgdir"
+    # Upstream's /usr/bin/claude-desktop is the bare Electron binary: on X11, blurry under scaling.
+    rm -f "$pkgdir/usr/bin/claude-desktop"
+    install -Dm755 claude-desktop.sh "$pkgdir/usr/bin/claude-desktop"
+    rm -r "$pkgdir/usr/share/lintian"
+    # Cowork opens Debian's paths: virtiofsd in /usr/bin, OVMF under Debian's names.
+    ln -s ../lib/virtiofsd "$pkgdir/usr/bin/virtiofsd"
+    install -d "$pkgdir/usr/share/edk2"
+    ln -s x64/OVMF_CODE.4m.fd "$pkgdir/usr/share/edk2/OVMF_CODE_4M.fd"
+    ln -s x64/OVMF_VARS.4m.fd "$pkgdir/usr/share/edk2/OVMF_VARS_4M.fd"
+    install -Dm644 "$pkgdir/usr/share/doc/claude-desktop/copyright" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

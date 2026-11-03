@@ -4,6 +4,7 @@ cd "$(dirname "${BASH_SOURCE[0]:-$0}")"
 
 # The status lines the installed scripts print too.
 source home/.local/lib/dotfiles/common.sh
+source home/.local/lib/dotfiles/pkgbuilds.sh
 
 NO_UPGRADE=0
 PICK=0
@@ -48,7 +49,7 @@ pac_install() {
 }
 # What the chosen browser and specials need from one source (pacman, aur, flatpak).
 picked() { home/.local/bin/apply-apps --packages | awk -v source="$1" '$1 == source { print $2 }'; }
-# paru is not in the official repositories: build it once from the AUR.
+# paru is not in the official repositories: built from the AUR when a picked app needs it.
 bootstrap_paru() {
     command -v paru &>/dev/null && return 0
     _log_info "paru not found. Building it from the AUR..."
@@ -148,10 +149,23 @@ if command -v flatpak &>/dev/null; then
     _log_ok "Flatpaks installed."
 fi
 
-if { pkglist aur.txt; picked aur; } | grep -q .; then
+# pkgbuilds/: from their makers' releases, the newest one when it can be found.
+_log_info "Building packages from their makers' releases..."
+while IFS= read -r name; do
+    pacman -Q "$name" &>/dev/null && continue
+    pkgbuild_install "$name" "$(pkgbuild_latest "$name" 2>/dev/null || true)" || _log_warn "Could not build $name."
+done < <(pkgbuild_names)
+
+# Anthropic's installer: Claude Code in ~/.local/bin, updating itself.
+if ! command -v claude &>/dev/null; then
+    _log_info "Installing Claude Code..."
+    curl -fsSL https://claude.ai/install.sh | bash || _log_warn "Could not install Claude Code."
+fi
+
+if picked aur | grep -q .; then
     if bootstrap_paru; then
         _log_info "Installing AUR packages via paru..."
-        { pkglist aur.txt; picked aur; } | xargs -r -d '\n' paru -S --noconfirm --needed
+        picked aur | xargs -r -d '\n' paru -S --noconfirm --needed
         _log_ok "AUR packages installed."
     else
         _log_warn "Could not build paru - skipping AUR packages."

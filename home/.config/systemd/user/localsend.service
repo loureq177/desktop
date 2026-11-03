@@ -4,7 +4,7 @@ PartOf=hyprland-session.target
 After=hyprland-session.target
 
 [Service]
-ExecStart=/usr/bin/localsend --hidden
+ExecStart=/usr/bin/flatpak run org.localsend.localsend_app --hidden
 # Closing its window quits it: back in the tray, hidden again.
 Restart=always
 RestartSec=2

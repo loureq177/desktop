@@ -9,6 +9,7 @@ mkdir -p "$STATE"
 TASKS_LOG="$STATE/last.log"
 : >"$TASKS_LOG"
 source "$HOME/.local/lib/dotfiles/tasks.sh"
+source "$HOME/.local/lib/dotfiles/pkgbuilds.sh"
 
 # queue LABEL TOOL FUNCTION: a step, when TOOL is installed. The steps run at once
 # (tasks.sh); a failing one does not stop the others.
@@ -245,12 +246,12 @@ aur_review() {
     printf '\n'
 }
 
-# makepkg's and pacman's stages as the step's line; the rest kept for when it fails.
-aur_stages() {
-    local line stage="Fetching" shown="Fetching" pkg=""
+# makepkg's and pacman's stages as the step's line; the rest kept in OUT for when it fails.
+build_stages() {
+    local out=$1 line stage="Fetching" shown="Fetching" pkg=""
     task_status "$stage"
     while IFS= read -r line || [[ -n "$line" ]]; do
-        printf '%s\n' "$line" >>"$TASKS_DIR/aur.out"
+        printf '%s\n' "$line" >>"$out"
         case $line in
         "==> Making package: "*)
             pkg=${line#==> Making package: }
@@ -258,7 +259,7 @@ aur_stages() {
             stage="Preparing $pkg"
             ;;
         "==> Retrieving sources..." | "  -> Downloading "*) stage="Downloading $pkg" ;;
-        "==> Validating "*) stage="Verifying $pkg" ;;
+        "==> Validating "* | "==> Starting verify()"*) stage="Verifying $pkg" ;;
         "==> Starting prepare()"*) stage="Preparing $pkg" ;;
         "==> Starting build()"*) stage="Building $pkg" ;;
         "==> Starting check()"*) stage="Testing $pkg" ;;
@@ -281,7 +282,7 @@ aur_stages() {
 build_aur() {
     local rc
     echo 1 >"$TASKS_DIR/aur.exit"
-    aur_stages < <({
+    build_stages "$TASKS_DIR/aur.out" < <({
         rc=0
         paru -S --skipreview --noconfirm "${aur_picked[@]}" 2>&1 || rc=$?
         echo "$rc" >"$TASKS_DIR/aur.exit"
@@ -292,6 +293,50 @@ build_aur() {
         return "$rc"
     fi
     pacman_changes "$aur_log_start" "" | head -n 1
+}
+
+# --- Built here --------------------------------------------------------------
+
+# The installed ones of pkgbuilds/ against their makers' newest releases.
+check_builds() {
+    local name installed latest
+    local -a due=() unknown=()
+    while IFS= read -r name; do
+        installed=$(pacman -Q "$name" 2>/dev/null | awk '{ print $2 }') || true
+        [[ -n "$installed" ]] || continue
+        latest=$(pkgbuild_latest "$name" 2>/dev/null) || true
+        if [[ -z "$latest" ]]; then
+            unknown+=("$name")
+        elif (($(vercmp "$(pkgbuild_full "$name" "$latest")" "$installed") > 0)); then
+            printf '%s %s %s\n' "$name" "$installed" "$latest" >>"$TASKS_DIR/builds"
+            due+=("$name")
+        fi
+    done < <(pkgbuild_names)
+    if ((${#unknown[@]})); then
+        _log_warn "No newest version found · $(commas "${unknown[@]}")"
+    elif ((${#due[@]})); then
+        _log_ok "${#due[@]} to build · $(commas "${due[@]}")"
+    else
+        _log_ok "Up to date"
+    fi
+}
+
+build_own() {
+    local rc name latest
+    echo 1 >"$TASKS_DIR/builds.exit"
+    build_stages "$TASKS_DIR/builds.out" < <({
+        rc=0
+        while read -r name _ latest; do
+            pkgbuild_install "$name" "$latest" 2>&1 || rc=$?
+        done <"$TASKS_DIR/builds"
+        echo "$rc" >"$TASKS_DIR/builds.exit"
+    } | tee -a "$TASKS_LOG")
+    rc=$(<"$TASKS_DIR/builds.exit")
+    if [[ "$rc" != 0 ]]; then
+        tail -n 15 "$TASKS_DIR/builds.out"
+        return "$rc"
+    fi
+    pacman_changes "$builds_log_start" "" | head -n 1
 }
 
 # --- The steps ---------------------------------------------------------------
@@ -319,8 +364,9 @@ update_system() {
 }
 
 # Building needs pacman's lock and you, so it comes after the steps; looking does not.
+# pkgbuilds/ share names with the AUR's: they are not its to update.
 check_aur() {
-    paru -Qua --devel >"$TASKS_DIR/aur" 2>/dev/null || true
+    paru -Qua --devel 2>/dev/null | awk 'NR == FNR { own[$1]; next } !($1 in own)' <(pkgbuild_names) - >"$TASKS_DIR/aur" || true
     if [[ -s "$TASKS_DIR/aur" ]]; then
         local -a names
         mapfile -t names < <(awk '{ print $1 }' "$TASKS_DIR/aur")
@@ -370,25 +416,6 @@ update_nvim_plugins() {
     fi
 }
 
-# Once a week is enough for votes; the stamp counts a run without the
-# credentials too, so the hint comes weekly, not every time.
-AUR_VOTES_STAMP="$STATE/aur-votes"
-aur_votes_due() {
-    [[ ! -f "$AUR_VOTES_STAMP" ]] || [[ -n "$(find "$AUR_VOTES_STAMP" -mtime +6 2>/dev/null)" ]]
-}
-
-sync_aur_votes() {
-    if python3 -c "import keyring, sys; sys.exit(0 if keyring.get_credential('aur-sync-vote', None) else 1)" >/dev/null 2>&1; then
-        run_captured aur-sync-vote || return 1
-        printf '%s\n' "$OUT"
-        touch "$AUR_VOTES_STAMP"
-        _log_ok "Synced"
-    else
-        touch "$AUR_VOTES_STAMP"
-        _log_warn "Off: 'aur-sync-vote --remember' turns it on"
-    fi
-}
-
 # Only the check: installing may ask for a password (polkit), so it comes
 # after the steps, in the terminal, when there is something to install.
 check_firmware() {
@@ -412,6 +439,19 @@ update_flatpak() {
     printf '%s\n' "$OUT"
     if ((${#apps[@]})); then
         _log_ok "${#apps[@]} updated · $(commas "${apps[@]}")"
+    else
+        _log_ok "Up to date"
+    fi
+}
+
+# The installer's Claude Code updates itself too; here it does not wait for a start.
+update_claude() {
+    run_captured claude update || return 1
+    printf '%s\n' "$OUT"
+    local moved
+    moved=$(sed -nE 's/.*Successfully updated from ([^ ]+) to version ([^ ]+).*/\1 → \2/p' <<<"$OUT")
+    if [[ -n "$moved" ]]; then
+        _log_ok "Updated · $moved"
     else
         _log_ok "Up to date"
     fi
@@ -492,12 +532,13 @@ if [ -f "$PACMAN_LOG" ]; then
 fi
 
 task "System packages" update_system
+queue "Built here" makepkg check_builds
 queue "AUR" paru check_aur
 queue "Flatpak apps" flatpak update_flatpak
 queue "Firmware" fwupdmgr check_firmware
 queue "tldr pages" tldr update_tldr
 queue "Zsh plugins" zsh update_zsh_plugins
-aur_votes_due && queue "AUR votes" aur-sync-vote sync_aur_votes
+queue "Claude Code" claude update_claude
 queue "uv tools" uv update_uv_tools
 queue "Neovim plugins" nvim update_nvim_plugins
 
@@ -512,6 +553,14 @@ if [[ -f "$TASKS_DIR/pacman.warnings" ]]; then
     while IFS= read -r line; do
         _log_warn "$line"
     done <"$TASKS_DIR/pacman.warnings"
+fi
+
+# Our own build files: no review, but pacman's lock, so after the steps.
+if [[ "$rc" == 0 && -s "$TASKS_DIR/builds" ]]; then
+    [[ -t 0 ]] && { sudo -v || exit 1; }
+    builds_log_start=$(wc -l <"$PACMAN_LOG" 2>/dev/null || echo 0)
+    task "Packages built here" build_own
+    run_tasks "Build"
 fi
 
 # AUR build scripts run as this user and come from strangers: who wrote them and where they

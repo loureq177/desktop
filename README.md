@@ -77,9 +77,9 @@ rest (notes, social, video, maps, code, work chat, meetings...) or your own, a s
 program. The answers stay in `~/.config/apps/apps.toml`; `install.sh --defaults` skips
 the questions.
 
-The installer changes the system: packages (official, AUR, flatpak), `/etc`
-(the session on tty1, zram, sysctl hardening, the lock screen's PAM), autologin
-on tty1. It also clones and installs [`.files`](https://github.com/loureq177/.files)
+The installer changes the system: packages (official, flatpak, and a few built from
+their makers' own releases in `pkgbuilds/`, never from the AUR), `/etc` (the session
+on tty1, zram, sysctl hardening, the lock screen's PAM), autologin on tty1. It also clones and installs [`.files`](https://github.com/loureq177/.files)
 (zsh as the login shell, Ghostty, nvim and the terminal tools);
 `--no-dotfiles` leaves it out and the desktop still starts.
 
