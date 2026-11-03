@@ -114,6 +114,16 @@ Singleton {
 		return m.description ? "desc:" + m.description : m.name;
 	}
 
+	// Scales Hyprland takes without a warning: whole logical pixels, in 1/120 steps.
+	function scales(m: var): var {
+		var out = [];
+		for (var lw = Math.ceil(m.width / 3); lw <= m.width; lw++) {
+			if ((m.height * lw) % m.width === 0 && (120 * m.width) % lw === 0)
+				out.push(m.width / lw);
+		}
+		return out.reverse();
+	}
+
 	function currentMode(m: var): string {
 		return m.width + "x" + m.height + "@" + m.refreshRate.toFixed(2);
 	}
@@ -159,17 +169,24 @@ Singleton {
 					value: currentMode(m),
 					choices: modes.map(s => ({ label: s.replace("@", " · ").replace(/\.00$/, "") + " Hz", value: s })),
 					icon: "monitor",
-					apply: v => root.setDisplay(m, v, m.scale)
+					apply: v => root.setDisplay(m, v, root.scales(m).find(s => Math.abs(s - m.scale) < 0.001) ?? m.scale)
 				}),
 				Object.assign({}, common, {
 					id: "display:" + m.name + ":scale",
 					name: m.name + " scale",
 					label: "Scale",
 					value: m.scale,
-					// Hyprland takes only those that leave whole logical pixels.
-					choices: [1, 1.25, 1.5, 1.75, 2].filter(v => Number.isInteger(m.width / v) && Number.isInteger(m.height / v)).concat([m.scale]).filter((v, i, all) => all.indexOf(v) === i).sort((a, b) => a - b).map(v => ({ label: Math.round(v * 100) + "%", value: v })),
+					choices: root.scales(m).map(v => Math.abs(v - m.scale) < 0.001 ? m.scale : v).concat([m.scale]).filter((v, i, all) => all.indexOf(v) === i).sort((a, b) => a - b).map(v => ({ label: Math.round(v * 100) + "%", value: v })),
+					// "130" or "1.3": the nearest one Hyprland takes, else it warns.
+					custom: t => {
+						var n = Number(t.replace("%", "").replace(",", ".").trim());
+						if (t.trim() === "" || isNaN(n) || n <= 0)
+							return undefined;
+						n = n >= 10 ? n / 100 : n;
+						return root.scales(m).reduce((best, v) => Math.abs(v - n) < Math.abs(best - n) ? v : best, 1);
+					},
 					icon: "sliders-horizontal",
-					apply: v => root.setDisplay(m, currentMode(m), v)
+					apply: v => root.setDisplay(m, currentMode(m), root.scales(m).find(s => Math.abs(s - v) < 0.001) ?? v)
 				})
 			]);
 		}, brightness);

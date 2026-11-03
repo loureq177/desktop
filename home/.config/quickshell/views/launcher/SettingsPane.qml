@@ -236,8 +236,11 @@ LauncherPane {
 		Component.onCompleted: items = rows
 
 		readonly property var rows: {
-			if (pane.mode === "choose")
-				return Search.rank(pane.editing.choices, c => Search.matchScore([[String(c.label), 0]], pane.q)).map(c => ({
+			if (pane.mode === "choose") {
+				var typed = pane.editing.custom ? pane.editing.custom(pane.q) : undefined;
+				var choices = pane.editing.choices.concat(typed !== undefined && !pane.editing.choices.some(c => c.value === typed) ? [{ label: Math.round(typed * 100) + "%", value: typed }] : []);
+				var ranked = Search.rank(choices, c => typed !== undefined && c.value === typed ? -1000 : Search.matchScore([[String(c.label), 0]], pane.q));
+				return ranked.map(c => ({
 					label: String(c.label),
 					subtitle: c.value === pane.editing.value ? "now" : "",
 					lineIcon: c.value === pane.editing.value ? "check" : "",
@@ -246,6 +249,7 @@ LauncherPane {
 						return false;
 					}
 				}));
+			}
 			if (pane.mode === "browse" && pane.q === "" && pane.section === "")
 				return pane.pageRows();
 			if (pane.mode === "browse" && pane.q === "" && pane.section === "hyprland")
