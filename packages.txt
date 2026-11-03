@@ -100,5 +100,4 @@ git
 python
 bats
 psmisc
-shellcheck
 base-devel
