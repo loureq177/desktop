@@ -24,21 +24,20 @@ if (( rc != 0 && rc != 2 )); then
     exit 0
 fi
 official_count=$(grep -c . <<<"$official_list" || true)
-aur_count=$(paru -Qum 2>/dev/null | grep -c . || true)
 pacnew_count=$(pacdiff -o 2>/dev/null | grep -c . || true)
-total=$((official_count + aur_count))
+total=$official_count
 
 mkdir -p "$STATE_DIR"
 printf '%s\n' "$NOW" >"$STAMP"
 
 if [[ -t 1 ]]; then
-    echo "Updates check completed: $official_count official, $aur_count AUR, $pacnew_count .pacnew (total: $total)"
+    echo "Updates check completed: $official_count packages, $pacnew_count .pacnew"
 fi
 
 if (( total > 0 || pacnew_count > 0 )); then
     if (( total > 0 )); then
         summary="Available updates ($total)"
-        body=$(printf 'Official packages: %s\nAUR packages: %s' "$official_count" "$aur_count")
+        body="Packages: $official_count"
         (( pacnew_count > 0 )) && body=$(printf '%s\n.pacnew files: %s' "$body" "$pacnew_count")
     else
         summary=".pacnew files detected ($pacnew_count)"

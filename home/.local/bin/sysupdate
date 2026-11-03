@@ -164,87 +164,7 @@ pacman_changes() {
     done
 }
 
-# --- AUR ---------------------------------------------------------------------
-
-AUR_CLONES=${XDG_CACHE_HOME:-$HOME/.cache}/paru/clone
-
-# Read, never sourced: the maintainers, the upstream and the hosts sources come from.
-pkgbuild_facts() {
-    local text=$1 url
-    url=$(sed -nE 's/^url=["'\'']?([^"'\'' ]*).*/\1/p' <<<"$text" | head -n 1)
-    printf '%s\n' "$(sed -nE 's/^#[[:space:]]*Maintainer:[[:space:]]*//p' <<<"$text" | sed -E 's/[[:space:]]*<[^>]*>//; s/[[:space:]]+$//' | paste -sd, | sed 's/,/, /g')"
-    printf '%s\n' "$(sed -E 's#^(https?://)?(www\.)?##' <<<"$url")"
-    grep -v -e '^[[:space:]]*#' -e '^url=' <<<"$text" | sed -e "s#\${url}#$url#g" -e "s#\$url#$url#g" |
-        grep -oE '[a-z+]+://[^/"'\'' )]+' | sed -E 's#.*://##; s#^www\.##' | sort -u | paste -sd, | sed 's/,/, /g'
-}
-
-# "  label  now", and what it was when that changed.
-aur_fact() {
-    local label=$1 now=$2 was=$3
-    if [[ -n "$was" && "$was" != "$now" ]]; then
-        printf '      %-9s %s%s%s  %s(was %s)%s\n' "$label" "$_C_YELLOW" "${now:-none}" "$_C_NC" "$_C_DIM" "$was" "$_C_NC"
-    else
-        printf '      %-9s %s\n' "$label" "${now:-none}"
-    fi
-}
-
-# Y on Enter; one key, no Enter needed.
-ask_yes() {
-    local key
-    printf '    %s %s[Y/n]%s ' "$1" "$_C_DIM" "$_C_NC"
-    read -rsn1 key || key=n
-    if [[ -z "$key" || "$key" == [yY] ]]; then
-        printf 'yes\n'
-        return 0
-    fi
-    printf 'no\n'
-    return 1
-}
-
-# Who and where for one package, against what was last built; the whole of it on request.
-# Agreed to build: its clone remembers the version as seen (paru's AUR_SEEN).
-aur_review() {
-    local name=$1 old=$2 new=$3 base dir last="" head text was_text=""
-    base=$(curl -fsS --max-time 10 "https://aur.archlinux.org/rpc/v5/info?arg[]=$name" 2>/dev/null | jq -r '.results[0].PackageBase // empty' 2>/dev/null || true)
-    base=${base:-$name}
-    dir=$AUR_CLONES/$base
-    printf '    %s%s%s  %s%s → %s%s\n' "$_C_BOLD" "$name" "$_C_NC" "$_C_DIM" "$old" "$new" "$_C_NC"
-    if [[ -d "$dir/.git" ]]; then
-        git -C "$dir" fetch -q origin 2>/dev/null || true
-    else
-        mkdir -p "$AUR_CLONES"
-        git clone -q "https://aur.archlinux.org/$base.git" "$dir" 2>/dev/null || true
-    fi
-    head=$(git -C "$dir" rev-parse -q --verify origin/HEAD 2>/dev/null || git -C "$dir" rev-parse -q --verify HEAD 2>/dev/null || true)
-    if [[ -z "$head" ]]; then
-        _log_warn "Could not fetch $base's build files"
-        return 1
-    fi
-    [[ -f "$dir/.git/AUR_SEEN" ]] && last=$(git -C "$dir" rev-parse -q --verify "$(<"$dir/.git/AUR_SEEN")^{commit}" 2>/dev/null || true)
-    text=$(git -C "$dir" show "$head:PKGBUILD" 2>/dev/null || true)
-    [[ -n "$last" ]] && was_text=$(git -C "$dir" show "$last:PKGBUILD" 2>/dev/null || true)
-    local -a now was=("" "" "")
-    mapfile -t now < <(pkgbuild_facts "$text")
-    [[ -n "$was_text" ]] && mapfile -t was < <(pkgbuild_facts "$was_text")
-    aur_fact "by" "${now[0]}" "${was[0]}"
-    aur_fact "upstream" "${now[1]}" "${was[1]}"
-    aur_fact "sources" "${now[2]}" "${was[2]}"
-    if [[ "$last" == "$head" ]]; then
-        printf '      %sBuild files unchanged%s\n' "$_C_DIM" "$_C_NC"
-    elif ask_yes "See $([[ -n "$last" ]] && echo "what changed" || echo "the build files")?"; then
-        if [[ -n "$last" ]]; then
-            git -C "$dir" -c color.ui=always diff -U100000 "$last" "$head" -- . ':!.SRCINFO' | less -R
-        else
-            git -C "$dir" ls-tree -r --name-only "$head" | grep -vx '.SRCINFO' | while read -r f; do
-                printf '%s==> %s%s\n' "$_C_BOLD" "$f" "$_C_NC"
-                git -C "$dir" show "$head:$f"
-            done | less -R
-        fi
-        ask_yes "Build $name?" || return 1
-    fi
-    printf '%s\n' "$head" >"$dir/.git/AUR_SEEN"
-    printf '\n'
-}
+# --- Built here --------------------------------------------------------------
 
 # makepkg's and pacman's stages as the step's line; the rest kept in OUT for when it fails.
 build_stages() {
@@ -278,24 +198,6 @@ build_stages() {
         fi
     done
 }
-
-build_aur() {
-    local rc
-    echo 1 >"$TASKS_DIR/aur.exit"
-    build_stages "$TASKS_DIR/aur.out" < <({
-        rc=0
-        paru -S --skipreview --noconfirm "${aur_picked[@]}" 2>&1 || rc=$?
-        echo "$rc" >"$TASKS_DIR/aur.exit"
-    } | tee -a "$TASKS_LOG")
-    rc=$(<"$TASKS_DIR/aur.exit")
-    if [[ "$rc" != 0 ]]; then
-        tail -n 15 "$TASKS_DIR/aur.out"
-        return "$rc"
-    fi
-    pacman_changes "$aur_log_start" "" | head -n 1
-}
-
-# --- Built here --------------------------------------------------------------
 
 # The installed ones of ~/.local/share/pkgbuilds against their makers' newest releases.
 check_builds() {
@@ -348,11 +250,7 @@ update_system() {
     echo 1 >"$TASKS_DIR/pacman.exit"
     pacman_stages < <({
         rc=0
-        if command -v paru >/dev/null 2>&1; then
-            paru -Syu --repo --noconfirm 2>&1 || rc=$?
-        else
-            sudo pacman -Syu --noconfirm 2>&1 || rc=$?
-        fi
+        sudo pacman -Syu --noconfirm 2>&1 || rc=$?
         echo "$rc" >"$TASKS_DIR/pacman.exit"
     } | tee -a "$TASKS_LOG")
     rc=$(<"$TASKS_DIR/pacman.exit")
@@ -361,19 +259,6 @@ update_system() {
     fi
     pacman_changes "$pacman_log_start" "${PACMAN_SIZE:-}" >"$TASKS_DIR/pacman.changes"
     head -n 1 "$TASKS_DIR/pacman.changes"
-}
-
-# Building needs pacman's lock and you, so it comes after the steps; looking does not.
-# ~/.local/share/pkgbuilds share names with the AUR's: they are not its to update.
-check_aur() {
-    paru -Qua --devel 2>/dev/null | awk 'NR == FNR { own[$1]; next } !($1 in own)' <(pkgbuild_names) - >"$TASKS_DIR/aur" || true
-    if [[ -s "$TASKS_DIR/aur" ]]; then
-        local -a names
-        mapfile -t names < <(awk '{ print $1 }' "$TASKS_DIR/aur")
-        _log_ok "${#names[@]} to build · $(commas "${names[@]}")"
-    else
-        _log_ok "Up to date"
-    fi
 }
 
 # Zinit and its plugins in parallel (10× faster); what changed comes from the plugins'
@@ -533,7 +418,6 @@ fi
 
 task "System packages" update_system
 queue "Built here" makepkg check_builds
-queue "AUR" paru check_aur
 queue "Flatpak apps" flatpak update_flatpak
 queue "Firmware" fwupdmgr check_firmware
 queue "tldr pages" tldr update_tldr
@@ -555,34 +439,12 @@ if [[ -f "$TASKS_DIR/pacman.warnings" ]]; then
     done <"$TASKS_DIR/pacman.warnings"
 fi
 
-# Our own build files: no review, but pacman's lock, so after the steps.
+# Building needs pacman's lock, so it comes after the steps.
 if [[ "$rc" == 0 && -s "$TASKS_DIR/builds" ]]; then
     [[ -t 0 ]] && { sudo -v || exit 1; }
     builds_log_start=$(wc -l <"$PACMAN_LOG" 2>/dev/null || echo 0)
     task "Packages built here" build_own
     run_tasks "Build"
-fi
-
-# AUR build scripts run as this user and come from strangers: who wrote them and where they
-# fetch from is shown, the rest on request, so this part needs a terminal.
-if [[ "$rc" == 0 && -s "$TASKS_DIR/aur" ]]; then
-    _log_info "AUR packages"
-    if [[ -t 0 ]]; then
-        aur_picked=()
-        mapfile -t aur_lines <"$TASKS_DIR/aur"
-        for l in "${aur_lines[@]}"; do
-            read -r name old _ new <<<"$l"
-            aur_review "$name" "$old" "$new" && aur_picked+=("$name")
-        done
-        if ((${#aur_picked[@]})); then
-            sudo -v || exit 1
-            aur_log_start=$(wc -l <"$PACMAN_LOG" 2>/dev/null || echo 0)
-            task "AUR packages" build_aur
-            run_tasks "Build"
-        fi
-    else
-        _log_warn "Skipped: AUR updates are reviewed before they are built. Run 'sysupdate' in a terminal."
-    fi
 fi
 
 if [ -f "$TASKS_DIR/firmware" ]; then

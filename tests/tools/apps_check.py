@@ -33,7 +33,7 @@ reserved = set(catalog["reserved"])
 for b in catalog["browsers"]:
     if b.get("engine") not in ("firefox", "chromium"):
         problems.append(f"browser {b['id']}: engine is firefox or chromium")
-    if not any(b.get(s) for s in ("pacman", "aur", "flatpak")):
+    if not any(b.get(s) for s in ("pacman", "flatpak")):
         problems.append(f"browser {b['id']}: no package")
 
 ids, keys = set(), {}

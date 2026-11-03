@@ -48,23 +48,8 @@ pac_install() {
     [[ -n "$pkgs" ]] || return 0
     printf '%s\n' "$pkgs" | sudo pacman -S --noconfirm --needed -
 }
-# What the chosen browser and specials need from one source (pacman, aur, flatpak).
+# What the chosen browser and specials need from one source (pacman or flatpak).
 picked() { home/.local/bin/apply-apps --packages | awk -v source="$1" '$1 == source { print $2 }'; }
-# paru is not in the official repositories: built from the AUR when a picked app needs it.
-bootstrap_paru() {
-    command -v paru &>/dev/null && return 0
-    _log_info "paru not found. Building it from the AUR..."
-    local build
-    sudo pacman -S --noconfirm --needed base-devel git || return 1
-    build="$(mktemp -d)" || return 1
-    if git clone --depth 1 https://aur.archlinux.org/paru.git "$build/paru" &&
-        (cd "$build/paru" && makepkg -si --noconfirm); then
-        rm -rf "$build"
-        return 0
-    fi
-    rm -rf "$build"
-    return 1
-}
 enable_user_unit() {
     systemctl --user enable --now "$1" 2>/dev/null || _log_warn "Failed to enable $1."
 }
@@ -161,17 +146,6 @@ done < <(pkgbuild_names)
 if ! command -v claude &>/dev/null; then
     _log_info "Installing Claude Code..."
     curl -fsSL https://claude.ai/install.sh | bash || _log_warn "Could not install Claude Code."
-fi
-
-if picked aur | grep -q .; then
-    if bootstrap_paru; then
-        _log_info "Installing AUR packages via paru..."
-        picked aur | xargs -r -d '\n' paru -S --noconfirm --needed
-        _log_ok "AUR packages installed."
-    else
-        _log_warn "Could not build paru - skipping AUR packages."
-        _log_warn "Install paru by hand and run this script again."
-    fi
 fi
 
 # The terminal side (zsh as the login shell, Ghostty, nvim and their packages) is

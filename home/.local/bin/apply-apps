@@ -5,7 +5,7 @@
 #   apply-apps              render apps.toml (the standard set when there is none)
 #   apply-apps --pick       ask for the browser and the apps, then render
 #   apply-apps --defaults   write the standard set without asking, then render
-#   apply-apps --packages   what the choices need, as "pacman|aur|flatpak NAME" lines
+#   apply-apps --packages   what the choices need, as "pacman|flatpak NAME" lines
 #   --no-reload             leave the running Hyprland alone
 #
 # In the running session a special whose app changed (or is off) closes its old windows:
@@ -15,7 +15,6 @@ import json
 import os
 import re
 import shlex
-import shutil
 import subprocess
 import sys
 import time
@@ -53,7 +52,7 @@ def special(category, app, key):
     for field in ("desc", "background", "bar"):
         if field in category:
             s[field] = category[field]
-    for source in ("pacman", "aur", "flatpak"):
+    for source in ("pacman", "flatpak"):
         if source in app:
             s[source] = app[source]
     return s
@@ -542,7 +541,7 @@ def render(catalog, choices):
 
 def needed(catalog, choices):
     items = [by_id(catalog, choices["browser"])] + choices.get("special", [])
-    for source in ("pacman", "aur", "flatpak"):
+    for source in ("pacman", "flatpak"):
         names = [name for item in items for name in item.get(source, [])]
         for name in dict.fromkeys(names):
             yield source, name
@@ -553,18 +552,15 @@ def packages(catalog, choices):
         print(source, name)
 
 
-# What a new choice needs and is not there yet: paru for pacman's and the AUR's, flatpak for its own.
+# What a new choice needs and is not there yet, from pacman and Flathub.
 def install_missing(catalog, choices):
     installed = set(subprocess.run(["pacman", "-Qq"], capture_output=True, text=True).stdout.split())
     native = [name for source, name in needed(catalog, choices) if source != "flatpak" and name not in installed]
     flat = [name for source, name in needed(catalog, choices)
             if source == "flatpak" and subprocess.run(["flatpak", "info", name], capture_output=True).returncode != 0]
     if native:
-        if shutil.which("paru"):
-            print(f"  Installing {' '.join(native)}")
-            subprocess.run(["paru", "-S", "--needed", *native])
-        else:
-            print(f"  {DIM}Not installed yet:{RESET} paru -S --needed {' '.join(native)}")
+        print(f"  Installing {' '.join(native)}")
+        subprocess.run(["sudo", "pacman", "-S", "--needed", *native])
     if flat:
         print(f"  Installing {' '.join(flat)}")
         subprocess.run(["flatpak", "install", "--user", "-y", "flathub", *flat])

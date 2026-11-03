@@ -328,8 +328,7 @@ listed_packages() {
     )
     # Not here: the browser and the specials' apps (catalog.toml, checked above) and
     # the terminal's tools (.files' packages-arch.txt).
-    # Not installable from a list: install.sh builds paru from the AUR for a picked app,
-    # prime-run only matters on NVIDIA machines.
+    # Not installable from a list: prime-run only matters on NVIDIA machines.
     local unit_bins
     mapfile -t unit_bins < <(grep -ohE '^Exec[A-Za-z]*=-?/usr/bin/[A-Za-z0-9_.-]+' "$REPO/$UNITS"/*.service | sed 's|.*/||' | sort -u)
 

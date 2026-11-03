@@ -6,7 +6,7 @@
 # the category's when left out), `app_icon` the launcher's (icons/ or a theme icon),
 # `desktop` the desktop entry the launcher lists as the special instead, `title`
 # what the web app's window title has in it (its name when left out), `player` the
-# MPRIS player it plays through. `pacman`, `aur` and `flatpak` are what it needs.
+# MPRIS player it plays through. `pacman` and `flatpak` are what it needs.
 
 # Taken by other SUPER + SHIFT binds (binds.lua).
 reserved = ["H", "J", "K", "L"]
@@ -16,12 +16,7 @@ reserved = ["H", "J", "K", "L"]
 browsers = [
 	{ id = "firefox", name = "Firefox", exec = "firefox", desktop = "firefox.desktop", engine = "firefox", pacman = ["firefox"] },
 	{ id = "librewolf", name = "LibreWolf", exec = "librewolf", desktop = "librewolf.desktop", engine = "firefox", pacman = ["librewolf"] },
-	{ id = "waterfox", name = "Waterfox", exec = "waterfox", desktop = "waterfox.desktop", engine = "firefox", aur = ["waterfox-bin"] },
-	{ id = "zen", name = "Zen Browser", exec = "zen-browser", desktop = "zen.desktop", engine = "firefox", aur = ["zen-browser-bin"] },
 	{ id = "chromium", name = "Chromium", exec = "chromium", desktop = "chromium.desktop", engine = "chromium", pacman = ["chromium"] },
-	{ id = "ungoogled-chromium", name = "ungoogled-chromium", exec = "chromium", desktop = "chromium.desktop", engine = "chromium", aur = ["ungoogled-chromium-bin"] },
-	{ id = "brave", name = "Brave", exec = "brave", desktop = "brave-browser.desktop", engine = "chromium", aur = ["brave-bin"] },
-	{ id = "chrome", name = "Google Chrome", exec = "google-chrome-stable", desktop = "google-chrome.desktop", engine = "chromium", aur = ["google-chrome"] },
 ]
 
 # `standard`: in the set the installer offers as a whole; `background`: started

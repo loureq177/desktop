@@ -1,5 +1,5 @@
 [Unit]
-Description=Check for Arch and AUR package updates
+Description=Check for Arch package updates
 After=network-online.target
 Wants=network-online.target
 

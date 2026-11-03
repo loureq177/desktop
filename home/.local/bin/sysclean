@@ -123,14 +123,13 @@ clean_root() {
     sudo -n "$SELF" --root
 }
 
-clean_paru() {
-    if [ -d "$HOME/.cache/paru" ]; then
-        rm -rf "$HOME/.cache/paru/clone/"* "$HOME/.cache/paru/diff/"* 2>/dev/null || true
-        local pkgs=""
-        [ -d "$HOME/.cache/paru/pkg" ] && pkgs=$(prune_paccache paccache -- -c "$HOME/.cache/paru/pkg")
-        _log_ok "Build files cleared${pkgs:+, $pkgs}"
+# pkgbuild_install's copies: sources and built packages, fetched again on the next build.
+clean_builds() {
+    if [ -d "$HOME/.cache/pkgbuilds" ]; then
+        rm -rf "$HOME/.cache/pkgbuilds" 2>/dev/null || true
+        _log_ok "Build files cleared"
     else
-        _log_ok "No Paru cache"
+        _log_ok "No build files"
     fi
 }
 
@@ -178,7 +177,7 @@ clean_flatpak() {
 
 clean_misc() {
     # debuginfod_client: gdb's debug symbols. Its own expiry runs only with gdb.
-    rm -rf "$HOME/.cache/thumbnails/"* "$HOME/.cache/debuginfod_client/"* /tmp/paru/* 2>/dev/null || true
+    rm -rf "$HOME/.cache/thumbnails/"* "$HOME/.cache/debuginfod_client/"* 2>/dev/null || true
     _log_ok "Thumbnails, debug symbols, build files"
 }
 
@@ -231,7 +230,7 @@ if [ "$AUTO" = 1 ] || sudo -v; then
 else
     _log_warn "No sudo: the root steps are skipped; cleaning the rest."
 fi
-task "Paru cache" clean_paru
+task "Build files" clean_builds
 command -v flatpak >/dev/null 2>&1 && task "Flatpak" clean_flatpak
 task "Temporary files" clean_misc
 task "Trash" clean_trash
