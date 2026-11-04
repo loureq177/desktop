@@ -3,8 +3,6 @@
 import json
 import os
 import re
-import shutil
-import struct
 import subprocess
 import sys
 import tomllib
@@ -84,69 +82,12 @@ def apply_gtk(cfg):
             subprocess.run(["gsettings", "set", schema, key, value], capture_output=True)
 
 
-# The mouse cursor in the desktop's colours: Bibata Classic's black inside as bg_main, its white
-# edge the focused window's gradient, accent_blue to accent_purple from the top left down.
-# Xcursor's pixels are premultiplied ARGB.
-CURSOR_SOURCE = Path("/usr/share/icons/Bibata-Modern-Classic")
-CURSOR_THEME = "Bibata-Modern-Accent"
-CURSOR_STEPS = 32
-
-
 def rgb(color):
     return tuple(int(color[i : i + 2], 16) for i in (1, 3, 5))
 
 
 def mix(a, b, t):
     return tuple(x + (y - x) * t for x, y in zip(a, b))
-
-
-def recolor_xcursor(data, inside, start_edge, end_edge):
-    count = struct.unpack_from("<I", data, 12)[0]
-    out = bytearray(data)
-    cache = {}
-    for i in range(count):
-        kind, _, pos = struct.unpack_from("<III", data, 16 + 12 * i)
-        if kind != 0xFFFD0002:
-            continue
-        w, h = struct.unpack_from("<II", data, pos + 16)
-        start = pos + 36
-        pixels = struct.unpack_from(f"<{w * h}I", data, start)
-        for k, v in enumerate(pixels):
-            if v == 0:
-                continue
-            step = (k % w + k // w) * CURSOR_STEPS // (w + h - 1)
-            new = cache.get((v, step))
-            if new is None:
-                a = v >> 24
-                light = min((v & 0xFF) / a, 1.0)
-                edge = mix(start_edge, end_edge, step / CURSOR_STEPS)
-                r, g, b = (round(c * a / 255) for c in mix(inside, edge, light))
-                new = cache[(v, step)] = a << 24 | r << 16 | g << 8 | b
-            struct.pack_into("<I", out, start + 4 * k, new)
-    return bytes(out)
-
-
-def accent_cursor(cfg):
-    if not (CURSOR_SOURCE / "cursors").is_dir():
-        return
-    colors = cfg["colors"]
-    inside, edges = colors["bg_main"], (colors["accent_blue"], colors["accent_purple"])
-    data_home = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local/share"))
-    target = data_home / "icons" / CURSOR_THEME
-    # Made again only when the colours or Bibata changed.
-    stamp = f"{inside} {' '.join(edges)} {(CURSOR_SOURCE / 'cursors').stat().st_mtime_ns}\n"
-    if (target / "stamp").is_file() and (target / "stamp").read_text() == stamp:
-        return
-    shutil.rmtree(target, ignore_errors=True)
-    (target / "cursors").mkdir(parents=True)
-    for f in sorted((CURSOR_SOURCE / "cursors").iterdir()):
-        if f.is_symlink():
-            (target / "cursors" / f.name).symlink_to(os.readlink(f))
-        else:
-            (target / "cursors" / f.name).write_bytes(recolor_xcursor(f.read_bytes(), rgb(inside), *map(rgb, edges)))
-    (target / "index.theme").write_text(f"[Icon Theme]\nName={CURSOR_THEME}\nComment=Bibata Modern Classic in ui.toml's colours, by apply-ui\nInherits=hicolor\n")
-    (target / "stamp").write_text(stamp)
-    print(f"  \033[32m✓\033[0m Generated: {target}")
 
 
 # --set section.key=value: changes that one line of ui.toml, keeping its comments and
@@ -253,7 +194,6 @@ def main():
     )
     for path, content in outputs.items():
         write(path, content)
-    accent_cursor(cfg)
 
     if "--no-reload" in sys.argv:
         return

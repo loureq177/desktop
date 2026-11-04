@@ -180,7 +180,7 @@ UNITS="home/.config/systemd/user"
 # --- apply-ui ----------------------------------------------------------------
 
 @test "the files apply-ui renders from ui.toml are committed up to date" {
-    export XDG_CONFIG_HOME="$BATS_TEST_TMPDIR/config" XDG_DATA_HOME="$BATS_TEST_TMPDIR/data"
+    export XDG_CONFIG_HOME="$BATS_TEST_TMPDIR/config"
     mkdir -p "$XDG_CONFIG_HOME"
     cp -r "$REPO/home/.config/ui" "$XDG_CONFIG_HOME/ui"
     run python3 "$REPO/home/.local/bin/apply-ui" --no-reload
