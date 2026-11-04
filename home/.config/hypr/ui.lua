@@ -24,7 +24,7 @@ return {
         size_cursor = 24,
     },
     theme = {
-        cursor = "Bibata-Modern-Classic",
+        cursor = "Bibata-Modern-Accent",
         icon = "Papirus-Dark",
         gtk = "Adwaita-dark",
     },

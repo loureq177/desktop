@@ -1,0 +1,8 @@
+/* GTK 4 and libadwaita programs in the desktop's accent: the named accents
+ * of org.gnome.desktop.interface have none of its colours. */
+
+:root {
+    --accent-bg-color: @accent_blue@;
+    --accent-color: @accent_blue@;
+    --accent-fg-color: @bg_main@;
+}
