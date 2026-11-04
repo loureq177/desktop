@@ -2,7 +2,7 @@ import "../.."
 import "../../Search.js" as Search
 import QtQuick
 
-// Displays, Wi-Fi, Bluetooth, audio and Hyprland, typing searches them all: Enter edits,
+// Pages as other systems have them (Settings.pages), typing searches them all: Enter edits,
 // ←/→ steps, blue was set here, Ctrl+R gives it back to the config, Esc steps out. What a
 // setting does shows on hover. The screens' arrangement is a picture of its own.
 LauncherPane {
@@ -12,10 +12,9 @@ LauncherPane {
 	// or "arrange" the screens.
 	property string mode: "browse"
 	property var editing: null
-	// The page browsed: "" the first, "hyprland" Hyprland's sections, "changed" what settings.lua holds.
+	// The page browsed: "" the first, a page's key, or "changed": what was set here.
 	property string section: ""
 	property int sectionIndex: 0
-	property int hyprlandIndex: 0
 	// Where browsing was, to come back to.
 	property string browseQuery: ""
 	property int browseIndex: 0
@@ -23,7 +22,7 @@ LauncherPane {
 	readonly property string q: query.trim()
 	readonly property var current: mode === "browse" ? (list.items[list.currentIndex]?.setting ?? null) : editing
 	readonly property var changedEntries: Settings.entries.filter(e => Settings.changed(e))
-	readonly property string sectionLabel: section === "changed" ? "Changed here" : Settings.humanize(section)
+	readonly property string sectionLabel: section === "changed" ? "Changed here" : Settings.page(section)?.label ?? ""
 
 	icon: mode === "browse" ? "settings" : mode === "arrange" ? "monitor" : "pencil"
 	grid: mode === "browse" || mode === "arrange"
@@ -53,10 +52,8 @@ LauncherPane {
 	function tooltip(e: var): string {
 		if (e.source === "ui")
 			return e.name + " in ui.toml, for the whole desktop: the shell restarts with it";
-		if (e.source === "display" && Settings.changed(e))
-			return e.desc + "\nSet here: Ctrl+R gives it back to the config";
 		if (e.source !== "hyprland")
-			return e.desc;
+			return e.desc + (Settings.changed(e) ? "\nSet here: Ctrl+R gives it back to the config" : "");
 		var lines = [];
 		if (e.desc)
 			lines.push(e.desc.charAt(0).toUpperCase() + e.desc.slice(1));
@@ -115,7 +112,7 @@ LauncherPane {
 		if (mode !== "browse")
 			leave();
 		else if (section !== "")
-			openSection(["displays", "audio", "hyprland"].includes(section) ? "" : "hyprland");
+			openSection("");
 		else
 			return false;
 		return true;
@@ -123,12 +120,9 @@ LauncherPane {
 
 	// Into a page (its own list, its own search), or back out to where it was opened from.
 	function openSection(key: string): void {
-		var out = key === "" || (key === "hyprland" && section !== "");
-		var index = !out ? 0 : key === "" ? sectionIndex : hyprlandIndex;
-		if (!out && section === "")
+		var index = key === "" ? sectionIndex : 0;
+		if (key !== "" && section === "")
 			sectionIndex = list.currentIndex;
-		else if (!out)
-			hyprlandIndex = list.currentIndex;
 		section = key;
 		pane.queryRequested("");
 		Qt.callLater(() => list.currentIndex = index);
@@ -216,40 +210,50 @@ LauncherPane {
 		page("Bluetooth", Bt.status, Bt.icon, () => Commands.get("bluetooth").run())
 	]
 
+	// Each page with what it holds, what was changed here first.
 	function pageRows(): var {
 		var screens = Settings.monitors.map(m => m.width + "x" + m.height + " · " + Math.round(m.refreshRate) + " Hz").join(", ");
-		return [page("Displays", screens, "monitor", openPage("displays"))].concat(actionsPages, [
-			page("Audio", Audio.sink?.description ?? "", Audio.icon, openPage("audio")),
-			page("Hyprland", Settings.hyprlandEntries.length + " settings, and the look", "layout-grid", openPage("hyprland"))
-		]);
+		var idle = Settings.idleEntries;
+		var says = {
+			displays: screens,
+			sound: Audio.sink?.description ?? "",
+			appearance: "Colours, fonts, theme, blur, animations",
+			desktop: "Hot corners, top bar, clock",
+			windows: "Layouts, groups, resizing",
+			keyboard: "Layout, repeat, shortcuts",
+			mouse: "Speed, scrolling, touchpad, gestures",
+			idle: idle.length === 4 ? "Locks after " + Settings.duration(idle[0].value) + ", sleeps after " + Settings.duration(idle[3].value) : "",
+			advanced: Settings.entries.filter(e => e.section === "advanced").length + " more of Hyprland's options"
+		};
+		var rows = Settings.pages.map(p => {
+			var n = changedEntries.filter(e => e.section === p.key).length;
+			return page(p.label, says[p.key] + (n > 0 ? " · " + n + " changed" : ""), p.icon, openPage(p.key));
+		});
+		rows.splice(1, 0, ...actionsPages);
+		if (changedEntries.length > 0)
+			rows.unshift(page("Changed here", changedEntries.length + (changedEntries.length === 1 ? " setting" : " settings") + " set over the config", "pencil", openPage("changed")));
+		return rows;
 	}
 
-	// What settings.lua holds first, then the look and Hyprland's sections.
-	function sectionRows(): var {
-		var changed = changedEntries.length;
-		var rows = Settings.sections.map(s => {
-			var n = changedEntries.filter(e => e.section === s.key).length;
-			return {
-				label: s.label,
-				subtitle: (s.key === "look" ? "ui.toml · " : "Hyprland · ") + s.count + (s.count === 1 ? " setting" : " settings") + (n > 0 ? " · " + n + " changed" : ""),
-				lineIcon: s.icon,
+	// What a page has besides its settings, when nothing is typed.
+	function extraRows(): var {
+		if (section === "changed" && changedEntries.length > 0)
+			return [{
+				label: "Undo all",
+				subtitle: "Every one of them back to the config's",
+				lineIcon: "rotate-cw",
+				confirm: true,
 				run: () => {
-					pane.openSection(s.key);
+					Settings.resetAll();
 					return false;
 				}
-			};
-		});
-		if (changed > 0)
-			rows.unshift({
-				label: "Changed here",
-				subtitle: changed + " in settings.lua, Ctrl+R gives one back",
-				lineIcon: "pencil",
-				run: () => {
-					pane.openSection("changed");
-					return false;
-				}
-			});
-		return rows;
+			}];
+		if (section === "keyboard")
+			return [page("Shortcuts", "Every key and what it does; Enter changes one", "keyboard", () => {
+				Panels.open("launcher", "keys");
+				return false;
+			})];
+		return [];
 	}
 
 	onQueryChanged: {
@@ -295,15 +299,15 @@ LauncherPane {
 			}
 			if (pane.mode === "browse" && pane.q === "" && pane.section === "")
 				return pane.pageRows();
-			if (pane.mode === "browse" && pane.q === "" && pane.section === "hyprland")
-				return pane.sectionRows();
 			var all = pane.section === "" ? Settings.entries
-				: pane.section === "hyprland" ? Settings.hyprlandEntries
 				: pane.section === "changed" ? pane.changedEntries
 				: Settings.entries.filter(e => e.section === pane.section);
 			var shown = pane.mode === "type" || pane.mode === "arrange" ? [pane.editing] : Search.rank(all, e => pane.score(e));
-			// Typed on the first page: the two that live in Actions are found too.
-			var pages = pane.mode === "browse" && pane.section === "" ? pane.actionsPages.filter(p => Search.matchScore([[p.label, 0]], pane.q) !== -1) : [];
+			// Typed on the first page, the two that live in Actions are found too; on a page, with
+			// nothing typed, what it has besides its settings.
+			var pages = pane.mode !== "browse" ? []
+				: pane.section === "" ? pane.actionsPages.filter(p => Search.matchScore([[p.label, 0]], pane.q) !== -1)
+				: pane.q === "" ? pane.extraRows() : [];
 			return pages.concat(shown.map(e => ({
 				label: e.label,
 				subtitle: pane.section === "" && pane.mode === "browse" ? e.group : "",

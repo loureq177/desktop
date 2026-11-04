@@ -232,7 +232,7 @@ PanelWindow {
 
 	BarTip {
 		target: system
-		shown: system.hovered && !system.overBt && Battery.present && Panels.active !== "actions"
+		shown: system.hovered && !system.overBt && Battery.present && !Prefs.values.batteryPercent && Panels.active !== "actions"
 		text: Battery.percent + "%"
 	}
 
@@ -249,15 +249,12 @@ PanelWindow {
 	HotCorner {
 		id: launcherCorner
 		present: !bar.drawerOpen
-		panel: "launcher"
-		mode: "apps"
 	}
 
 	HotCorner {
 		id: actionsCorner
 		present: !bar.drawerOpen
 		x: parent.width - 1
-		panel: "actions"
 	}
 
 	Item {
@@ -546,7 +543,7 @@ PanelWindow {
 			}
 
 			Pill {
-				shown: Weather.current !== null
+				shown: Weather.current !== null && Prefs.values.weather
 				icon: Weather.current?.icon ?? ""
 				value: Weather.current ? Weather.current.tempNum + "°" : ""
 				isActive: Panels.active === "weather"
@@ -583,9 +580,20 @@ PanelWindow {
 				}
 
 				BatteryIcon {
+					id: batteryIcon
 					anchors.verticalCenter: parent.verticalCenter
 					// One colour at a time: running low comes first, then keep awake.
 					color: Modes.awake && !Battery.low ? Theme.accentBlue : Battery.color
+				}
+
+				StyledText {
+					anchors.verticalCenter: parent.verticalCenter
+					visible: Battery.present && Prefs.values.batteryPercent
+					text: Battery.percent + "%"
+					mono: true
+					font.bold: true
+					font.pixelSize: Theme.fontSizeBar
+					color: Battery.low ? batteryIcon.color : Theme.textMain
 				}
 			}
 
@@ -612,7 +620,7 @@ PanelWindow {
 
 				StyledText {
 					anchors.verticalCenter: parent.verticalCenter
-					text: clock.now.toLocaleDateString(Qt.locale("en_GB"), "d MMM")
+					text: clock.now.toLocaleDateString(Qt.locale("en_GB"), Prefs.values.clockWeekday ? "ddd d MMM" : "d MMM")
 					font.bold: true
 					font.pixelSize: Theme.fontSizeBar
 				}
@@ -620,7 +628,7 @@ PanelWindow {
 				StyledText {
 					id: time
 					anchors.verticalCenter: parent.verticalCenter
-					text: Qt.formatDateTime(clock.now, "hh:mm")
+					text: Qt.formatDateTime(clock.now, (Prefs.values.clock24 ? "hh:mm" : "h:mm") + (Prefs.values.clockSeconds ? ":ss" : "") + (Prefs.values.clock24 ? "" : " AP"))
 					mono: true
 					font.bold: true
 					font.pixelSize: Theme.fontSizeBar

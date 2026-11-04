@@ -81,7 +81,7 @@ Singleton {
 		{ id: "bluetooth", group: "connections", name: "Bluetooth", desc: "Devices", icon: "bluetooth", keywords: "headphones", run: () => open("actions", "bluetooth") },
 
 		{ id: "windows", group: "system", bind: "Essential: Open windows", name: "Open windows", desc: "Every window, on any workspace", icon: "app-window", keywords: "overview apps switcher running", run: () => open("launcher", "windows") },
-		{ id: "settings", group: "system", bind: "System & Tools: Settings", name: "Settings", desc: "Displays, Wi-Fi, Bluetooth, audio, Hyprland", icon: "settings", keywords: "config preferences", run: () => open("launcher", "settings") },
+		{ id: "settings", group: "system", bind: "System & Tools: Settings", name: "Settings", desc: "Displays, sound, appearance, keyboard, mouse, sleep", icon: "settings", keywords: "config preferences", run: () => open("launcher", "settings") },
 		{ id: "files", group: "system", bind: "System & Tools: Search files", name: "Search files", desc: "Files and folders in your home", icon: "folder", keywords: "find documents", run: () => open("launcher", "files") },
 		{ id: "clipboard", group: "system", bind: "System & Tools: Clipboard history", name: "Clipboard", desc: "What was copied", icon: "clipboard", keywords: "history paste", run: () => open("launcher", "clipboard") },
 		{ id: "emoji", group: "system", bind: "System & Tools: Emojis", name: "Emoji", desc: "Pick one: pasted and copied", icon: "smile", keywords: "smiley", run: () => open("launcher", "emoji") },

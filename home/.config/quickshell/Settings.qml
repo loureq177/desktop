@@ -3,8 +3,9 @@ import Quickshell
 import Quickshell.Io
 import QtQuick
 
-// What the settings list can change: the screens (displays.lua), audio, the look (apply-ui)
-// and Hyprland's options (settings.lua); kind is bool, int, float, enum, text or color.
+// What the settings list can change: the screens (displays.lua), audio, the look (apply-ui),
+// the shell's own (Prefs), hypridle's times (idle.conf) and Hyprland's options (settings.lua);
+// kind is bool, int, float, enum, text or color.
 Singleton {
 	id: root
 
@@ -34,6 +35,33 @@ Singleton {
 		"decoration:shadow:color", "xwayland:enabled", "gestures:workspace_swipe_use_r"
 	]
 
+	// The pages of the first list. A Hyprland option goes to the first one with a prefix it
+	// starts with, else to Advanced; the prefixes' order is the page's.
+	readonly property var pages: [
+		{ key: "displays", label: "Displays", icon: "monitor" },
+		{ key: "sound", label: "Sound", icon: "volume-2" },
+		{ key: "appearance", label: "Appearance", icon: "droplet", prefixes: ["decoration:", "animations:"] },
+		{ key: "desktop", label: "Desktop", icon: "layout-grid" },
+		{ key: "windows", label: "Windows", icon: "app-window", prefixes: ["general:", "layout:", "dwindle:", "master:", "scrolling:", "group:"] },
+		{ key: "keyboard", label: "Keyboard", icon: "keyboard", prefixes: ["input:kb_", "input:repeat_", "input:numlock", "input:resolve_binds", "input:virtualkeyboard:", "binds:"] },
+		{ key: "mouse", label: "Mouse & touchpad", icon: "mouse", prefixes: ["input:", "gestures:", "cursor:"] },
+		{ key: "idle", label: "Idle & sleep", icon: "power" },
+		{ key: "advanced", label: "Advanced", icon: "code", prefixes: [""] }
+	]
+
+	function page(key: string): var {
+		return pages.find(p => p.key === key);
+	}
+
+	// { page, rank }: where a Hyprland option goes, and its place there.
+	function placeOf(name: string): var {
+		for (const p of pages) {
+			var i = (p.prefixes ?? []).findIndex(x => name.startsWith(x));
+			if (i !== -1)
+				return { page: p, rank: i };
+		}
+	}
+
 	readonly property var hyprIcons: ({
 		general: "layout-grid", decoration: "sparkles", animations: "activity", input: "keyboard",
 		gestures: "hand", group: "layout-grid", misc: "code", binds: "keyboard", cursor: "mouse",
@@ -50,9 +78,10 @@ Singleton {
 
 	Component.onCompleted: refresh()
 
-	// "col.inactive_border" -> "Color inactive border"
+	// "col.inactive_border" -> "Color inactive border", "kb_layout" -> "Keyboard layout"
 	function humanize(text: string): string {
-		var t = text.replace(/^col\./, "color ").replace(/[._]/g, " ");
+		var t = text.replace(/^col\./, "color ").replace(/^kb_/, "keyboard ").replace(/[._]/g, " ")
+			.replace(/\b(vrr|vfr|dpms|hdr)\b/g, w => w.toUpperCase());
 		return t.charAt(0).toUpperCase() + t.slice(1);
 	}
 
@@ -63,8 +92,8 @@ Singleton {
 			id: "ui:" + name,
 			source: "ui",
 			name: name,
-			group: "Look › " + humanize(v.section),
-			section: "look",
+			group: "Appearance › " + humanize(v.section),
+			section: "appearance",
 			sub: humanize(v.section),
 			label: humanize(v.key),
 			desc: "ui.toml · the whole desktop",
@@ -75,9 +104,13 @@ Singleton {
 		};
 	})
 
-	readonly property var hyprEntries: hyprOptions.filter(o => !notHere.includes(o.name) && !o.name.startsWith("debug:") && !Array.isArray(o.default)).map(o => {
+	readonly property var hyprEntries: hyprOptions.filter(o => !notHere.includes(o.name) && !o.name.startsWith("debug:") && !Array.isArray(o.default)).map((o, order) => {
 		var parts = o.name.split(":");
 		var last = parts.pop();
+		var place = placeOf(o.name);
+		// The page's first section needs no heading; Advanced is all headings.
+		var advanced = place.page.key === "advanced";
+		var sub = parts.length > 1 ? parts.slice(1).map(humanize).join(" › ") : place.rank === 0 && !advanced ? "" : humanize(parts[0]);
 		var number = typeof o.default === "number";
 		var choices = number && Array.isArray(o.map) && o.map.length > 0
 			? o.map.map(m => ({ label: Object.keys(m)[0], value: m[Object.keys(m)[0]] })).sort((a, b) => a.value - b.value)
@@ -85,6 +118,9 @@ Singleton {
 		// A fraction somewhere, or a range no wider than one (an opacity).
 		var float = number && ([o.default, o.current, o.min, o.max].some(n => typeof n === "number" && !Number.isInteger(n))
 			|| (typeof o.min === "number" && typeof o.max === "number" && o.max - o.min <= 1));
+		// The layout by its name, from XKB's list.
+		if (o.name === "input:kb_layout" && root.layouts.length > 0)
+			choices = (root.layouts.some(l => l.value === o.current) ? [] : [{ label: String(o.current), value: o.current }]).concat(root.layouts);
 		var kind = typeof o.default === "boolean" ? "bool"
 			: choices ? "enum"
 			: number ? (float ? "float" : "int")
@@ -93,9 +129,11 @@ Singleton {
 			id: "hyprland:" + o.name,
 			source: "hyprland",
 			name: o.name,
-			group: parts.map(humanize).join(" › "),
-			section: parts[0],
-			sub: parts.slice(1).map(humanize).join(" › "),
+			group: place.page.label + (sub !== "" ? " › " + sub : ""),
+			section: place.page.key,
+			sub: sub,
+			order: place.rank * 10000 + order,
+			stepless: o.name === "input:kb_layout",
 			label: humanize(last),
 			desc: o.description,
 			kind: kind,
@@ -105,9 +143,9 @@ Singleton {
 			max: typeof o.max === "number" ? o.max : null,
 			step: float ? (o.max - o.min > 10 ? 0.5 : 0.05) : 1,
 			choices: choices,
-			icon: hyprIcons[parts[0]] ?? "code"
+			icon: advanced ? hyprIcons[parts[0]] ?? "code" : place.page.icon
 		};
-	})
+	}).sort((a, b) => a.order - b.order)
 
 	// Known by description where there is one: connector names change per plug and boot.
 	function displayOutput(m: var): string {
@@ -161,8 +199,10 @@ Singleton {
 				sub: m.description || m.name,
 				desc: m.name,
 				kind: "enum",
-				stepless: true
+				stepless: true,
+				fields: ["mode", "scale"]
 			};
+			var saved = root.savedDisplays[output] ?? {};
 			return list.concat([
 				Object.assign({}, common, {
 					id: "display:" + m.name + ":mode",
@@ -171,7 +211,7 @@ Singleton {
 					value: currentMode(m),
 					choices: modes.map(s => ({ label: s.replace("@", " · ").replace(/\.00$/, "") + " Hz", value: s })),
 					icon: "monitor",
-					apply: v => root.setDisplay(m, v, root.scales(m).find(s => Math.abs(s - m.scale) < 0.001) ?? m.scale)
+					apply: v => root.setDisplay(m, { mode: v, scale: root.scales(m).find(s => Math.abs(s - m.scale) < 0.001) ?? m.scale })
 				}),
 				Object.assign({}, common, {
 					id: "display:" + m.name + ":scale",
@@ -188,7 +228,30 @@ Singleton {
 						return root.scales(m).reduce((best, v) => Math.abs(v - n) < Math.abs(best - n) ? v : best, 1);
 					},
 					icon: "sliders-horizontal",
-					apply: v => root.setDisplay(m, currentMode(m), root.scales(m).find(s => Math.abs(s - v) < 0.001) ?? v)
+					apply: v => root.setDisplay(m, { mode: currentMode(m), scale: root.scales(m).find(s => Math.abs(s - v) < 0.001) ?? v })
+				}),
+				Object.assign({}, common, {
+					id: "display:" + m.name + ":rotation",
+					name: m.name + " rotation",
+					label: "Rotation",
+					keywords: "monitors screens orientation portrait transform",
+					value: m.transform,
+					choices: (m.transform < 4 ? [] : [{ label: "Flipped", value: m.transform }]).concat([["Normal", 0], ["90°", 1], ["180°", 2], ["270°", 3]].map(([label, v]) => ({ label: label, value: v }))),
+					icon: "rotate-cw",
+					fields: ["transform"],
+					apply: v => root.setDisplay(m, { transform: v })
+				}),
+				Object.assign({}, common, {
+					id: "display:" + m.name + ":vrr",
+					name: m.name + " variable refresh rate",
+					label: "Variable refresh rate",
+					keywords: "monitors screens vrr adaptive sync freesync g-sync",
+					// Hyprland reports only whether it is on now.
+					value: saved.vrr ?? (m.vrr ? 1 : 0),
+					choices: [{ label: "Off", value: 0 }, { label: "On", value: 1 }, { label: "In fullscreen", value: 2 }],
+					icon: "activity",
+					fields: ["vrr"],
+					apply: v => root.setDisplay(m, { vrr: v })
 				})
 			]);
 		}, brightness.concat(root.monitors.filter(m => m.x > -10000).length < 2 ? [] : [{
@@ -202,13 +265,14 @@ Singleton {
 			desc: "Where the screens stand to each other",
 			keywords: "monitors screens layout position arrange",
 			kind: "arrange",
+			fields: ["position"],
 			value: root.monitors.filter(m => m.x > -10000).slice().sort((a, b) => a.x - b.x || a.y - b.y).map(m => m.name).join(" · "),
 			icon: "layout-grid"
 		}]));
 	}
 
 	readonly property var audioEntries: {
-		var common = { source: "audio", group: "Audio", section: "audio", desc: "" };
+		var common = { source: "audio", group: "Sound", section: "sound", desc: "", keywords: "audio" };
 		var device = (name, sinks, node, icon) => Object.assign({}, common, {
 			id: "audio:" + name, name: name, label: name, sub: "Devices", kind: "enum", stepless: true, icon: icon,
 			value: node?.id ?? -1, choices: Audio.devices(sinks), apply: v => Audio.choose(v)
@@ -229,19 +293,52 @@ Singleton {
 		];
 	}
 
-	readonly property var entries: displayEntries.concat(audioEntries, uiEntries, hyprEntries)
-	// What the Hyprland page holds, the look first.
-	readonly property var hyprlandEntries: uiEntries.concat(hyprEntries)
+	// Panels.qml's shortcuts a hot corner can press.
+	readonly property var cornerChoices: [["Apps", "launcher-apps"], ["Open windows", "launcher-windows"], ["Actions", "actions"],
+		["Notifications", "notifications"], ["Settings", "launcher-settings"], ["Nothing", ""]].map(([label, v]) => ({ label: label, value: v }))
 
-	// The entries by their first part, in the order they come: { key, label, icon, count }.
-	readonly property var sections: hyprlandEntries.reduce((list, e) => {
-		var s = list.find(x => x.key === e.section);
-		if (s)
-			s.count++;
-		else
-			list.push({ key: e.section, label: humanize(e.section), icon: e.section === "look" ? "droplet" : e.icon, count: 1 });
-		return list;
-	}, [])
+	readonly property var prefEntries: {
+		var entry = (key, sub, label, desc, icon, extra) => Object.assign({
+			id: "pref:" + key, source: "pref", key: key, name: label, section: "desktop", sub: sub, group: "Desktop › " + sub,
+			label: label, desc: desc, kind: "bool", value: Prefs.values[key], icon: icon, apply: v => Prefs.set(key, v)
+		}, extra ?? {});
+		return [
+			entry("cornerLeft", "Hot corners", "Top-left corner", "What the pointer pushed into the corner opens", "layout-grid", { kind: "enum", choices: cornerChoices }),
+			entry("cornerRight", "Hot corners", "Top-right corner", "What the pointer pushed into the corner opens", "layout-grid", { kind: "enum", choices: cornerChoices }),
+			entry("batteryPercent", "Top bar", "Battery percentage", "Beside the battery, not only on hover", "battery-medium"),
+			entry("weather", "Top bar", "Weather", "The temperature and the sky, a click for the forecast", "cloud-sun"),
+			entry("clock24", "Clock", "24-hour time", "Off: 2:05 PM", "calendar", { keywords: "12-hour am pm format" }),
+			entry("clockSeconds", "Clock", "Seconds", "In the time on the bar", "calendar"),
+			entry("clockWeekday", "Clock", "Day of the week", "Before the date: Wed 4 Nov", "calendar", { keywords: "date" })
+		];
+	}
+
+	// hypridle's times, in seconds: hypridle.conf's, and idle.conf's over them.
+	property var idleDefaults: ({})
+	property var idleSaved: ({})
+
+	function duration(seconds: int): string {
+		return seconds % 3600 === 0 ? seconds / 3600 + " h" : Math.round(seconds / 60) + " min";
+	}
+
+	readonly property var idleEntries: [
+		["lock_after", "Lock the screen after", "lock"],
+		["screen_off_after", "Turn the screen off after", "monitor"],
+		["sleep_battery_after", "Sleep on battery after", "battery-medium"],
+		["sleep_ac_after", "Sleep plugged in after", "power"]
+	].filter(([key]) => root.idleDefaults[key] !== undefined).map(([key, label, icon]) => {
+		var value = root.idleSaved[key] ?? root.idleDefaults[key];
+		var times = [60, 120, 180, 240, 300, 600, 900, 1200, 1800, 2700, 3600, 7200];
+		return {
+			id: "idle:" + key, source: "idle", key: key, name: label, section: "idle", sub: "", group: "Idle & sleep",
+			label: label, desc: "Without input; Keep awake in Actions holds it off", keywords: "timeout suspend lock screen saver",
+			kind: "enum", value: value, icon: icon,
+			choices: times.concat(times.includes(value) ? [] : [value]).sort((a, b) => a - b).map(t => ({ label: duration(t), value: t })),
+			apply: v => root.setIdle(key, v)
+		};
+	})
+
+	readonly property var entries: displayEntries.concat(audioEntries, uiEntries, prefEntries, idleEntries, hyprEntries)
 
 	// The value as the list shows it.
 	function display(e: var): string {
@@ -253,7 +350,8 @@ Singleton {
 			return String(Number(Number(e.value).toFixed(3)));
 		if (e.kind === "color" && e.source === "hyprland")
 			return hyprColorInput(String(e.value));
-		return String(e.value) === "" ? "(none)" : String(e.value);
+		// Hyprland's empty string is "[[EMPTY]]".
+		return ["", "[[EMPTY]]"].includes(String(e.value)) ? "(none)" : String(e.value);
 	}
 
 	// Hyprland reports a colour as AARRGGBB (and an angle, for a gradient);
@@ -277,12 +375,14 @@ Singleton {
 		return /^#[0-9a-f]{6}$/i.test(v) ? v : "";
 	}
 
-	// Set here, so in settings.lua.
+	// Set here, over the config: settings.lua, displays.lua, prefs.json or idle.conf.
 	function changed(e: var): bool {
-		if (e.kind === "arrange")
-			return Object.values(root.savedDisplays).some(d => d.position !== undefined);
-		if (e.source === "display")
-			return root.savedDisplays[e.output]?.mode !== undefined;
+		if (e.source === "display" && e.fields)
+			return (e.output ? [root.savedDisplays[e.output] ?? {}] : Object.values(root.savedDisplays)).some(d => e.fields.some(f => d[f] !== undefined));
+		if (e.source === "pref")
+			return Prefs.changed(e.key);
+		if (e.source === "idle")
+			return root.idleSaved[e.key] !== undefined;
 		return e.source === "hyprland" && root.saved[e.name] !== undefined;
 	}
 
@@ -325,12 +425,11 @@ Singleton {
 		if (!changed(e))
 			return;
 		if (e.source === "display") {
-			var keys = e.kind === "arrange" ? ["position"] : ["mode", "scale"];
-			var outputs = e.kind === "arrange" ? Object.keys(root.savedDisplays).filter(k => root.savedDisplays[k].position !== undefined) : [e.output];
+			var outputs = e.output ? [e.output] : Object.keys(root.savedDisplays).filter(k => e.fields.some(f => root.savedDisplays[k][f] !== undefined));
 			var kept = Object.assign({}, root.savedDisplays);
 			for (const o of outputs) {
 				var d = Object.assign({}, kept[o]);
-				keys.forEach(k => delete d[k]);
+				e.fields.forEach(k => delete d[k]);
 				if (Object.keys(d).length === 0)
 					delete kept[o];
 				else
@@ -341,11 +440,56 @@ Singleton {
 			writeDisplays();
 			return;
 		}
+		if (e.source === "pref") {
+			Prefs.reset(e.key);
+			return;
+		}
+		if (e.source === "idle") {
+			setIdle(e.key, root.idleDefaults[e.key]);
+			return;
+		}
 		var next = Object.assign({}, root.saved);
 		delete next[e.name];
 		root.saved = next;
 		reloadWhenSaved = true;
 		write();
+	}
+
+	// Everything set here back to the config's.
+	function resetAll(): void {
+		if (Object.keys(root.saved).length > 0) {
+			root.saved = {};
+			reloadWhenSaved = true;
+			write();
+		}
+		var outputs = Object.keys(root.savedDisplays);
+		if (outputs.length > 0) {
+			root.savedDisplays = {};
+			displayForget.outputs = outputs;
+			writeDisplays();
+		}
+		Prefs.resetAll();
+		if (Object.keys(root.idleSaved).length > 0) {
+			root.idleSaved = {};
+			writeIdle();
+		}
+	}
+
+	// Only a time unlike hypridle.conf's is kept.
+	function setIdle(key: string, seconds: int): void {
+		var next = Object.assign({}, root.idleSaved);
+		if (seconds === root.idleDefaults[key])
+			delete next[key];
+		else
+			next[key] = seconds;
+		root.idleSaved = next;
+		writeIdle();
+	}
+
+	function writeIdle(): void {
+		idleFile.setText("# Written by the shell's settings (SUPER + S): hypridle's times in seconds, over\n"
+			+ "# hypridle.conf's. A line taken out goes back to it.\n"
+			+ Object.keys(root.idleSaved).sort().map(k => "$" + k + " = " + root.idleSaved[k] + "\n").join(""));
 	}
 
 	// The file is written off the GUI thread: Hyprland reads it once it is.
@@ -393,21 +537,26 @@ Singleton {
 		return name.split(/[:.]/).reverse().reduce((inner, part) => "{ [" + Hypr.quote(part) + "] = " + inner + " }", value);
 	}
 
-	// The screen where it is, with the new mode and scale; kept once Hyprland took it.
-	function setDisplay(m: var, mode: string, scale: real): void {
+	// The screen's rule as it stands, with `change` ({ mode, scale, position, transform, vrr }) over it.
+	function monitorCall(m: var, change: var): string {
+		var f = Object.assign({ mode: currentMode(m), position: m.x + "x" + m.y, scale: m.scale, transform: m.transform },
+			root.savedDisplays[displayOutput(m)]?.vrr !== undefined ? { vrr: root.savedDisplays[displayOutput(m)].vrr } : {}, change);
+		return "hl.monitor({ output = " + Hypr.quote(displayOutput(m)) + ", mode = " + Hypr.quote(f.mode) + ", position = " + Hypr.quote(f.position)
+			+ ", scale = " + f.scale + ", transform = " + f.transform + (f.vrr !== undefined ? ", vrr = " + f.vrr : "") + " })";
+	}
+
+	// The screen where it is, with `change` over it; kept once Hyprland took it.
+	function setDisplay(m: var, change: var): void {
 		displayApply.output = displayOutput(m);
-		displayApply.mode = mode;
-		displayApply.scale = scale;
-		displayApply.command = ["hyprctl", "dispatch", "function() hl.monitor({ output = " + Hypr.quote(displayApply.output)
-			+ ", mode = " + Hypr.quote(mode) + ", position = " + Hypr.quote(m.x + "x" + m.y) + ", scale = " + scale + " }) end"];
+		displayApply.change = change;
+		displayApply.command = ["hyprctl", "dispatch", "function() " + monitorCall(m, change) + " end"];
 		displayApply.running = true;
 	}
 
 	// The screens where the arrangement put them, `places` as { output: "XxY" }; kept once
 	// Hyprland took them all.
 	function arrange(places: var): void {
-		var calls = root.monitors.filter(m => places[displayOutput(m)] !== undefined).map(m => "hl.monitor({ output = " + Hypr.quote(displayOutput(m))
-			+ ", mode = " + Hypr.quote(currentMode(m)) + ", position = " + Hypr.quote(places[displayOutput(m)]) + ", scale = " + m.scale + " })");
+		var calls = root.monitors.filter(m => places[displayOutput(m)] !== undefined).map(m => monitorCall(m, { position: places[displayOutput(m)] }));
 		arrangeApply.places = places;
 		arrangeApply.command = ["hyprctl", "dispatch", "function() " + calls.join(" ") + " end"];
 		arrangeApply.running = true;
@@ -446,10 +595,14 @@ Singleton {
 				fields.push("scale = " + d.scale);
 			if (d.position !== undefined)
 				fields.push("position = " + Hypr.quote(d.position));
+			if (d.transform !== undefined)
+				fields.push("transform = " + d.transform);
+			if (d.vrr !== undefined)
+				fields.push("vrr = " + d.vrr);
 			return "\t[" + Hypr.quote(k) + "] = { " + fields.join(", ") + " },";
 		});
-		displaysFile.setText("-- Written by the shell's settings (SUPER + S): each screen's mode, scale and place\n"
-			+ "-- (hyprland/monitors.lua). A line taken out goes back to the config's.\n"
+		displaysFile.setText("-- Written by the shell's settings (SUPER + S): each screen's mode, scale, place, rotation\n"
+			+ "-- and VRR (hyprland/monitors.lua). A line taken out goes back to the config's.\n"
 			+ "return {\n" + lines.join("\n") + (lines.length > 0 ? "\n" : "") + "}\n");
 	}
 
@@ -518,8 +671,7 @@ Singleton {
 		id: displayApply
 
 		property string output: ""
-		property string mode: ""
-		property real scale: 1
+		property var change: ({})
 
 		stdout: StdioCollector {
 			id: displayOut
@@ -529,7 +681,7 @@ Singleton {
 			var said = displayOut.text.trim();
 			if (said === "ok") {
 				var next = Object.assign({}, root.savedDisplays);
-				next[output] = Object.assign({}, next[output], { mode: mode, scale: scale });
+				next[output] = Object.assign({}, next[output], change);
 				root.savedDisplays = next;
 				root.writeDisplays();
 			} else {
@@ -580,6 +732,11 @@ Singleton {
 					d.scale = Number(scale[1]);
 				if (position)
 					d.position = position[1];
+				var transform = /transform = (\d)/.exec(m[2]), vrr = /vrr = (\d)/.exec(m[2]);
+				if (transform)
+					d.transform = Number(transform[1]);
+				if (vrr)
+					d.vrr = Number(vrr[1]);
 				found[m[1]] = d;
 			}
 			root.savedDisplays = found;
@@ -634,6 +791,53 @@ Singleton {
 					found[m[1]] = m[2];
 			}
 			root.saved = found;
+		}
+	}
+
+	// `$name = seconds` lines: hypridle.conf's first, idle.conf's over them.
+	function idleTimes(text: string): var {
+		var found = {};
+		for (const line of text.split("\n")) {
+			var m = /^\$(\w+)\s*=\s*(\d+)\s*$/.exec(line);
+			if (m)
+				found[m[1]] = Number(m[2]);
+		}
+		return found;
+	}
+
+	FileView {
+		path: Quickshell.env("HOME") + "/.config/hypr/hypridle.conf"
+		blockLoading: true
+		printErrors: false
+		onLoaded: root.idleDefaults = root.idleTimes(this.text())
+	}
+
+	FileView {
+		id: idleFile
+		path: Quickshell.env("HOME") + "/.config/hypr/idle.conf"
+		blockLoading: true
+		printErrors: false
+		onLoaded: root.idleSaved = root.idleTimes(this.text())
+		onSaved: idleRestart.running = true
+	}
+
+	// hypridle reads its config once.
+	Process {
+		id: idleRestart
+		command: ["systemctl", "--user", "try-restart", "hypridle.service"]
+	}
+
+	// XKB's layouts by name: { label: "Polish (pl)", value: "pl" }.
+	property var layouts: []
+
+	FileView {
+		path: "/usr/share/X11/xkb/rules/base.lst"
+		printErrors: false
+		onLoaded: {
+			var text = this.text();
+			var start = text.indexOf("! layout"), end = text.indexOf("!", start + 1);
+			root.layouts = text.slice(start, end).split("\n").slice(1).map(l => /^\s+(\S+)\s+(.+)$/.exec(l)).filter(m => m)
+				.map(m => ({ label: m[2].trim() + " (" + m[1] + ")", value: m[1] })).sort((a, b) => a.label.localeCompare(b.label));
 		}
 	}
 }

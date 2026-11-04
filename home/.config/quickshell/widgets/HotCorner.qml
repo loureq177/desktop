@@ -6,23 +6,22 @@ import QtQuick
 MouseArea {
 	id: root
 
-	required property string panel
-	property string mode: ""
 	// Whether this window holds the corner now; shrinking is no leave.
 	property bool present: true
-	// Panels.qml's shortcut, which Hyprland presses only with the cursor really in the corner:
-	// a panel opening hands this area a hover at 0,0 while the pointer is elsewhere.
-	readonly property string shortcut: mode !== "" ? panel + "-" + mode : panel
 	readonly property bool atRight: x > 0
 	readonly property string corner: atRight ? "right" : "left"
+	// Panels.qml's shortcut, which Hyprland presses only with the cursor really in the corner:
+	// a panel opening hands this area a hover at 0,0 while the pointer is elsewhere. "" for none.
+	readonly property string shortcut: atRight ? Prefs.values.cornerRight : Prefs.values.cornerLeft
+	readonly property bool held: present && shortcut !== ""
 
-	width: present ? 1 : 0
-	height: present ? 1 : 0
+	width: held ? 1 : 0
+	height: held ? 1 : 0
 	hoverEnabled: true
 	acceptedButtons: Qt.NoButton
 	onContainsMouseChanged: {
 		if (!containsMouse) {
-			if (present)
+			if (held)
 				Panels.leaveCorner(corner);
 			return;
 		}
