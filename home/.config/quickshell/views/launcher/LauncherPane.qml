@@ -25,6 +25,10 @@ Item {
 	function stepColumn(delta: int, repeat: bool): void {
 	}
 
+	function tab(delta: int, repeat: bool): void {
+		step(delta, repeat);
+	}
+
 	function activate(): void {
 	}
 

@@ -4,12 +4,12 @@ import QtQuick
 
 // Displays, Wi-Fi, Bluetooth, audio and Hyprland, typing searches them all: Enter edits,
 // ←/→ steps, blue was set here, Ctrl+R gives it back to the config, Esc steps out. What a
-// setting does shows on hover.
+// setting does shows on hover. The screens' arrangement is a picture of its own.
 LauncherPane {
 	id: pane
 
-	// "browse" the settings, "choose" from the choices of `editing`, or
-	// "type" a value for it.
+	// "browse" the settings, "choose" from the choices of `editing`, "type" a value for it,
+	// or "arrange" the screens.
 	property string mode: "browse"
 	property var editing: null
 	// The page browsed: "" the first, "hyprland" Hyprland's sections, "changed" what settings.lua holds.
@@ -25,14 +25,15 @@ LauncherPane {
 	readonly property var changedEntries: Settings.entries.filter(e => Settings.changed(e))
 	readonly property string sectionLabel: section === "changed" ? "Changed here" : Settings.humanize(section)
 
-	icon: mode === "browse" ? "settings" : "pencil"
-	grid: mode === "browse"
-	placeholder: mode === "choose" ? "Pick " + editing.label.toLowerCase() + "…"
+	icon: mode === "browse" ? "settings" : mode === "arrange" ? "monitor" : "pencil"
+	grid: mode === "browse" || mode === "arrange"
+	placeholder: mode === "arrange" ? (arrangement.dirty ? "Enter applies the arrangement, Esc leaves it as it was" : "Arrange the screens")
+		: mode === "choose" ? "Pick " + editing.label.toLowerCase() + "…"
 		: mode === "type" ? "A value for " + editing.label.toLowerCase() + range(editing)
 		: !Settings.loaded ? "Loading settings…"
 		: section !== "" ? "Search " + sectionLabel.toLowerCase() + "…"
 		: "Search " + Settings.entries.length + " settings…"
-	preferredHeight: list.preferredHeight
+	preferredHeight: mode === "arrange" ? 380 : list.preferredHeight
 	error: Settings.lastError
 
 	// Every word typed matches somewhere ("blur passes"), the best fields
@@ -70,10 +71,24 @@ LauncherPane {
 	}
 
 	function step(delta: int, repeat: bool): void {
-		list.step(delta, repeat);
+		if (mode === "arrange")
+			arrangement.move(0, delta);
+		else
+			list.step(delta, repeat);
+	}
+
+	function tab(delta: int, repeat: bool): void {
+		if (mode === "arrange")
+			arrangement.choose(delta);
+		else
+			list.step(delta, repeat);
 	}
 
 	function stepColumn(delta: int, repeat: bool): void {
+		if (mode === "arrange") {
+			arrangement.move(delta, 0);
+			return;
+		}
 		var e = current;
 		if (!e || e.source === "ui" || e.stepless)
 			return;
@@ -81,7 +96,19 @@ LauncherPane {
 	}
 
 	function activate(): void {
-		list.activate();
+		if (mode !== "arrange") {
+			list.activate();
+			return;
+		}
+		if (arrangement.dirty) {
+			// The top left at 0,0, as Hyprland's "auto" would start.
+			var x0 = Math.min(...arrangement.draft.map(d => d.x)), y0 = Math.min(...arrangement.draft.map(d => d.y));
+			var places = {};
+			for (const d of arrangement.draft)
+				places[d.output] = (d.x - x0) + "x" + (d.y - y0);
+			Settings.arrange(places);
+		}
+		leave();
 	}
 
 	function back(): bool {
@@ -146,6 +173,13 @@ LauncherPane {
 		browseQuery = query;
 		browseIndex = list.currentIndex;
 		editing = e;
+		if (e.kind === "arrange") {
+			arrangement.load();
+			mode = "arrange";
+			Settings.lastError = "";
+			pane.queryRequested("");
+			return;
+		}
 		mode = e.kind === "enum" ? "choose" : "type";
 		list.currentIndex = 0;
 		Settings.lastError = "";
@@ -219,13 +253,22 @@ LauncherPane {
 	}
 
 	onQueryChanged: {
-		if (mode !== "type")
+		if (mode === "arrange" && query !== "")
+			pane.queryRequested("");
+		else if (mode !== "type")
 			list.reset();
+	}
+
+	Arrangement {
+		id: arrangement
+		anchors.fill: parent
+		visible: pane.mode === "arrange"
 	}
 
 	ResultList {
 		id: list
 		anchors.fill: parent
+		visible: pane.mode !== "arrange"
 
 		// Displays and audio answer later than the keypress: a new model would go back to the top.
 		onRowsChanged: {
@@ -258,7 +301,7 @@ LauncherPane {
 				: pane.section === "hyprland" ? Settings.hyprlandEntries
 				: pane.section === "changed" ? pane.changedEntries
 				: Settings.entries.filter(e => e.section === pane.section);
-			var shown = pane.mode === "type" ? [pane.editing] : Search.rank(all, e => pane.score(e));
+			var shown = pane.mode === "type" || pane.mode === "arrange" ? [pane.editing] : Search.rank(all, e => pane.score(e));
 			// Typed on the first page: the two that live in Actions are found too.
 			var pages = pane.mode === "browse" && pane.section === "" ? pane.actionsPages.filter(p => Search.matchScore([[p.label, 0]], pane.q) !== -1) : [];
 			return pages.concat(shown.map(e => ({

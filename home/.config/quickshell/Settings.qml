@@ -132,6 +132,7 @@ Singleton {
 		var brightness = Brightness.percent < 0 ? [] : [{
 			id: "display:brightness",
 			source: "display",
+			keywords: "monitors screens backlight",
 			name: "Brightness",
 			group: "Displays",
 			section: "displays",
@@ -153,6 +154,7 @@ Singleton {
 				modes.unshift(currentMode(m));
 			var common = {
 				source: "display",
+				keywords: "monitors screens",
 				output: output,
 				group: "Displays › " + (m.description || m.name),
 				section: "displays",
@@ -189,7 +191,20 @@ Singleton {
 					apply: v => root.setDisplay(m, currentMode(m), root.scales(m).find(s => Math.abs(s - v) < 0.001) ?? v)
 				})
 			]);
-		}, brightness);
+		}, brightness.concat(root.monitors.filter(m => m.x > -10000).length < 2 ? [] : [{
+			id: "display:arrangement",
+			source: "display",
+			name: "Arrangement",
+			group: "Displays",
+			section: "displays",
+			sub: "",
+			label: "Arrangement",
+			desc: "Where the screens stand to each other",
+			keywords: "monitors screens layout position arrange",
+			kind: "arrange",
+			value: root.monitors.filter(m => m.x > -10000).slice().sort((a, b) => a.x - b.x || a.y - b.y).map(m => m.name).join(" · "),
+			icon: "layout-grid"
+		}]));
 	}
 
 	readonly property var audioEntries: {
@@ -264,8 +279,10 @@ Singleton {
 
 	// Set here, so in settings.lua.
 	function changed(e: var): bool {
+		if (e.kind === "arrange")
+			return Object.values(root.savedDisplays).some(d => d.position !== undefined);
 		if (e.source === "display")
-			return root.savedDisplays[e.output] !== undefined;
+			return root.savedDisplays[e.output]?.mode !== undefined;
 		return e.source === "hyprland" && root.saved[e.name] !== undefined;
 	}
 
@@ -308,10 +325,19 @@ Singleton {
 		if (!changed(e))
 			return;
 		if (e.source === "display") {
+			var keys = e.kind === "arrange" ? ["position"] : ["mode", "scale"];
+			var outputs = e.kind === "arrange" ? Object.keys(root.savedDisplays).filter(k => root.savedDisplays[k].position !== undefined) : [e.output];
 			var kept = Object.assign({}, root.savedDisplays);
-			delete kept[e.output];
+			for (const o of outputs) {
+				var d = Object.assign({}, kept[o]);
+				keys.forEach(k => delete d[k]);
+				if (Object.keys(d).length === 0)
+					delete kept[o];
+				else
+					kept[o] = d;
+			}
 			root.savedDisplays = kept;
-			displayForget.output = e.output;
+			displayForget.outputs = outputs;
 			writeDisplays();
 			return;
 		}
@@ -377,12 +403,52 @@ Singleton {
 		displayApply.running = true;
 	}
 
+	// The screens where the arrangement put them, `places` as { output: "XxY" }; kept once
+	// Hyprland took them all.
+	function arrange(places: var): void {
+		var calls = root.monitors.filter(m => places[displayOutput(m)] !== undefined).map(m => "hl.monitor({ output = " + Hypr.quote(displayOutput(m))
+			+ ", mode = " + Hypr.quote(currentMode(m)) + ", position = " + Hypr.quote(places[displayOutput(m)]) + ", scale = " + m.scale + " })");
+		arrangeApply.places = places;
+		arrangeApply.command = ["hyprctl", "dispatch", "function() " + calls.join(" ") + " end"];
+		arrangeApply.running = true;
+	}
+
+	Process {
+		id: arrangeApply
+		property var places: ({})
+
+		stdout: StdioCollector {
+			id: arrangeOut
+		}
+
+		onExited: {
+			var said = arrangeOut.text.trim();
+			if (said === "ok") {
+				var next = Object.assign({}, root.savedDisplays);
+				for (const o of Object.keys(places))
+					next[o] = Object.assign({}, next[o], { position: places[o] });
+				root.savedDisplays = next;
+				root.writeDisplays();
+			} else {
+				root.lastError = said.replace(/^error: .*?:1: /, "");
+			}
+			monitorsAfter.restart();
+		}
+	}
+
 	function writeDisplays(): void {
 		var lines = Object.keys(root.savedDisplays).sort().map(k => {
 			var d = root.savedDisplays[k];
-			return "\t[" + Hypr.quote(k) + "] = { mode = " + Hypr.quote(d.mode) + ", scale = " + d.scale + " },";
+			var fields = [];
+			if (d.mode !== undefined)
+				fields.push("mode = " + Hypr.quote(d.mode));
+			if (d.scale !== undefined)
+				fields.push("scale = " + d.scale);
+			if (d.position !== undefined)
+				fields.push("position = " + Hypr.quote(d.position));
+			return "\t[" + Hypr.quote(k) + "] = { " + fields.join(", ") + " },";
 		});
-		displaysFile.setText("-- Written by the shell's settings (SUPER + S): each screen's mode and scale\n"
+		displaysFile.setText("-- Written by the shell's settings (SUPER + S): each screen's mode, scale and place\n"
 			+ "-- (hyprland/monitors.lua). A line taken out goes back to the config's.\n"
 			+ "return {\n" + lines.join("\n") + (lines.length > 0 ? "\n" : "") + "}\n");
 	}
@@ -463,7 +529,7 @@ Singleton {
 			var said = displayOut.text.trim();
 			if (said === "ok") {
 				var next = Object.assign({}, root.savedDisplays);
-				next[output] = { mode: mode, scale: scale };
+				next[output] = Object.assign({}, next[output], { mode: mode, scale: scale });
 				root.savedDisplays = next;
 				root.writeDisplays();
 			} else {
@@ -476,10 +542,10 @@ Singleton {
 	// Once displays.lua no longer has it.
 	Process {
 		id: displayForget
-		property string output: ""
-		command: ["hyprctl", "dispatch", "function() require(\"hyprland.monitors\").forget(" + Hypr.quote(output) + ") end"]
+		property var outputs: []
+		command: ["hyprctl", "dispatch", "function() local m = require(\"hyprland.monitors\") " + outputs.map(o => "m.forget(" + Hypr.quote(o) + ")").join(" ") + " end"]
 		onExited: {
-			output = "";
+			outputs = [];
 			monitorsAfter.restart();
 		}
 	}
@@ -497,15 +563,24 @@ Singleton {
 		blockLoading: true
 		printErrors: false
 		onSaved: {
-			if (displayForget.output !== "")
+			if (displayForget.outputs.length > 0)
 				displayForget.running = true;
 		}
 		onLoaded: {
 			var found = {};
 			for (const line of this.text().split("\n")) {
-				var m = /^\s*\["([^"]+)"\]\s*=\s*\{ mode = "([^"]+)", scale = ([0-9.]+) \},\s*$/.exec(line);
-				if (m)
-					found[m[1]] = { mode: m[2], scale: Number(m[3]) };
+				var m = /^\s*\["([^"]+)"\]\s*=\s*\{(.*)\},\s*$/.exec(line);
+				if (!m)
+					continue;
+				var d = {};
+				var mode = /mode = "([^"]+)"/.exec(m[2]), scale = /scale = ([0-9.]+)/.exec(m[2]), position = /position = "(-?\d+x-?\d+)"/.exec(m[2]);
+				if (mode)
+					d.mode = mode[1];
+				if (scale)
+					d.scale = Number(scale[1]);
+				if (position)
+					d.position = position[1];
+				found[m[1]] = d;
 			}
 			root.savedDisplays = found;
 		}

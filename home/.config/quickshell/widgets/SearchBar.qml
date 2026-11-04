@@ -19,6 +19,8 @@ Rectangle {
 	// `repeat`: the key is held down.
 	signal stepped(int delta, bool repeat)
 	signal steppedColumn(int delta, bool repeat)
+	// Tab and Shift+Tab: a step too, unless the list has its own use for it.
+	signal tabbed(int delta, bool repeat)
 	// Backspace in an empty field.
 	signal erased()
 	signal resetRequested()
@@ -82,8 +84,8 @@ Rectangle {
 					bar.steppedColumn(-1, held);
 				else if (bar.leftRightNavigate && (key === Qt.Key_Right || (ctrl && key === Qt.Key_L)))
 					bar.steppedColumn(1, held);
-				else if (key === Qt.Key_Tab)
-					bar.stepped(event.modifiers & Qt.ShiftModifier ? -1 : 1, held);
+				else if (key === Qt.Key_Tab || key === Qt.Key_Backtab)
+					bar.tabbed(event.modifiers & Qt.ShiftModifier || key === Qt.Key_Backtab ? -1 : 1, held);
 				else if (key === Qt.Key_Backspace && input.text === "")
 					bar.erased();
 				else if (key === Qt.Key_Return || key === Qt.Key_Enter)

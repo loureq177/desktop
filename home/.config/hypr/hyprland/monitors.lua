@@ -14,7 +14,7 @@ local M = {}
 -- The panel's name while it is parked: the row of workspaces leaves it out.
 M.parked = nil
 
--- The mode and scale set in the shell's settings (SUPER + S), by output, over local.lua's.
+-- The mode, scale and place set in the shell's settings (SUPER + S), by output, over local.lua's.
 -- Read each time: the shell writes them while this runs.
 local function displays()
 	local ok, saved = pcall(dofile, os.getenv("HOME") .. "/.config/hypr/displays.lua")
@@ -26,7 +26,8 @@ local function rule(m, position)
 	hl.monitor({
 		output = m.output,
 		mode = chosen.mode or m.mode or "preferred",
-		position = position,
+		-- Parked stays parked: the arrangement is for a panel in use.
+		position = position ~= PARKED and chosen.position or position,
 		scale = chosen.scale or m.scale or 1,
 	})
 end
