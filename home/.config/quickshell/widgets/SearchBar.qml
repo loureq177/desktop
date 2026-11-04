@@ -19,6 +19,8 @@ Rectangle {
 	// `repeat`: the key is held down.
 	signal stepped(int delta, bool repeat)
 	signal steppedColumn(int delta, bool repeat)
+	// Ctrl + H / L: sideways in a grid, out and in where the list has levels.
+	signal sideways(int delta, bool repeat)
 	// Tab and Shift+Tab: a step too, unless the list has its own use for it.
 	signal tabbed(int delta, bool repeat)
 	// Backspace in an empty field.
@@ -71,7 +73,7 @@ Rectangle {
 			focus: true
 			clip: true
 
-			// Ctrl with J / K (H / L in a grid) moves like the arrows.
+			// Ctrl with J / K moves like the arrows, with H / L as the pane says (sideways).
 			Keys.onPressed: event => {
 				var ctrl = event.modifiers & Qt.ControlModifier;
 				var key = event.key;
@@ -80,9 +82,11 @@ Rectangle {
 					bar.stepped(1, held);
 				else if (key === Qt.Key_Up || (ctrl && key === Qt.Key_K))
 					bar.stepped(-1, held);
-				else if (bar.leftRightNavigate && (key === Qt.Key_Left || (ctrl && key === Qt.Key_H)))
+				else if (ctrl && (key === Qt.Key_H || key === Qt.Key_L))
+					bar.sideways(key === Qt.Key_L ? 1 : -1, held);
+				else if (bar.leftRightNavigate && key === Qt.Key_Left)
 					bar.steppedColumn(-1, held);
-				else if (bar.leftRightNavigate && (key === Qt.Key_Right || (ctrl && key === Qt.Key_L)))
+				else if (bar.leftRightNavigate && key === Qt.Key_Right)
 					bar.steppedColumn(1, held);
 				else if (key === Qt.Key_Tab || key === Qt.Key_Backtab)
 					bar.tabbed(event.modifiers & Qt.ShiftModifier || key === Qt.Key_Backtab ? -1 : 1, held);
@@ -96,7 +100,7 @@ Rectangle {
 					event.isAutoRepeat || bar.resetRequested();
 				else if (key === Qt.Key_Delete && input.cursorPosition === input.text.length)
 					event.isAutoRepeat || bar.removeRequested();
-				else if (!ctrl || (key !== Qt.Key_H && key !== Qt.Key_L))
+				else
 					return;
 				event.accepted = true;
 			}

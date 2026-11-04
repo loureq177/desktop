@@ -92,6 +92,24 @@ LauncherPane {
 		list.keepIndex(() => Settings.set(e, Settings.stepped(e, delta)));
 	}
 
+	// Ctrl + L goes in (a page, a list of choices, a value to type), Ctrl + H back out; the
+	// arrows keep stepping values, and move the screens of the arrangement.
+	function sideways(delta: int, repeat: bool): void {
+		if (mode === "arrange") {
+			arrangement.move(delta, 0);
+			return;
+		}
+		if (repeat)
+			return;
+		if (delta < 0) {
+			back();
+			return;
+		}
+		var row = list.items[list.currentIndex];
+		if (mode === "choose" || (mode === "browse" && row && !row.confirm && row.setting?.kind !== "bool"))
+			list.activate();
+	}
+
 	function activate(): void {
 		if (mode !== "arrange") {
 			list.activate();
@@ -273,6 +291,8 @@ LauncherPane {
 		id: list
 		anchors.fill: parent
 		visible: pane.mode !== "arrange"
+		// How long the page is: settings run to hundreds.
+		scrollBar: true
 
 		// Displays and audio answer later than the keypress: a new model would go back to the top.
 		onRowsChanged: {

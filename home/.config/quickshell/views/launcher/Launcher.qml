@@ -109,6 +109,7 @@ ModalWindow {
 				onRemoveRequested: root.pane.removeValue()
 				onStepped: (delta, repeat) => root.pane.step(delta, repeat)
 				onSteppedColumn: (delta, repeat) => root.pane.stepColumn(delta, repeat)
+				onSideways: (delta, repeat) => root.pane.sideways(delta, repeat)
 				onTabbed: (delta, repeat) => root.pane.tab(delta, repeat)
 				onErased: {
 					if (!root.pane.back() && root.scope !== "apps")
