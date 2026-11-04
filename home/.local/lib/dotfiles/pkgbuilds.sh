@@ -37,5 +37,13 @@ pkgbuild_install() {
         sed -i "s/^pkgver=.*/pkgver=$version/" "$dir/PKGBUILD"
         (cd "$dir" && updpkgsums) || return 1
     fi
-    (cd "$dir" && makepkg -sric --noconfirm)
+    # makepkg's own sudo is `sudo -k`, a password every time; plain sudo keeps the one given.
+    local conf=$dir.makepkg.conf c
+    {
+        for c in /etc/makepkg.conf /etc/makepkg.conf.d/*.conf "${XDG_CONFIG_HOME:-$HOME/.config}/pacman/makepkg.conf" "$HOME/.makepkg.conf"; do
+            [[ -r "$c" ]] && printf 'source %q\n' "$c"
+        done
+        echo 'PACMAN_AUTH=(sudo)'
+    } >"$conf"
+    (cd "$dir" && makepkg --config "$conf" -sric --noconfirm)
 }

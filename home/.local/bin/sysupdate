@@ -238,7 +238,8 @@ build_own() {
         tail -n 15 "$TASKS_DIR/builds.out"
         return "$rc"
     fi
-    pacman_changes "$builds_log_start" "" | head -n 1
+    # sed, not head: head leaves early and pipefail makes SIGPIPE a failure (141).
+    pacman_changes "$builds_log_start" "" | sed -n 1p
 }
 
 # --- The steps ---------------------------------------------------------------
