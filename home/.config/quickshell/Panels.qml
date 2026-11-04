@@ -40,6 +40,37 @@ Singleton {
 			root.open(name, newMode);
 	}
 
+	// The hot corner the pointer rests in since it toggled ("left", "right"): the bar's and the
+	// drawer's are one corner, which toggles again only after a real leave.
+	property string heldCorner: ""
+
+	// Whether entering `corner` toggles.
+	function enterCorner(corner: string): bool {
+		if (cornerLeft.corner === corner)
+			cornerLeft.stop();
+		if (heldCorner === corner)
+			return false;
+		heldCorner = corner;
+		return true;
+	}
+
+	// A panel opening or closing takes the pointer off for a moment: only a real leave counts.
+	function leaveCorner(corner: string): void {
+		cornerLeft.corner = corner;
+		cornerLeft.restart();
+	}
+
+	Timer {
+		id: cornerLeft
+		property string corner: ""
+		interval: 150
+		onTriggered: {
+			if (root.heldCorner === corner)
+				root.heldCorner = "";
+			corner = "";
+		}
+	}
+
 	// The window Hyprland last reported focused. A layer taking the keyboard
 	// reports none, which is not a move elsewhere.
 	property string focusedWindow: ""

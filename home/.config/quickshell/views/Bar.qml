@@ -243,15 +243,20 @@ PanelWindow {
 		text: Bt.connected.map(d => Bt.name(d) + (d.batteryAvailable ? "  " + Math.round(d.battery * 100) + "%" : "")).join("\n")
 	}
 
+	// An open drawer holds the corners itself (DrawerWindow).
+	readonly property bool drawerOpen: ["actions", "notifications", "weather"].includes(Panels.active)
+
 	HotCorner {
 		id: launcherCorner
+		present: !bar.drawerOpen
 		panel: "launcher"
 		mode: "apps"
 	}
 
 	HotCorner {
 		id: actionsCorner
-		x: parent.width - width
+		present: !bar.drawerOpen
+		x: parent.width - 1
 		panel: "actions"
 	}
 
