@@ -84,6 +84,11 @@ on tty1. It also clones and installs [`.files`](https://github.com/loureq177/.fi
 (zsh as the login shell, Ghostty, nvim and the terminal tools);
 `--no-dotfiles` leaves it out and the desktop still starts.
 
+`install.sh` asks, then runs two parts: `install/system.sh` as root (packages, `/etc`,
+autologin; it also runs in a chroot, leaving what needs the running system for its next
+boot) and `install/user.sh` as you (flatpaks, the packages built here, `.files`, the links
+into `~`, the theme and the session's units).
+
 ## Keys
 
 | Keys             | Action        |

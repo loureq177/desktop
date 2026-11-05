@@ -30,7 +30,7 @@ check_each() {
         IFS= read -r first <"$REPO/$f" || true
         [[ -x "$REPO/$f" ]] || { echo "not executable: $f" >&2; bad=1; }
         [[ "$first" == '#!'* ]] || { echo "no shebang: $f" >&2; bad=1; }
-    done < <(repo_files 'home/.local/bin/*' install.sh)
+    done < <(repo_files 'home/.local/bin/*' install.sh 'install/*.sh')
     [[ "$bad" -eq 0 ]]
 }
 

@@ -65,6 +65,9 @@ _join() {
     printf '%s' "$out"
 }
 
+# The names in a package list: one a line, blank lines and # comments skipped.
+pkglist() { sed -e 's/\r$//' -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' "$1" | grep -vE '^(#|$)' || true; }
+
 # run_captured CMD...: run with output held back, stripped of colour codes, in
 # $OUT (exit status in $RC). A failure prints the whole output and returns 1.
 run_captured() {

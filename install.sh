@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
+# The questions, then install/system.sh as root and install/user.sh as you.
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]:-$0}")"
 
 # The status lines the installed scripts print too.
 source home/.local/lib/dotfiles/common.sh
-PKGBUILDS_DIR=$PWD/home/.local/share/pkgbuilds
-source home/.local/lib/dotfiles/pkgbuilds.sh
 
 NO_UPGRADE=0
 PICK=0
@@ -39,33 +38,6 @@ if [ ! -f /etc/arch-release ]; then
     _log_error "This desktop is for Arch Linux only."
     exit 1
 fi
-
-pkglist() { sed 's/\r$//' "$1" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' | grep -vE '^(#|$)' || true; }
-# A package list, or - for names on stdin.
-pac_install() {
-    local pkgs
-    pkgs="$(if [ "$1" = - ]; then cat; else pkglist "$1"; fi)"
-    [[ -n "$pkgs" ]] || return 0
-    printf '%s\n' "$pkgs" | sudo pacman -S --noconfirm --needed -
-}
-# What the chosen browser and specials need from one source (pacman or flatpak).
-picked() { home/.local/bin/apply-apps --packages | awk -v source="$1" '$1 == source { print $2 }'; }
-enable_user_unit() {
-    systemctl --user enable --now "$1" 2>/dev/null || _log_warn "Failed to enable $1."
-}
-_install_etc_file() {
-    local src="$1" dest="$2" mode="$3" bk
-    if [ -L "$dest" ]; then
-        sudo rm -f "$dest"
-    elif [ -e "$dest" ]; then
-        sudo cmp -s "$src" "$dest" && return 0
-        bk="${dest}.dotfiles-bak-$(date +%Y%m%d%H%M%S)"
-        _log_warn "$dest differs — backing up to $bk"
-        sudo cp -a "$dest" "$bk"
-    fi
-    sudo install -o root -g root -m "$mode" "$src" "$dest"
-    _log_ok "Installed $dest"
-}
 
 # What is about to happen, and the only moment to say no; with nobody to ask, it just runs.
 show_plan() {
@@ -111,150 +83,14 @@ if needs_pick; then
     fi
 fi
 
-_log_info "Updating the system and installing official packages..."
-if [ "$NO_UPGRADE" -eq 1 ]; then
-    _log_info "Skipping full system upgrade (--no-upgrade)."
-else
-    sudo pacman -Syu --noconfirm
-fi
-pac_install packages.txt
-_log_ok "Pacman packages installed."
+system=(--user "$USER")
+[ "$NO_UPGRADE" -eq 0 ] || system+=(--no-upgrade)
+mapfile -t picked < <(home/.local/bin/apply-apps --packages | awk '$1 == "pacman" { print $2 }')
+# Root's own config has no theme: the status lines keep yours.
+sudo env XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}" install/system.sh "${system[@]}" "${picked[@]}"
 
-picked pacman | pac_install -
-
-if compgen -G "/sys/class/power_supply/BAT*" >/dev/null 2>&1; then
-    _log_info "Detected laptop hardware (battery found). Installing laptop packages..."
-    pac_install packages-laptop.txt
-    _log_ok "Laptop packages installed."
-fi
-
-if command -v flatpak &>/dev/null; then
-    _log_info "Configuring Flatpak and installing applications..."
-    flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
-    { pkglist flatpak.txt; picked flatpak; } | xargs -r -d '\n' flatpak install --user -y --or-update flathub
-    _log_ok "Flatpaks installed."
-fi
-
-# home/.local/share/pkgbuilds: from their makers' releases, the newest one when it can be found.
-_log_info "Building packages from their makers' releases..."
-while IFS= read -r name; do
-    pacman -Q "$name" &>/dev/null && continue
-    pkgbuild_install "$name" "$(pkgbuild_latest "$name" 2>/dev/null || true)" || _log_warn "Could not build $name."
-done < <(pkgbuild_names)
-
-# Anthropic's installer: Claude Code in ~/.local/bin, updating itself.
-if ! command -v claude &>/dev/null; then
-    _log_info "Installing Claude Code..."
-    curl -fsSL https://claude.ai/install.sh | bash || _log_warn "Could not install Claude Code."
-fi
-
-# The terminal side (zsh as the login shell, Ghostty, nvim and their packages) is
-# .files'. The session starts without it (/etc/profile.d), so a failure only warns.
-if [ "$DOTFILES" -eq 1 ]; then
-    if [ ! -d ~/.files ]; then
-        _log_info "Cloning .files (the terminal configs)..."
-        git clone https://github.com/loureq177/.files.git ~/.files || _log_warn "Could not clone .files."
-    fi
-    if [ -f ~/.files/install.sh ]; then
-        _log_info "Installing .files..."
-        bash ~/.files/install.sh || _log_warn ".files did not install: the terminal keeps its defaults."
-    fi
-fi
-
-_log_info "Linking home/ into ~..."
-mkdir -p ~/.config ~/.local/share ~/.local/state ~/.local/bin ~/.cache
-# The night light's slider writes its temperature here: a file of this machine, not a link
-# into the repo (an older install's link keeps its value).
-sunset=~/.config/hypr/hyprsunset.conf
-if [ -L "$sunset" ] || [ ! -e "$sunset" ]; then
-    mkdir -p ~/.config/hypr
-    if [ -e "$sunset" ]; then
-        cp --remove-destination "$(readlink -f "$sunset")" "$sunset"
-    else
-        cp -f home/.config/hypr/hyprsunset.conf.example "$sunset"
-    fi
-fi
-if ! err="$(stow --simulate --restow --target ~ home 2>&1)"; then
-    _log_error "stow pre-flight failed (existing files in the way):"
-    printf '%s\n' "$err" >&2
-    _log_error "Move them aside or back them up, then re-run."
-    exit 1
-fi
-stow --verbose --restow --target ~ home
-
-_log_info "Configuring autologin on tty1..."
-# No display manager: getty autologins $USER, /etc/profile.d execs Hyprland, hyprlock locks.
-# Nothing may write to tty1 (fbcon would take it, a ~0.7 s modeset), so login runs directly.
-autologin_conf=$(mktemp)
-cat >"$autologin_conf" <<EOF
-[Service]
-Type=simple
-TTYReset=no
-TTYVTDisallocate=no
-ExecStart=
-ExecStart=-/usr/bin/login -f $USER
-EOF
-sudo mkdir -p /etc/systemd/system/getty@tty1.service.d
-_install_etc_file "$autologin_conf" /etc/systemd/system/getty@tty1.service.d/autologin.conf 644
-rm -f "$autologin_conf"
-sudo systemctl unmask getty@tty1.service
-sudo systemctl enable getty@tty1.service || _log_warn "Failed to enable getty@tty1."
-
-_log_info "Installing system configs (the session on tty1, zram, swap and hardening sysctls, zswap off, lock screen PAM, journal and coredump limits)..."
-# etc/ mirrors /etc; the files are copied, not linked.
-while IFS= read -r -d '' src; do
-    dest="/$src"
-    sudo mkdir -p "$(dirname "$dest")"
-    _install_etc_file "$src" "$dest" 644
-done < <(find etc -type f -print0 | sort -z)
-# Its old name: it would still start the session before locale.sh.
-sudo rm -f /etc/profile.d/hyprland-tty1.sh
-# dbus-broker-launch reloads itself on config changes (inotify); the stock
-# pacman hook's extra SIGHUP races that reload and times out after 90s.
-sudo mkdir -p /etc/pacman.d/hooks
-sudo ln -sfn /dev/null /etc/pacman.d/hooks/dbus-reload.hook
-sudo systemd-tmpfiles --create /etc/tmpfiles.d/memory.conf || _log_warn "Failed to turn zswap off."
-sudo sysctl --quiet --load /etc/sysctl.d/99-zram.conf || _log_warn "Failed to apply zram sysctls."
-# journald reads its limits only at start.
-sudo systemctl restart systemd-journald || _log_warn "Failed to restart journald."
-sudo systemctl daemon-reload 2>/dev/null || true
-sudo systemctl enable suspend-settle.service || _log_warn "Failed to enable suspend-settle."
-sudo systemctl enable reflector.timer || _log_warn "Failed to enable reflector.timer."
-sudo udevadm control --reload-rules 2>/dev/null || true
-sudo systemctl start systemd-zram-setup@zram0.service 2>/dev/null || _log_warn "zram starts on the next boot."
-
-_log_info "Rendering the browser and the apps..."
-"$HOME/.local/bin/apply-apps" --no-reload || _log_warn "Failed to render ~/.config/apps/apps.toml."
-
-_log_info "Applying UI styles..."
-"$HOME/.local/bin/apply-ui" --no-reload || _log_warn "Failed to apply UI styles."
-
-speech_model="${XDG_DATA_HOME:-$HOME/.local/share}/parakeet/ggml-parakeet-tdt-0.6b-v3-q8_0.bin"
-if [ ! -s "$speech_model" ]; then
-    _log_info "Downloading the speech model for dictation..."
-    mkdir -p "$(dirname "$speech_model")"
-    if curl -fL --retry 2 -o "$speech_model.part" https://huggingface.co/ggml-org/parakeet-GGUF/resolve/main/ggml-parakeet-tdt-0.6b-v3-q8_0.bin; then
-        mv "$speech_model.part" "$speech_model"
-        _log_ok "Speech model installed."
-    else
-        rm -f "$speech_model.part"
-        _log_warn "Could not download $speech_model - dictation stays off until it is there."
-    fi
-fi
-
-systemctl --user daemon-reload 2>/dev/null || true
-# Every unit of this repo that can be enabled, and only those: other
-# units in ~/.config/systemd/user are somebody else's business.
-while IFS= read -r unit; do
-    enable_user_unit "$(basename "$unit")"
-done < <(grep -l '^\[Install\]' home/.config/systemd/user/*.{timer,service,socket} 2>/dev/null | sort)
-# Shipped by their packages, configured here; the session starts them.
-systemctl --user enable hypridle.service 2>/dev/null || _log_warn "Failed to enable hypridle.service."
-systemctl --user enable app-com.mitchellh.ghostty.service 2>/dev/null || _log_warn "Failed to enable Ghostty's service."
-# Balanced stays balanced on battery: quicker starts, for some 0.6 W.
-powerprofilesctl configure-battery-aware --disable 2>/dev/null || true
-systemctl --user enable hyprsunset.service 2>/dev/null || _log_warn "Failed to enable hyprsunset.service."
-systemctl --user enable wayland-pipewire-idle-inhibit.service 2>/dev/null ||
-    _log_warn "Failed to enable wayland-pipewire-idle-inhibit.service."
+user=()
+[ "$DOTFILES" -eq 1 ] || user+=(--no-dotfiles)
+install/user.sh "${user[@]}"
 
 _log_ok "Desktop installed. Reboot, or log in on tty1."

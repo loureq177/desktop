@@ -68,7 +68,7 @@ UNITS="home/.config/systemd/user"
     while IFS=: read -r file name; do
         [[ -f "$REPO/home/.local/lib/$name" ]] ||
             { echo "$file sources missing .local/lib/$name" >&2; bad=1; }
-    done < <(cd "$REPO" && grep -IoE '\.local/lib/[A-Za-z0-9_./-]+' -r home install.sh | sed -E 's|:\.local/lib/|:|' | sort -u)
+    done < <(cd "$REPO" && grep -IoE '\.local/lib/[A-Za-z0-9_./-]+' -r home install.sh install | sed -E 's|:\.local/lib/|:|' | sort -u)
     [[ "$bad" -eq 0 ]]
 }
 
@@ -107,13 +107,13 @@ UNITS="home/.config/systemd/user"
     done
 }
 
-@test "install.sh enables external units that the package lists install" {
+@test "install/user.sh enables external units that the package lists install" {
     local pkg
     for pkg in hypridle hyprsunset; do
-        grep -q "enable $pkg.service" "$REPO/install.sh" || fail "install.sh does not enable $pkg.service"
+        grep -q "enable $pkg.service" "$REPO/install/user.sh" || fail "install/user.sh does not enable $pkg.service"
         grep -qx "$pkg" "$REPO/packages.txt" || fail "packages.txt does not install $pkg"
     done
-    grep -q 'enable wayland-pipewire-idle-inhibit.service' "$REPO/install.sh"
+    grep -q 'enable wayland-pipewire-idle-inhibit.service' "$REPO/install/user.sh"
     [[ -f "$REPO/home/.local/share/pkgbuilds/wayland-pipewire-idle-inhibit/PKGBUILD" ]]
 }
 
