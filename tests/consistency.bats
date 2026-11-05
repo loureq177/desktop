@@ -166,17 +166,6 @@ UNITS="home/.config/systemd/user"
     [[ -z "$problems" ]] || fail "$problems"
 }
 
-@test "desktop-api finds what the packages declare" {
-    [[ -f /usr/share/hypr/stubs/hl.meta.lua && -d /usr/lib/qt6/qml/Quickshell ]] || skip "needs Hyprland and Quickshell installed"
-    run "$REPO/home/.local/bin/desktop-api"
-    [[ "$status" == 0 ]] || fail "$output"
-    local symbol
-    for symbol in 'hyprland event window.open' 'hyprland option general.gaps_in' 'quickshell PanelWindow'; do
-        grep -qxF "$symbol" <<<"$output" || fail "no $symbol in its list"
-    done
-    [[ "$output" != *ConfigValueTypes* ]] || fail "lists the options twice"
-}
-
 # --- apply-ui ----------------------------------------------------------------
 
 @test "the files apply-ui renders from ui.toml are committed up to date" {

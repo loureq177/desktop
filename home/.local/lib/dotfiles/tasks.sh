@@ -78,11 +78,9 @@ _tasks_sweep() {
         _T_SWEEP=("$_C_BLUE" "$_C_PURPLE")
         return
     fi
-    local from=$UI_ACCENT_BLUE to=$UI_ACCENT_PURPLE k steps=12
-    local r1=$((0x${from:0:2})) g1=$((0x${from:2:2})) b1=$((0x${from:4:2}))
-    local r2=$((0x${to:0:2})) g2=$((0x${to:2:2})) b2=$((0x${to:4:2}))
+    local k steps=12
     for ((k = 0; k <= steps; k++)); do
-        _T_SWEEP+=("$(printf '\e[38;2;%d;%d;%dm' $((r1 + (r2 - r1) * k / steps)) $((g1 + (g2 - g1) * k / steps)) $((b1 + (b2 - b1) * k / steps)))")
+        _T_SWEEP+=("$(_ui_mix "$k" "$steps")")
     done
     for ((k = steps - 1; k > 0; k--)); do
         _T_SWEEP+=("${_T_SWEEP[k]}")

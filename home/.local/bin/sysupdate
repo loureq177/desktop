@@ -42,12 +42,6 @@ listing() {
     printf '%s' "$out"
 }
 
-# "a, b, c": a summary's details.
-commas() {
-    local IFS=,
-    printf '%s' "$*" | sed 's/,/, /g'
-}
-
 # --- System packages ---------------------------------------------------------
 
 # pacman's stages as the step's changing line (it prints a line per stage without a tty),
@@ -215,9 +209,9 @@ check_builds() {
         fi
     done < <(pkgbuild_names)
     if ((${#unknown[@]})); then
-        _log_warn "No newest version found · $(commas "${unknown[@]}")"
+        _log_warn "No newest version found · $(_join ", " "${unknown[@]}")"
     elif ((${#due[@]})); then
-        _log_ok "${#due[@]} to build · $(commas "${due[@]}")"
+        _log_ok "${#due[@]} to build · $(_join ", " "${due[@]}")"
     else
         _log_ok "Up to date"
     fi
@@ -280,7 +274,7 @@ update_zsh_plugins() {
         updated+=("${d#*---}")
     done
     if ((${#updated[@]})); then
-        _log_ok "${#updated[@]} updated · $(commas "${updated[@]}")"
+        _log_ok "${#updated[@]} updated · $(_join ", " "${updated[@]}")"
     else
         _log_ok "Up to date"
     fi
@@ -296,7 +290,7 @@ update_nvim_plugins() {
     new_lock=$(<"$lock")
     mapfile -t changed < <(diff <(printf '%s\n' "$old_lock") <(printf '%s\n' "$new_lock") | sed -nE 's/^> *"([^"]+)".*/\1/p' || true)
     if ((${#changed[@]})); then
-        _log_ok "${#changed[@]} updated · $(commas "${changed[@]}")"
+        _log_ok "${#changed[@]} updated · $(_join ", " "${changed[@]}")"
     else
         _log_ok "Up to date"
     fi
@@ -324,7 +318,7 @@ update_flatpak() {
     run_captured flatpak update -y --noninteractive || return 1
     printf '%s\n' "$OUT"
     if ((${#apps[@]})); then
-        _log_ok "${#apps[@]} updated · $(commas "${apps[@]}")"
+        _log_ok "${#apps[@]} updated · $(_join ", " "${apps[@]}")"
     else
         _log_ok "Up to date"
     fi
@@ -356,7 +350,7 @@ update_uv_tools() {
     local -a moved
     mapfile -t moved < <(sed -nE 's/^Updated ([^ ]+) v?([^ ]+) -> v?([^ ]+).*/\1 \2 → \3/p' <<<"$OUT")
     if ((${#moved[@]})); then
-        _log_ok "${#moved[@]} updated · $(commas "${moved[@]}")"
+        _log_ok "${#moved[@]} updated · $(_join ", " "${moved[@]}")"
     else
         _log_ok "Up to date"
     fi
@@ -373,34 +367,6 @@ check_pacnew() {
         attention+=("$f to merge: DIFFPROG=\"nvim -d\" pacdiff -s")
     done
     notify dialog-warning normal "Pacnew files detected" "Configuration merge needed for:\n$(printf '%s\n' "${files[@]}")"
-}
-
-# What the update added to Hyprland's and Quickshell's APIs: new abilities, said once. The
-# first run has nothing to compare with, and only remembers.
-API_SEEN="$STATE/api"
-API_NEWS="$STATE/api-news"
-API_SHOWN=40
-api_news() {
-    command -v desktop-api >/dev/null 2>&1 || return 0
-    local now added removed
-    now=$(desktop-api) || return 0
-    if [[ -f "$API_SEEN" ]]; then
-        # C: the order desktop-api sorts in.
-        added=$(LC_ALL=C comm -13 "$API_SEEN" <(printf '%s\n' "$now"))
-        removed=$(LC_ALL=C comm -23 "$API_SEEN" <(printf '%s\n' "$now"))
-        if [[ -n "$added$removed" ]]; then
-            {
-                [[ -z "$added" ]] || printf '%s\n' "$added"
-                [[ -z "$removed" ]] || sed 's/^/gone: /' <<<"$removed"
-            } >"$API_NEWS"
-            _log_info "New in Hyprland and Quickshell"
-            head -n "$API_SHOWN" "$API_NEWS" | sed 's/^/    /'
-            local lines
-            lines=$(wc -l <"$API_NEWS")
-            ((lines <= API_SHOWN)) || printf '    %s… %d more in %s%s\n' "$_C_DIM" "$((lines - API_SHOWN))" "$API_NEWS" "$_C_NC"
-        fi
-    fi
-    printf '%s\n' "$now" >"$API_SEEN"
 }
 
 # --- The run -----------------------------------------------------------------
@@ -454,7 +420,6 @@ if [ -f "$TASKS_DIR/firmware" ]; then
 fi
 
 command -v pacdiff >/dev/null 2>&1 && check_pacnew
-api_news
 
 reboot_reasons=()
 if [ ! -d "/usr/lib/modules/$(uname -r)" ]; then

@@ -178,7 +178,7 @@ clean_flatpak() {
 clean_misc() {
     # debuginfod_client: gdb's debug symbols. Its own expiry runs only with gdb.
     rm -rf "$HOME/.cache/thumbnails/"* "$HOME/.cache/debuginfod_client/"* 2>/dev/null || true
-    _log_ok "Thumbnails, debug symbols, build files"
+    _log_ok "Thumbnails, debug symbols"
 }
 
 clean_trash() {

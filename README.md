@@ -46,7 +46,7 @@ compromise on functionality.
 - **Keys** under `SUPER + /`: every bind, Enter gives it new keys, Delete twice
   removes it, the first row adds a new one (kept in `~/.config/hypr/keys.lua`),
   Ctrl+R gives the config's back
-- `sysupdate` and `sysclean` scripts, their steps run at once; an update lists what it added to Hyprland and Quickshell
+- `sysupdate` and `sysclean` scripts, their steps run at once
 - A notification when the system runs out of RAM and kills an app
 - Wallpaper switcher with grow animation (SUPER + P)
 

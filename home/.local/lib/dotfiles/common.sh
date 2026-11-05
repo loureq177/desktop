@@ -21,6 +21,15 @@ else
     _C_BLUE="" _C_PURPLE="" _C_GREEN="" _C_YELLOW="" _C_RED="" _C_DIM="" _C_BOLD="" _C_NC=""
 fi
 
+# _ui_mix K N: the colour K/N of the way from the theme's blue to its purple.
+_ui_mix() {
+    local a=$UI_ACCENT_BLUE b=$UI_ACCENT_PURPLE i out=""
+    for i in 0 2 4; do
+        out+=";$((0x${a:i:2} + (0x${b:i:2} - 0x${a:i:2}) * $1 / $2))"
+    done
+    printf '\033[38;2%sm' "$out"
+}
+
 # TEXT running from the theme's blue into its purple, as a window's border does; plain
 # blue without the palette or the terminal.
 _gradient() {
@@ -29,11 +38,8 @@ _gradient() {
         printf '%s%s%s' "$_C_BLUE" "$text" "$_C_NC"
         return
     fi
-    local from=$UI_ACCENT_BLUE to=$UI_ACCENT_PURPLE
-    local r1=$((0x${from:0:2})) g1=$((0x${from:2:2})) b1=$((0x${from:4:2}))
-    local r2=$((0x${to:0:2})) g2=$((0x${to:2:2})) b2=$((0x${to:4:2}))
     for ((i = 0; i < n; i++)); do
-        out+=$(printf '\033[38;2;%d;%d;%dm%s' $((r1 + (r2 - r1) * i / (n - 1))) $((g1 + (g2 - g1) * i / (n - 1))) $((b1 + (b2 - b1) * i / (n - 1))) "${text:i:1}")
+        out+=$(_ui_mix "$i" $((n - 1)))${text:i:1}
     done
     printf '%s%s' "$out" "$_C_NC"
 }
@@ -77,10 +83,6 @@ run_if() {
     command -v "$1" >/dev/null 2>&1 || return 0
     local tool=$1 rc=0
     shift
-    if command -v timeout >/dev/null 2>&1; then
-        timeout 120 "$@" </dev/null >/dev/null 2>&1 || rc=$?
-    else
-        "$@" </dev/null >/dev/null 2>&1 || rc=$?
-    fi
+    timeout 120 "$@" </dev/null >/dev/null 2>&1 || rc=$?
     [ "$rc" -ne 124 ] || echo "  (skipped $tool - timed out)"
 }
