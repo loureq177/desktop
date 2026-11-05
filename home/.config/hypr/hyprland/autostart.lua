@@ -14,8 +14,8 @@ hl.on("hyprland.start", function()
 
 	local cmds = {
 		-- First: autologin opened the session, the lock closes it before anything
-		-- else is on screen. The hint is for the label under the field (hyprlock.conf).
-		"LOCK_HINT='First login requires a password' hyprlock --config ~/.config/hypr/hyprlock-boot.conf",
+		-- else is on screen.
+		"hyprlock --config ~/.config/hypr/hyprlock-boot.conf",
 
 		-- Restarted, not started: Hyprland starts the target itself, maybe before these
 		-- variables reach the session, and its services must have them.
