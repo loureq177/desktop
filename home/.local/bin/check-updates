@@ -8,7 +8,7 @@ FORCE=0
 [[ -t 1 ]] && FORCE=1
 
 NOW=$(date +%s)
-COOLDOWN=10800
+COOLDOWN=86400
 
 if (( !FORCE )) && [[ -f "$STAMP" ]]; then
     LAST_CHECK=$(<"$STAMP")
