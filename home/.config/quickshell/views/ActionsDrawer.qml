@@ -261,23 +261,60 @@ Drawer {
 				font.bold: true
 			}
 
-			// Always here: the bar shows it only when it is high.
-			Row {
-				visible: Memory.percent >= 0
-				spacing: 6
+			// Always here: the bar shows it only when it is high. A click opens the activity special.
+			Rectangle {
+				id: memPill
+				readonly property bool hovered: memArea.containsMouse
+				readonly property color tone: Memory.percent >= 90 ? Theme.critical : Memory.percent >= 75 ? Theme.warning : Theme.textDim
 
-				LineIcon {
-					anchors.verticalCenter: parent.verticalCenter
-					name: "memory-stick"
-					color: Theme.textDim
+				visible: Memory.percent >= 0
+				implicitWidth: memRow.implicitWidth + 20
+				implicitHeight: 26
+				radius: Theme.roundingSubtle
+				color: hovered ? Theme.hoverBg : "transparent"
+				border.color: hovered ? Theme.tileBorderHover : Theme.tileBorder
+				border.width: 1
+
+				Behavior on color { ColorAnimation { duration: Theme.animFast } }
+
+				Press {
+					id: memPress
+					target: memPill
 				}
 
-				StyledText {
-					anchors.verticalCenter: parent.verticalCenter
-					text: Memory.percent + "%"
-					mono: true
-					font.pixelSize: Theme.fontSizeSmall
-					color: Theme.textDim
+				Lit {
+					anchors.centerIn: parent
+					lit: memPill.hovered
+					rest: memPill.tone
+
+					Row {
+						id: memRow
+						spacing: 6
+
+						LineIcon {
+							anchors.verticalCenter: parent.verticalCenter
+							name: "memory-stick"
+							size: 14
+							color: memPill.tone
+						}
+
+						StyledText {
+							anchors.verticalCenter: parent.verticalCenter
+							text: Memory.percent + "%"
+							mono: true
+							font.pixelSize: Theme.fontSizeSmall
+							color: memPill.tone
+						}
+					}
+				}
+
+				MouseArea {
+					id: memArea
+					anchors.fill: parent
+					hoverEnabled: true
+					cursorShape: Qt.PointingHandCursor
+					onPressed: memPress.restart()
+					onClicked: Hypr.toggleSpecial("activity")
 				}
 			}
 
@@ -323,7 +360,7 @@ Drawer {
 			Tile {
 				key: "W"
 				title: "Wi-Fi"
-				icon: Net.wifiUp ? "wifi" : "wifi-off"
+				icon: !Net.wifiUp ? "wifi-off" : Net.wifiSignal >= 0 ? Net.signalIcon(Net.wifiSignal) : "wifi"
 				subtitle: Net.wifiStatus
 				active: Net.wifiOn
 				page: "wifi"
@@ -348,14 +385,14 @@ Drawer {
 			}
 
 			Tile {
-				key: "A"
-				command: "awake"
-			}
-
-			Tile {
 				key: "D"
 				command: "dnd"
 				icon: active ? "bell-off" : "bell"
+			}
+
+			Tile {
+				key: "A"
+				command: "awake"
 			}
 		}
 	}

@@ -28,7 +28,7 @@ FocusScope {
 			Modes.setNightLightKelvin(Math.min(weakest, Modes.nightLightKelvin + 100));
 		} else if (key === Qt.Key_L || key === Qt.Key_Right) {
 			Modes.setNightLightKelvin(Math.max(strongest, Modes.nightLightKelvin - 100));
-		} else if (key === Qt.Key_Space) {
+		} else if (key === Qt.Key_Space || key === Qt.Key_N) {
 			event.isAutoRepeat || Modes.toggleNightLight();
 		} else if (ListNav.back(event)) {
 			root.backRequested();
@@ -49,6 +49,7 @@ FocusScope {
 			title: "Night light"
 			subtitle: "Turns on at 8 PM"
 			enabledState: Modes.nightLight
+			toggleKey: "N"
 			onBackClicked: root.backRequested()
 			onToggleClicked: Modes.toggleNightLight()
 		}
