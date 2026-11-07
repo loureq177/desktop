@@ -21,7 +21,7 @@ Rectangle {
 	radius: Theme.roundingSubtle
 	color: primary ? (hovered ? Qt.lighter(Theme.accentBlue, 1.15) : Theme.accentBlue)
 		: danger ? Theme.alpha(Theme.critical, hovered ? 0.22 : 0.14)
-		: (hovered ? Theme.bgHover : "transparent")
+		: (hovered ? Theme.hoverBg : "transparent")
 	border.color: danger ? Theme.alpha(Theme.critical, 0.5) : (hovered ? Theme.tileBorderHover : Theme.tileBorder)
 	border.width: primary ? 0 : 1
 

@@ -131,7 +131,7 @@ Item {
 			width: modelData.w * root.zoom
 			height: modelData.h * root.zoom
 			radius: Theme.roundingElement
-			color: chosen ? Theme.alpha(Theme.accentBlue, 0.14) : Theme.bgHover
+			color: chosen ? Theme.tint() : Theme.bgHover
 			border.width: chosen ? 2 : 1
 			border.color: chosen ? Theme.accentBlue : Theme.border
 			z: dragging ? 2 : chosen ? 1 : 0

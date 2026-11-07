@@ -32,7 +32,7 @@ Rectangle {
 	implicitHeight: Math.max(bodyCol.implicitHeight, notifPic.implicitHeight) + Theme.notifPadV * 2
 	// A toast lights up under the pointer; in the center the pointer moves the
 	// selection instead (HoverSelect there).
-	color: isToast ? (hoverArea.containsMouse ? Theme.bgHover : Theme.glass(Theme.bgCard)) : Theme.glass(Theme.bgMain)
+	color: isToast ? (hoverArea.containsMouse ? Theme.glass(Theme.bgHover) : Theme.glass(Theme.bgCard)) : Theme.glass(Theme.bgMain)
 	border.color: critical ? Theme.critical : isToast ? Theme.border : Theme.tileBorder
 	border.width: isToast ? Theme.borderSize : 1
 	radius: Theme.roundingElement

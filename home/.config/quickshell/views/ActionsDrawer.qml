@@ -89,8 +89,8 @@ Drawer {
 		Layout.fillWidth: true
 		Layout.preferredHeight: 76
 		radius: Theme.roundingElement
-		color: active ? Theme.alpha(tint, 0.18) : Theme.glass(Theme.bgMain)
-		border.color: active ? Theme.alpha(tint, 0.3) : Theme.tileBorder
+		color: active ? Theme.tint(tint) : Theme.glass(Theme.bgMain)
+		border.color: active ? Theme.tintBorder(tint) : Theme.tileBorder
 		border.width: 1
 
 		Behavior on color { ColorAnimation { duration: Theme.animFast } }
@@ -132,7 +132,7 @@ Drawer {
 				radius: Theme.roundingSubtle
 				color: !tile.switchable ? "transparent"
 					: tile.active ? (tile.badgeHovered ? Qt.lighter(tile.tint, 1.15) : tile.tint)
-					: tile.badgeHovered ? Theme.bgHover : Theme.glass(Theme.bgCard)
+					: tile.badgeHovered ? Theme.glass(Theme.bgHover) : Theme.glass(Theme.bgCard)
 
 				Behavior on color { ColorAnimation { duration: Theme.animFast } }
 

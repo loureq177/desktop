@@ -76,7 +76,7 @@ SelectList {
 		readonly property bool armedOutside: list.armedId !== "" && modelData.armId === list.armedId
 		readonly property color tint: modelData.accent ? Theme.accentGreen
 			: armed || armedOutside ? Theme.warning
-			: selected ? Theme.accentBlue : Theme.textDim
+			: selected ? Theme.textMain : Theme.textDim
 
 		height: Theme.rowHeight + topInset
 		topInset: heading !== "" ? list.headingHeight : 0
@@ -112,7 +112,6 @@ SelectList {
 
 			Rectangle {
 				Layout.fillWidth: true
-				Layout.rightMargin: 12
 				Layout.preferredHeight: 1
 				color: Theme.tileBorder
 			}

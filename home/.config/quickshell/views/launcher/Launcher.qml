@@ -229,6 +229,8 @@ ModalWindow {
 
 			Rectangle {
 				Layout.fillWidth: true
+				Layout.leftMargin: -Theme.paddingCard
+				Layout.rightMargin: -Theme.paddingCard
 				Layout.preferredHeight: 1
 				visible: footer.visible
 				color: Theme.border

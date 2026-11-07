@@ -132,7 +132,9 @@ Singleton {
 			if (root.toasts.count > root.maxToasts)
 				root.toasts.remove(root.maxToasts, root.toasts.count - root.maxToasts);
 		}
-		root.playSound();
+		// The sender plays its own (an alarm).
+		if (!n.hints["suppress-sound"])
+			root.playSound();
 	}
 
 	// A replaced notification (replaces_id) keeps its object and changes its

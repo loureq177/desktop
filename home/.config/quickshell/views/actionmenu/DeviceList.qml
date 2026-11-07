@@ -229,8 +229,8 @@ FocusScope {
 				readonly property bool busy: root.isPending(modelData)
 
 				height: 50
-				color: connected ? Theme.alpha(Theme.accentBlue, 0.08) : Theme.glass(Theme.bgMain)
-				border.color: connected ? Theme.alpha(Theme.accentBlue, 0.32) : Theme.tileBorder
+				color: connected ? Theme.tint() : Theme.glass(Theme.bgMain)
+				border.color: connected ? Theme.tintBorder() : Theme.tileBorder
 				border.width: 1
 
 				Behavior on color { ColorAnimation { duration: Theme.animFast } }

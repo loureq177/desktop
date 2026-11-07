@@ -3,8 +3,8 @@ import Quickshell
 import QtQuick
 
 // What the desktop does: { id, name, desc, icon, run } and maybe active, confirm, alert,
-// tint, group, keywords (synonyms), bind (its key, by description); run returning false keeps
-// the launcher.
+// tint, group, keywords (synonyms), bind (its key, by description), query (the launcher types it
+// instead of running); run returning false keeps the launcher.
 Singleton {
 	id: root
 
@@ -72,6 +72,9 @@ Singleton {
 
 		{ id: "dnd", group: "modes", name: "Do not disturb", desc: "Silences notifications", icon: "bell-off", active: Notifications.dnd, tint: Theme.warning, keywords: "dnd", run: () => { Notifications.dnd = !Notifications.dnd; } },
 		{ id: "nightlight", group: "modes", name: "Night light", desc: "Turns on at 8 PM", icon: "moon", active: Modes.nightLight, tint: Theme.warning, keywords: "blue light", run: () => Modes.toggleNightLight() },
+		Modes.timerLeft > 0
+			? { id: "timer", group: "modes", name: "Stop timer", desc: Modes.timerText(Modes.timerLeft) + " left", icon: "timer", keywords: "countdown alarm", run: () => script("timer stop") }
+			: { id: "timer", group: "modes", name: "Timer", desc: "Type the minutes: /timer 25", icon: "timer", keywords: "countdown alarm", query: "/timer ", run: () => script("timer") },
 		{ id: "awake", group: "modes", name: "Keep awake", desc: "The screen stays on", icon: "coffee", active: Modes.awake, keywords: "caffeine", run: () => script("awake-toggle") },
 		...(Modes.batteryCareSupported ? [
 			{ id: "batterycare", group: "modes", name: "Battery care", desc: "Stops charging short of full", icon: "battery-medium", active: Modes.batteryCare, tint: Theme.accentGreen, keywords: "charge limit", run: () => script("battery-care") }

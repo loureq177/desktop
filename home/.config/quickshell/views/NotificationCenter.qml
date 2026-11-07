@@ -44,8 +44,8 @@ Drawer {
 				implicitWidth: countLabel.implicitWidth + 12
 				implicitHeight: 20
 				radius: height / 2
-				color: Theme.alpha(Theme.accentBlue, 0.2)
-				border.color: Theme.alpha(Theme.accentBlue, 0.32)
+				color: Theme.tint()
+				border.color: Theme.tintBorder()
 				border.width: 1
 
 				StyledText {

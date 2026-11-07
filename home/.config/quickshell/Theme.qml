@@ -74,8 +74,18 @@ Singleton {
 	}
 	// The keyboard's place in a list or among tiles: grey, so that it never
 	// reads as a switch that is on or as an accent.
-	readonly property color selectionBg: alpha(textMain, 0.1)
-	readonly property color selectionBorder: alpha(textMain, 0.2)
+	readonly property color selectionBg: alpha(textMain, 0.06)
+	readonly property color selectionBorder: alpha(textMain, 0.12)
+	// A button under the pointer: a tint, so the glass stays glass.
+	readonly property color hoverBg: alpha(textMain, 0.06)
+
+	// What is on or chosen, in its colour (the accent unless said): one fill and one edge.
+	function tint(c) {
+		return alpha(c ?? accentBlue, 0.16);
+	}
+	function tintBorder(c) {
+		return alpha(c ?? accentBlue, 0.3);
+	}
 
 	// Hairlines around tiles, rows and buttons: a tint of the text colour, so
 	// they sit on frosted glass and on solid panels alike.

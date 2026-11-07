@@ -42,7 +42,7 @@ function parseOpenMeteoCurrent(report) {
 	var c = report.current;
 	return {
 		tempNum: String(Math.round(c.temperature_2m)),
-		feelsLike: Math.round(c.apparent_temperature) + "°C",
+		feelsLike: Math.round(c.apparent_temperature) + "°",
 		wind: Math.round(c.wind_speed_10m) + " km/h",
 		humidity: Math.round(c.relative_humidity_2m) + "%",
 		icon: iconForWmoCode(c.weather_code, c.is_day === 1)

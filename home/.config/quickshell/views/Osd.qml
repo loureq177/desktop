@@ -4,8 +4,8 @@ import Quickshell
 import Quickshell.Wayland
 import QtQuick
 
-// What just changed, a line in the middle of the bar. It opens from there and takes that
-// bar's sun line for the moment. Over a fullscreen window there is no bar: it comes on glass.
+// What just changed, a line in the middle of the bar. It opens from there and takes the
+// timer's place for the moment. Over a fullscreen window there is no bar: it comes on glass.
 PanelWindow {
 	id: win
 
@@ -21,6 +21,7 @@ PanelWindow {
 	readonly property string icon: kind === "brightness" ? "sun"
 		: kind === "mic" ? (muted ? "mic-off" : "mic")
 		: kind === "wallpaper" ? "image"
+		: kind === "timer" ? "timer"
 		: Audio.icon
 	readonly property color tone: muted ? Theme.textDim : Theme.accentBlue
 
@@ -93,7 +94,7 @@ PanelWindow {
 
 	Timer {
 		id: hideTimer
-		interval: 1200
+		interval: win.kind === "timer" ? 3000 : 1200
 		onTriggered: win.shown = false
 	}
 
@@ -121,24 +122,11 @@ PanelWindow {
 				color: win.tone
 			}
 
-			Rectangle {
+			Level {
 				anchors.verticalCenter: parent.verticalCenter
-				visible: win.kind === "volume" || win.kind === "brightness"
-				width: 180
-				height: 4
-				radius: 2
-				color: Theme.alpha(Theme.textMain, 0.25)
-
-				Rectangle {
-					width: parent.width * Math.min(100, Math.max(0, win.value)) / 100
-					height: parent.height
-					radius: parent.radius
-					color: win.tone
-
-					Behavior on width {
-						NumberAnimation { duration: Theme.animFast; easing.type: Easing.OutCubic }
-					}
-				}
+				visible: win.kind === "volume" || win.kind === "brightness" || win.kind === "timer"
+				value: win.kind === "timer" ? Modes.timerFraction : win.value / 100
+				fill: win.tone
 			}
 
 			// A fixed room: the line does not shift between 9% and 10%.
@@ -148,6 +136,15 @@ PanelWindow {
 				width: 38
 				horizontalAlignment: Text.AlignRight
 				text: win.value + "%"
+				mono: true
+				font.bold: true
+				font.pixelSize: Theme.fontSizeBar
+			}
+
+			StyledText {
+				anchors.verticalCenter: parent.verticalCenter
+				visible: win.kind === "timer"
+				text: Modes.timerText(Modes.timerLeft)
 				mono: true
 				font.bold: true
 				font.pixelSize: Theme.fontSizeBar
@@ -203,6 +200,16 @@ PanelWindow {
 		target: Wallpaper
 		function onSwitched() {
 			win.show("wallpaper");
+		}
+	}
+
+	// Over a fullscreen window there is no bar to count on: the timer comes up as it starts
+	// and with a minute to go.
+	Connections {
+		target: Modes
+		function onTimerMoment() {
+			if (Hypr.fullscreenOn(Panels.screen))
+				win.show("timer");
 		}
 	}
 

@@ -73,8 +73,30 @@ LauncherPane {
 		keywords: c.keywords,
 		confirm: c.confirm,
 		chord: c.bind ? Keybinds.chordFor(c.bind) : "",
-		run: c.run
+		run: c.query ? () => {
+			pane.queryRequested(c.query);
+			return false;
+		} : c.run
 	}))
+
+	// "timer 25", "/timer 1h 30", "timer 90s": seconds, or 0. A number with no unit is minutes.
+	function timerSeconds(): int {
+		var m = /^\/?timer\s+(.+)$/i.exec(q);
+		var spec = m ? m[1].toLowerCase().replace(/\s+/g, "") : "";
+		if (/\d$/.test(spec))
+			spec += "m";
+		if (!/^(\d+(h|min|m|s))+$/.test(spec))
+			return 0;
+		var secs = 0, unit = { h: 3600, min: 60, m: 60, s: 1 }, re = /(\d+)(h|min|m|s)/g, part;
+		while ((part = re.exec(spec)) !== null)
+			secs += parseInt(part[1]) * unit[part[2]];
+		return secs;
+	}
+
+	function spoken(secs: int): string {
+		var h = Math.floor(secs / 3600), m = Math.floor(secs / 60) % 60, s = secs % 60;
+		return [h ? h + " h" : "", m ? m + " min" : "", s ? s + " s" : ""].filter(x => x).join(" ");
+	}
 
 	onQueryChanged: list.reset()
 
@@ -83,15 +105,23 @@ LauncherPane {
 		anchors.fill: parent
 
 		items: {
+			var secs = pane.timerSeconds();
+			var timer = secs > 0 ? [{
+				label: "Timer " + pane.spoken(secs),
+				subtitle: "Enter starts it" + (Modes.timerLeft > 0 ? " instead of the " + Modes.timerText(Modes.timerLeft) + " left" : ""),
+				lineIcon: "timer",
+				accent: true,
+				run: () => Commands.script("timer " + secs + "s")
+			}] : [];
 			if (pane.commandsOnly)
-				return Search.rank(pane.commands, it => Search.itemScore(it, pane.q.substring(1).trim()));
+				return timer.concat(Search.rank(pane.commands, it => Search.itemScore(it, pane.q.substring(1).trim())));
 			var calc = Search.calculate(pane.q);
 			// The apps and the specials, best match first, then by name; the
 			// commands only come up when asked for.
 			var matches = Search.rank(pane.q === "" ? pane.apps : pane.apps.concat(pane.commands),
 				it => it.entry ? Search.appScore(it.entry, pane.q) : Search.itemScore(it, pane.q),
 				(a, b) => a.label.localeCompare(b.label));
-			return (calc === null ? [] : [{
+			return timer.concat(calc === null ? [] : [{
 				label: "= " + calc,
 				subtitle: "Enter copies the result",
 				lineIcon: "calculator",

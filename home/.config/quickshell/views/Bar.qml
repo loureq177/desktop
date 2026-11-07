@@ -145,7 +145,7 @@ PanelWindow {
 		visible: revealed > 0
 		opacity: revealed
 		clip: revealed < 1
-		color: isActive ? Theme.alpha(Theme.accentBlue, 0.16) : (hovered && clickable ? bar.hoverColor : "transparent")
+		color: isActive ? Theme.tint() : (hovered && clickable ? bar.hoverColor : "transparent")
 		radius: Theme.roundingElement
 
 		Component.onCompleted: revealed = Qt.binding(() => wanted ? 1 : 0)
@@ -457,6 +457,51 @@ PanelWindow {
 
 				Behavior on opacity {
 					NumberAnimation { duration: Theme.animFast; easing.type: Easing.OutCubic }
+				}
+			}
+		}
+
+		// The timer's time left, as the OSD draws a level; the OSD takes its place for the moment.
+		Row {
+			readonly property bool wanted: Modes.timerLeft > 0 && Bars.osdScreen !== bar.screenName
+
+			anchors.centerIn: parent
+			height: parent.height
+			spacing: 10
+			visible: opacity > 0
+			opacity: wanted ? 1 : 0
+			layer.enabled: true
+			layer.effect: Halo {}
+
+			Behavior on opacity {
+				NumberAnimation { duration: Theme.animFast; easing.type: Easing.OutCubic }
+			}
+
+			LineIcon {
+				anchors.verticalCenter: parent.verticalCenter
+				name: "timer"
+				color: Theme.accentBlue
+			}
+
+			Level {
+				anchors.verticalCenter: parent.verticalCenter
+				value: Modes.timerFraction
+			}
+
+			// As wide as the start's time: the row stays put as a digit goes.
+			StyledText {
+				id: timerTime
+				anchors.verticalCenter: parent.verticalCenter
+				width: timerRoom.width
+				text: Modes.timerText(Modes.timerLeft)
+				mono: true
+				font.bold: true
+				font.pixelSize: Theme.fontSizeBar
+
+				TextMetrics {
+					id: timerRoom
+					font: timerTime.font
+					text: Modes.timerText(Modes.timerEnd - Modes.timerStart)
 				}
 			}
 		}

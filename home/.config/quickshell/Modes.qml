@@ -26,6 +26,38 @@ Singleton {
 		if (!windowsOpen)
 			windowsLeft.restart();
 	}
+	// The countdown of ~/.local/bin/timer: seconds left, 0 while off.
+	readonly property real timerStart: timerMarker.loaded ? timerMarker.start : 0
+	readonly property real timerEnd: timerMarker.loaded ? timerMarker.end : 0
+	property int timerLeft: 0
+	readonly property real timerFraction: timerEnd > timerStart ? timerLeft / (timerEnd - timerStart) : 0
+	// Just started, or a minute to go: said once over a fullscreen window too (Osd).
+	signal timerMoment()
+
+	function timerText(s: int): string {
+		var h = Math.floor(s / 3600), m = Math.floor(s / 60) % 60;
+		var pad = n => (n < 10 ? "0" : "") + n;
+		return (h > 0 ? h + ":" + pad(m) : m) + ":" + pad(s % 60);
+	}
+
+	function tickTimer(): void {
+		var ms = timerEnd * 1000 - Date.now();
+		var left = Math.max(0, Math.ceil(ms / 1000));
+		if (left === 60 && timerLeft > 60 && timerEnd - timerStart > 120)
+			timerMoment();
+		timerLeft = left;
+		if (left > 0) {
+			timerTick.interval = ms % 1000 || 1000;
+			timerTick.restart();
+		}
+	}
+
+	onTimerEndChanged: {
+		tickTimer();
+		if (timerLeft > 0 && Date.now() / 1000 - timerStart < 5)
+			timerMoment();
+	}
+
 	property bool nightLight: false
 	// What the schedule turns it on at (hyprsunset.conf).
 	property int nightLightKelvin: 4500
@@ -63,6 +95,12 @@ Singleton {
 		stdout: StdioCollector {
 			onStreamFinished: root.nightLight = parseInt(this.text) < 6000
 		}
+	}
+
+	// On each whole second left.
+	Timer {
+		id: timerTick
+		onTriggered: root.tickTimer()
 	}
 
 	Timer {
@@ -113,6 +151,20 @@ Singleton {
 
 		path: root.runDir + "/dictation"
 		onLoaded: state = text().trim()
+	}
+
+	Marker {
+		id: timerMarker
+
+		property real start: 0
+		property real end: 0
+
+		path: root.runDir + "/timer"
+		onLoaded: {
+			var t = text().trim().split(" ");
+			start = Number(t[0]) || 0;
+			end = Number(t[1]) || 0;
+		}
 	}
 
 	Marker {

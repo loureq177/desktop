@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+# timer 25 | 25m | 90s | 1h30m | stop: a countdown in the bar's middle; at its end an alarm and a notification.
+set -euo pipefail
+
+UNIT="timer-alarm"
+STATE="$XDG_RUNTIME_DIR/timer"
+SOUND="/usr/share/sounds/gnome/default/alarms/glass-bell.oga"
+[ -f "$SOUND" ] || SOUND="/usr/share/sounds/freedesktop/stereo/alarm-clock-elapsed.oga"
+
+stop() {
+    systemctl --user stop "$UNIT.timer" 2>/dev/null || true
+    rm -f "$STATE"
+}
+
+# "25 min" said back: minutes, or seconds under one.
+say() {
+    local s=$1
+    if (( s % 3600 == 0 )); then echo "$(( s / 3600 )) h"
+    elif (( s >= 60 && s % 60 == 0 )); then echo "$(( s / 60 )) min"
+    elif (( s >= 60 )); then echo "$(( s / 60 )) min $(( s % 60 )) s"
+    else echo "$s s"; fi
+}
+
+case "${1:-}" in
+"" | stop | off)
+    stop
+    exit 0
+    ;;
+--ring)
+    rm -f "$STATE"
+    notify-send -a Timer -i org.gnome.clocks -h string:suppress-sound:true "Time is up" "The $(say "${2:-0}") timer"
+    exec paplay "$SOUND"
+    ;;
+esac
+
+# A number with no unit is minutes; units add up ("1h 30").
+spec="${*,,}"
+spec="${spec// /}"
+[[ "$spec" =~ [0-9]$ ]] && spec+="m"
+[[ "$spec" =~ ^([0-9]+(h|m|min|s))+$ ]] || { echo "timer: 25, 90s, 1h30m or stop" >&2; exit 1; }
+secs=0
+while [[ "$spec" =~ ^([0-9]+)(h|min|m|s)(.*)$ ]]; do
+    n=$(( 10#${BASH_REMATCH[1]} ))
+    case "${BASH_REMATCH[2]}" in
+    h) secs=$(( secs + n * 3600 )) ;;
+    s) secs=$(( secs + n )) ;;
+    *) secs=$(( secs + n * 60 )) ;;
+    esac
+    spec="${BASH_REMATCH[3]}"
+done
+(( secs > 0 )) || { echo "timer: nothing to count" >&2; exit 1; }
+
+stop
+now=$(date +%s)
+systemd-run --user --quiet --collect --unit="$UNIT" --on-active="${secs}s" \
+    --timer-property=AccuracySec=100ms "$(readlink -f "$0")" --ring "$secs"
+echo "$now $(( now + secs ))" >"$STATE"

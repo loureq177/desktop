@@ -22,7 +22,7 @@ LauncherPane {
 	property string keptId: ""
 
 	icon: editing ? "pencil" : adding ? "plus" : "keyboard"
-	placeholder: adding ? "An app, or a command to run…" : "Search or edit " + Keybinds.entries.length + " keys…"
+	placeholder: adding ? "An app, or a command to run…" : "Search or edit " + Keybinds.entries.length + (Keybinds.entries.length === 1 ? " key…" : " keys…")
 	preferredHeight: list.preferredHeight
 	error: Keybinds.lastError
 

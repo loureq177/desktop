@@ -48,7 +48,7 @@ Rectangle {
 			Layout.preferredWidth: 40
 			Layout.preferredHeight: 40
 			radius: Theme.roundingSubtle
-			color: iconArea.containsMouse ? Theme.bgHover : "transparent"
+			color: iconArea.containsMouse ? Theme.hoverBg : "transparent"
 			border.color: iconArea.containsMouse ? Theme.tileBorderHover : Theme.tileBorder
 			border.width: 1
 			opacity: row.ready ? 1.0 : 0.4

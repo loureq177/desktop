@@ -17,7 +17,7 @@ Rectangle {
 	implicitWidth: 32
 	implicitHeight: 32
 	radius: Theme.roundingSubtle
-	color: hovered ? Theme.bgHover : "transparent"
+	color: hovered ? Theme.hoverBg : "transparent"
 	border.color: !outlined ? "transparent" : hovered ? Theme.tileBorderHover : Theme.tileBorder
 	border.width: 1
 
