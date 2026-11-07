@@ -3,12 +3,14 @@ import "../../widgets"
 import QtQuick
 import QtQuick.Layouts
 
-// A form under a page's list: its title, what it asks for and the two buttons.
+// A form under a page's list: its title, what it asks for and the two buttons (one with no
+// `acceptText`).
 Rectangle {
 	id: root
 
 	property string title: ""
 	property string acceptText: ""
+	property string cancelText: "Cancel (Esc)"
 	property bool busy: false
 	default property alias content: fields.data
 
@@ -58,11 +60,12 @@ Rectangle {
 			Item { Layout.fillWidth: true }
 
 			TextButton {
-				text: "Cancel (Esc)"
+				text: root.cancelText
 				onClicked: root.cancelled()
 			}
 
 			TextButton {
+				visible: root.acceptText !== ""
 				primary: true
 				opacity: root.busy ? 0.6 : 1.0
 				text: root.acceptText

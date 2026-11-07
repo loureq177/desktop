@@ -5,7 +5,7 @@ import QtQuick
 import QtQuick.Layouts
 
 // The Wi-Fi and Bluetooth pages: radio switch, list, and what shows while off.
-// `items`: { key, name, icon, connected, saved, detail, dim, open, battery }. They look
+// `items`: { key, name, icon, connected, saved, detail, level (Wi-Fi: "72%"), dim, open, battery }. They look
 // for devices on their own while `looking`, from when the panel opens.
 FocusScope {
 	id: root
@@ -20,6 +20,8 @@ FocusScope {
 	property bool looking: panelOpen && radioOn
 	// R or the row's pencil asks for a new name.
 	property bool renameable: false
+	// S or the row's QR code shows it to a phone (items with `share`).
+	property bool shareable: false
 	property var items: []
 	property string errorMessage: ""
 	// A form under the list (the Wi-Fi password) has the keys and the errors.
@@ -31,6 +33,8 @@ FocusScope {
 
 	property string pendingKey: ""
 	property string pendingStatus: ""
+	// How long a try may take before "Timed out".
+	property int pendingTimeout: 15000
 
 	default property alias extra: column.data
 
@@ -45,6 +49,7 @@ FocusScope {
 	signal disconnectRequested(var item)
 	signal forgetConfirmed(var item)
 	signal renameRequested(var item)
+	signal shareRequested(var item)
 	signal promptKeyPressed(var event)
 	signal timedOut()
 
@@ -117,7 +122,7 @@ FocusScope {
 
 	Timer {
 		id: pendingTimer
-		interval: 15000
+		interval: root.pendingTimeout
 		onTriggered: {
 			root.clearPending();
 			root.errorMessage = "Timed out";
@@ -142,6 +147,9 @@ FocusScope {
 		} else if (key === Qt.Key_R) {
 			if (root.renameable && currentItem?.saved && !event.isAutoRepeat)
 				root.renameRequested(currentItem);
+		} else if (key === Qt.Key_S) {
+			if (root.shareable && currentItem?.share && !event.isAutoRepeat)
+				root.shareRequested(currentItem);
 		} else if (ListNav.back(event)) {
 			root.backRequested();
 		} else {
@@ -216,7 +224,8 @@ FocusScope {
 			Layout.fillWidth: true
 			Layout.fillHeight: true
 			scrollBar: true
-			highlightOver: true
+			// Each row lights up in place, as the tiles of Actions do.
+			slidingHighlight: false
 			spacing: 6
 			onCurrentIndexChanged: root.currentKey = root.items[currentIndex]?.key ?? ""
 			onActivated: index => root.toggleConnection(root.items[index])
@@ -234,6 +243,10 @@ FocusScope {
 				border.width: 1
 
 				Behavior on color { ColorAnimation { duration: Theme.animFast } }
+
+				FadeHighlight {
+					selected: row.selected
+				}
 
 				// A click only connects; Enter on a connected row disconnects.
 				MouseArea {
@@ -289,7 +302,7 @@ FocusScope {
 							StyledText {
 								id: status
 								visible: text !== ""
-								text: row.busy ? root.pendingStatus : (row.connected ? "Connected" : row.modelData.detail)
+								text: row.busy ? root.pendingStatus : [row.connected ? "Connected" : row.modelData.detail, row.modelData.level ?? ""].filter(t => t !== "").join(" · ")
 								mono: true
 								font.pixelSize: Theme.fontSizeTiny
 								color: row.busy ? Theme.warning : (row.connected ? Theme.accentBlue : Theme.textDim)
@@ -344,6 +357,16 @@ FocusScope {
 						iconSize: 14
 						outlined: false
 						onClicked: root.renameRequested(row.modelData)
+					}
+
+					IconButton {
+						visible: root.shareable && row.modelData.share === true
+						implicitWidth: 26
+						implicitHeight: 26
+						icon: "qr-code"
+						iconSize: 14
+						outlined: false
+						onClicked: root.shareRequested(row.modelData)
 					}
 
 					IconButton {

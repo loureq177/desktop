@@ -20,6 +20,8 @@ Singleton {
 	readonly property string wifiStatus: !Networking.wifiHardwareEnabled ? "Blocked"
 		: !Networking.wifiEnabled ? "Off"
 		: wifiNetwork?.name || (wifiUp ? "On" : "No connection")
+	// The connected network's signal in percent, or -1 when it is not known.
+	readonly property int wifiSignal: Math.round(signalPercent(wifiNetwork)) || -1
 
 	function device(type): var {
 		return Networking.devices.values.find(d => d.type === type) ?? null;
@@ -30,6 +32,10 @@ Singleton {
 	function signalPercent(net): real {
 		var s = net?.signalStrength ?? 0;
 		return s > 1 ? s : s * 100;
+	}
+
+	function signalIcon(strength: real): string {
+		return strength >= 75 ? "wifi" : strength >= 50 ? "wifi-high" : strength >= 25 ? "wifi-low" : strength > 0 ? "wifi-zero" : "wifi-off";
 	}
 
 	function toggleWifi(): void {

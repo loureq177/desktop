@@ -60,6 +60,7 @@ grim
 jq
 libnotify
 pacman-contrib
+qrencode
 reflector
 satty
 slurp

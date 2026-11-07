@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+# wifi-join SSID USERNAME CERTIFICATE, the password on stdin: a network that signs in with a
+# username (WPA-Enterprise, eduroam). The server must prove itself with the certificate given:
+# no other server gets the password. PEAP and then TTLS are tried, the one that signs in is kept.
+set -euo pipefail
+umask 077
+
+ssid=${1:?SSID} user=${2:?username} ca=${3:?certificate}
+IFS= read -r password || true
+[[ -n "$password" ]] || { echo "wifi-join: no password" >&2; exit 2; }
+[[ -f "$ca" && -r "$ca" ]] || { echo "wifi-join: cannot read the certificate $ca" >&2; exit 2; }
+
+# A copy outside the home, which iwd cannot read (install/system.sh makes the folder); the file
+# picked may also be moved or deleted later.
+certs="/var/lib/wifi-certs/$(id -un)"
+[[ -d "$certs" && -w "$certs" ]] || { echo "wifi-join: $certs is missing: sudo install -d -o $(id -un) $certs" >&2; exit 2; }
+kept="$certs/$(sha256sum "$ca" | cut -c1-16).pem"
+# PEM, which iwd needs; a .der or .cer is turned into it, anything else is no certificate.
+if ! openssl x509 -in "$ca" -out "$kept" 2>/dev/null && ! openssl x509 -inform der -in "$ca" -out "$kept" 2>/dev/null; then
+    echo "wifi-join: $(basename "$ca") is not a certificate" >&2
+    exit 2
+fi
+
+# Before the encryption only this is sent, not the username: the realm stays, eduroam routes by it.
+anonymous=anonymous
+[[ "$user" == *@* ]] && anonymous="anonymous@${user#*@}"
+
+# What the sign-in inside each one most often is; PAP only ever goes to the proven server.
+for method in "peap mschapv2" "ttls mschapv2" "ttls pap"; do
+    read -r eap phase2 <<<"$method"
+    uuid=$(nmcli connection add type wifi con-name "$ssid" ssid "$ssid" \
+        wifi-sec.key-mgmt wpa-eap 802-1x.eap "$eap" 802-1x.phase2-auth "$phase2" \
+        802-1x.identity "$user" 802-1x.anonymous-identity "$anonymous" \
+        802-1x.ca-cert "$kept" 802-1x.password-flags 0 connection.autoconnect no |
+        sed -nE 's/.*\(([0-9a-f-]{36})\).*/\1/p')
+    [[ -n "$uuid" ]] || { echo "wifi-join: NetworkManager did not take the network" >&2; exit 1; }
+    # Saved in it through nmcli's editor on stdin, never on a command line; asked for on its own
+    # line, the editor takes it as it is. Autoconnect only once it signed in.
+    printf 'set 802-1x.password\n%s\nsave\nquit\n' "$password" | nmcli connection edit "$uuid" >/dev/null 2>&1
+    if nmcli --wait 30 connection up "$uuid" >/dev/null 2>&1; then
+        nmcli connection modify "$uuid" connection.autoconnect yes
+        exit 0
+    fi
+    nmcli connection delete "$uuid" >/dev/null 2>&1 || true
+done
+echo "wifi-join: could not sign in: check the username, the password and the certificate" >&2
+exit 1

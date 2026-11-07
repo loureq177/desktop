@@ -118,6 +118,9 @@ if booted; then
 fi
 systemctl enable suspend-settle.service || _log_warn "Failed to enable suspend-settle."
 systemctl enable reflector.timer || _log_warn "Failed to enable reflector.timer."
+# Certificates of the networks that sign in with a username (wifi-join): iwd reads no home.
+install -d -m 755 /var/lib/wifi-certs
+install -d -o "$user" -g "$(id -gn "$user")" -m 755 "/var/lib/wifi-certs/$user"
 if booted; then
     udevadm control --reload-rules 2>/dev/null || true
     systemctl start systemd-zram-setup@zram0.service 2>/dev/null || _log_warn "zram starts on the next boot."

@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# wifi-share SSID FILE.svg: the saved network as a QR code a phone joins from. The password
+# goes to qrencode through a pipe, never on a command line.
+set -euo pipefail
+umask 077
+
+ssid=${1:?SSID} out=${2:?output file}
+
+# The saved connection with that name, the active one first.
+uuid=""
+while IFS=: read -r id type active; do
+    [[ "$type" == 802-11-wireless ]] || continue
+    [[ "$(nmcli --escape no -g 802-11-wireless.ssid connection show "$id")" == "$ssid" ]] || continue
+    uuid=$id
+    [[ "$active" == yes ]] && break
+done < <(nmcli -g UUID,TYPE,ACTIVE connection show)
+[[ -n "$uuid" ]] || { echo "wifi-share: $ssid is not saved" >&2; exit 1; }
+
+case "$(nmcli --escape no -g 802-11-wireless-security.key-mgmt connection show "$uuid")" in
+"" | none | owe) type=nopass ;;
+wpa-psk | sae) type=WPA ;;
+*) echo "wifi-share: only networks with one password can be shared" >&2; exit 1 ;;
+esac
+
+# \ ; , : and " take a backslash before them.
+escape() {
+    local s=$1 out="" c i
+    for ((i = 0; i < ${#s}; i++)); do
+        c=${s:i:1}
+        [[ "$c" == [\\\;,:\"] ]] && out+='\'
+        out+=$c
+    done
+    printf '%s' "$out"
+}
+
+text="WIFI:T:$type;S:$(escape "$ssid");"
+if [[ "$type" == WPA ]]; then
+    text+="P:$(escape "$(nmcli --escape no -s -g 802-11-wireless-security.psk connection show "$uuid")");"
+fi
+[[ "$(nmcli --escape no -g 802-11-wireless.hidden connection show "$uuid")" == yes ]] && text+="H:true;"
+printf '%s;' "$text" | qrencode -t SVG -m 2 -o "$out"
