@@ -250,3 +250,21 @@ end
 hl.define_submap("keycapture", function()
 	hl.bind("XF86Tools", hl.dsp.submap("reset"))
 end)
+-- Over a fullscreen window the bar hides; the pointer resting 0.2 s at the top edge brings
+-- it back (Bars.qml). Asked here: a strip of the shell's there would take the edge from the app.
+do
+	local rested = 0
+	hl.timer(function()
+		local c, m = hl.get_cursor_pos(), hl.get_monitor_at_cursor()
+		local ws = m and m.active_workspace
+		if not (c and ws and ws.has_fullscreen and c.y - m.y < 2) then
+			rested = 0
+			return
+		end
+		rested = rested + 1
+		if rested == 2 then
+			hl.dispatch(panel("bar-peek"))
+		end
+	end, { timeout = 100, type = "repeat" })
+end
+

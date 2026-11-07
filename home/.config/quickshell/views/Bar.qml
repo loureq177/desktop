@@ -23,7 +23,18 @@ PanelWindow {
 
 	// Quickshell's own id of the focused one is right, and at once.
 	readonly property int activeWorkspaceId: Hyprland.monitorFor(modelData)?.activeWorkspace?.id ?? -1
-	visible: !Hypr.fullscreenOn(modelData)
+	// Over a fullscreen window only while Bars.peekScreen brings it; it slides down from the edge.
+	readonly property bool overFullscreen: Hypr.fullscreenOn(modelData)
+	readonly property bool peeking: overFullscreen && Bars.peekScreen === screenName
+	property real peekShown: peeking ? 1 : 0
+	Behavior on peekShown {
+		NumberAnimation { duration: Theme.animFast; easing.type: Easing.OutCubic }
+	}
+	visible: !overFullscreen || peekShown > 0
+	onOverFullscreenChanged: {
+		if (!overFullscreen && Bars.peekScreen === screenName)
+			Bars.peekScreen = "";
+	}
 
 	anchors {
 		top: true
@@ -37,13 +48,17 @@ PanelWindow {
 		item: strip
 
 		Region {
+			item: peekArea
+		}
+
+		Region {
 			item: launcherCorner
 		}
 		Region {
 			item: actionsCorner
 		}
 	}
-	exclusionMode: ExclusionMode.Normal
+	exclusionMode: overFullscreen ? ExclusionMode.Ignore : ExclusionMode.Normal
 	exclusiveZone: Theme.barMarginY + Theme.barHeight - Theme.barGapTrim
 
 	Component.onCompleted: Bars.add(bar)
@@ -226,6 +241,24 @@ PanelWindow {
 		}
 	}
 
+	// The pointer gone from it for a moment, and no panel open: away again.
+	HoverHandler {
+		id: peekHover
+	}
+
+	Timer {
+		interval: 200
+		running: bar.peeking && !peekHover.hovered && Panels.active === ""
+		onTriggered: Bars.peekScreen = ""
+	}
+
+	// The whole height takes the pointer while it is back: the edge above the strip too.
+	Item {
+		id: peekArea
+		width: parent.width
+		height: bar.peeking ? parent.height : 0
+	}
+
 	TrayMenu {
 		id: trayMenu
 	}
@@ -260,7 +293,8 @@ PanelWindow {
 	Item {
 		id: strip
 		x: Theme.barMarginX
-		y: Theme.barMarginY
+		y: Theme.barMarginY - (bar.overFullscreen ? (1 - bar.peekShown) * (Theme.barMarginY + Theme.barHeight) : 0)
+		opacity: bar.overFullscreen ? bar.peekShown : 1
 		width: parent.width - Theme.barMarginX * 2
 		height: Theme.barHeight
 
@@ -540,7 +574,6 @@ PanelWindow {
 						layer.enabled: !colored
 						layer.effect: MultiEffect {
 							saturation: -1.0
-							brightness: 0.7
 							colorization: 1.0
 							colorizationColor: Theme.textMain
 						}
