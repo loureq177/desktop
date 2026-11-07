@@ -192,11 +192,12 @@ do
 	-- (Osd.qml follows PipeWire and the shell's own brightness).
 	local bind = section("Media")
 	local function audio(command)
-		return command .. " && canberra-gtk-play -i audio-volume-change"
+		return command .. " && pw-play /usr/share/sounds/freedesktop/stereo/audio-volume-change.oga"
 	end
 	-- keys, description, command, repeats while held
 	for _, m in ipairs({
 		{
+	-- A click each step, held too: canberra-gtk-play costs 50 ms of CPU a play, pw-play 7.
 			"XF86AudioRaiseVolume",
 			"Volume up",
 			audio("wpctl set-volume -l 1.0 @DEFAULT_AUDIO_SINK@ 2%+"),

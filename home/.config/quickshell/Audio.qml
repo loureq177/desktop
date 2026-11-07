@@ -72,13 +72,13 @@ Singleton {
 		enabled: Modes.dictation === "recording"
 	}
 
-	// One click once a drag or a run of key presses settles.
+	// One click once a drag settles; the keys click each step themselves (binds.lua).
 	Timer {
 		id: volumeSound
 		interval: 120
 		onTriggered: {
 			if (!root.muted)
-				Quickshell.execDetached(["canberra-gtk-play", "-i", "audio-volume-change"]);
+				Quickshell.execDetached(["pw-play", "/usr/share/sounds/freedesktop/stereo/audio-volume-change.oga"]);
 		}
 	}
 }
