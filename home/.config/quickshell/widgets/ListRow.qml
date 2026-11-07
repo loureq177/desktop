@@ -12,6 +12,7 @@ Rectangle {
 	property int topInset: 0
 	// Room around the highlight on every side (the cells of a grid).
 	property int inset: 0
+	property real pressDepth: 0.985
 	readonly property Item highlightArea: area
 	readonly property bool hovered: hover.hovered
 
@@ -34,7 +35,7 @@ Rectangle {
 		Press {
 			id: press
 			target: row
-			depth: 0.985
+			depth: row.pressDepth
 		}
 
 		MouseArea {

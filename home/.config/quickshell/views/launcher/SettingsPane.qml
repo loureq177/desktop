@@ -35,17 +35,8 @@ LauncherPane {
 	preferredHeight: mode === "arrange" ? 380 : list.preferredHeight
 	error: Settings.lastError
 
-	// Every word typed matches somewhere ("blur passes"), the best fields
-	// first: the name, the option's own, its section, what it does.
 	function score(e: var): int {
-		var total = 0;
-		for (const word of q.split(/\s+/)) {
-			var s = Search.matchScore([[e.label, 0], [e.name, 3], [e.group, 5], [e.desc, 8], [e.keywords ?? "", 8]], word);
-			if (s === -1)
-				return -1;
-			total += s;
-		}
-		return total;
+		return Search.settingScore(e, q, true);
 	}
 
 	// What it does, its name and default, and how it changes.
@@ -146,6 +137,18 @@ LauncherPane {
 		Qt.callLater(() => list.currentIndex = index);
 	}
 
+	// From the apps' search: the setting found by its name and edited, Esc back to that list.
+	function edit(e: var): void {
+		pane.queryRequested(e.label);
+		Qt.callLater(() => {
+			var i = list.items.findIndex(it => it.setting?.id === e.id);
+			if (i === -1)
+				return;
+			list.currentIndex = i;
+			enter(list.items[i].setting);
+		});
+	}
+
 	function resetValue(): void {
 		if (current)
 			list.keepIndex(() => Settings.reset(current));
@@ -222,12 +225,6 @@ LauncherPane {
 		};
 	}
 
-	// Wi-Fi and Bluetooth have their pages in Actions.
-	readonly property var actionsPages: [
-		page("Wi-Fi", Net.wifiStatus, Net.wifiUp ? "wifi" : "wifi-off", () => Commands.get("wifi").run()),
-		page("Bluetooth", Bt.status, Bt.icon, () => Commands.get("bluetooth").run())
-	]
-
 	// Each page with what it holds, what was changed here first.
 	function pageRows(): var {
 		var screens = Settings.monitors.map(m => m.width + "x" + m.height + " · " + Math.round(m.refreshRate) + " Hz").join(", ");
@@ -247,7 +244,6 @@ LauncherPane {
 			var n = changedEntries.filter(e => e.section === p.key).length;
 			return page(p.label, says[p.key] + (n > 0 ? " · " + n + " changed" : ""), p.icon, openPage(p.key));
 		});
-		rows.splice(1, 0, ...actionsPages);
 		if (changedEntries.length > 0)
 			rows.unshift(page("Changed here", changedEntries.length + (changedEntries.length === 1 ? " setting" : " settings") + " set over the config", "pencil", openPage("changed")));
 		return rows;
@@ -296,13 +292,17 @@ LauncherPane {
 
 		// Displays and audio answer later than the keypress: a new model would go back to the top.
 		onRowsChanged: {
+			if (rows === null)
+				return;
 			var index = currentIndex;
 			items = rows;
 			currentIndex = Math.min(index, count - 1);
 		}
-		Component.onCompleted: items = rows
 
+		// Hidden, nothing is made: each step of the volume keys made the whole list again.
 		readonly property var rows: {
+			if (!pane.visible)
+				return null;
 			if (pane.mode === "choose") {
 				var typed = pane.editing.custom ? pane.editing.custom(pane.q) : undefined;
 				var choices = pane.editing.choices.concat(typed !== undefined && !pane.editing.choices.some(c => c.value === typed) ? [{ label: Math.round(typed * 100) + "%", value: typed }] : []);
@@ -323,11 +323,8 @@ LauncherPane {
 				: pane.section === "changed" ? pane.changedEntries
 				: Settings.entries.filter(e => e.section === pane.section);
 			var shown = pane.mode === "type" || pane.mode === "arrange" ? [pane.editing] : Search.rank(all, e => pane.score(e));
-			// Typed on the first page, the two that live in Actions are found too; on a page, with
-			// nothing typed, what it has besides its settings.
-			var pages = pane.mode !== "browse" ? []
-				: pane.section === "" ? pane.actionsPages.filter(p => Search.matchScore([[p.label, 0]], pane.q) !== -1)
-				: pane.q === "" ? pane.extraRows() : [];
+			// On a page, with nothing typed, what it has besides its settings.
+			var pages = pane.mode === "browse" && pane.section !== "" && pane.q === "" ? pane.extraRows() : [];
 			return pages.concat(shown.map(e => ({
 				label: e.label,
 				subtitle: pane.section === "" && pane.mode === "browse" ? e.group : "",

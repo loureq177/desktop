@@ -25,8 +25,9 @@ compromise on functionality.
   calendar, change music...): optional, picked while installing, again with
   `apply-apps --pick`, which installs a new pick and swaps it in at once, browser too
 - **Quickshell**:
-    - Launcher (apps, `/commands`, clipboard, emoji, keys)
-    - Files under `SUPER + G`: your home folder searched by name as you type, with fd
+    - Launcher (apps, `/commands`, clipboard, emoji, keys): typing also finds settings and
+      files in your home folder, by name with fd
+    - Power menu under `SUPER + P`: lock, suspend, log out, reboot, power off
     - Actions, notifications, OSD
     - Hot corners: the top left opens the launcher, the top right Actions
     - Open windows under `SUPER + O`: a list of the launcher, every window with a
@@ -48,7 +49,7 @@ compromise on functionality.
   Ctrl+R gives the config's back
 - `sysupdate` and `sysclean` scripts, their steps run at once
 - A notification when the system runs out of RAM and kills an app
-- Wallpaper switcher with grow animation (SUPER + P)
+- Wallpaper switcher with grow animation (SUPER + B)
 
 ### Laptop features
 
@@ -99,3 +100,4 @@ into `~`, the theme and the session's units).
 | `SUPER + N`      | Notifications |
 | `SUPER + S`      | Settings      |
 | `SUPER + Escape` | Lock          |
+| `SUPER + P`      | Power menu    |

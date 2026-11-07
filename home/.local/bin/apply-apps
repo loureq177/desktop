@@ -327,7 +327,7 @@ def ask(catalog, rows, row):
             elif len(key) == 1 and key.isalpha() and key.isascii() and can_be_off(row):
                 letter = key.upper()
                 if letter in reserved:
-                    error = f"{letter} moves windows (SUPER + SHIFT + {' '.join(reserved)})"
+                    error = f"SUPER + SHIFT + {letter} is taken: {' '.join(reserved)} are the desktop's own"
                     continue
                 for other in rows:
                     if other is not row and on(other) and other["key"] == letter:

@@ -4,15 +4,18 @@ import Quickshell
 import Quickshell.Io
 import QtQuick
 
-// The apps, specials and commands by name, and arithmetic; "/" lists only the commands.
+// The apps, specials and commands by name, then settings and files; arithmetic. "/" lists only
+// the commands.
 LauncherPane {
 	id: pane
 
 	readonly property string q: query.trim()
 	readonly property bool commandsOnly: q.startsWith("/")
+	// Where a setting found here is edited.
+	property var settingsPane: null
 
 	icon: commandsOnly ? "zap" : q.startsWith("=") ? "calculator" : "search"
-	placeholder: "Search " + apps.length + " apps or /commands…"
+	placeholder: "Search apps, settings, files or /commands…"
 	preferredHeight: list.preferredHeight
 
 	function step(delta: int, repeat: bool): void {
@@ -98,38 +101,82 @@ LauncherPane {
 		return [h ? h + " h" : "", m ? m + " min" : "", s ? s + " s" : ""].filter(x => x).join(" ");
 	}
 
+	// A bool flips here; the rest opens in the settings, Esc back to their list.
+	readonly property var settingRows: {
+		if (q.length < 2 || commandsOnly || !settingsPane)
+			return [];
+		var pages = Settings.pages.filter(p => Search.matchScore([[p.label, 0], [p.keywords ?? "", 6]], q) !== -1).map(p => ({
+			label: p.label,
+			subtitle: "Settings",
+			lineIcon: p.icon,
+			heading: "settings",
+			run: () => {
+				Panels.open("launcher", "settings");
+				pane.settingsPane.openSection(p.key);
+				return false;
+			}
+		}));
+		return pages.concat(Search.rank(Settings.entries, e => Search.settingScore(e, q, false)).slice(0, 4).map(e => ({
+			label: e.label,
+			subtitle: e.group,
+			lineIcon: e.icon,
+			heading: "settings",
+			setting: e,
+			run: () => {
+				if (e.kind === "bool") {
+					Settings.set(e, !e.value);
+					return false;
+				}
+				Panels.open("launcher", "settings");
+				pane.settingsPane.edit(e);
+				return false;
+			}
+		})));
+	}
+
+	FileSearch {
+		id: files
+		query: !pane.commandsOnly && pane.q.length >= 2 && Search.calculate(pane.q) === null ? pane.q : ""
+	}
+
+	// Files come in after the keypress: the row picked stays.
+	onRowsChanged: {
+		var index = list.currentIndex;
+		list.items = rows;
+		list.currentIndex = Math.max(0, Math.min(index, list.count - 1));
+	}
+	Component.onCompleted: list.items = rows
 	onQueryChanged: list.reset()
 
 	ResultList {
 		id: list
 		anchors.fill: parent
+		emptyText: files.searching ? "" : "Nothing matches"
+	}
 
-		items: {
-			var secs = pane.timerSeconds();
-			var timer = secs > 0 ? [{
-				label: "Timer " + pane.spoken(secs),
-				subtitle: "Enter starts it" + (Modes.timerLeft > 0 ? " instead of the " + Modes.timerText(Modes.timerLeft) + " left" : ""),
-				lineIcon: "timer",
-				accent: true,
-				run: () => Commands.script("timer " + secs + "s")
-			}] : [];
-			if (pane.commandsOnly)
-				return timer.concat(Search.rank(pane.commands, it => Search.itemScore(it, pane.q.substring(1).trim())));
-			var calc = Search.calculate(pane.q);
-			// The apps and the specials, best match first, then by name; the
-			// commands only come up when asked for.
-			var matches = Search.rank(pane.q === "" ? pane.apps : pane.apps.concat(pane.commands),
-				it => it.entry ? Search.appScore(it.entry, pane.q) : Search.itemScore(it, pane.q),
-				(a, b) => a.label.localeCompare(b.label));
-			return timer.concat(calc === null ? [] : [{
-				label: "= " + calc,
-				subtitle: "Enter copies the result",
-				lineIcon: "calculator",
-				accent: true,
-				run: () => Quickshell.execDetached(["wl-copy", calc])
-			}]).concat(matches);
-		}
-
-		emptyText: "Nothing matches"
+	readonly property var rows: {
+		var secs = pane.timerSeconds();
+		var timer = secs > 0 ? [{
+			label: "Timer " + pane.spoken(secs),
+			subtitle: "Enter starts it" + (Modes.timerLeft > 0 ? " instead of the " + Modes.timerText(Modes.timerLeft) + " left" : ""),
+			lineIcon: "timer",
+			accent: true,
+			run: () => Commands.script("timer " + secs + "s")
+		}] : [];
+		if (pane.commandsOnly)
+			return timer.concat(Search.rank(pane.commands, it => Search.itemScore(it, pane.q.substring(1).trim())));
+		var calc = Search.calculate(pane.q);
+		// The apps and the specials, best match first, then by name; the
+		// commands only come up when asked for.
+		var matches = Search.rank(pane.q === "" ? pane.apps : pane.apps.concat(pane.commands),
+			it => it.entry ? Search.appScore(it.entry, pane.q) : Search.itemScore(it, pane.q),
+			(a, b) => a.label.localeCompare(b.label));
+		return timer.concat(calc === null ? [] : [{
+			label: "= " + calc,
+			subtitle: "Enter copies the result",
+			lineIcon: "calculator",
+			accent: true,
+			run: () => Quickshell.execDetached(["wl-copy", calc])
+		}]).concat(matches, pane.settingRows, files.items);
 	}
 }

@@ -3,13 +3,13 @@ import "../../widgets"
 import QtQuick
 import QtQuick.Layouts
 
-// One search field over the lists (LauncherPane): apps, open windows, files, emoji,
-// clipboard, keys and settings; Backspace in the empty field goes back to the apps.
+// One search field over the lists (LauncherPane): apps (with settings and files), open
+// windows, emoji, clipboard, keys, settings and power; Backspace in the empty field goes back to the apps.
 ModalWindow {
 	id: root
 
 	property string scope: "apps"
-	readonly property var panes: ({ apps: apps, windows: windows, files: files, emoji: emoji, clipboard: clipboard, keys: keys, settings: settings })
+	readonly property var panes: ({ apps: apps, windows: windows, emoji: emoji, clipboard: clipboard, keys: keys, settings: settings, power: power })
 	readonly property var pane: panes[scope]
 
 	shown: Panels.active === "launcher"
@@ -130,7 +130,7 @@ ModalWindow {
 
 				// The other lists, the open one in blue: a click on it goes back to the apps.
 				Repeater {
-					model: ["windows", "files", "clipboard", "emoji", "keys", "settings"]
+					model: ["windows", "clipboard", "emoji", "keys", "settings", "power"]
 
 					delegate: IconButton {
 						id: listButton
@@ -177,6 +177,7 @@ ModalWindow {
 					anchors.fill: parent
 					visible: root.scope === "apps"
 					query: visible ? search.text : ""
+					settingsPane: settings
 				}
 
 				WindowsPane {
@@ -186,12 +187,6 @@ ModalWindow {
 					query: visible ? search.text : ""
 				}
 
-				FilesPane {
-					id: files
-					anchors.fill: parent
-					visible: root.scope === "files"
-					query: visible ? search.text : ""
-				}
 
 				EmojiPane {
 					id: emoji
@@ -218,6 +213,13 @@ ModalWindow {
 					id: settings
 					anchors.fill: parent
 					visible: root.scope === "settings"
+					query: visible ? search.text : ""
+				}
+
+				PowerPane {
+					id: power
+					anchors.fill: parent
+					visible: root.scope === "power"
 					query: visible ? search.text : ""
 				}
 			}

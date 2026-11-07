@@ -61,6 +61,19 @@ function itemScore(item, q) {
 	return matchScore([[item.label, 0], [item.subtitle, 3], [item.keywords, 6]], q);
 }
 
+// A setting: every word typed matches somewhere ("blur passes"), the best fields first;
+// `desc` also looks in what it does.
+function settingScore(e, q, desc) {
+	var total = 0;
+	for (const word of q.trim().split(/\s+/)) {
+		var s = matchScore([[e.label, 0], [e.name, 3], [e.group, 5], [desc ? e.desc : "", 8], [e.keywords || "", 8]], word);
+		if (s === -1)
+			return -1;
+		total += s;
+	}
+	return total;
+}
+
 // "2+2", "15% * 80", "1,5 x 4": plain arithmetic, at once, or null.
 function calculate(raw) {
 	var s = (raw || "").trim();

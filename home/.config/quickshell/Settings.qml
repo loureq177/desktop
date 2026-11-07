@@ -38,7 +38,7 @@ Singleton {
 	// The pages of the first list. A Hyprland option goes to the first one with a prefix it
 	// starts with, else to Advanced; the prefixes' order is the page's.
 	readonly property var pages: [
-		{ key: "displays", label: "Displays", icon: "monitor" },
+		{ key: "displays", label: "Displays", icon: "monitor", keywords: "monitors screens arrangement" },
 		{ key: "sound", label: "Sound", icon: "volume-2" },
 		{ key: "appearance", label: "Appearance", icon: "droplet", prefixes: ["decoration:", "animations:"] },
 		{ key: "desktop", label: "Desktop", icon: "layout-grid" },
@@ -254,7 +254,7 @@ Singleton {
 					apply: v => root.setDisplay(m, { vrr: v })
 				})
 			]);
-		}, brightness.concat(root.monitors.filter(m => m.x > -10000).length < 2 ? [] : [{
+		}, brightness.concat([{
 			id: "display:arrangement",
 			source: "display",
 			name: "Arrangement",

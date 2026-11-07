@@ -48,14 +48,24 @@ end
 
 do
 	local bind = section("Essential")
-	bind("SUPER + B", "Browser", exec(apps.browser.exec))
+	-- SHIFT, as the specials: B is reserved for it in catalog.toml.
+	bind("SUPER + SHIFT + B", "Browser", exec(apps.browser.exec))
 	bind(
 		"SUPER + RETURN",
 		"Terminal",
 		exec("gapplication action com.mitchellh.ghostty new-window || ghostty")
 	)
 	bind("SUPER + space", "Launcher", panel("launcher-apps"))
+end
+
+do
+	-- The launcher's other lists, each straight to it.
+	local bind = section("Launcher")
 	bind("SUPER + O", "Open windows", panel("launcher-windows"))
+	bind("SUPER + S", "Settings", panel("launcher-settings"))
+	bind("SUPER + E", "Emojis", panel("launcher-emoji"))
+	bind("SUPER + V", "Clipboard history", panel("launcher-clipboard"))
+	bind("SUPER + slash", "Keybindings", panel("launcher-keys"))
 end
 
 do
@@ -125,15 +135,10 @@ end
 do
 	local bind = section("System & Tools")
 	bind("SUPER + A", "Actions", panel("actions"))
-	bind("SUPER + S", "Settings", panel("launcher-settings"))
 	bind("SUPER + W", "Weather", panel("weather"))
-	bind("SUPER + E", "Emojis", panel("launcher-emoji"))
-	bind("SUPER + G", "Search files", panel("launcher-files"))
-	bind("SUPER + V", "Clipboard history", panel("launcher-clipboard"))
-	bind("SUPER + slash", "Keybindings", panel("launcher-keys"))
-	-- And the desktop's own, in among them (wallpaper).
+	-- And the desktop's own, in among them (wallpaper: B for background).
 	bind(
-		"SUPER + P",
+		"SUPER + B",
 		"Next wallpaper from ~/Pictures/Wallpapers",
 		exec("~/.local/bin/wallpaper next")
 	)
@@ -157,6 +162,7 @@ end
 do
 	local bind = section("Session")
 	bind("SUPER + escape", "Lock system", exec("loginctl lock-session"))
+	bind("SUPER + P", "Power menu", panel("launcher-power"))
 end
 
 do
@@ -191,13 +197,13 @@ do
 	-- Locked: they work on the lock screen too. The shell shows the new level
 	-- (Osd.qml follows PipeWire and the shell's own brightness).
 	local bind = section("Media")
+	-- A click each step, held too: canberra-gtk-play costs 50 ms of CPU a play, pw-play 7.
 	local function audio(command)
 		return command .. " && pw-play /usr/share/sounds/freedesktop/stereo/audio-volume-change.oga"
 	end
 	-- keys, description, command, repeats while held
 	for _, m in ipairs({
 		{
-	-- A click each step, held too: canberra-gtk-play costs 50 ms of CPU a play, pw-play 7.
 			"XF86AudioRaiseVolume",
 			"Volume up",
 			audio("wpctl set-volume -l 1.0 @DEFAULT_AUDIO_SINK@ 2%+"),
@@ -246,11 +252,6 @@ do
 	end
 end
 
--- The keys list takes new keys in here: none of the binds above, so they reach
--- the shell. A submap needs one bind, on a key no keyboard has.
-hl.define_submap("keycapture", function()
-	hl.bind("XF86Tools", hl.dsp.submap("reset"))
-end)
 -- Over a fullscreen window the bar hides; the pointer resting 0.2 s at the top edge brings
 -- it back (Bars.qml). Asked here: a strip of the shell's there would take the edge from the app.
 do
@@ -269,3 +270,8 @@ do
 	end, { timeout = 100, type = "repeat" })
 end
 
+-- The keys list takes new keys in here: none of the binds above, so they reach
+-- the shell. A submap needs one bind, on a key no keyboard has.
+hl.define_submap("keycapture", function()
+	hl.bind("XF86Tools", hl.dsp.submap("reset"))
+end)

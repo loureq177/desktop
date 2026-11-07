@@ -31,7 +31,7 @@ LauncherPane {
 		return windows.filter(w => (w.name + " " + w.title + " " + w.place).toLowerCase().includes(needle));
 	}
 	readonly property int count: items.length
-	readonly property int columns: 3
+	readonly property int columns: 2
 	readonly property int inset: 3
 	readonly property int labelHeight: 34
 	readonly property real cellWidth: width / columns
@@ -167,10 +167,6 @@ LauncherPane {
 			Panels.close("launcher");
 		}
 
-		ListHighlight {
-			view: cells
-		}
-
 		WheelScroll {
 			id: scrolling
 			flickable: cells
@@ -184,6 +180,14 @@ LauncherPane {
 			width: pane.cellWidth
 			height: pane.cellHeight
 			inset: pane.inset
+			pressDepth: 0.97
+
+			// Each cell's own, fading as the tiles of Actions do.
+			FadeHighlight {
+				anchors.margins: pane.inset
+				radius: Theme.roundingElement
+				selected: cell.selected
+			}
 
 			ScreencopyView {
 				anchors.horizontalCenter: parent.horizontalCenter

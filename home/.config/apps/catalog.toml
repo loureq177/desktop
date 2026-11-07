@@ -8,8 +8,8 @@
 # what the web app's window title has in it (its name when left out), `player` the
 # MPRIS player it plays through. `pacman` and `flatpak` are what it needs.
 
-# Taken by other SUPER + SHIFT binds (binds.lua).
-reserved = ["H", "J", "K", "L"]
+# Taken by other SUPER + SHIFT binds (binds.lua): the browser, moving windows.
+reserved = ["B", "H", "J", "K", "L"]
 
 # `engine`: the family, and how its web apps run: as windows of a Firefox profile of
 # their own or as Chromium --app windows.
@@ -94,7 +94,7 @@ apps = [
 id = "activity"
 title = "Activity Monitor"
 desc = "Processes, memory, CPU"
-key = "B"
+key = "R"
 icon = "memory-stick"
 standard = true
 bar = false
