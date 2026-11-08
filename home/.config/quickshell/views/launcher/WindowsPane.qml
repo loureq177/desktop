@@ -7,6 +7,7 @@ import Quickshell.Io
 import Quickshell.Wayland
 import Quickshell.Widgets
 import QtQuick
+import QtQuick.Layouts
 
 // Every open window, on any workspace or special, most recently used first, with its live
 // picture: Enter or a click goes to it, Delete or a middle click closes it.
@@ -189,37 +190,45 @@ LauncherPane {
 				selected: cell.selected
 			}
 
-			ScreencopyView {
-				anchors.horizontalCenter: parent.horizontalCenter
-				y: pane.inset + (pane.pictureHeight - height) / 2
-				captureSource: cell.modelData.toplevel?.wayland ?? null
-				live: pane.active
-				constraintSize: Qt.size(pane.cellWidth - pane.inset * 4, pane.pictureHeight - 4)
-			}
-
-			Row {
+			// The app and what its window says, above its picture.
+			RowLayout {
 				anchors.left: parent.left
 				anchors.right: parent.right
-				anchors.bottom: parent.bottom
 				anchors.leftMargin: 10
 				anchors.rightMargin: 10
+				y: pane.inset
 				height: pane.labelHeight
 				spacing: 8
 
 				IconImage {
-					anchors.verticalCenter: parent.verticalCenter
 					visible: cell.modelData.icon !== ""
-					implicitSize: 18
+					implicitSize: 20
 					source: cell.modelData.icon
 				}
 
 				StyledText {
-					anchors.verticalCenter: parent.verticalCenter
-					width: parent.width - 26
-					text: cell.modelData.title || cell.modelData.name
-					font.pixelSize: Theme.fontSizeSmall
+					Layout.maximumWidth: cell.width * 0.5
+					text: cell.modelData.name
+					font.bold: true
 					elide: Text.ElideRight
 				}
+
+				StyledText {
+					Layout.fillWidth: true
+					visible: text !== ""
+					text: cell.modelData.title !== cell.modelData.name ? cell.modelData.title : ""
+					font.pixelSize: Theme.fontSizeSmall
+					color: Theme.textDim
+					elide: Text.ElideRight
+				}
+			}
+
+			ScreencopyView {
+				anchors.horizontalCenter: parent.horizontalCenter
+				y: pane.inset + pane.labelHeight + (pane.pictureHeight - height) / 2
+				captureSource: cell.modelData.toplevel?.wayland ?? null
+				live: pane.active
+				constraintSize: Qt.size(pane.cellWidth - pane.inset * 4, pane.pictureHeight - 4)
 			}
 
 			MouseArea {
