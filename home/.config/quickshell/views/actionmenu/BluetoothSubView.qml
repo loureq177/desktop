@@ -26,7 +26,10 @@ DeviceList {
 
 	// Paired devices first, connected on top, then nearby ones with a name of their own
 	// (BlueZ uses the address otherwise).
+	// Only while shown: a device nearby coming or going would remake the hidden list.
 	items: {
+		if (!visible)
+			return [];
 		var paired = [];
 		var nearby = [];
 		for (const d of root.btAdapter?.devices?.values ?? []) {

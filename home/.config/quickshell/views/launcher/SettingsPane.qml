@@ -21,7 +21,8 @@ LauncherPane {
 
 	readonly property string q: query.trim()
 	readonly property var current: mode === "browse" ? (list.items[list.currentIndex]?.setting ?? null) : editing
-	readonly property var changedEntries: Settings.entries.filter(e => Settings.changed(e))
+	// Hidden, not made: each volume or brightness step makes Settings.entries again.
+	readonly property var changedEntries: visible ? Settings.entries.filter(e => Settings.changed(e)) : []
 	readonly property string sectionLabel: section === "changed" ? "Changed here" : Settings.page(section)?.label ?? ""
 
 	icon: mode === "browse" ? "settings" : mode === "arrange" ? "monitor" : "pencil"
@@ -328,7 +329,7 @@ LauncherPane {
 			return pages.concat(shown.map(e => ({
 				label: e.label,
 				subtitle: pane.section === "" && pane.mode === "browse" ? e.group : "",
-				tooltip: pane.mode === "browse" ? pane.tooltip(e) : "",
+				tooltip: pane.mode === "browse" ? () => pane.tooltip(e) : "",
 				heading: pane.q !== "" || pane.mode !== "browse" ? "" : pane.section === "changed" ? e.group : e.sub,
 				lineIcon: e.icon,
 				setting: e,

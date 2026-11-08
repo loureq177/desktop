@@ -40,7 +40,10 @@ DeviceList {
 	pendingTimeout: enterprise ? 120000 : 15000
 
 	// One row per name: the connected access point, else the strongest.
+	// Only while shown: each signal reading would remake the hidden list (every few seconds).
 	items: {
+		if (!visible)
+			return [];
 		var byName = {};
 		for (const net of root.wifiDevice?.networks?.values ?? []) {
 			if (!net || !net.name || net.name.trim() === "")

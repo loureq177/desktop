@@ -83,7 +83,8 @@ SelectList {
 
 		// Under the row, from the label on.
 		Tip {
-			text: row.modelData.tooltip ?? ""
+			// A function is asked only under the pointer: not built for hundreds of rows per key.
+			text: !row.hovered ? "" : typeof row.modelData.tooltip === "function" ? row.modelData.tooltip() : (row.modelData.tooltip ?? "")
 			visible: row.hovered && text !== "" && !list.moving
 			x: 24 + Theme.rowIcon
 			y: row.height + 2

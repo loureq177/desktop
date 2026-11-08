@@ -279,7 +279,7 @@ LauncherPane {
 					lineIcon: now ? "pencil" : pane.keyIcon(e.category),
 					chord: e.chord,
 					changed: changed || now,
-					tooltip: now ? "" : pane.tooltip(e),
+					tooltip: now ? "" : () => pane.tooltip(e),
 					line: e.editable || e.removed ? e : undefined,
 					armId: e.editable ? e.id : "",
 					run: () => {

@@ -68,11 +68,12 @@ LauncherPane {
 		run: () => Hypr.toggleSpecial(sp.name)
 	})))
 
+	// Not per key: the headings come in rows, for "/" alone.
 	readonly property var commands: Commands.all.map(c => ({
 		label: Commands.label(c),
 		subtitle: c.desc,
 		lineIcon: c.icon,
-		heading: pane.q === "/" ? c.group : "",
+		group: c.group,
 		keywords: c.keywords,
 		confirm: c.confirm,
 		chord: c.bind ? Keybinds.chordFor(c.bind) : "",
@@ -163,6 +164,8 @@ LauncherPane {
 			accent: true,
 			run: () => Commands.script("timer " + secs + "s")
 		}] : [];
+		if (pane.q === "/")
+			return pane.commands.map(c => Object.assign({ heading: c.group }, c));
 		if (pane.commandsOnly)
 			return timer.concat(Search.rank(pane.commands, it => Search.itemScore(it, pane.q.substring(1).trim())));
 		var calc = Search.calculate(pane.q);
