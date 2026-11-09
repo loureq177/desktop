@@ -1,5 +1,5 @@
 # Flatpak apps for every install, one id per line.
 # A picked browser or special can still bring one (apply-apps --packages).
 
-# LocalSend: localsend.service keeps it in the tray.
+# LocalSend: files to and from the phone, started from the launcher.
 org.localsend.localsend_app

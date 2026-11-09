@@ -547,10 +547,10 @@ PanelWindow {
 			spacing: 0
 
 			// The tray apps that have something to show (Discord, Steam), in the bar's colour;
-			// click as the app does, right-click for its menu. Not LocalSend: always there.
+			// click as the app does, right-click for its menu.
 			Repeater {
 				model: ScriptModel {
-					values: SystemTray.items.values.filter(i => i.status !== Status.Passive && !i.title.includes("localsend"))
+					values: SystemTray.items.values.filter(i => i.status !== Status.Passive)
 				}
 
 				delegate: Pill {
