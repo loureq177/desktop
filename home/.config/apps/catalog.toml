@@ -15,11 +15,11 @@ reserved = ["B", "H", "J", "K", "L"]
 # their own or as Chromium --app windows.
 browsers = [
 	{ id = "firefox", name = "Firefox", exec = "firefox", desktop = "firefox.desktop", engine = "firefox", pacman = ["firefox"] },
-	{ id = "librewolf", name = "LibreWolf", exec = "librewolf", desktop = "librewolf.desktop", engine = "firefox", pacman = ["librewolf"] },
 	{ id = "chromium", name = "Chromium", exec = "chromium", desktop = "chromium.desktop", engine = "chromium", pacman = ["chromium"] },
 ]
 
-# `standard`: in the set the installer offers as a whole; `background`: started
+# `standard`: in the set the installer offers as a whole; `fixed`: always there, not
+# asked (one app, nothing to choose), its key taken; `background`: started
 # hidden with the session, so its notifications come before it is first opened;
 # `bar = false` keeps it off the bar's row of specials.
 
@@ -85,9 +85,7 @@ standard = true
 apps = [
 	{ name = "Spotify", exec = "com.spotify.Client", class = "spotify", icon = "spotify", app_icon = "spotify-client", desktop = "com.spotify.Client", player = "spotify", flatpak = ["com.spotify.Client"] },
 	{ name = "YouTube Music", url = "https://music.youtube.com", app_icon = "youtube-music" },
-	{ name = "Tidal", url = "https://listen.tidal.com", title = "TIDAL", app_icon = "tidal" },
 	{ name = "Apple Music", url = "https://music.apple.com", app_icon = "apple-music" },
-	{ name = "SoundCloud", url = "https://soundcloud.com", app_icon = "soundcloud" },
 ]
 
 [[category]]
@@ -96,7 +94,7 @@ title = "Activity Monitor"
 desc = "Processes, memory, CPU"
 key = "R"
 icon = "memory-stick"
-standard = true
+fixed = true
 bar = false
 apps = [
 	{ name = "btop", term = "btop", app_icon = "utilities-system-monitor", desktop = "btop", pacman = ["btop"] },
@@ -112,6 +110,17 @@ standard = true
 apps = [
 	{ name = "Nautilus", exec = "nautilus --new-window", class = "org.gnome.Nautilus", app_icon = "org.gnome.Nautilus", desktop = "org.gnome.Nautilus", pacman = ["nautilus"] },
 	{ name = "Yazi", term = "yazi", app_icon = "system-file-manager", desktop = "yazi", pacman = ["yazi"] },
+]
+
+[[category]]
+id = "ai"
+title = "AI"
+key = "A"
+icon = "sparkles"
+apps = [
+	{ name = "Claude", url = "https://claude.ai", app_icon = "claude-desktop" },
+	{ name = "ChatGPT", url = "https://chatgpt.com" },
+	{ name = "Gemini", url = "https://gemini.google.com" },
 ]
 
 [[category]]

@@ -75,7 +75,7 @@ end
 local function start_background()
 	local firefox = firefox_class()
 	local i = 0
-	local sub
+	local sub, shown
 
 	local function opened_by(w, app)
 		if app.host then
@@ -94,12 +94,20 @@ local function start_background()
 			sub:remove()
 			return
 		end
+		local showing = hl.get_active_special_workspace()
+		shown = showing ~= nil and name_of(showing) == background[i]
 		hl.exec_cmd(specials[background[i]].exe)
 	end
 	sub = hl.on("window.open", function(w)
-		-- one opened on a special is the user's own (workspace.created)
-		if not opened_by(w, specials[background[i]]) or (w.workspace ~= nil and w.workspace.special) then
+		-- One on another special is the user's own (workspace.created); a class rule puts it on its own.
+		local ws = w.workspace
+		if not opened_by(w, specials[background[i]]) or (ws ~= nil and ws.special and name_of(ws) ~= background[i]) then
 			return
+		end
+		-- The class rule shows the special it opens on.
+		local showing = hl.get_active_special_workspace()
+		if not shown and showing ~= nil and name_of(showing) == background[i] then
+			toggle(background[i])
 		end
 		hl.dispatch(hl.dsp.window.set_prop({ prop = "focus_on_activate", value = "0", window = w }))
 		hl.dispatch(hl.dsp.window.move({
@@ -117,10 +125,11 @@ local function start_background()
 	start_next()
 end
 
--- Once there is internet, however long that takes; the session does not wait for it.
+-- Once there is internet and the boot lock has opened the keyring (Chromium asks it for
+-- its key), however long that takes; the session does not wait for it.
 hl.on("hyprland.start", function()
 	if background[1] ~= nil then
-		hl.exec_cmd([[sh -c 'until [ "$(nmcli -t -f CONNECTIVITY general || echo full)" = full ]; do sleep 2; done; hyprctl eval "require(\"hyprland.specials\").start_background()"']])
+		hl.exec_cmd([[sh -c 'until [ "$(nmcli -t -f CONNECTIVITY general || echo full)" = full ] && [ "$(busctl --user get-property org.freedesktop.secrets /org/freedesktop/secrets/collection/login org.freedesktop.Secret.Collection Locked || echo "b false")" = "b false" ]; do sleep 2; done; hyprctl eval "require(\"hyprland.specials\").start_background()"']])
 	end
 end)
 
