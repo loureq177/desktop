@@ -35,6 +35,9 @@ SelectList {
 	}
 
 	function reset(): void {
+		// The rows stay as they change: scrolled away from the first, nothing else goes up.
+		if (currentIndex === 0)
+			positionViewAtBeginning();
 		currentIndex = 0;
 		confirm.reset();
 	}
@@ -46,7 +49,18 @@ SelectList {
 	}
 
 	wrap: true
-	model: items
+	// Rows stay as the items change, only their count follows: making every row again
+	// was most of a keypress.
+	model: ListModel {
+		id: slots
+	}
+	onItemsChanged: {
+		if (slots.count > items.length)
+			slots.remove(items.length, slots.count - items.length);
+		else if (slots.count < items.length)
+			slots.append(Array.from({ length: items.length - slots.count }, () => ({})));
+	}
+	Component.onCompleted: itemsChanged()
 	onActivated: index => {
 		var item = items[index];
 		if (item.confirm && !confirm.ask(item.label))
@@ -70,7 +84,8 @@ SelectList {
 	delegate: ListRow {
 		id: row
 
-		required property var modelData
+		// Blank for a row on its way out.
+		readonly property var modelData: list.items[index] ?? ({ label: "" })
 		readonly property string heading: list.headingAt(index)
 		readonly property bool armed: modelData.confirm !== undefined && confirm.armed === modelData.label
 		readonly property bool armedOutside: list.armedId !== "" && modelData.armId === list.armedId

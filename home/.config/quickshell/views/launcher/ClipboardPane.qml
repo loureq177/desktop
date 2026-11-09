@@ -15,7 +15,7 @@ LauncherPane {
 
 	icon: "clipboard"
 	placeholder: "Search copied items…"
-	preferredHeight: Theme.windowHeight
+	preferredHeight: Theme.listHeight
 
 	readonly property var items: entries.filter(e => e.preview.toLowerCase().includes(query.trim().toLowerCase()))
 	readonly property alias count: list.count

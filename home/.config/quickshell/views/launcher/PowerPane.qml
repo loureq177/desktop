@@ -7,7 +7,7 @@ LauncherPane {
 	id: pane
 
 	icon: "power"
-	placeholder: "Lock, suspend, log out, reboot or power off…"
+	placeholder: "Search…"
 	preferredHeight: list.preferredHeight
 
 	function step(delta: int, repeat: bool): void {
@@ -30,7 +30,6 @@ LauncherPane {
 		emptyText: "Nothing matches"
 		items: Search.rank(Commands.all.filter(c => c.group === "session" && c.id !== "power").map(c => ({
 			label: c.name,
-			subtitle: c.desc,
 			lineIcon: c.icon,
 			keywords: c.keywords,
 			confirm: c.confirm,

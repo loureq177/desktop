@@ -7,6 +7,7 @@ import Quickshell.Io
 import Quickshell.Wayland
 import Quickshell.Widgets
 import QtQuick
+import QtQuick.Controls
 import QtQuick.Layouts
 
 // Every open window, on any workspace or special, most recently used first, with its live
@@ -23,7 +24,7 @@ LauncherPane {
 	property string goingTo: ""
 
 	icon: "app-window"
-	placeholder: "Search open windows, Delete closes one…"
+	placeholder: "Search windows…"
 	grid: true
 	preferredHeight: count === 0 ? 72 : Math.ceil(count / columns) * cellHeight
 
@@ -35,7 +36,9 @@ LauncherPane {
 	readonly property int columns: 2
 	readonly property int inset: 3
 	readonly property int labelHeight: 34
-	readonly property real cellWidth: width / columns
+	// Room for the scroll bar while the cells run past the pane.
+	readonly property int gutter: Math.ceil(count / columns) * ((width / columns - inset * 2) * 10 / 16 + labelHeight + inset * 2) > height ? 10 : 0
+	readonly property real cellWidth: (width - gutter) / columns
 	readonly property real pictureHeight: (cellWidth - inset * 2) * 10 / 16
 	readonly property real cellHeight: pictureHeight + labelHeight + inset * 2
 
@@ -154,6 +157,7 @@ LauncherPane {
 		signal activated(int index)
 
 		anchors.fill: parent
+		anchors.rightMargin: pane.gutter
 		clip: true
 		cellWidth: pane.cellWidth
 		cellHeight: pane.cellHeight
@@ -171,6 +175,13 @@ LauncherPane {
 		WheelScroll {
 			id: scrolling
 			flickable: cells
+		}
+
+		ScrollBar.vertical: ThinScrollBar {
+			parent: pane
+			anchors.top: cells.top
+			anchors.bottom: cells.bottom
+			anchors.right: parent.right
 		}
 
 		delegate: ListRow {

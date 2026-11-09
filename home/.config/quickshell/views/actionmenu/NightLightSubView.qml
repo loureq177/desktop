@@ -47,7 +47,6 @@ FocusScope {
 		SubViewHeader {
 			Layout.fillWidth: true
 			title: "Night light"
-			subtitle: "Turns on at 8 PM"
 			enabledState: Modes.nightLight
 			toggleKey: "N"
 			onBackClicked: root.backRequested()

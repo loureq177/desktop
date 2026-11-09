@@ -12,8 +12,7 @@ DeviceList {
 	property var renaming: null
 
 	title: "Bluetooth"
-	readonly property int pairedCount: items.filter(i => i.saved).length
-	subtitle: !radioOn ? "Off" : (scanning ? "Scanning for nearby devices…" : pairedCount + (pairedCount === 1 ? " paired device" : " paired devices"))
+	subtitle: radioOn && scanning ? "Scanning…" : ""
 	offIcon: "bluetooth-off"
 	radioKey: Qt.Key_B
 	radioOn: btAdapter?.enabled ?? false

@@ -95,10 +95,13 @@ FocusScope {
 			hoverEnabled: true
 		}
 
+		// Laid out at the height the card goes to: it reveals the body, never squeezes it.
 		Item {
 			id: bodySlot
-			anchors.fill: parent
-			anchors.margins: Theme.paddingCard
+			x: Theme.paddingCard
+			y: Theme.paddingCard
+			width: card.width - 2 * Theme.paddingCard
+			height: Math.min(root.maxHeight, root.contentHeight + Theme.paddingCard * 2) - 2 * Theme.paddingCard
 		}
 	}
 }

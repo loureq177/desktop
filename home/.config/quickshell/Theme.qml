@@ -34,9 +34,9 @@ Singleton {
 	readonly property int roundingSubtle: 3
 	readonly property int paddingCard: 16
 	readonly property int paddingItem: 8
-	// The launcher.
+	// The launcher; its lists stop growing at whole rows, never a few pixels short of one.
 	readonly property int windowWidth: 960
-	readonly property int windowHeight: 600
+	readonly property int listHeight: 10 * rowHeight
 	// A row of their lists, and the icon at its start.
 	readonly property int rowHeight: 56
 	readonly property int rowIcon: 32

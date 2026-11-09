@@ -15,14 +15,16 @@ LauncherPane {
 	property var settingsPane: null
 
 	icon: commandsOnly ? "zap" : q.startsWith("=") ? "calculator" : "search"
-	placeholder: "Search apps, settings, files or /commands…"
+	placeholder: "Search…"
 	preferredHeight: list.preferredHeight
 
 	function step(delta: int, repeat: bool): void {
+		applyRows();
 		list.step(delta, repeat);
 	}
 
 	function activate(): void {
+		applyRows();
 		list.activate();
 	}
 
@@ -31,6 +33,7 @@ LauncherPane {
 
 	function opened(): void {
 		day = new Date().getDate();
+		allFiles = false;
 		list.rewind();
 	}
 
@@ -54,14 +57,15 @@ LauncherPane {
 		var label = e.name || e.id;
 		return {
 			label: label,
-			subtitle: [e.genericName, e.comment].find(d => d && d !== label) ?? "",
+			// What it is when the name does not say (Amberol: Music Player); no comment sentences.
+			subtitle: e.genericName && e.genericName !== label ? e.genericName : "",
 			icon: e.icon,
 			entry: e,
 			run: () => Hypr.exec(Commands.entryCommand(e), e.workingDirectory)
 		};
 	}).concat(Specials.list.map(sp => ({
 		label: sp.app,
-		subtitle: sp.app !== sp.title ? sp.title : sp.desc,
+		subtitle: sp.app !== sp.title ? sp.title : "",
 		icon: sp.appIcon.startsWith("icons/") ? pane.dated(sp.appIcon) : (sp.desktop ? DesktopEntries.byId(sp.desktop)?.icon : "") || sp.appIcon,
 		lineIcon: sp.icon,
 		keywords: [sp.name, sp.title, sp.keywords].join(" "),
@@ -69,12 +73,12 @@ LauncherPane {
 	})))
 
 	// Not per key: the headings come in rows, for "/" alone.
-	readonly property var commands: Commands.all.map(c => ({
+	readonly property var commands: Commands.all.filter(c => !c.home).map(c => ({
 		label: Commands.label(c),
-		subtitle: c.desc,
 		lineIcon: c.icon,
 		group: c.group,
-		keywords: c.keywords,
+		// What it does is found by typing, not shown.
+		keywords: [c.desc, c.keywords].filter(k => k).join(" "),
 		confirm: c.confirm,
 		chord: c.bind ? Keybinds.chordFor(c.bind) : "",
 		run: c.query ? () => {
@@ -102,22 +106,26 @@ LauncherPane {
 		return [h ? h + " h" : "", m ? m + " min" : "", s ? s + " s" : ""].filter(x => x).join(" ");
 	}
 
+	// The settings' pages, ranked with the apps: "appearance" is the page before a command
+	// that says the word.
+	readonly property var settingPages: q.length < 2 || commandsOnly || !settingsPane ? [] : Settings.pages.map(p => ({
+		label: p.label,
+		subtitle: "Settings",
+		lineIcon: p.icon,
+		page: true,
+		keywords: p.keywords ?? "",
+		run: () => {
+			Panels.open("launcher", "settings");
+			pane.settingsPane.openSection(p.key);
+			return false;
+		}
+	}))
+
 	// A bool flips here; the rest opens in the settings, Esc back to their list.
 	readonly property var settingRows: {
 		if (q.length < 2 || commandsOnly || !settingsPane)
 			return [];
-		var pages = Settings.pages.filter(p => Search.matchScore([[p.label, 0], [p.keywords ?? "", 6]], q) !== -1).map(p => ({
-			label: p.label,
-			subtitle: "Settings",
-			lineIcon: p.icon,
-			heading: "settings",
-			run: () => {
-				Panels.open("launcher", "settings");
-				pane.settingsPane.openSection(p.key);
-				return false;
-			}
-		}));
-		return pages.concat(Search.rank(Settings.entries, e => Search.settingScore(e, q, false)).slice(0, 4).map(e => ({
+		return Search.rank(Settings.entries, e => Search.settingScore(e, q, false)).slice(0, 4).map(e => ({
 			label: e.label,
 			subtitle: e.group,
 			lineIcon: e.icon,
@@ -132,22 +140,40 @@ LauncherPane {
 				pane.settingsPane.edit(e);
 				return false;
 			}
-		})));
+		}));
 	}
+
+	// Six files, every one after "Show all" while the search goes on.
+	property bool allFiles: false
 
 	FileSearch {
 		id: files
+		limit: pane.allFiles ? 100000 : 6
 		query: !pane.commandsOnly && pane.q.length >= 2 && Search.calculate(pane.q) === null ? pane.q : ""
 	}
 
-	// Files come in after the keypress: the row picked stays.
+	// A key changes the rows up to four times (query, settings, files): the list is made
+	// once, after them. Files come in after the keypress: the row picked stays.
+	property bool rowsStale: false
 	onRowsChanged: {
+		rowsStale = true;
+		Qt.callLater(applyRows);
+	}
+
+	function applyRows(): void {
+		if (!rowsStale)
+			return;
+		rowsStale = false;
 		var index = list.currentIndex;
 		list.items = rows;
 		list.currentIndex = Math.max(0, Math.min(index, list.count - 1));
 	}
 	Component.onCompleted: list.items = rows
-	onQueryChanged: list.reset()
+	onQueryChanged: {
+		if (files.query === "")
+			allFiles = false;
+		list.reset();
+	}
 
 	ResultList {
 		id: list
@@ -159,7 +185,7 @@ LauncherPane {
 		var secs = pane.timerSeconds();
 		var timer = secs > 0 ? [{
 			label: "Timer " + pane.spoken(secs),
-			subtitle: "Enter starts it" + (Modes.timerLeft > 0 ? " instead of the " + Modes.timerText(Modes.timerLeft) + " left" : ""),
+			subtitle: Modes.timerLeft > 0 ? "Replaces the " + Modes.timerText(Modes.timerLeft) + " left" : "",
 			lineIcon: "timer",
 			accent: true,
 			run: () => Commands.script("timer " + secs + "s")
@@ -171,15 +197,22 @@ LauncherPane {
 		var calc = Search.calculate(pane.q);
 		// The apps and the specials, best match first, then by name; the
 		// commands only come up when asked for.
-		var matches = Search.rank(pane.q === "" ? pane.apps : pane.apps.concat(pane.commands),
-			it => it.entry ? Search.appScore(it.entry, pane.q) : Search.itemScore(it, pane.q),
+		var matches = Search.rank(pane.q === "" ? pane.apps : pane.apps.concat(pane.commands, pane.settingPages),
+			it => it.entry ? Search.appScore(it.entry, pane.q) : it.page ? Search.matchScore([[it.label, 0], [it.keywords, 6]], pane.q) : Search.itemScore(it, pane.q),
 			(a, b) => a.label.localeCompare(b.label));
 		return timer.concat(calc === null ? [] : [{
 			label: "= " + calc,
-			subtitle: "Enter copies the result",
 			lineIcon: "calculator",
 			accent: true,
 			run: () => Quickshell.execDetached(["wl-copy", calc])
-		}]).concat(matches, pane.settingRows, files.items);
+		}]).concat(matches, pane.settingRows, files.items, files.matches.length > files.items.length ? [{
+			label: "Show all " + files.matches.length + " files",
+			lineIcon: "folder",
+			heading: "files",
+			run: () => {
+				pane.allFiles = true;
+				return false;
+			}
+		}] : []);
 	}
 }

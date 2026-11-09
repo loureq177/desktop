@@ -87,7 +87,6 @@ Drawer {
 			focus: true
 			Layout.fillWidth: true
 			Layout.fillHeight: true
-			scrollBar: true
 			slidingHighlight: false
 			spacing: 8
 			model: Notifications.history

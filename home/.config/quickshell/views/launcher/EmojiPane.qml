@@ -4,6 +4,7 @@ import "../../widgets/ListNav.js" as ListNav
 import Quickshell
 import Quickshell.Io
 import QtQuick
+import QtQuick.Controls
 
 // The emoji, a grid of them; Enter types the one picked into the focused
 // window and copies it. The footer names it.
@@ -13,7 +14,7 @@ LauncherPane {
 	property var emojis: []
 
 	icon: "smile"
-	placeholder: "Search emoji, Enter pastes and copies…"
+	placeholder: "Search emoji…"
 	grid: true
 	preferredHeight: count === 0 ? 72 : Math.ceil(count / columns) * cell
 	footer: current ? current.e + "  " + String(current.k || "").split(" ").slice(0, 3).join(" ") : ""
@@ -24,7 +25,8 @@ LauncherPane {
 	}
 	readonly property int count: items.length
 	readonly property int cell: 76
-	readonly property int columns: Math.max(1, Math.floor(width / cell))
+	// Room on the right for the scroll bar.
+	readonly property int columns: Math.max(1, Math.floor((width - 12) / cell))
 	readonly property var current: items[cells.currentIndex] ?? null
 
 	function step(delta: int, repeat: bool): void {
@@ -82,6 +84,13 @@ LauncherPane {
 
 		ListHighlight {
 			view: cells
+		}
+
+		ScrollBar.vertical: ThinScrollBar {
+			parent: pane
+			anchors.top: cells.top
+			anchors.bottom: cells.bottom
+			anchors.right: parent.right
 		}
 
 		WheelScroll {

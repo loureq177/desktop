@@ -19,8 +19,11 @@ ModalWindow {
 			root.pane.closed();
 	}
 	onProgressChanged: {
-		if (progress === 0)
+		if (progress === 0) {
 			windows.arrive();
+			// The empty list is made off screen: making it while opening dropped frames.
+			search.clear();
+		}
 	}
 
 	Connections {
@@ -62,12 +65,13 @@ ModalWindow {
 
 	Rectangle {
 		anchors.horizontalCenter: parent.horizontalCenter
-		y: Math.round((parent.height - Theme.windowHeight) / 2)
+		// The top stays put as the list grows.
+		y: Math.round((parent.height - Theme.listHeight - search.height - column.spacing - Theme.paddingCard * 2) / 2)
 		transformOrigin: Item.Top
 		scale: 0.82 + 0.18 * root.progress
 		width: Theme.windowWidth
-		// As tall as what the list has, up to the shared height.
-		height: Math.min(Theme.windowHeight, column.implicitHeight + Theme.paddingCard * 2)
+		// As tall as what the list has.
+		height: column.implicitHeight + Theme.paddingCard * 2
 		color: Theme.glass(Theme.bgCard)
 		border.color: Theme.border
 		border.width: Theme.borderSize
@@ -170,7 +174,7 @@ ModalWindow {
 				id: content
 				Layout.fillWidth: true
 				Layout.fillHeight: true
-				Layout.preferredHeight: root.pane.preferredHeight
+				Layout.preferredHeight: Math.min(root.pane.preferredHeight, Theme.listHeight)
 
 				AppsPane {
 					id: apps

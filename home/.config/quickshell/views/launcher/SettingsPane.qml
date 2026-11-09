@@ -32,7 +32,7 @@ LauncherPane {
 		: mode === "type" ? "A value for " + editing.label.toLowerCase() + range(editing)
 		: !Settings.loaded ? "Loading settings…"
 		: section !== "" ? "Search " + sectionLabel.toLowerCase() + "…"
-		: "Search " + Settings.entries.length + " settings…"
+		: "Search settings…"
 	preferredHeight: mode === "arrange" ? 380 : list.preferredHeight
 	error: Settings.lastError
 
@@ -215,8 +215,8 @@ LauncherPane {
 		Qt.callLater(() => list.currentIndex = index);
 	}
 
-	function page(label: string, subtitle: string, icon: string, run: var): var {
-		return { label: label, subtitle: subtitle, lineIcon: icon, run: run };
+	function page(label: string, icon: string, run: var): var {
+		return { label: label, lineIcon: icon, run: run };
 	}
 
 	function openPage(key: string): var {
@@ -226,45 +226,23 @@ LauncherPane {
 		};
 	}
 
-	// Each page with what it holds, what was changed here first.
+	// The pages, what was changed here first.
 	function pageRows(): var {
-		var screens = Settings.monitors.map(m => m.width + "x" + m.height + " · " + Math.round(m.refreshRate) + " Hz").join(", ");
-		var idle = Settings.idleEntries;
-		var says = {
-			displays: screens,
-			sound: Audio.sink?.description ?? "",
-			appearance: "Colours, fonts, theme, blur, animations",
-			desktop: "Hot corners, top bar, clock",
-			windows: "Layouts, groups, resizing",
-			keyboard: "Layout, repeat, shortcuts",
-			mouse: "Speed, scrolling, touchpad, gestures",
-			idle: idle.length === 4 ? "Locks after " + Settings.duration(idle[0].value) + ", sleeps after " + Settings.duration(idle[3].value) : "",
-			advanced: Settings.entries.filter(e => e.section === "advanced").length + " more of Hyprland's options"
-		};
-		var rows = Settings.pages.map(p => {
-			var n = changedEntries.filter(e => e.section === p.key).length;
-			return page(p.label, says[p.key] + (n > 0 ? " · " + n + " changed" : ""), p.icon, openPage(p.key));
-		});
+		var rows = Settings.pages.map(p => page(p.label, p.icon, openPage(p.key)));
 		if (changedEntries.length > 0)
-			rows.unshift(page("Changed here", changedEntries.length + (changedEntries.length === 1 ? " setting" : " settings") + " set over the config", "pencil", openPage("changed")));
+			rows.unshift(page("Changed here", "pencil", openPage("changed")));
 		return rows;
 	}
 
 	// What a page has besides its settings, when nothing is typed.
 	function extraRows(): var {
 		if (section === "changed" && changedEntries.length > 0)
-			return [{
-				label: "Undo all",
-				subtitle: "Every one of them back to the config's",
-				lineIcon: "rotate-cw",
-				confirm: true,
-				run: () => {
-					Settings.resetAll();
-					return false;
-				}
-			}];
+			return [Object.assign(page("Undo all", "rotate-cw", () => {
+				Settings.resetAll();
+				return false;
+			}), { confirm: "undo all" })];
 		if (section === "keyboard")
-			return [page("Shortcuts", "Every key and what it does; Enter changes one", "keyboard", () => {
+			return [page("Shortcuts", "keyboard", () => {
 				Panels.open("launcher", "keys");
 				return false;
 			})];
@@ -289,7 +267,6 @@ LauncherPane {
 		anchors.fill: parent
 		visible: pane.mode !== "arrange"
 		// How long the page is: settings run to hundreds.
-		scrollBar: true
 
 		// Displays and audio answer later than the keypress: a new model would go back to the top.
 		onRowsChanged: {
@@ -310,7 +287,6 @@ LauncherPane {
 				var ranked = Search.rank(choices, c => typed !== undefined && c.value === typed ? -1000 : Search.matchScore([[String(c.label), 0]], pane.q));
 				return ranked.map(c => ({
 					label: String(c.label),
-					subtitle: c.value === pane.editing.value ? "now" : "",
 					lineIcon: c.value === pane.editing.value ? "check" : "",
 					run: () => {
 						pane.pick(c.value);

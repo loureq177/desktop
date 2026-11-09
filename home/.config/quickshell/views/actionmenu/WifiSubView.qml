@@ -29,7 +29,7 @@ DeviceList {
 	readonly property string shareFile: Quickshell.env("XDG_RUNTIME_DIR") + "/wifi-share.svg"
 
 	title: "Wi-Fi"
-	subtitle: !radioOn ? "Off" : (scanning ? "Scanning…" : items.length + (items.length === 1 ? " network found" : " networks found"))
+	subtitle: radioOn && scanning ? "Scanning…" : ""
 	offIcon: "wifi-off"
 	radioKey: Qt.Key_W
 	radioOn: Networking.wifiEnabled
@@ -347,14 +347,6 @@ DeviceList {
 					cache: false
 				}
 			}
-		}
-
-		StyledText {
-			visible: root.errorMessage === ""
-			Layout.alignment: Qt.AlignHCenter
-			text: "A phone's camera joins from it"
-			font.pixelSize: Theme.fontSizeTiny
-			color: Theme.textDim
 		}
 
 		StyledText {

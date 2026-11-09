@@ -211,7 +211,7 @@ FocusScope {
 				Layout.alignment: Qt.AlignHCenter
 				Layout.topMargin: 8
 				primary: true
-				text: "Turn on (Space)"
+				text: "Turn on"
 				onClicked: root.radioToggled()
 			}
 			}
@@ -223,7 +223,6 @@ FocusScope {
 			focus: true
 			Layout.fillWidth: true
 			Layout.fillHeight: true
-			scrollBar: true
 			// Each row lights up in place, as the tiles of Actions do.
 			slidingHighlight: false
 			spacing: 6

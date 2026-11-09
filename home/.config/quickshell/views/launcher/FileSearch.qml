@@ -13,7 +13,7 @@ Item {
 	property int limit: 6
 	readonly property string home: Quickshell.env("HOME")
 	readonly property var words: query.trim().toLowerCase().split(/\s+/).filter(w => w !== "")
-	// fd's raw lines for `found`'s word; the rest of the words are matched here.
+	// fd's lines for `found`'s word, taken apart once; the rest of the words are matched here.
 	property var paths: []
 	property string found: ""
 	property bool failed: false
@@ -40,7 +40,17 @@ Item {
 
 	// fd looks for the longest word; a new one waits for the last search to stop.
 	readonly property string wanted: words.reduce((a, w) => w.length > a.length ? w : a, "")
-	onWantedChanged: searchSoon.restart()
+	// Emptied at once, with the query: one new list, not a second one later.
+	onWantedChanged: {
+		if (wanted !== "") {
+			searchSoon.restart();
+			return;
+		}
+		searchSoon.stop();
+		fd.running = false;
+		paths = [];
+		found = "";
+	}
 
 	Timer {
 		id: searchSoon
@@ -65,7 +75,7 @@ Item {
 				root.found = "";
 				return;
 			}
-			command = ["fd", "--full-path", "--fixed-strings", "--ignore-case", "--max-results", "5000", word, root.home];
+			command = ["fd", "--full-path", "--fixed-strings", "--ignore-case", "--max-results", "1000", word, root.home];
 			running = true;
 		}
 
@@ -79,7 +89,14 @@ Item {
 			onStreamFinished: {
 				if (fd.word !== root.wanted)
 					return;
-				root.paths = this.text.split("\n").filter(l => l !== "");
+				var prefix = root.home + "/";
+				root.paths = this.text.split("\n").filter(l => l !== "").map(p => {
+					var folder = p.endsWith("/");
+					var full = folder ? p.slice(0, -1) : p;
+					var rel = full.startsWith(prefix) ? full.slice(prefix.length) : full;
+					var parts = rel.split("/");
+					return { full: full, rel: rel, low: rel.toLowerCase(), name: parts[parts.length - 1], depth: parts.length, folder: folder };
+				});
 				root.found = fd.word;
 			}
 		}
@@ -88,35 +105,32 @@ Item {
 	// A name that starts with a word first, then one with a word in it, then the path
 	// alone; the shallower and the shorter before the rest. Until fd answers, the last
 	// search's paths with the new words: the list does not empty at each key.
-	readonly property var items: {
+	readonly property var matches: {
 		if (words.length === 0)
 			return [];
-		var prefix = home + "/";
 		var scored = [];
 		for (var p of paths) {
-			var folder = p.endsWith("/");
-			var full = folder ? p.slice(0, -1) : p;
-			var rel = full.startsWith(prefix) ? full.slice(prefix.length) : full;
-			var low = rel.toLowerCase();
-			if (!words.every(w => low.includes(w)))
+			if (!words.every(w => p.low.includes(w)))
 				continue;
-			var name = rel.split("/").pop();
 			var best = 3;
 			for (var w of words) {
-				var s = Search.fieldScore(name, w);
+				var s = Search.fieldScore(p.name, w);
 				if (s !== -1)
 					best = Math.min(best, s);
 			}
-			scored.push({ score: best, depth: rel.split("/").length, name: name, rel: rel, full: full, folder: folder });
+			scored.push(Object.assign({ score: best }, p));
 		}
-		scored.sort((a, b) => a.score - b.score || a.depth - b.depth || a.name.length - b.name.length || a.rel.localeCompare(b.rel));
-		return scored.slice(0, limit).map(f => ({
-			label: f.name,
-			subtitle: f.rel.includes("/") ? "~/" + f.rel.slice(0, f.rel.length - f.name.length - 1) : "~",
-			icon: root.iconFor(f.name, f.folder),
-			heading: "files",
-			path: f.full,
-			run: () => Hypr.exec(["xdg-open", f.full])
-		}));
+		// Not localeCompare: thousands of paths on a two-letter word.
+		scored.sort((a, b) => a.score - b.score || a.depth - b.depth || a.name.length - b.name.length || (a.rel < b.rel ? -1 : a.rel > b.rel ? 1 : 0));
+		return scored;
 	}
+
+	readonly property var items: matches.slice(0, limit).map(f => ({
+		label: f.name,
+		subtitle: f.rel.includes("/") ? "~/" + f.rel.slice(0, f.rel.length - f.name.length - 1) : "~",
+		icon: root.iconFor(f.name, f.folder),
+		heading: "files",
+		path: f.full,
+		run: () => Hypr.exec(["xdg-open", f.full])
+	}))
 }

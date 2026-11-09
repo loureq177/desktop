@@ -10,7 +10,7 @@ ListView {
 
 	property bool wrap: false
 	// A thin bar while the rows overflow; rows leave room for it.
-	property bool scrollBar: false
+	property bool scrollBar: true
 	// The highlight over the rows: for rows that paint a background of their own.
 	property alias highlightOver: highlight.over
 	// One highlight sliding from row to row; off for rows that light up on

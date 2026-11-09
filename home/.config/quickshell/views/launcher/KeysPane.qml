@@ -22,7 +22,7 @@ LauncherPane {
 	property string keptId: ""
 
 	icon: editing ? "pencil" : adding ? "plus" : "keyboard"
-	placeholder: adding ? "An app, or a command to run…" : "Search or edit " + Keybinds.entries.length + (Keybinds.entries.length === 1 ? " key…" : " keys…")
+	placeholder: adding ? "An app, or a command to run…" : "Search keys…"
 	preferredHeight: list.preferredHeight
 	error: Keybinds.lastError
 
@@ -238,7 +238,6 @@ LauncherPane {
 			if (pane.adding) {
 				var typed = pane.q === "" ? [] : [{
 					label: pane.q,
-					subtitle: "Run this command",
 					lineIcon: "terminal",
 					run: () => {
 						pane.pick(pane.q, pane.q);
@@ -248,7 +247,7 @@ LauncherPane {
 				var apps = Search.rank(DesktopEntries.applications.values ?? [], e => Search.appScore(e, pane.q), (a, b) => a.name.localeCompare(b.name));
 				return typed.concat(apps.map(e => ({
 					label: e.name || e.id,
-					subtitle: e.genericName || e.comment || "",
+					subtitle: e.genericName || "",
 					icon: e.icon,
 					run: () => {
 						pane.pick(e.name || e.id, Hypr.shellLine(Commands.entryCommand(e)));
@@ -258,7 +257,6 @@ LauncherPane {
 			}
 			var rows = pane.q !== "" ? [] : [{
 				label: "Add a new key",
-				subtitle: "An app or a command, on keys of your choice",
 				tooltip: "Your own\nEnter: pick an app or type a command, then press its keys",
 				lineIcon: "plus",
 				run: () => {

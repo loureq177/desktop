@@ -9,11 +9,11 @@ function fieldScore(text, ql) {
 	var h = (text || "").toLowerCase();
 	if (h === "" || ql === "")
 		return -1;
-	if (h.startsWith(ql))
-		return 0;
-	if (h.split(/[^a-z0-9ąćęłńóśźż]+/).some(w => w.startsWith(ql)))
-		return 1;
-	return h.indexOf(ql) !== -1 ? 2 : -1;
+	// Most fields miss: one indexOf before the split, per key over hundreds of them.
+	var at = h.indexOf(ql);
+	if (at <= 0)
+		return at;
+	return h.split(/[^a-z0-9ąćęłńóśźż]+/).some(w => w.startsWith(ql)) ? 1 : 2;
 }
 
 // How well q matches fields [[text, weight], ...]: the first match's weight plus
