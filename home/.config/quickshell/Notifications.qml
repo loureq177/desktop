@@ -1,5 +1,6 @@
 pragma Singleton
 import Quickshell
+import Quickshell.Hyprland
 import Quickshell.Io
 import Quickshell.Services.Notifications
 import QtQuick
@@ -197,7 +198,11 @@ Singleton {
 			action.invoke();
 		else if (entry && (entry.desktopEntry || entry.appName))
 			Hypr.focusApp(entry.desktopEntry || entry.appName);
-		root.removeFrom(root.toasts, nid);
+		// A critical one (the timer's alarm) is seen once clicked: it closes.
+		if (root.live(nid)?.urgency === NotificationUrgency.Critical)
+			root.dismiss(nid);
+		else
+			root.removeFrom(root.toasts, nid);
 	}
 
 	function clear(): void {
@@ -305,11 +310,18 @@ Singleton {
 		function dndOff(): void {
 			root.dnd = false;
 		}
-		function dismissLatest(): void {
-			root.dismissLatest();
-		}
-		function activateLatest(): void {
-			root.activateLatest();
-		}
+	}
+
+	// What the keys press (binds.lua): no process for a press.
+	GlobalShortcut {
+		appid: "shell"
+		name: "notification-open"
+		onPressed: root.activateLatest()
+	}
+
+	GlobalShortcut {
+		appid: "shell"
+		name: "notification-close"
+		onPressed: root.dismissLatest()
 	}
 }

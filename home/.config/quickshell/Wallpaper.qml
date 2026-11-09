@@ -19,7 +19,7 @@ Singleton {
 		return Qt.size(screen.width * screen.devicePixelRatio, screen.height * screen.devicePixelRatio);
 	}
 
-	// Another one than the one before (SUPER + P), not the first read.
+	// Another one than the one before (`wallpaper next`), not the first read.
 	signal switched()
 
 	FileView {

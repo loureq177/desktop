@@ -1,5 +1,6 @@
 pragma Singleton
 import Quickshell
+import Quickshell.Hyprland
 import Quickshell.Io
 import QtQuick
 
@@ -18,15 +19,11 @@ Singleton {
 			query.running = true;
 	}
 
-	// Writes at once, then once more when a burst of calls (a slider drag, a
-	// held key) settles, so the last value is the one that sticks.
 	function setPercent(value: real): void {
 		if (percent < 0)
 			return;
 		percent = Math.max(0, Math.min(100, Math.round(value)));
-		if (!settle.running)
-			write();
-		settle.restart();
+		write();
 	}
 
 	function step(delta: int): void {
@@ -36,7 +33,15 @@ Singleton {
 		adjusted();
 	}
 
+	// What the backlight was last told.
+	property int written: -1
+
+	// One brightnessctl at a time: a level set meanwhile (a slider drag, a held key) goes
+	// out as it ends, so the last one sticks.
 	function write(): void {
+		if (writer.running || percent === written)
+			return;
+		written = percent;
 		writer.command = ["brightnessctl", "-q", "-c", "backlight", "set", percent + "%"];
 		writer.running = true;
 	}
@@ -52,29 +57,26 @@ Singleton {
 			onStreamFinished: {
 				var value = parseInt(this.text.split("\n")[0].split(",")[3]);
 				if (!isNaN(value))
-					root.percent = Math.max(0, Math.min(100, value));
+					root.percent = root.written = Math.max(0, Math.min(100, value));
 			}
 		}
 	}
 
 	Process {
 		id: writer
+		onExited: root.write()
 	}
 
-	Timer {
-		id: settle
-		interval: 60
-		onTriggered: root.write()
+	// What the keys press (binds.lua): no process for a step.
+	GlobalShortcut {
+		appid: "shell"
+		name: "brightness-up"
+		onPressed: root.step(10)
 	}
 
-	IpcHandler {
-		target: "brightness"
-
-		function up(): void {
-			root.step(10);
-		}
-		function down(): void {
-			root.step(-10);
-		}
+	GlobalShortcut {
+		appid: "shell"
+		name: "brightness-down"
+		onPressed: root.step(-10)
 	}
 }

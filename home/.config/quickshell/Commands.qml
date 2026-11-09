@@ -4,7 +4,8 @@ import QtQuick
 
 // What the desktop does: { id, name, desc, icon, run } and maybe active, confirm, alert,
 // tint, group, keywords (synonyms), bind (its key, by description), query (the launcher types it
-// instead of running); run returning false keeps the launcher.
+// instead of running), home (where it is, so the launcher leaves it out); run returning false
+// keeps the launcher.
 Singleton {
 	id: root
 
@@ -70,35 +71,36 @@ Singleton {
 		{ id: "picker", group: "capture", name: "Color picker", desc: "Copies the hex value", icon: "pipette", run: () => capture("hyprpicker -a --notify") },
 		{ id: "ocr", group: "capture", name: "OCR", desc: "Copies text from the screen", icon: "scan-text", run: () => capture(bin + "ocr") },
 
-		{ id: "dnd", group: "modes", name: "Do not disturb", desc: "Silences notifications", icon: "bell-off", active: Notifications.dnd, tint: Theme.warning, keywords: "dnd", run: () => { Notifications.dnd = !Notifications.dnd; } },
-		{ id: "nightlight", group: "modes", name: "Night light", desc: "Turns on at 8 PM", icon: "moon", active: Modes.nightLight, tint: Theme.warning, keywords: "blue light", run: () => Modes.toggleNightLight() },
+		{ id: "dnd", home: "Actions", group: "modes", name: "Do not disturb", desc: "Silences notifications", icon: "bell-off", active: Notifications.dnd, tint: Theme.warning, keywords: "dnd", run: () => { Notifications.dnd = !Notifications.dnd; } },
+		{ id: "nightlight", home: "Actions", group: "modes", name: "Night light", desc: "Turns on at 8 PM", icon: "moon", active: Modes.nightLight, tint: Theme.warning, keywords: "blue light", run: () => Modes.toggleNightLight() },
 		Modes.timerLeft > 0
 			? { id: "timer", group: "modes", name: "Stop timer", desc: Modes.timerText(Modes.timerLeft) + " left", icon: "timer", keywords: "countdown alarm", run: () => script("timer stop") }
 			: { id: "timer", group: "modes", name: "Timer", desc: "Type the minutes: /timer 25", icon: "timer", keywords: "countdown alarm", query: "/timer ", run: () => script("timer") },
-		{ id: "awake", group: "modes", name: "Keep awake", desc: "The screen stays on", icon: "coffee", active: Modes.awake, keywords: "caffeine", run: () => script("awake-toggle") },
+		{ id: "awake", home: "Actions", group: "modes", name: "Keep awake", desc: "The screen stays on", icon: "coffee", active: Modes.awake, keywords: "caffeine", run: () => script("awake-toggle") },
 		...(Modes.batteryCareSupported ? [
 			{ id: "batterycare", group: "modes", name: "Battery care", desc: "Stops charging short of full", icon: "battery-medium", active: Modes.batteryCare, tint: Theme.accentGreen, keywords: "charge limit", run: () => script("battery-care") }
 		] : []),
 
-		{ id: "wifi", group: "connections", name: "Wi-Fi", desc: "Networks", icon: "wifi", keywords: "wifi internet", run: () => open("actions", "wifi") },
-		{ id: "bluetooth", group: "connections", name: "Bluetooth", desc: "Devices", icon: "bluetooth", keywords: "headphones", run: () => open("actions", "bluetooth") },
+		{ id: "wifi", home: "Actions", group: "connections", name: "Wi-Fi", desc: "Networks", icon: "wifi", keywords: "wifi internet", run: () => open("actions", "wifi") },
+		{ id: "bluetooth", home: "Actions", group: "connections", name: "Bluetooth", desc: "Devices", icon: "bluetooth", keywords: "headphones", run: () => open("actions", "bluetooth") },
 
-		{ id: "windows", group: "system", bind: "Launcher: Open windows", name: "Open windows", desc: "Every window, on any workspace", icon: "app-window", keywords: "overview apps switcher running", run: () => open("launcher", "windows") },
-		{ id: "settings", group: "system", bind: "Launcher: Settings", name: "Settings", desc: "Displays, sound, appearance, keyboard, mouse, sleep", icon: "settings", keywords: "config preferences", run: () => open("launcher", "settings") },
-		{ id: "clipboard", group: "system", bind: "Launcher: Clipboard history", name: "Clipboard", desc: "What was copied", icon: "clipboard", keywords: "history paste", run: () => open("launcher", "clipboard") },
-		{ id: "emoji", group: "system", bind: "Launcher: Emojis", name: "Emoji", desc: "Pick one: pasted and copied", icon: "smile", keywords: "smiley", run: () => open("launcher", "emoji") },
-		{ id: "keys", group: "system", bind: "Launcher: Keybindings", name: "Keybindings", desc: "See, change, remove or add keys", icon: "keyboard", keywords: "shortcuts hotkeys binds", run: () => open("launcher", "keys") },
-		{ id: "actions", group: "system", bind: "System & Tools: Actions", name: "Actions", desc: "Volume, brightness and the switches", icon: "sliders-horizontal", keywords: "quick settings", run: () => open("actions", "") },
-		{ id: "weather", group: "system", bind: "System & Tools: Weather", name: "Weather", desc: "The forecast", icon: "cloud-sun", run: () => open("weather", "") },
-		{ id: "notifications", group: "system", bind: "Notifications: Toggle notification center", name: "Notifications", desc: "The notification center", icon: "bell", run: () => open("notifications", "") },
+		{ id: "windows", home: "launcher", group: "system", bind: "Launcher: Open windows", name: "Open windows", desc: "Every window, on any workspace", icon: "app-window", keywords: "overview apps switcher running", run: () => open("launcher", "windows") },
+		{ id: "settings", home: "launcher", group: "system", bind: "Launcher: Settings", name: "Settings", desc: "Displays, sound, appearance, keyboard, mouse, sleep", icon: "settings", keywords: "config preferences", run: () => open("launcher", "settings") },
+		{ id: "clipboard", home: "launcher", group: "system", bind: "Launcher: Clipboard history", name: "Clipboard", desc: "What was copied", icon: "clipboard", keywords: "history paste", run: () => open("launcher", "clipboard") },
+		{ id: "emoji", home: "launcher", group: "system", bind: "Launcher: Emojis", name: "Emoji", desc: "Pick one: pasted and copied", icon: "smile", keywords: "smiley", run: () => open("launcher", "emoji") },
+		{ id: "keys", home: "launcher", group: "system", bind: "Launcher: Keybindings", name: "Keybindings", desc: "See, change, remove or add keys", icon: "keyboard", keywords: "shortcuts hotkeys binds", run: () => open("launcher", "keys") },
+		{ id: "actions", home: "bar", group: "system", bind: "System & Tools: Actions", name: "Actions", desc: "Volume, brightness and the switches", icon: "sliders-horizontal", keywords: "quick settings", run: () => open("actions", "") },
+		{ id: "weather", home: "bar", group: "system", bind: "System & Tools: Weather", name: "Weather", desc: "The forecast", icon: "cloud-sun", run: () => open("weather", "") },
+		{ id: "wallpaper", group: "system", name: "Next wallpaper", desc: "From ~/Pictures/Wallpapers", icon: "image", keywords: "background", run: () => script("wallpaper next") },
+		{ id: "notifications", home: "bar", group: "system", bind: "Notifications: Toggle notification center", name: "Notifications", desc: "The notification center", icon: "bell", run: () => open("notifications", "") },
 		{ id: "sysupdate", group: "system", name: "System update", desc: "Upgrades the packages", icon: "package", keywords: "sysupdate", run: () => terminal("sysupdate") },
 		{ id: "sysclean", group: "system", name: "System cleanup", desc: "Caches, orphaned packages, the trash", icon: "trash", keywords: "sysclean", run: () => terminal("sysclean") },
 
-		{ id: "power", group: "session", bind: "Session: Power menu", name: "Power menu", desc: "Lock, suspend, log out, reboot, power off", icon: "power", keywords: "shutdown session", run: () => open("launcher", "power") },
-		{ id: "lock", group: "session", bind: "Session: Lock system", name: "Lock", desc: "Locks the screen", icon: "lock", run: () => Hypr.exec(["loginctl", "lock-session"]) },
-		{ id: "suspend", group: "session", name: "Suspend", desc: "Lock and sleep", icon: "moon", run: () => Hypr.exec(["sh", "-c", "loginctl lock-session && systemctl suspend"]) },
-		{ id: "logout", group: "session", name: "Log out", desc: "Close the apps, end the session", icon: "log-out", confirm: "log out", keywords: "logout exit", run: () => shutdown("") },
-		{ id: "reboot", group: "session", name: "Reboot", desc: "Close the apps, restart", icon: "rotate-cw", confirm: "reboot", run: () => shutdown("systemctl reboot --no-wall") },
-		{ id: "poweroff", group: "session", name: "Power off", desc: "Close the apps, shut down", icon: "power", confirm: "power off", keywords: "shutdown", run: () => shutdown("systemctl poweroff --no-wall") }
+		{ id: "power", home: "launcher", group: "session", bind: "Session: Power menu", name: "Power menu", desc: "Lock, suspend, log out, reboot, power off", icon: "power", keywords: "shutdown session", run: () => open("launcher", "power") },
+		{ id: "lock", home: "power menu", group: "session", name: "Lock", desc: "Locks the screen", icon: "lock", run: () => Hypr.exec(["loginctl", "lock-session"]) },
+		{ id: "suspend", home: "power menu", group: "session", name: "Suspend", desc: "Lock and sleep", icon: "moon", run: () => Hypr.exec(["sh", "-c", "loginctl lock-session && systemctl suspend"]) },
+		{ id: "logout", home: "power menu", group: "session", name: "Log out", desc: "Close the apps, end the session", icon: "log-out", confirm: "log out", keywords: "logout exit", run: () => shutdown("") },
+		{ id: "reboot", home: "power menu", group: "session", name: "Reboot", desc: "Close the apps, restart", icon: "rotate-cw", confirm: "reboot", run: () => shutdown("systemctl reboot --no-wall") },
+		{ id: "poweroff", home: "power menu", group: "session", name: "Power off", desc: "Close the apps, shut down", icon: "power", confirm: "power off", keywords: "shutdown", run: () => shutdown("systemctl poweroff --no-wall") }
 	])
 }

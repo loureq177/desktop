@@ -34,7 +34,7 @@ end
 
 local exec = hl.dsp.exec_cmd
 
--- A panel of the shell (Panels.qml), straight to it: no process per press.
+-- A panel of the shell or another of its shortcuts, straight to it: no process per press.
 local function panel(name)
 	return hl.dsp.global("shell:" .. name)
 end
@@ -49,7 +49,7 @@ end
 do
 	local bind = section("Essential")
 	-- SHIFT, as the specials: B is reserved for it in catalog.toml.
-	bind("SUPER + SHIFT + B", "Browser", exec(apps.browser.exec))
+	bind("SUPER + B", "Browser", exec(apps.browser.exec))
 	bind(
 		"SUPER + RETURN",
 		"Terminal",
@@ -136,12 +136,6 @@ do
 	local bind = section("System & Tools")
 	bind("SUPER + A", "Actions", panel("actions"))
 	bind("SUPER + W", "Weather", panel("weather"))
-	-- And the desktop's own, in among them (wallpaper: B for background).
-	bind(
-		"SUPER + B",
-		"Next wallpaper from ~/Pictures/Wallpapers",
-		exec("~/.local/bin/wallpaper next")
-	)
 end
 
 do
@@ -161,8 +155,8 @@ end
 
 do
 	local bind = section("Session")
-	bind("SUPER + escape", "Lock system", exec("loginctl lock-session"))
-	bind("SUPER + P", "Power menu", panel("launcher-power"))
+	-- Lock is its first row: SUPER + Escape, Enter.
+	bind("SUPER + escape", "Power menu", panel("launcher-power"))
 end
 
 do
@@ -175,16 +169,8 @@ end
 do
 	local bind = section("Notifications")
 	bind("SUPER + N", "Toggle notification center", panel("notifications"))
-	bind(
-		"SUPER + period",
-		"Open latest notification",
-		exec("qs ipc call notifications activateLatest")
-	)
-	bind(
-		"SUPER + comma",
-		"Close latest notification",
-		exec("qs ipc call notifications dismissLatest")
-	)
+	bind("SUPER + period", "Open latest notification", panel("notification-open"))
+	bind("SUPER + comma", "Close latest notification", panel("notification-close"))
 end
 
 do
@@ -201,7 +187,7 @@ do
 	local function audio(command)
 		return command .. " && pw-play /usr/share/sounds/freedesktop/stereo/audio-volume-change.oga"
 	end
-	-- keys, description, command, repeats while held
+	-- keys, description, command or the shell's own, repeats while held
 	for _, m in ipairs({
 		{
 			"XF86AudioRaiseVolume",
@@ -227,14 +213,15 @@ do
 			audio("wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle"),
 			false,
 		},
-		{ "XF86MonBrightnessUp", "Brightness up", "qs ipc call brightness up", true },
-		{ "XF86MonBrightnessDown", "Brightness down", "qs ipc call brightness down", true },
+		{ "XF86MonBrightnessUp", "Brightness up", panel("brightness-up"), true },
+		{ "XF86MonBrightnessDown", "Brightness down", panel("brightness-down"), true },
 		{ "XF86AudioNext", "Next track", "playerctl next", false },
 		{ "XF86AudioPause", "Pause track", "playerctl play-pause", false },
 		{ "XF86AudioPlay", "Play track", "playerctl play-pause", false },
 		{ "XF86AudioPrev", "Previous track", "playerctl previous", false },
 	}) do
-		bind(m[1], m[2], exec(m[3]), { locked = true, repeating = m[4] })
+		local action = type(m[3]) == "string" and exec(m[3]) or m[3]
+		bind(m[1], m[2], action, { locked = true, repeating = m[4] })
 	end
 end
 
@@ -254,13 +241,21 @@ end
 
 -- Over a fullscreen window the bar hides; the pointer resting 0.2 s at the top edge brings
 -- it back (Bars.qml). Asked here: a strip of the shell's there would take the edge from the app.
+-- Only while some window is fullscreen: the timer stops itself once none is left.
 do
 	local rested = 0
-	hl.timer(function()
+	local watch
+	watch = hl.timer(function()
 		local c, m = hl.get_cursor_pos(), hl.get_monitor_at_cursor()
 		local ws = m and m.active_workspace
 		if not (c and ws and ws.has_fullscreen and c.y - m.y < 2) then
 			rested = 0
+			for _, w in ipairs(hl.get_workspaces()) do
+				if w.has_fullscreen then
+					return
+				end
+			end
+			watch:set_enabled(false)
 			return
 		end
 		rested = rested + 1
@@ -268,6 +263,9 @@ do
 			hl.dispatch(panel("bar-peek"))
 		end
 	end, { timeout = 100, type = "repeat" })
+	hl.on("window.fullscreen", function()
+		watch:set_enabled(true)
+	end)
 end
 
 -- The keys list takes new keys in here: none of the binds above, so they reach

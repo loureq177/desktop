@@ -27,7 +27,7 @@ compromise on functionality.
 - **Quickshell**:
     - Launcher (apps, `/commands`, clipboard, emoji, keys): typing also finds settings and
       files in your home folder, by name with fd
-    - Power menu under `SUPER + P`: lock, suspend, log out, reboot, power off
+    - Power menu under `SUPER + Escape`: lock, suspend, log out, reboot, power off
     - Actions, notifications, OSD
     - Hot corners: the top left opens the launcher, the top right Actions
     - Open windows under `SUPER + O`: a list of the launcher, every window with a
@@ -43,13 +43,13 @@ compromise on functionality.
 - Battery care, awake-mode, night-light
 - **Settings** under `SUPER + S`: displays, Wi-Fi, Bluetooth, audio, and every option
   of Hyprland and the theme, searchable, changed on the spot
-- **LocalSend** in the tray from the start, for files to and from the phone
+- **LocalSend** for files to and from the phone: started from the launcher, in the tray while it runs
 - **Keys** under `SUPER + /`: every bind, Enter gives it new keys, Delete twice
   removes it, the first row adds a new one (kept in `~/.config/hypr/keys.lua`),
   Ctrl+R gives the config's back
 - `sysupdate` and `sysclean` scripts, their steps run at once
 - A notification when the system runs out of RAM and kills an app
-- Wallpaper switcher with grow animation (SUPER + B)
+- Wallpaper switcher with grow animation ("Next wallpaper" in the launcher)
 
 ### Laptop features
 
@@ -70,12 +70,11 @@ git clone https://github.com/loureq177/desktop.git ~/Projects/desktop && ~/Proje
 ```
 
 It first shows what it will do; Enter starts it, Ctrl+C stops it. Then the sudo
-password, once, and one screen of choices: your browser (Firefox, LibreWolf,
-Waterfox, Zen, Chromium, ungoogled-chromium, Brave or Chrome, which also runs the web
-apps) and the apps on special workspaces, each with its key, starting from the standard
-set (calendar, mail, tasks, messages, music, files, activity). `+ Add an app` offers the
-rest (notes, social, video, maps, code, work chat, meetings...) or your own, a site or a
-program. The answers stay in `~/.config/apps/apps.toml`; `install.sh --defaults` skips
+password, once, and one screen of choices: your browser (Firefox or
+Chromium, which also runs the web apps) and the apps on special workspaces, each with its
+key, starting from the standard set (calendar, mail, tasks, messages, music, files; the
+activity monitor is always there). `+ Add an app` offers the rest (AI, notes, social,
+video, maps, code, work chat, meetings...) or your own, a site or a program. The answers stay in `~/.config/apps/apps.toml`; `install.sh --defaults` skips
 the questions.
 
 The installer changes the system: packages (official, flatpak, and a few built from
@@ -99,5 +98,4 @@ into `~`, the theme and the session's units).
 | `SUPER + A`      | Actions       |
 | `SUPER + N`      | Notifications |
 | `SUPER + S`      | Settings      |
-| `SUPER + Escape` | Lock          |
-| `SUPER + P`      | Power menu    |
+| `SUPER + Escape` | Power menu    |
