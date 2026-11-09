@@ -2,7 +2,7 @@
 # Notifies when the kernel's OOM killer kills a process, which otherwise just vanishes.
 set -euo pipefail
 
-journalctl -k -f -n 0 -o cat --grep 'Killed process' | while IFS= read -r line; do
+journalctl --system -k -f -n 0 -o cat --grep 'Killed process' | while IFS= read -r line; do
     [[ "$line" =~ Killed\ process\ [0-9]+\ \((.*)\) ]] || continue
     notify-send --app-name "System" -u critical -i dialog-warning \
         "Out of memory: ${BASH_REMATCH[1]} was killed" \

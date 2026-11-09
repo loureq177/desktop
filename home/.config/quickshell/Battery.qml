@@ -29,7 +29,7 @@ Singleton {
 	property int warnedAt: 101
 
 	Timer {
-		interval: 2000
+		interval: 5000
 		running: root.present
 		repeat: true
 		triggeredOnStart: true
