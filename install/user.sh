@@ -91,18 +91,26 @@ _log_info "Rendering the browser and the apps..."
 _log_info "Applying UI styles..."
 "$HOME/.local/bin/apply-ui" --no-reload || _log_warn "Failed to apply UI styles."
 
-speech_model="${XDG_DATA_HOME:-$HOME/.local/share}/parakeet/ggml-parakeet-tdt-0.6b-v3-q8_0.bin"
-if [ ! -s "$speech_model" ]; then
-    _log_info "Downloading the speech model for dictation..."
-    mkdir -p "$(dirname "$speech_model")"
-    if curl -fL --retry 2 -o "$speech_model.part" https://huggingface.co/ggml-org/parakeet-GGUF/resolve/main/ggml-parakeet-tdt-0.6b-v3-q8_0.bin; then
-        mv "$speech_model.part" "$speech_model"
-        _log_ok "Speech model installed."
+# Dictation: Parakeet through onnx-asr on uv's own Python, so a system Python update leaves it
+# alone; it and the model are pinned, an update changes nothing until this file does.
+speech_dir="${XDG_DATA_HOME:-$HOME/.local/share}/parakeet/parakeet-tdt-0.6b-v3-onnx"
+speech_rev=8f23f0c03c8761650bdb5b40aaf3e40d2c15f1ce
+_log_info "Installing dictation (onnx-asr and the speech model)..."
+uv tool install --managed-python --python 3.14 'onnx-asr[cpu]==0.12.0' --with 'onnxruntime==1.31.1' ||
+    _log_warn "Could not install onnx-asr - dictation stays off."
+mkdir -p "$speech_dir"
+for f in config.json vocab.txt nemo128.onnx decoder_joint-model.int8.onnx encoder-model.int8.onnx; do
+    [ -s "$speech_dir/$f" ] && continue
+    if curl -fL --retry 2 -o "$speech_dir/$f.part" "https://huggingface.co/istupakov/parakeet-tdt-0.6b-v3-onnx/resolve/$speech_rev/$f"; then
+        mv "$speech_dir/$f.part" "$speech_dir/$f"
     else
-        rm -f "$speech_model.part"
-        _log_warn "Could not download $speech_model - dictation stays off until it is there."
+        rm -f "$speech_dir/$f.part"
+        _log_warn "Could not download $f - dictation stays off until it is there."
+        break
     fi
-fi
+done
+# The whisper.cpp model this replaced.
+rm -f "${XDG_DATA_HOME:-$HOME/.local/share}/parakeet/ggml-parakeet-tdt-0.6b-v3-q8_0.bin"
 
 systemctl --user daemon-reload 2>/dev/null || true
 # Every unit of this repo that can be enabled, and only those: other

@@ -7,7 +7,8 @@ STATE_FILE="$RUN_DIR/dictation"
 LOCK_FILE="$RUN_DIR/dictation.lock"
 AUDIO_RAW="$RUN_DIR/dictation_raw.wav"
 AUDIO_CLEAN="$RUN_DIR/dictation_clean.wav"
-MODEL="${XDG_DATA_HOME:-$HOME/.local/share}/parakeet/ggml-parakeet-tdt-0.6b-v3-q8_0.bin"
+UNMUTED="$RUN_DIR/dictation_unmuted"
+MODEL="${XDG_DATA_HOME:-$HOME/.local/share}/parakeet/parakeet-tdt-0.6b-v3-onnx"
 
 exec 200>"$LOCK_FILE"
 flock -n 200 || exit 0
@@ -26,6 +27,10 @@ stop() {
             done
         fi
     fi
+    if [[ -f "$UNMUTED" ]]; then
+        wpctl set-mute @DEFAULT_AUDIO_SOURCE@ 1 200>&- || true
+        rm -f "$UNMUTED"
+    fi
 
     if [[ ! -f "$AUDIO_RAW" ]] || [[ $(stat -c%s "$AUDIO_RAW" 2>/dev/null || echo 0) -lt 8000 ]]; then
         rm -f "$AUDIO_RAW" "$AUDIO_CLEAN"
@@ -34,9 +39,16 @@ stop() {
 
     echo transcribing >"$STATE_FILE"
 
-    sox "$AUDIO_RAW" "$AUDIO_CLEAN" highpass 80 norm -3.0 200>&- 2>/dev/null || cp "$AUDIO_RAW" "$AUDIO_CLEAN" 200>&-
+    sox "$AUDIO_RAW" -b 16 -e signed-integer "$AUDIO_CLEAN" highpass 80 norm -3.0 200>&- 2>/dev/null || cp "$AUDIO_RAW" "$AUDIO_CLEAN" 200>&-
 
-    TEXT=$(parakeet-cli -m "$MODEL" -t 6 -np -f "$AUDIO_CLEAN" 200>&- 2>/dev/null || true)
+    # Nothing of a failed run is typed: it may have printed something else than the text.
+    local rc=0
+    TEXT=$(onnx-asr nemo-parakeet-tdt-0.6b-v3 -p "$MODEL" -q int8 "$AUDIO_CLEAN" 200>&- 2>/dev/null) || rc=$?
+    if ((rc != 0)); then
+        TEXT=""
+        notify-send --app-name "Dictation" -i "dialog-warning" "Dictation" \
+            "Transcription failed (onnx-asr exit $rc)." 200>&- 2>/dev/null || true
+    fi
     TEXT="$(printf '%s' "$TEXT" | tr '\n\r' ' ' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
 
     if [[ -n "$TEXT" ]]; then
@@ -49,10 +61,14 @@ stop() {
 }
 
 start() {
-    if [[ ! -s "$MODEL" ]]; then
+    if [[ ! -s "$MODEL/encoder-model.int8.onnx" ]] || ! command -v onnx-asr >/dev/null; then
         notify-send --app-name "Dictation" -i "dialog-warning" "Dictation" \
-            "Speech model not found: $MODEL (install.sh downloads it)." 200>&- 2>/dev/null || true
+            "onnx-asr or the speech model is missing (install.sh installs them)." 200>&- 2>/dev/null || true
         exit 1
+    fi
+    # A muted microphone is on while recording, muted again after.
+    if wpctl get-volume @DEFAULT_AUDIO_SOURCE@ 2>/dev/null | grep -q MUTED; then
+        wpctl set-mute @DEFAULT_AUDIO_SOURCE@ 0 200>&- && : >"$UNMUTED"
     fi
     rm -f "$PID_FILE" "$AUDIO_RAW" "$AUDIO_CLEAN"
     echo recording >"$STATE_FILE"

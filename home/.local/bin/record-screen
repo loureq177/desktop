@@ -11,6 +11,7 @@ DND_MARKER="$RUN_DIR/recording_dnd"
 
 CAM_PID_FILE="$RUN_DIR/recording_webcam.pid"
 AUDIO_MODULES_FILE="$RUN_DIR/recording_audio_modules"
+MIC_UNMUTED="$RUN_DIR/recording_mic_unmuted"
 CAM_TITLE="WebcamOverlay"
 CAM_MARGIN=24
 
@@ -30,6 +31,10 @@ cleanup_extras() {
         done
         rm -f "$AUDIO_MODULES_FILE"
     fi
+    if [[ -f "$MIC_UNMUTED" ]]; then
+        wpctl set-mute @DEFAULT_AUDIO_SOURCE@ 1 || true
+        rm -f "$MIC_UNMUTED"
+    fi
     if [[ -f "$DND_MARKER" ]]; then
         qs ipc call notifications dndOff || true
         rm -f "$DND_MARKER"
@@ -46,6 +51,10 @@ audio_device() {
         return
     fi
     source=$(pactl get-default-source 2>/dev/null) || source=""
+    # A muted microphone is on while recording, muted again after.
+    if wpctl get-volume @DEFAULT_AUDIO_SOURCE@ 2>/dev/null | grep -q MUTED; then
+        wpctl set-mute @DEFAULT_AUDIO_SOURCE@ 0 && : >"$MIC_UNMUTED"
+    fi
     if [[ -n "$sink" && -n "$source" ]] &&
         module=$(pactl load-module module-null-sink sink_name=record_mix sink_properties=device.description=record_mix 2>/dev/null); then
         echo "$module" >"$AUDIO_MODULES_FILE"

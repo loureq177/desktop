@@ -54,7 +54,6 @@ ttf-jetbrains-mono-nerd
 cliphist
 fd
 flatpak
-fprintd
 fwupd
 grim
 jq
@@ -68,9 +67,9 @@ sox
 tesseract
 tesseract-data-eng
 tesseract-data-pol
+uv
 v4l-utils
 wf-recorder
-whisper-cpp
 wl-clip-persist
 wl-clipboard
 wtype
