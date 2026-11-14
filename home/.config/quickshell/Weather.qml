@@ -18,6 +18,8 @@ Singleton {
 	property string location: ""
 	// What went wrong, while there is no forecast to show instead.
 	property string lastError: ""
+	// Failed tries in a row while there is no forecast.
+	property int retries: 0
 
 	function refresh(): void {
 		var place = WeatherModel.parseLocationFile(placeFile.text());
@@ -29,11 +31,13 @@ Singleton {
 		}
 	}
 
-	// Without a forecast yet (offline at login, a slow answer) the bar has
-	// nothing to show, so it tries again soon rather than in a quarter hour.
+	// Without a forecast yet (offline at login, a slow answer) the bar has nothing to
+	// show: it tries again as a browser does, after 1 s, 2, 4… up to 30.
 	function fail(message: string): void {
 		if (!current) {
 			lastError = message;
+			retryTimer.interval = Math.min(30000, 1000 * Math.pow(2, retries));
+			retries++;
 			retryTimer.restart();
 		}
 	}
@@ -110,6 +114,7 @@ Singleton {
 					root.forecastDays = WeatherModel.parseOpenMeteoDaily(report, Qt.formatDate(new Date(), "yyyy-MM-dd"));
 					root.today = WeatherModel.parseTodayHighLow(report);
 					root.lastError = "";
+					root.retries = 0;
 				} catch (e) {
 					root.fail("Couldn't read the forecast");
 				}
@@ -117,9 +122,19 @@ Singleton {
 		}
 	}
 
+	// Up at login often after the shell: tried at once, the waits from the start.
+	Connections {
+		target: Net
+		function onOnlineChanged() {
+			if (Net.online && !root.current) {
+				root.retries = 0;
+				root.refresh();
+			}
+		}
+	}
+
 	Timer {
 		id: retryTimer
-		interval: 30 * 1000
 		onTriggered: root.refresh()
 	}
 
