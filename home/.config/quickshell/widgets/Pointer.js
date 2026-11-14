@@ -2,8 +2,8 @@
 
 // Where the pointer was last seen on screen, shared by every HoverSelect.
 var last = null;
-// The wheel or the touchpad is moving a list under the pointer (WheelScroll):
-// what passes under it is what the pointer picks, though it rests.
+// The wheel or the touchpad is moving a list under the pointer (WheelScroll): what
+// passes under it picks nothing; once it stops, the pointer picks when it moves.
 var scrolling = false;
 // Within pick(): the selection is the pointer's, made on what it can see.
 var picking = false;

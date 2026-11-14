@@ -234,12 +234,33 @@ LauncherPane {
 				}
 			}
 
+			// A see-through window (Ghostty) over the terminal's colour, not over what is behind the launcher.
+			Rectangle {
+				x: picture.x
+				y: picture.y
+				width: picture.width * picture.k
+				height: picture.height * picture.k
+				color: Theme.bgMain
+				visible: picture.hasContent
+			}
+
+			// Shrunk through mipmaps: sampled straight at a fifth of its size, text breaks apart.
 			ScreencopyView {
-				anchors.horizontalCenter: parent.horizontalCenter
-				y: pane.inset + pane.labelHeight + (pane.pictureHeight - height) / 2
+				id: picture
+				readonly property real k: sourceSize.width > 0 ? Math.min((pane.cellWidth - pane.inset * 4) / sourceSize.width, (pane.pictureHeight - 4) / sourceSize.height) : 0
+				x: (parent.width - width * k) / 2
+				y: pane.inset + pane.labelHeight + (pane.pictureHeight - height * k) / 2
+				width: sourceSize.width
+				height: sourceSize.height
+				transformOrigin: Item.TopLeft
+				scale: k
 				captureSource: cell.modelData.toplevel?.wayland ?? null
 				live: pane.active
-				constraintSize: Qt.size(pane.cellWidth - pane.inset * 4, pane.pictureHeight - 4)
+				layer.enabled: true
+				layer.mipmap: true
+				layer.smooth: true
+				// Three times the cell: as sharp as the whole window, a fraction of the memory.
+				layer.textureSize: Qt.size(Math.min(width, Math.ceil(width * k * 3)), Math.min(height, Math.ceil(height * k * 3)))
 			}
 
 			MouseArea {

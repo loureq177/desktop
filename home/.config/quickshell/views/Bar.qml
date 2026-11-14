@@ -410,6 +410,18 @@ PanelWindow {
 						: isActive ? Theme.accentBlue : Theme.textDim
 					onReleased: Hypr.toggleSpecial("activity")
 					onRightClicked: Hypr.closeSpecial("activity")
+					// Its name on hover, as the other specials have.
+					readonly property string hint: Specials.find("activity")?.title ?? "Activity Monitor"
+					onHoveredChanged: {
+						if (hovered)
+							bar.specialHint = hint;
+						else if (bar.specialHint === hint)
+							bar.specialHint = "";
+					}
+					Component.onDestruction: {
+						if (bar.specialHint === hint)
+							bar.specialHint = "";
+					}
 				}
 
 				// The app's mark (LineIcons.brands), as the tray shows its apps:

@@ -10,13 +10,9 @@ if [ -z "$BROWSER" ] || [ -z "$APP_URL" ]; then
     exit 1
 fi
 
-# A profile of their own, as the Firefox web apps have: signed in once, apart from
-# the browser. The window is named after the URL's host (specials.lua matches it).
-DATA_DIR="${XDG_DATA_HOME:-$HOME/.local/share}"
-PROFILE_DIR="$DATA_DIR/webapps-$(basename "$BROWSER")"
-
+# The browser's own profile, so links open as its tabs. The window is named after the
+# URL's host (specials.lua matches it).
 exec "$BROWSER" \
-    --user-data-dir="$PROFILE_DIR" \
     --ozone-platform=wayland \
     --no-first-run \
     --no-default-browser-check \

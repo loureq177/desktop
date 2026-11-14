@@ -5,13 +5,17 @@ import Quickshell.Io
 import QtQuick
 
 // Files and folders in the home folder, by name, as fd finds them while typing (hidden and
-// git-ignored ones left out); every word must be in the path. `items` are launcher rows.
+// git-ignored ones too: a built praca.pdf); every word must be in the path. `items` are launcher rows.
 Item {
 	id: root
 
 	property string query: ""
 	property int limit: 6
 	readonly property string home: Quickshell.env("HOME")
+	// Caches, app data and dependencies: tens of thousands of paths that would fill fd's 1000.
+	readonly property var skipped: [".git", ".cache", "Cache", "Code Cache", ".venv", "node_modules", "__pycache__", ".ruff_cache", ".pytest_cache", ".local/share", ".local/lib", ".local/state", ".var", ".triton", ".sklauncher", ".config/mozilla", ".config/chromium",
+		// Build by-products nobody opens, which git-ignored folders are full of.
+		"*.aux", "*.bbl", "*.bcf", "*.blg", "*.fdb_latexmk", "*.fls", "*.lof", "*.lot", "*.toc", "*.out", "*.run.xml", "*.synctex.gz", "*.pyc", "*.o"]
 	readonly property var words: query.trim().toLowerCase().split(/\s+/).filter(w => w !== "")
 	// fd's lines for `found`'s word, taken apart once; the rest of the words are matched here.
 	property var paths: []
@@ -75,7 +79,10 @@ Item {
 				root.found = "";
 				return;
 			}
-			command = ["fd", "--full-path", "--fixed-strings", "--ignore-case", "--max-results", "1000", word, root.home];
+			var cmd = ["fd", "--hidden", "--no-ignore-vcs", "--full-path", "--fixed-strings", "--ignore-case", "--max-results", "1000"];
+			for (var d of root.skipped)
+				cmd.push("--exclude", d);
+			command = cmd.concat([word, root.home]);
 			running = true;
 		}
 

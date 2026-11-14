@@ -112,6 +112,9 @@ FocusScope {
 	}
 	onVisibleChanged: {
 		if (visible) {
+			// The page is for the devices: opening it turns the radio on.
+			if (!radioOn)
+				radioToggled();
 			errorMessage = "";
 			currentKey = items[0]?.key ?? "";
 			list.currentIndex = 0;
