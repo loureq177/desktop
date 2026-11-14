@@ -293,18 +293,12 @@ Singleton {
 		];
 	}
 
-	// Panels.qml's shortcuts a hot corner can press.
-	readonly property var cornerChoices: [["Apps", "launcher-apps"], ["Open windows", "launcher-windows"], ["Actions", "actions"],
-		["Notifications", "notifications"], ["Settings", "launcher-settings"], ["Nothing", ""]].map(([label, v]) => ({ label: label, value: v }))
-
 	readonly property var prefEntries: {
 		var entry = (key, sub, label, desc, icon, extra) => Object.assign({
 			id: "pref:" + key, source: "pref", key: key, name: label, section: "desktop", sub: sub, group: "Desktop › " + sub,
 			label: label, desc: desc, kind: "bool", value: Prefs.values[key], icon: icon, apply: v => Prefs.set(key, v)
 		}, extra ?? {});
 		return [
-			entry("cornerLeft", "Hot corners", "Top-left corner", "What the pointer pushed into the corner opens", "layout-grid", { kind: "enum", choices: cornerChoices }),
-			entry("cornerRight", "Hot corners", "Top-right corner", "What the pointer pushed into the corner opens", "layout-grid", { kind: "enum", choices: cornerChoices }),
 			entry("batteryPercent", "Top bar", "Battery percentage", "Beside the battery, not only on hover", "battery-medium"),
 			entry("weather", "Top bar", "Weather", "The temperature and the sky, a click for the forecast", "cloud-sun"),
 			entry("clock24", "Clock", "24-hour time", "Off: 2:05 PM", "calendar", { keywords: "12-hour am pm format" }),

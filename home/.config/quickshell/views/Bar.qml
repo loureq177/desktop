@@ -42,20 +42,13 @@ PanelWindow {
 		right: true
 	}
 
-	// Screen wide for its corners; only the strip and the corners take input.
+	// Only the strip takes input.
 	implicitHeight: Theme.barMarginY + Theme.barHeight
 	mask: Region {
 		item: strip
 
 		Region {
 			item: peekArea
-		}
-
-		Region {
-			item: launcherCorner
-		}
-		Region {
-			item: actionsCorner
 		}
 	}
 	exclusionMode: overFullscreen ? ExclusionMode.Ignore : ExclusionMode.Normal
@@ -274,20 +267,6 @@ PanelWindow {
 		gap: (Theme.barHeight - btIcon.height) / 2 + 6
 		shown: system.overBt && Panels.active !== "actions"
 		text: Bt.connected.map(d => Bt.name(d) + (d.batteryAvailable ? "  " + Math.round(d.battery * 100) + "%" : "")).join("\n")
-	}
-
-	// An open drawer holds the corners itself (DrawerWindow).
-	readonly property bool drawerOpen: ["actions", "notifications", "weather"].includes(Panels.active)
-
-	HotCorner {
-		id: launcherCorner
-		present: !bar.drawerOpen
-	}
-
-	HotCorner {
-		id: actionsCorner
-		present: !bar.drawerOpen
-		x: parent.width - 1
 	}
 
 	Item {

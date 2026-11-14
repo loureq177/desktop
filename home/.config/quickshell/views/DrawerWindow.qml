@@ -62,15 +62,4 @@ StandbyWindow {
 			id: weather
 		}
 	}
-
-	// The bar's corners while a drawer is open: the pointer resting in one stays on this
-	// window, which then keeps the keyboard (Hyprland gives it to the layer under the pointer).
-	HotCorner {
-		present: root.shown
-	}
-
-	HotCorner {
-		present: root.shown
-		x: root.fullWidth - 1
-	}
 }

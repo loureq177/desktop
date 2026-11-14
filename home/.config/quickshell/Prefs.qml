@@ -10,9 +10,6 @@ Singleton {
 
 	readonly property var values: adapter
 	readonly property var defaults: ({
-		// A panel's shortcut (Panels.qml), or "" for none.
-		cornerLeft: "launcher-apps",
-		cornerRight: "actions",
 		batteryPercent: false,
 		weather: true,
 		clock24: true,
@@ -48,8 +45,6 @@ Singleton {
 		JsonAdapter {
 			id: adapter
 
-			property string cornerLeft: root.defaults.cornerLeft
-			property string cornerRight: root.defaults.cornerRight
 			property bool batteryPercent: root.defaults.batteryPercent
 			property bool weather: root.defaults.weather
 			property bool clock24: root.defaults.clock24
