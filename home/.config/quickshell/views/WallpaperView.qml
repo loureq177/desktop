@@ -128,6 +128,18 @@ Variants {
 			}
 		}
 
+		// Focus: the plain background, nothing to look at.
+		Rectangle {
+			anchors.fill: parent
+			z: 3
+			color: Theme.bgMain
+			opacity: Notifications.dnd ? 1 : 0
+
+			Behavior on opacity {
+				NumberAnimation { duration: 600; easing.type: Easing.InOutSine }
+			}
+		}
+
 		NumberAnimation {
 			id: grow
 			target: win

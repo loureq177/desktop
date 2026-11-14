@@ -10,7 +10,54 @@ import QtQuick
 Singleton {
 	id: root
 
+	// Focus: toasts and their sound held back, all but critical ones.
 	property bool dnd: false
+	// When Focus started and ends on its own (ms since the epoch); 0 while it waits to be turned off.
+	property double dndFrom: 0
+	property double dndUntil: 0
+	// Seconds left of a Focus that ends on its own, the bar's countdown.
+	property int focusLeft: 0
+	readonly property real focusFraction: dndUntil > dndFrom ? focusLeft * 1000 / (dndUntil - dndFrom) : 0
+	// A shared screen holds them back too: the people watching don't read them.
+	property bool sharing: false
+	readonly property bool quiet: dnd || sharing
+	onDndChanged: {
+		if (!dnd) {
+			dndUntil = 0;
+			focusLeft = 0;
+		}
+		dimOthers(dnd);
+	}
+
+	// The windows not in use darker while Focus is on; Hyprland's own strength back after.
+	function dimOthers(on: bool): void {
+		Hypr.dispatch(on
+			? "function() _G.focusDimWas = _G.focusDimWas or hl.get_config(\"decoration.dim_strength\") hl.config({ decoration = { dim_strength = 0.4 } }) end"
+			: "function() if _G.focusDimWas then hl.config({ decoration = { dim_strength = _G.focusDimWas } }) _G.focusDimWas = nil end end");
+	}
+	// A shell restarted mid-Focus left them dark.
+	Component.onCompleted: dimOthers(false)
+	// The ones already up go too; the center keeps them.
+	onSharingChanged: {
+		for (var i = toasts.count - 1; sharing && i >= 0; i--) {
+			if (toasts.get(i).urgency !== NotificationUrgency.Critical)
+				toasts.remove(i);
+		}
+	}
+
+	// On for `minutes`, or until turned off with 0; `until` a time of its own instead.
+	function focusFor(minutes: int, until: double): void {
+		dndFrom = Date.now();
+		dndUntil = until > 0 ? until : minutes > 0 ? dndFrom + minutes * 60000 : 0;
+		dnd = true;
+		focusTick.tick();
+	}
+
+	// A time of day as the bar's clock writes it.
+	function clockText(ms: double): string {
+		return Qt.formatDateTime(new Date(ms), Prefs.values.clock24 ? "hh:mm" : "h:mm AP");
+	}
+
 	readonly property ListModel history: ListModel {}
 	readonly property ListModel toasts: ListModel {}
 	readonly property int historyLimit: 100
@@ -119,7 +166,7 @@ Singleton {
 	}
 
 	function showToast(n): void {
-		if (root.dnd && n.urgency !== NotificationUrgency.Critical)
+		if (root.quiet && n.urgency !== NotificationUrgency.Critical)
 			return;
 		var i = root.indexIn(root.toasts, n.id);
 		if (i >= 0) {
@@ -231,6 +278,51 @@ Singleton {
 		var nid = root.latestNid();
 		if (nid !== null)
 			root.activate(nid);
+	}
+
+	// A screenshot is a capture too, over in a moment: a share is one that lasts a second.
+	// Hyprland ends and restarts a share whose screen stands still: a gap under half a second is none.
+	readonly property bool capturing: Modes.screencasts > 0 && !Modes.listingWindows
+	onCapturingChanged: {
+		if (!capturing) {
+			shareGap.restart();
+		} else {
+			shareGap.stop();
+			if (!sharing && !shareStart.running)
+				shareStart.start();
+		}
+	}
+
+	Timer {
+		id: shareStart
+		interval: 1000
+		onTriggered: root.sharing = true
+	}
+
+	Timer {
+		id: shareGap
+		interval: 500
+		onTriggered: {
+			shareStart.stop();
+			root.sharing = false;
+		}
+	}
+
+	// Against the clock each second: a sleep stops the timer, not the time.
+	Timer {
+		id: focusTick
+		running: root.dndUntil > 0
+		interval: 1000
+		repeat: true
+		onTriggered: tick()
+
+		function tick(): void {
+			var left = Math.ceil((root.dndUntil - Date.now()) / 1000);
+			if (root.dndUntil > 0 && left <= 0)
+				root.dnd = false;
+			else
+				root.focusLeft = Math.max(0, left);
+		}
 	}
 
 	Timer {

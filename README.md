@@ -29,18 +29,19 @@ compromise on functionality.
       files in your home folder, by name with fd
     - Power menu under `SUPER + Escape`: lock, suspend, log out, reboot, power off
     - Actions, notifications, OSD
-    - Hot corners: the top left opens the launcher, the top right Actions
     - Open windows under `SUPER + O`: a list of the launcher, every window with a
       live picture, on any workspace; also a right-click on the launcher's icon
     - Weather module
     - Memory on the bar above 70%, always in Actions
     - Tray: the apps running in the background (Discord, Steam)
-- **Hyprlock**: password or fingerprint
+- **Hyprlock**: password
 - **Github theme**: `~/.config/ui/ui.toml`, change it with `apply-ui`: the shell,
   Hyprland, the lock screen, GTK and Qt programs (qt6ct)
 - Screenshots with edits, screen recording with mic and camera!!, OCR
 - **Dictation** with Parakeet under `SUPER + D`, Polish and English mixed
-- Battery care, awake-mode, night-light
+- Battery care, awake-mode, night-light, Focus: notifications held for a time you pick
+  (counted down on the bar), the wallpaper off and other windows dimmed; notifications
+  also held while the screen is shared
 - **Settings** under `SUPER + S`: displays, Wi-Fi, Bluetooth, audio, and every option
   of Hyprland and the theme, searchable, changed on the spot
 - **LocalSend** for files to and from the phone: started from the launcher, in the tray while it runs

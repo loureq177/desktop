@@ -510,6 +510,8 @@ PanelWindow {
 
 			Level {
 				anchors.verticalCenter: parent.verticalCenter
+				height: 6
+				radius: 3
 				value: Modes.timerFraction
 			}
 
@@ -527,6 +529,53 @@ PanelWindow {
 					id: timerRoom
 					font: timerTime.font
 					text: Modes.timerText(Modes.timerEnd - Modes.timerStart)
+				}
+			}
+		}
+
+		// Focus that ends on its own counts down there too, while the timer is off.
+		Row {
+			readonly property bool wanted: Notifications.focusLeft > 0 && Modes.timerLeft === 0 && Bars.osdScreen !== bar.screenName
+
+			anchors.centerIn: parent
+			height: parent.height
+			spacing: 10
+			visible: opacity > 0
+			opacity: wanted ? 1 : 0
+			layer.enabled: true
+			layer.effect: Halo {}
+
+			Behavior on opacity {
+				NumberAnimation { duration: Theme.animFast; easing.type: Easing.OutCubic }
+			}
+
+			LineIcon {
+				anchors.verticalCenter: parent.verticalCenter
+				name: "bell-off"
+				color: Theme.warning
+			}
+
+			Level {
+				anchors.verticalCenter: parent.verticalCenter
+				height: 6
+				radius: 3
+				value: Notifications.focusFraction
+				fill: Theme.warning
+			}
+
+			StyledText {
+				id: focusTime
+				anchors.verticalCenter: parent.verticalCenter
+				width: focusRoom.width
+				text: Modes.timerText(Notifications.focusLeft)
+				mono: true
+				font.bold: true
+				font.pixelSize: Theme.fontSizeBar
+
+				TextMetrics {
+					id: focusRoom
+					font: focusTime.font
+					text: Modes.timerText((Notifications.dndUntil - Notifications.dndFrom) / 1000)
 				}
 			}
 		}
@@ -574,22 +623,64 @@ PanelWindow {
 
 			Pill {
 				id: dictationPill
-				// Only while listening: the transcription takes a moment, so stopping closes it.
-				shown: Modes.dictation === "recording"
+				readonly property bool listening: Modes.dictation === "recording"
+
+				// Listening in red, a click stops it; then writing it out, until the text is typed.
+				shown: Modes.dictation !== ""
 				custom: true
-				textColor: Theme.critical
+				textColor: listening ? Theme.critical : Theme.textMain
 				isActive: true
+				interactive: listening
 				onActivated: Commands.script("dictation stop")
 
-				// The microphone grows a little with the voice, and stays put in a quiet room.
-				LineIcon {
+				Row {
 					anchors.verticalCenter: parent.verticalCenter
-					name: "mic"
-					color: Theme.critical
-					scale: 1 + 0.3 * Audio.micLevel
+					spacing: 5
 
-					Behavior on scale {
-						NumberAnimation { duration: 60 }
+					// The microphone grows a little with the voice, and stays put in a quiet room.
+					LineIcon {
+						anchors.verticalCenter: parent.verticalCenter
+						name: "mic"
+						color: dictationPill.textColor
+						scale: dictationPill.listening ? 1 + 0.3 * Audio.micLevel : 1
+
+						Behavior on scale {
+							NumberAnimation { duration: 60 }
+						}
+					}
+
+					// Writing it out: a wave through three dots.
+					Row {
+						id: writing
+						property real phase: 0
+
+						anchors.verticalCenter: parent.verticalCenter
+						visible: !dictationPill.listening
+						spacing: 3
+
+						NumberAnimation on phase {
+							running: writing.visible
+							from: 0
+							to: 1
+							duration: 900
+							loops: Animation.Infinite
+						}
+
+						Repeater {
+							model: 3
+
+							Rectangle {
+								required property int index
+								readonly property real lift: 0.5 + 0.5 * Math.cos(2 * Math.PI * (writing.phase - index / 3))
+
+								width: 4
+								height: 4
+								radius: 2
+								color: Theme.textMain
+								opacity: 0.25 + 0.75 * lift
+								scale: 0.8 + 0.4 * lift
+							}
+						}
 					}
 				}
 			}
@@ -667,7 +758,7 @@ PanelWindow {
 			}
 
 			// The date and the time, and the notifications behind a click, as on a Mac. A dot at
-			// the time's corner: blue for notifications kept, yellow for do not disturb, as its tile.
+			// the time's corner: blue for notifications kept, yellow while they are held back (Focus).
 			Pill {
 				id: clock
 				property date now: new Date()
@@ -681,7 +772,7 @@ PanelWindow {
 				panel: "notifications"
 				onActivated: Panels.toggle("notifications")
 				onCountChanged: {
-					if (count > seen && !Notifications.dnd)
+					if (count > seen && !Notifications.quiet)
 						arrived.restart();
 					seen = count;
 				}
@@ -714,8 +805,8 @@ PanelWindow {
 					width: 6
 					height: 6
 					radius: 3
-					visible: kept || Notifications.dnd
-					color: !kept ? "transparent" : Notifications.dnd ? Theme.warning : Theme.accentBlue
+					visible: kept || Notifications.quiet
+					color: !kept ? "transparent" : Notifications.quiet ? Theme.warning : Theme.accentBlue
 					border.width: kept ? 0 : 1.5
 					border.color: Theme.warning
 

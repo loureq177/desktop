@@ -72,7 +72,7 @@ Singleton {
 		{ id: "picker", group: "capture", name: "Color picker", desc: "Copies the hex value", icon: "pipette", run: () => capture("hyprpicker -a --notify") },
 		{ id: "ocr", group: "capture", name: "OCR", desc: "Copies text from the screen", icon: "scan-text", run: () => capture(bin + "ocr") },
 
-		{ id: "dnd", home: "Actions", group: "modes", name: "Do not disturb", desc: "Silences notifications", icon: "bell-off", active: Notifications.dnd, tint: Theme.warning, keywords: "dnd", run: () => { Notifications.dnd = !Notifications.dnd; } },
+		{ id: "dnd", home: "Actions", group: "modes", name: "Focus", desc: "Silences notifications", icon: "bell-off", active: Notifications.dnd, tint: Theme.warning, keywords: "dnd do not disturb silence", run: () => { Notifications.dnd = !Notifications.dnd; } },
 		{ id: "nightlight", home: "Actions", group: "modes", name: "Night light", desc: "Turns on at 8 PM", icon: "moon", active: Modes.nightLight, tint: Theme.warning, keywords: "blue light", run: () => Modes.toggleNightLight() },
 		Modes.timerLeft > 0
 			? { id: "timer", group: "modes", name: "Stop timer", desc: Modes.timerText(Modes.timerLeft) + " left", icon: "timer", keywords: "countdown alarm", run: () => script("timer stop") }

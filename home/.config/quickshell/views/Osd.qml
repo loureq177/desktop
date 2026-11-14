@@ -22,8 +22,9 @@ PanelWindow {
 		: kind === "mic" ? (muted ? "mic-off" : "mic")
 		: kind === "wallpaper" ? "image"
 		: kind === "timer" ? "timer"
+		: kind === "focus" ? (Notifications.dnd ? "bell-off" : "bell")
 		: Audio.icon
-	readonly property color tone: muted ? Theme.textDim : Theme.accentBlue
+	readonly property color tone: muted ? Theme.textDim : kind === "focus" && Notifications.dnd ? Theme.warning : Theme.accentBlue
 
 	readonly property string wallpaperName: Wallpaper.path.replace(/^.*\//, "").replace(/\.[^.]*$/, "")
 
@@ -94,7 +95,7 @@ PanelWindow {
 
 	Timer {
 		id: hideTimer
-		interval: win.kind === "timer" ? 3000 : 1200
+		interval: win.kind === "timer" ? 3000 : win.kind === "focus" ? 2000 : 1200
 		onTriggered: win.shown = false
 	}
 
@@ -125,6 +126,8 @@ PanelWindow {
 			Level {
 				anchors.verticalCenter: parent.verticalCenter
 				visible: win.kind === "volume" || win.kind === "brightness" || win.kind === "timer"
+				height: win.kind === "timer" ? 6 : 4
+				radius: height / 2
 				value: win.kind === "timer" ? Modes.timerFraction : win.value / 100
 				fill: win.tone
 			}
@@ -146,6 +149,15 @@ PanelWindow {
 				visible: win.kind === "timer"
 				text: Modes.timerText(Modes.timerLeft)
 				mono: true
+				font.bold: true
+				font.pixelSize: Theme.fontSizeBar
+			}
+
+			StyledText {
+				anchors.verticalCenter: parent.verticalCenter
+				visible: win.kind === "focus"
+				text: !Notifications.dnd ? "Focus off"
+					: Notifications.dndUntil > 0 ? "Focus until " + Notifications.clockText(Notifications.dndUntil) : "Focus"
 				font.bold: true
 				font.pixelSize: Theme.fontSizeBar
 			}
@@ -210,6 +222,19 @@ PanelWindow {
 		function onTimerMoment() {
 			if (Hypr.fullscreenOn(Panels.screen))
 				win.show("timer");
+		}
+	}
+
+	// Picked in Actions it shows there already; from elsewhere, or ending on its own, here.
+	Connections {
+		target: Notifications
+		function onDndChanged() {
+			if (Panels.active !== "actions")
+				win.show("focus");
+		}
+		function onDndUntilChanged() {
+			if (Notifications.dnd && Panels.active !== "actions")
+				win.show("focus");
 		}
 	}
 
