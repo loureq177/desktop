@@ -42,8 +42,8 @@ PanelWindow {
 		right: true
 	}
 
-	// Only the strip takes input.
-	implicitHeight: Theme.barMarginY + Theme.barHeight
+	// Only the strip takes input. Over a fullscreen window the margin below too, for the band.
+	implicitHeight: Theme.barMarginY * (overFullscreen ? 2 : 1) + Theme.barHeight
 	mask: Region {
 		item: strip
 
@@ -269,7 +269,8 @@ PanelWindow {
 		text: Bt.connected.map(d => Bt.name(d) + (d.batteryAvailable ? "  " + Math.round(d.battery * 100) + "%" : "")).join("\n")
 	}
 
-	// Over a fullscreen window the bar comes on a solid band: a bright video hides it otherwise.
+	// Over a fullscreen window the bar comes on a solid band, as much above it as below: a
+	// bright video hides it otherwise.
 	Rectangle {
 		visible: bar.overFullscreen
 		width: parent.width
