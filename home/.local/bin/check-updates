@@ -48,6 +48,7 @@ if (( total > 0 || pacnew_count > 0 )); then
         -A "default=Update system" -A "update=Update system" \
         "$summary" "$body" 2>/dev/null || true)
     if [[ "$action" == default || "$action" == update ]]; then
-        ghostty +new-window -e "$HOME/.local/bin/sysupdate"
+        # The window stays on the shell after it, as if typed there.
+        ghostty +new-window -e sh -c "$HOME/.local/bin/sysupdate"'; exec "$SHELL"'
     fi
 fi

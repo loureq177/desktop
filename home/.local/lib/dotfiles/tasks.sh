@@ -1,6 +1,7 @@
 # shellcheck shell=bash
 # Steps run at once: `task LABEL FN` queues one, `run_tasks TITLE` runs them; a step's last
 # line is its summary (⚠ warns), all in $TASKS_LOG, `task_status TEXT` says how it is going.
+# `task_detail LINE...` lines come under the section once done.
 
 TASKS_DIR=$(mktemp -d "${TMPDIR:-/tmp}/tasks.XXXXXX")
 TASKS_LOG=${TASKS_LOG:-}
@@ -25,6 +26,10 @@ task_status() {
     printf '%s' "$1" >"$_TASK_STATUS.new" && mv -f -- "$_TASK_STATUS.new" "$_TASK_STATUS"
 }
 
+task_detail() {
+    printf '%s\n' "$@" >>"$_TASK_DETAILS"
+}
+
 # Microseconds since the epoch, without a fork.
 _task_now() {
     printf '%s' "${EPOCHREALTIME/./}"
@@ -37,6 +42,7 @@ _task_spawn() {
     (
         rc=0
         _TASK_STATUS=$TASKS_DIR/$i.status
+        _TASK_DETAILS=$TASKS_DIR/$i.details
         "${_TASK_FUNCS[$i]}" >"$TASKS_DIR/$i.out" 2>&1 </dev/null || rc=$?
         _task_now >"$TASKS_DIR/$i.end"
         echo "$rc" >"$TASKS_DIR/$i.rc"
@@ -244,6 +250,16 @@ _tasks_report() {
     fi
 }
 
+# Each step's task_detail lines, under its label.
+_tasks_details() {
+    local n=${#_TASK_LABELS[@]} i
+    for ((i = 0; i < n; i++)); do
+        [[ -s "$TASKS_DIR/$i.details" ]] || continue
+        _log_info "${_TASK_LABELS[i]}"
+        cat -- "$TASKS_DIR/$i.details"
+    done
+}
+
 run_tasks() {
     local title=$1 n=${#_TASK_LABELS[@]} i started width=0
     ((n > 0)) || return 0
@@ -261,6 +277,7 @@ run_tasks() {
     fi
     wait "${_TASK_PIDS[@]}" 2>/dev/null || true
     _tasks_report
+    _tasks_details
     _TASK_LABELS=() _TASK_FUNCS=() _TASK_PIDS=() _TASK_TEXT=() _TASK_KIND=()
-    rm -f -- "$TASKS_DIR"/*.{start,end,rc,out,status}
+    rm -f -- "$TASKS_DIR"/*.{start,end,rc,out,status,details}
 }

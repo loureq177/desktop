@@ -42,6 +42,21 @@ listing() {
     printf '%s' "$out"
 }
 
+# Lines "name<TAB>what" under the section, as the package list shows them: names
+# aligned, the rest dimmed.
+detail_rows() {
+    local -a names=() rest=()
+    local name what width=0 i
+    while IFS=$'\t' read -r name what; do
+        names+=("$name")
+        rest+=("$what")
+        ((${#name} > width)) && width=${#name}
+    done
+    for i in "${!names[@]}"; do
+        task_detail "$(printf '    %-*s  %s%s%s' "$width" "${names[i]}" "$_C_DIM" "${rest[i]}" "$_C_NC")"
+    done
+}
+
 # --- System packages ---------------------------------------------------------
 
 # pacman's stages as the step's changing line (it prints a line per stage without a tty),
@@ -232,8 +247,9 @@ build_own() {
         tail -n 15 "$TASKS_DIR/builds.out"
         return "$rc"
     fi
-    # sed, not head: head leaves early and pipefail makes SIGPIPE a failure (141).
-    pacman_changes "$builds_log_start" "" | sed -n 1p
+    pacman_changes "$builds_log_start" "" >"$TASKS_DIR/builds.changes"
+    tail -n +2 "$TASKS_DIR/builds.changes" >>"$_TASK_DETAILS"
+    head -n 1 "$TASKS_DIR/builds.changes"
 }
 
 # --- The steps ---------------------------------------------------------------
@@ -253,6 +269,7 @@ update_system() {
         return "$rc"
     fi
     pacman_changes "$pacman_log_start" "${PACMAN_SIZE:-}" >"$TASKS_DIR/pacman.changes"
+    tail -n +2 "$TASKS_DIR/pacman.changes" >>"$_TASK_DETAILS"
     head -n 1 "$TASKS_DIR/pacman.changes"
 }
 
@@ -267,17 +284,25 @@ update_zsh_plugins() {
     done
     run_captured setsid -w zsh -ic "zinit self-update && zinit update --parallel" || return 1
     local -a updated=()
+    local now name
     for d in "${!before[@]}"; do
-        [[ "$(git -C "$d" rev-parse HEAD 2>/dev/null || true)" == "${before[$d]}" ]] && continue
-        d=${d##*/}
-        d=${d%.git}
-        updated+=("${d#*---}")
+        now=$(git -C "$d" rev-parse HEAD 2>/dev/null || true)
+        [[ "$now" == "${before[$d]}" ]] && continue
+        name=${d##*/}
+        name=${name%.git}
+        updated+=("${name#*---}"$'\t'"${before[$d]:0:7} → ${now:0:7}")
     done
     if ((${#updated[@]})); then
-        _log_ok "${#updated[@]} updated · $(_join ", " "${updated[@]}")"
+        printf '%s\n' "${updated[@]}" | sort | detail_rows
+        _log_ok "${#updated[@]} updated"
     else
         _log_ok "Up to date"
     fi
+}
+
+# A lockfile's plugins and their short commits, "name<TAB>commit".
+lock_commits() {
+    sed -nE 's/^[[:space:]]*"([^"]+)":.*"commit": *"([0-9a-f]{7})[0-9a-f]*".*/\1\t\2/p'
 }
 
 # Lazy's sync log runs to hundreds of lines; the lockfile diff says what moved.
@@ -288,9 +313,12 @@ update_nvim_plugins() {
     run_captured nvim --headless "+Lazy! sync" +qa || return 1
     [ -f "$lock" ] || return 0
     new_lock=$(<"$lock")
-    mapfile -t changed < <(diff <(printf '%s\n' "$old_lock") <(printf '%s\n' "$new_lock") | sed -nE 's/^> *"([^"]+)".*/\1/p' || true)
+    mapfile -t changed < <(awk -F'\t' 'NR == FNR { old[$1] = $2; next }
+        old[$1] != $2 { print $1 "\t" ($1 in old ? old[$1] " → " $2 : "new") }' \
+        <(lock_commits <<<"$old_lock") <(lock_commits <<<"$new_lock") | sort)
     if ((${#changed[@]})); then
-        _log_ok "${#changed[@]} updated · $(_join ", " "${changed[@]}")"
+        printf '%s\n' "${changed[@]}" | detail_rows
+        _log_ok "${#changed[@]} updated"
     else
         _log_ok "Up to date"
     fi
@@ -318,7 +346,8 @@ update_flatpak() {
     run_captured flatpak update -y --noninteractive || return 1
     printf '%s\n' "$OUT"
     if ((${#apps[@]})); then
-        _log_ok "${#apps[@]} updated · $(_join ", " "${apps[@]}")"
+        printf '%s\n' "${apps[@]}" | detail_rows
+        _log_ok "${#apps[@]} updated"
     else
         _log_ok "Up to date"
     fi
@@ -348,9 +377,10 @@ update_uv_tools() {
     run_captured uv tool upgrade --all || return 1
     printf '%s\n' "$OUT"
     local -a moved
-    mapfile -t moved < <(sed -nE 's/^Updated ([^ ]+) v?([^ ]+) -> v?([^ ]+).*/\1 \2 → \3/p' <<<"$OUT")
+    mapfile -t moved < <(sed -nE 's/^Updated ([^ ]+) v?([^ ]+) -> v?([^ ]+).*/\1\t\2 → \3/p' <<<"$OUT")
     if ((${#moved[@]})); then
-        _log_ok "${#moved[@]} updated · $(_join ", " "${moved[@]}")"
+        printf '%s\n' "${moved[@]}" | detail_rows
+        _log_ok "${#moved[@]} updated"
     else
         _log_ok "Up to date"
     fi
@@ -396,10 +426,6 @@ queue "Neovim plugins" nvim update_nvim_plugins
 run_tasks "Update"
 
 rc=$(<"$TASKS_DIR/pacman.exit")
-if [[ -n "$(tail -n +2 "$TASKS_DIR/pacman.changes" 2>/dev/null)" ]]; then
-    _log_info "System packages"
-    tail -n +2 "$TASKS_DIR/pacman.changes"
-fi
 if [[ -f "$TASKS_DIR/pacman.warnings" ]]; then
     while IFS= read -r line; do
         _log_warn "$line"
@@ -420,6 +446,21 @@ if [ -f "$TASKS_DIR/firmware" ]; then
 fi
 
 command -v pacdiff >/dev/null 2>&1 && check_pacnew
+
+# Whether the features still work with what was just installed.
+if command -v desktop-check >/dev/null 2>&1 && ! check_out=$(desktop-check 2>&1); then
+    mapfile -t broken < <(sed -n 's/^  ⚠ //p' <<<"$check_out")
+    attention+=("${broken[@]}")
+    notify dialog-warning critical "Something stopped working" "$(printf '%s\n' "${broken[@]}")"
+fi
+
+# Packages with a workaround for their bug here (README, Workarounds): an update may have fixed it.
+if [ -f "$PACMAN_LOG" ] && [ "$pacman_log_start" -gt 0 ]; then
+    while IFS= read -r pkg; do
+        attention+=("$pkg updated: retest its workarounds (README, Workarounds)")
+    done < <(tail -n "+$((pacman_log_start + 1))" "$PACMAN_LOG" 2>/dev/null |
+        sed -nE 's/.*\[ALPM\] upgraded (hyprland|wireplumber|nvidia-utils) \(.*/\1/p' | sort -u)
+fi
 
 reboot_reasons=()
 if [ ! -d "/usr/lib/modules/$(uname -r)" ]; then
@@ -462,11 +503,7 @@ if ((TASKS_FAILED)); then
 else
     printf '%s%s\n' "$_C_BOLD" "$(_gradient "✓ Up to date · $(_task_time $((${EPOCHREALTIME/./} - RUN_START)))")"
 fi
-
-# In a window of its own (the launcher, the update notification) the summary
-# stays until a key is pressed; from a shell there is nothing to wait for.
-if [[ -t 0 ]] && ! [[ "$(ps -o comm= -p "$PPID" 2>/dev/null)" =~ ^(zsh|bash|fish|sh)$ ]]; then
-    read -rsn1 -p $'\nPress any key to close.' || true
-fi
+# A failed step has said where already.
+((TASKS_FAILED)) || printf '%sAll it printed: %s%s\n' "$_C_DIM" "${TASKS_LOG/#$HOME/\~}" "$_C_NC"
 
 exit "$rc"

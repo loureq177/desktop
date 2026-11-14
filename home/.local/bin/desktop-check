@@ -1,0 +1,115 @@
+#!/usr/bin/env bash
+# Whether the desktop's features still work, run as they will be next time: sysupdate calls it
+# after updating, as an update can break one without a word (dictation typed ggml's crash).
+# Exits 1 when something fails; nothing it does shows on screen.
+set -uo pipefail
+
+source "$HOME/.local/lib/dotfiles/common.sh"
+
+failed=()
+fail() {
+    failed+=("$1")
+    _log_warn "$1"
+}
+
+# A library an update renamed or removed: the program would not start.
+check_libraries() {
+    local bin path missing bad=0
+    for bin in Hyprland hyprlock hypridle hyprsunset hyprpicker quickshell ghostty grim slurp satty wf-recorder tesseract cliphist wl-copy wtype pw-record sox; do
+        path=$(command -v "$bin") || continue
+        missing=$(ldd "$path" 2>/dev/null | awk '/not found/ { print $1 }' | tr '\n' ' ')
+        if [[ -n "$missing" ]]; then
+            fail "$bin cannot start, missing ${missing% }"
+            bad=1
+        fi
+    done
+    # The packages built here too (~/.local/share/pkgbuilds): a system library moves on under them.
+    local dir pkg f
+    for dir in "${XDG_DATA_HOME:-$HOME/.local/share}"/pkgbuilds/*/; do
+        pkg=$(basename "$dir")
+        while IFS= read -r f; do
+            if [[ ! -f "$f" || ! -x "$f" ]] || ! file -b "$f" 2>/dev/null | grep -q '^ELF'; then
+                continue
+            fi
+            missing=$(ldd "$f" 2>/dev/null | awk '/not found/ { print $1 }' | tr '\n' ' ')
+            if [[ -n "$missing" ]]; then
+                fail "$pkg (built here) needs a rebuild: ${f##*/} misses ${missing% }"
+                bad=1
+                break
+            fi
+        done < <(pacman -Qlq "$pkg" 2>/dev/null)
+    done
+    ((bad)) || _log_ok "Programs find their libraries"
+}
+
+check_units() {
+    local units
+    units=$(systemctl --user list-units --failed --no-legend --plain 2>/dev/null | awk '{ print $1 }' | tr '\n' ' ')
+    if [[ -n "$units" ]]; then
+        fail "Failed user services: ${units% }"
+    else
+        _log_ok "User services running"
+    fi
+}
+
+check_hyprland() {
+    command -v hyprctl >/dev/null && [[ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]] || return 0
+    local errors
+    errors=$(hyprctl configerrors 2>/dev/null | sed '/^[[:space:]]*$/d')
+    if [[ -n "$errors" ]]; then
+        fail "Hyprland config errors: $(head -n 1 <<<"$errors")"
+    else
+        _log_ok "Hyprland config loads"
+    fi
+}
+
+# The whole engine on a second of silence: an empty text, but a crash or a missing model fails.
+check_dictation() {
+    local model="${XDG_DATA_HOME:-$HOME/.local/share}/parakeet/parakeet-tdt-0.6b-v3-onnx" wav
+    if ! command -v onnx-asr >/dev/null || [[ ! -s "$model/encoder-model.int8.onnx" ]]; then
+        fail "Dictation is not installed (install.sh installs onnx-asr and the model)"
+        return
+    fi
+    wav=$(mktemp --suffix=.wav)
+    sox -n -r 16000 -c 1 -b 16 "$wav" trim 0 1 2>/dev/null
+    if onnx-asr nemo-parakeet-tdt-0.6b-v3 -p "$model" -q int8 "$wav" >/dev/null 2>&1; then
+        _log_ok "Dictation transcribes"
+    else
+        fail "Dictation fails: onnx-asr exits $?"
+    fi
+    rm -f "$wav"
+}
+
+check_ocr() {
+    command -v tesseract >/dev/null || return 0
+    local langs
+    langs=$(tesseract --list-langs 2>/dev/null)
+    if grep -qx eng <<<"$langs" && grep -qx pol <<<"$langs"; then
+        _log_ok "OCR reads English and Polish"
+    else
+        fail "OCR lacks a language (tesseract-data-eng, tesseract-data-pol)"
+    fi
+}
+
+# Only with a screen on: grim waits for a frame that a sleeping one never gives.
+check_screenshot() {
+    command -v grim >/dev/null && command -v jq >/dev/null && [[ -n "${WAYLAND_DISPLAY:-}" ]] || return 0
+    local output
+    output=$(hyprctl monitors -j 2>/dev/null | jq -r 'map(select(.dpmsStatus)) | .[0].name // empty')
+    [[ -n "$output" ]] || return 0
+    if [[ "$(timeout 5 grim -o "$output" - 2>/dev/null | head -c 4 | od -An -c | tr -d ' ')" == *PNG* ]]; then
+        _log_ok "Screenshots capture"
+    else
+        fail "Screenshots fail (grim)"
+    fi
+}
+
+_log_info "Desktop check"
+check_libraries
+check_units
+check_hyprland
+check_dictation
+check_ocr
+check_screenshot
+
+((${#failed[@]} == 0))

@@ -99,3 +99,17 @@ into `~`, the theme and the session's units).
 | `SUPER + N`      | Notifications |
 | `SUPER + S`      | Settings      |
 | `SUPER + Escape` | Power menu    |
+
+## Workarounds
+
+Fixes for other projects' bugs. `sysupdate` names the ones to retest when their package
+updates; drop each once its cause is fixed upstream.
+
+| Package       | Bug                                                                    | Here                                                                                          | Drop when                        |
+| ------------- | ---------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- | -------------------------------- |
+| hyprland      | Hiding a special leaves the keyboard on its hidden window             | `specials.toggle` moves the cursor off the bar; the bar's special icons act on release        | Hyprland refocuses on hide       |
+| hyprland      | The pointer is not re-entered when a layer under it shrinks           | `StandbyWindow` calls `Hypr.refreshPointer`                                                   | a click after a panel closes lands |
+| wireplumber   | Device reservation races a suspend or VT switch: only "Dummy Output"  | `wireplumber.conf.d/54-no-device-reservation.conf`                                            | WirePlumber fixes reserve-device |
+| nvidia-utils  | Idle clocks drop frames on the dock's monitors                        | `etc/nvidia-clock-floor.sh`, its udev rule and unit                                           | animations are smooth without it |
+| nvidia-utils  | A monitor on the dock's MST stays black                               | `etc/modprobe.d/nvidia-display-sync.conf`                                                     | it lights up without it          |
+| nvidia-utils  | The panel can stay on the frame from the moment of sleep              | `etc/systemd/system/suspend-settle.service`, `refresh_panel` in `monitors.lua`                | long sleeps wake without it      |

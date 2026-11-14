@@ -16,8 +16,9 @@ Singleton {
 		Hypr.exec(["sh", "-c", root.bin + commandLine]);
 	}
 
+	// A script in a terminal that stays open on the shell after it, as if typed there.
 	function terminal(name: string): void {
-		Hypr.exec(["ghostty", "+new-window", "-e", root.bin + name]);
+		Hypr.exec(["ghostty", "+new-window", "-e", "sh", "-c", root.bin + name + '; exec "$SHELL"']);
 	}
 
 	// What a desktop entry runs, as argv.
