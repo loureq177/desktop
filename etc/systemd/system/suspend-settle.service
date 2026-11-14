@@ -1,14 +1,15 @@
-# The kernel moves to VT 63 as sleep begins and back on waking, as nvidia.ko requires: the panel
-# can freeze on the frame it leaves, so the lock screen gets time to reach it, and VT 63 no cursor.
+# The kernel moves to VT 63 as sleep begins and back on waking, as nvidia.ko requires: VT 63
+# gets no cursor. The panel can freeze on the frame it leaves; hypridle holds the sleep until
+# the session is locked, and a 0.8 s wait here for the lock to reach the panel was taken out
+# as a try (2026-11-14). If the desktop shows through on waking: ExecStart=/usr/bin/sleep 0.8.
 [Unit]
-Description=Ready the screen for sleep: lock screen on the panel, no cursor on VT 63
+Description=Ready the screen for sleep: no cursor on VT 63
 Before=nvidia-suspend.service systemd-suspend.service
 ConditionPathExists=/usr/lib/systemd/system/nvidia-suspend.service
 
 [Service]
 Type=oneshot
 ExecStart=/usr/bin/sh -c 'printf "\\033[?25l" > /dev/tty63'
-ExecStart=/usr/bin/sleep 0.8
 
 [Install]
 WantedBy=systemd-suspend.service
