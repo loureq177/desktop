@@ -269,6 +269,15 @@ PanelWindow {
 		text: Bt.connected.map(d => Bt.name(d) + (d.batteryAvailable ? "  " + Math.round(d.battery * 100) + "%" : "")).join("\n")
 	}
 
+	// Over a fullscreen window the bar comes on a solid band: a bright video hides it otherwise.
+	Rectangle {
+		visible: bar.overFullscreen
+		width: parent.width
+		height: parent.height
+		y: -(1 - bar.peekShown) * height
+		color: Theme.bgMain
+	}
+
 	Item {
 		id: strip
 		x: Theme.barMarginX
@@ -487,97 +496,21 @@ PanelWindow {
 		}
 
 		// The timer's time left, as the OSD draws a level; the OSD takes its place for the moment.
-		Row {
-			readonly property bool wanted: Modes.timerLeft > 0 && Bars.osdScreen !== bar.screenName
-
-			anchors.centerIn: parent
-			height: parent.height
-			spacing: 10
-			visible: opacity > 0
-			opacity: wanted ? 1 : 0
-			layer.enabled: true
-			layer.effect: Halo {}
-
-			Behavior on opacity {
-				NumberAnimation { duration: Theme.animFast; easing.type: Easing.OutCubic }
-			}
-
-			LineIcon {
-				anchors.verticalCenter: parent.verticalCenter
-				name: "timer"
-				color: Theme.accentBlue
-			}
-
-			Level {
-				anchors.verticalCenter: parent.verticalCenter
-				height: 6
-				radius: 3
-				value: Modes.timerFraction
-			}
-
-			// As wide as the start's time: the row stays put as a digit goes.
-			StyledText {
-				id: timerTime
-				anchors.verticalCenter: parent.verticalCenter
-				width: timerRoom.width
-				text: Modes.timerText(Modes.timerLeft)
-				mono: true
-				font.bold: true
-				font.pixelSize: Theme.fontSizeBar
-
-				TextMetrics {
-					id: timerRoom
-					font: timerTime.font
-					text: Modes.timerText(Modes.timerEnd - Modes.timerStart)
-				}
-			}
+		BarCountdown {
+			wanted: Modes.timerLeft > 0 && Bars.osdScreen !== bar.screenName
+			secondsLeft: Modes.timerLeft
+			total: Modes.timerEnd - Modes.timerStart
+			icon: "timer"
+			tone: Theme.accentBlue
 		}
 
 		// Focus that ends on its own counts down there too, while the timer is off.
-		Row {
-			readonly property bool wanted: Notifications.focusLeft > 0 && Modes.timerLeft === 0 && Bars.osdScreen !== bar.screenName
-
-			anchors.centerIn: parent
-			height: parent.height
-			spacing: 10
-			visible: opacity > 0
-			opacity: wanted ? 1 : 0
-			layer.enabled: true
-			layer.effect: Halo {}
-
-			Behavior on opacity {
-				NumberAnimation { duration: Theme.animFast; easing.type: Easing.OutCubic }
-			}
-
-			LineIcon {
-				anchors.verticalCenter: parent.verticalCenter
-				name: "bell-off"
-				color: Theme.warning
-			}
-
-			Level {
-				anchors.verticalCenter: parent.verticalCenter
-				height: 6
-				radius: 3
-				value: Notifications.focusFraction
-				fill: Theme.warning
-			}
-
-			StyledText {
-				id: focusTime
-				anchors.verticalCenter: parent.verticalCenter
-				width: focusRoom.width
-				text: Modes.timerText(Notifications.focusLeft)
-				mono: true
-				font.bold: true
-				font.pixelSize: Theme.fontSizeBar
-
-				TextMetrics {
-					id: focusRoom
-					font: focusTime.font
-					text: Modes.timerText((Notifications.dndUntil - Notifications.dndFrom) / 1000)
-				}
-			}
+		BarCountdown {
+			wanted: Notifications.focusLeft > 0 && Modes.timerLeft === 0 && Bars.osdScreen !== bar.screenName
+			secondsLeft: Notifications.focusLeft
+			total: (Notifications.dndUntil - Notifications.dndFrom) / 1000
+			icon: "bell-off"
+			tone: Theme.warning
 		}
 
 		// What comes and goes stands first: the row grows to the left, so the rest stays put.
