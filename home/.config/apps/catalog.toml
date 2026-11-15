@@ -19,9 +19,8 @@ browsers = [
 ]
 
 # `standard`: in the set the installer offers as a whole; `fixed`: always there, not
-# asked (one app, nothing to choose), its key taken; `background`: started
-# hidden with the session, so its notifications come before it is first opened;
-# `bar = false` keeps it off the bar's row of specials.
+# asked (one app, nothing to choose), its key taken; `bar = false` keeps it off the
+# bar's row of specials.
 
 [[category]]
 id = "calendar"
@@ -29,7 +28,6 @@ title = "Calendar"
 key = "C"
 icon = "calendar"
 standard = true
-background = true
 apps = [
 	{ name = "Google Calendar", url = "https://calendar.google.com", title = "Calendar", icon = "googlecalendar", app_icon = "icons/google-calendar.svg" },
 	{ name = "Outlook Calendar", url = "https://outlook.live.com/calendar", title = "Outlook", app_icon = "outlook-for-linux" },
@@ -42,24 +40,10 @@ title = "Mail"
 key = "E"
 icon = "mail"
 standard = true
-background = true
 apps = [
 	{ name = "Gmail", url = "https://mail.google.com", icon = "gmail", app_icon = "icons/gmail.svg" },
 	{ name = "Outlook", url = "https://outlook.live.com/mail", app_icon = "outlook-for-linux" },
 	{ name = "Proton Mail", url = "https://mail.proton.me", app_icon = "proton-mail" },
-]
-
-[[category]]
-id = "tasks"
-title = "Tasks"
-key = "T"
-icon = "circle-check"
-standard = true
-apps = [
-	{ name = "Google Tasks", url = "https://tasks.google.com", title = "Tasks", icon = "googletasks", app_icon = "icons/google-tasks.svg" },
-	{ name = "Todoist", url = "https://app.todoist.com", app_icon = "todoist" },
-	{ name = "TickTick", url = "https://ticktick.com/webapp", app_icon = "ticktick" },
-	{ name = "Microsoft To Do", url = "https://to-do.live.com", title = "To Do" },
 ]
 
 [[category]]
@@ -68,7 +52,6 @@ title = "Messages"
 key = "W"
 icon = "message-circle"
 standard = true
-background = true
 apps = [
 	{ name = "WhatsApp", url = "https://web.whatsapp.com", icon = "whatsapp", app_icon = "icons/whatsapp.svg" },
 	{ name = "Messenger", url = "https://www.messenger.com", app_icon = "messengerfordesktop" },
@@ -128,6 +111,7 @@ id = "notes"
 title = "Notes"
 key = "N"
 icon = "pencil"
+standard = true
 apps = [
 	{ name = "Notion", url = "https://www.notion.so", app_icon = "notion" },
 	{ name = "Google Keep", url = "https://keep.google.com", title = "Keep", app_icon = "google-keep" },

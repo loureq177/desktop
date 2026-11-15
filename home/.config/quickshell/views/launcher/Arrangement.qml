@@ -13,6 +13,10 @@ Item {
 	property int selected: 0
 	property bool dirty: false
 
+	// The buttons, for the mouse: Enter and Esc for the keys.
+	signal applyRequested()
+	signal cancelRequested()
+
 	readonly property var box: {
 		if (draft.length === 0)
 			return { x: 0, y: 0, w: 1, h: 1 };
@@ -32,7 +36,7 @@ Item {
 			return {
 				name: m.name,
 				output: Settings.displayOutput(m),
-				label: m.description || m.name,
+				label: Settings.displayName(m),
 				x: m.x,
 				y: m.y,
 				w: Math.round((turned ? m.height : m.width) / m.scale),
@@ -192,12 +196,35 @@ Item {
 	}
 
 	StyledText {
-		anchors.horizontalCenter: parent.horizontalCenter
-		anchors.bottom: parent.bottom
+		anchors.left: parent.left
+		anchors.right: buttons.visible ? buttons.left : parent.right
+		anchors.rightMargin: 12
+		anchors.verticalCenter: buttons.verticalCenter
+		horizontalAlignment: buttons.visible ? Text.AlignLeft : Text.AlignHCenter
+		elide: Text.ElideRight
 		text: root.draft.length < 2 ? "One screen: nothing to arrange"
 			: root.apart ? "A screen touches none of the others: the pointer cannot reach it"
 			: "←↑↓→ move  ·  Tab next screen  ·  drag with the mouse  ·  Enter applies  ·  Esc leaves it as it was"
 		font.pixelSize: Theme.fontSizeTiny
 		color: root.apart ? Theme.warning : Theme.textDim
+	}
+
+	Row {
+		id: buttons
+		anchors.right: parent.right
+		anchors.bottom: parent.bottom
+		spacing: 8
+		visible: root.dirty
+
+		TextButton {
+			text: "Cancel"
+			onClicked: root.cancelRequested()
+		}
+
+		TextButton {
+			primary: true
+			text: "Apply"
+			onClicked: root.applyRequested()
+		}
 	}
 }

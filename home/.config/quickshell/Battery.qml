@@ -24,6 +24,23 @@ Singleton {
 		: low ? Theme.warning
 		: Theme.textMain
 
+	// "2 h 10 min", or "" while UPower does not know yet.
+	function duration(seconds: real): string {
+		if (!(seconds > 0))
+			return "";
+		var m = Math.round(seconds / 60), h = Math.floor(m / 60);
+		return h > 0 ? h + " h " + (m % 60) + " min" : m + " min";
+	}
+
+	// What the battery's tip says: the level, and how long it lasts or takes to fill.
+	readonly property string summary: {
+		var left = duration(device?.timeToEmpty ?? 0), toFull = duration(device?.timeToFull ?? 0);
+		var state = full ? "Full" : charging ? (toFull !== "" ? "Charging, full in " + toFull : "Charging")
+			: status === "Not charging" ? "Plugged in, not charging"
+			: onBattery && left !== "" ? left + " left" : "";
+		return [percent + "%", state].filter(t => t !== "").join("  ·  ");
+	}
+
 	// The lowest level warned of: once at 10% and 5%, again after charging; UPower
 	// takes over at 2%.
 	property int warnedAt: 101

@@ -1,6 +1,7 @@
 import ".."
 import "../widgets"
 import Quickshell
+import Quickshell.Hyprland
 import Quickshell.Wayland
 import QtQuick
 
@@ -23,8 +24,9 @@ PanelWindow {
 		: kind === "wallpaper" ? "image"
 		: kind === "timer" ? "timer"
 		: kind === "focus" ? (Notifications.dnd ? "bell-off" : "bell")
+		: kind === "kill" ? "circle-x"
 		: Audio.icon
-	readonly property color tone: muted ? Theme.textDim : kind === "focus" && Notifications.dnd ? Theme.warning : Theme.accentBlue
+	readonly property color tone: muted ? Theme.textDim : kind === "focus" && Notifications.dnd ? Theme.warning : kind === "kill" ? Theme.critical : Theme.accentBlue
 
 	readonly property string wallpaperName: Wallpaper.path.replace(/^.*\//, "").replace(/\.[^.]*$/, "")
 
@@ -95,7 +97,7 @@ PanelWindow {
 
 	Timer {
 		id: hideTimer
-		interval: win.kind === "timer" ? 3000 : win.kind === "focus" ? 2000 : 1200
+		interval: win.kind === "timer" ? 3000 : win.kind === "focus" || win.kind === "kill" ? 2500 : 1200
 		onTriggered: win.shown = false
 	}
 
@@ -158,6 +160,17 @@ PanelWindow {
 				visible: win.kind === "focus"
 				text: !Notifications.dnd ? "Focus off"
 					: Notifications.dndUntil > 0 ? "Focus until " + Notifications.clockText(Notifications.dndUntil) : "Focus"
+				font.bold: true
+				font.pixelSize: Theme.fontSizeBar
+			}
+
+			StyledText {
+				anchors.verticalCenter: parent.verticalCenter
+				visible: win.kind === "kill"
+				width: Math.min(implicitWidth, 420)
+				elide: Text.ElideRight
+				textFormat: Text.PlainText
+				text: "Again to kill " + win.killName + " and all its windows"
 				font.bold: true
 				font.pixelSize: Theme.fontSizeBar
 			}
@@ -235,6 +248,31 @@ PanelWindow {
 		function onDndUntilChanged() {
 			if (Notifications.dnd && Panels.active !== "actions")
 				win.show("focus");
+		}
+	}
+
+	// SUPER + SHIFT + Q kills the window's process, every window of it (a browser's web apps
+	// too): the first press says so, a second one while it is up does it.
+	property string killArmed: ""
+	property string killName: ""
+
+	GlobalShortcut {
+		appid: "shell"
+		name: "kill-window"
+		onPressed: {
+			var w = Hyprland.activeToplevel;
+			if (!w)
+				return;
+			if (win.killArmed === w.address && win.shown && win.kind === "kill") {
+				win.killArmed = "";
+				win.shown = false;
+				Hypr.dispatch("hl.dsp.window.kill()");
+				return;
+			}
+			var cls = w.lastIpcObject?.class ?? "";
+			win.killName = DesktopEntries.heuristicLookup(cls)?.name || cls || w.title;
+			win.killArmed = w.address;
+			win.show("kill");
 		}
 	}
 

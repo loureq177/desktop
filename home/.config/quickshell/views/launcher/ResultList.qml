@@ -6,8 +6,9 @@ import QtQuick
 import QtQuick.Layouts
 
 // Rows of the launcher's lists: { label, subtitle, icon, lineIcon, run } and maybe chord,
-// changed (the chord in blue), editing (the subtitle in blue), tooltip (on hover),
-// accent, heading, confirm, setting, armId; run returning false keeps the launcher.
+// changed (the chord in blue), editing (the subtitle in blue), tooltip (said under the list
+// for the picked row), thumb (a picture), swatch (a colour), accent, heading, confirm, setting,
+// armId, usage (Usage's key); run returning false keeps the launcher.
 SelectList {
 	id: list
 
@@ -19,6 +20,11 @@ SelectList {
 	property string armedId: ""
 	property string armedText: ""
 	readonly property int headingHeight: 22
+	// What the picked row says of itself: a function is asked only for that row.
+	readonly property string currentTip: {
+		var it = items[currentIndex];
+		return !it ? "" : typeof it.tooltip === "function" ? it.tooltip() : (it.tooltip ?? "");
+	}
 	readonly property int preferredHeight: items.length === 0 ? 72
 		: items.length * Theme.rowHeight + items.filter((it, i) => headingAt(i) !== "").length * headingHeight
 
@@ -63,8 +69,9 @@ SelectList {
 	Component.onCompleted: itemsChanged()
 	onActivated: index => {
 		var item = items[index];
-		if (item.confirm && !confirm.ask(item.label))
+		if (item.confirm && !confirm.ask(item.label, list.byPointer))
 			return;
+		Usage.note(item.usage ?? "");
 		if (item.run() !== false)
 			Panels.close("launcher");
 	}
@@ -95,15 +102,6 @@ SelectList {
 
 		height: Theme.rowHeight + topInset
 		topInset: heading !== "" ? list.headingHeight : 0
-
-		// Under the row, from the label on.
-		Tip {
-			// A function is asked only under the pointer: not built for hundreds of rows per key.
-			text: !row.hovered ? "" : typeof row.modelData.tooltip === "function" ? row.modelData.tooltip() : (row.modelData.tooltip ?? "")
-			visible: row.hovered && text !== "" && !list.moving
-			x: 24 + Theme.rowIcon
-			y: row.height + 2
-		}
 
 		// The heading's name inside its divider: ── NAME ──────
 		RowLayout {
@@ -141,8 +139,30 @@ SelectList {
 			spacing: 12
 
 			Item {
-				Layout.preferredWidth: Theme.rowIcon
+				Layout.preferredWidth: row.modelData.thumb ? Theme.rowIcon * 16 / 9 : Theme.rowIcon
 				Layout.preferredHeight: Theme.rowIcon
+
+				// A picture to pick (a wallpaper), small and decoded small.
+				Image {
+					visible: !!row.modelData.thumb
+					anchors.fill: parent
+					source: row.modelData.thumb ?? ""
+					sourceSize.width: width * 2
+					sourceSize.height: height * 2
+					fillMode: Image.PreserveAspectCrop
+					asynchronous: true
+				}
+
+				Rectangle {
+					visible: !!row.modelData.swatch
+					anchors.centerIn: parent
+					width: 20
+					height: 20
+					radius: 10
+					color: row.modelData.swatch ?? "transparent"
+					border.color: Theme.tileBorderHover
+					border.width: 1
+				}
 
 				IconImage {
 					readonly property string name: row.modelData.icon ?? ""
@@ -179,6 +199,7 @@ SelectList {
 				color: row.armed || row.armedOutside ? Theme.warning : row.modelData.editing ? Theme.accentBlue : Theme.textDim
 				elide: Text.ElideRight
 				text: row.armedOutside ? list.armedText
+					: row.armed && confirm.byPointer ? "Click again to " + row.modelData.confirm
 					: row.armed ? "Press " + (row.modelData.chord ? row.modelData.chord + " or " : "") + "Enter again to " + row.modelData.confirm
 					: (row.modelData.subtitle ?? "")
 			}

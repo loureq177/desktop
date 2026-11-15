@@ -6,14 +6,17 @@ Timer {
 	id: root
 
 	property string armed: ""
+	// Armed by a click, not a key: what to say is "Click again".
+	property bool byPointer: false
 
 	// Whether `key` was armed already, so the caller goes ahead; else arms it.
-	function ask(key: string): bool {
+	function ask(key: string, pointer: bool): bool {
 		if (armed === key) {
 			reset();
 			return true;
 		}
 		armed = key;
+		byPointer = pointer === true;
 		restart();
 		return false;
 	}

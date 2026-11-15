@@ -14,7 +14,11 @@ Singleton {
 		weather: true,
 		clock24: true,
 		clockSeconds: false,
-		clockWeekday: false
+		clockWeekday: false,
+		// A place of one's own for the weather, by name; "" goes by the network.
+		weatherCity: "",
+		focusWallpaper: true,
+		focusDim: true
 	})
 
 	function set(key: string, value: var): void {
@@ -50,6 +54,9 @@ Singleton {
 			property bool clock24: root.defaults.clock24
 			property bool clockSeconds: root.defaults.clockSeconds
 			property bool clockWeekday: root.defaults.clockWeekday
+			property string weatherCity: root.defaults.weatherCity
+			property bool focusWallpaper: root.defaults.focusWallpaper
+			property bool focusDim: root.defaults.focusDim
 		}
 	}
 }

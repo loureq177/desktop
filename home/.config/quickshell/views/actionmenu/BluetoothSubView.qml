@@ -44,7 +44,6 @@ DeviceList {
 				saved: isPaired,
 				detail: isPaired ? "" : "Ready to pair",
 				dim: !isPaired,
-				open: false,
 				battery: d.batteryAvailable && d.battery >= 0 ? d.battery : -1
 			});
 		}

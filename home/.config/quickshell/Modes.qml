@@ -61,6 +61,26 @@ Singleton {
 	property bool nightLight: false
 	// What the schedule turns it on at (hyprsunset.conf).
 	property int nightLightKelvin: 4500
+	// Its strength in percent, 5500 K the weakest, 2500 K the strongest.
+	readonly property int nightLightStrength: Math.round((5500 - nightLightKelvin) / 30)
+	// When the schedule turns it on and off ("20:00", "6:00"); hyprsunset.conf.example's by default.
+	property string nightStart: defaultNightStart
+	property string dayStart: defaultDayStart
+	readonly property string defaultNightStart: "20:00"
+	readonly property string defaultDayStart: "6:00"
+	// hyprsunset reads its schedule only as it starts, and a restart passes through neutral:
+	// a change waits for a neutral screen.
+	property bool reloadPending: false
+
+	function setSchedule(on: string, off: string): void {
+		var profile = /profile\s*\{[^}]*\}/g;
+		var text = nightLightConfig.text().replace(profile, p => p.replace(/time\s*=\s*[0-9:]+/, "time = " + (/identity\s*=\s*true/.test(p) ? off : on)));
+		nightStart = on;
+		dayStart = off;
+		nightLightConfig.setText(text);
+		reloadPending = true;
+		reloadWhenNeutral.restart();
+	}
 
 	function readNightLight(): void {
 		if (!nightLightQuery.running)
@@ -111,11 +131,34 @@ Singleton {
 	FileView {
 		id: nightLightConfig
 		path: (Quickshell.env("XDG_CONFIG_HOME") || Quickshell.env("HOME") + "/.config") + "/hypr/hyprsunset.conf"
+		blockLoading: true
 		printErrors: false
+		// In place: it may be a link into the machine's own files.
+		atomicWrites: false
 		onLoaded: {
 			var found = /temperature\s*=\s*(\d+)/.exec(text());
 			if (found)
 				root.nightLightKelvin = parseInt(found[1]);
+			for (const p of text().match(/profile\s*\{[^}]*\}/g) ?? []) {
+				var time = /time\s*=\s*([0-9]{1,2}:[0-9]{2})/.exec(p);
+				if (time && /identity\s*=\s*true/.test(p))
+					root.dayStart = time[1].replace(/^0(\d)/, "$1");
+				else if (time)
+					root.nightStart = time[1].replace(/^0(\d)/, "$1");
+			}
+		}
+	}
+
+	Timer {
+		id: reloadWhenNeutral
+		interval: 1000
+		repeat: true
+		running: root.reloadPending
+		onTriggered: {
+			if (root.nightLight)
+				return;
+			root.reloadPending = false;
+			Quickshell.execDetached(["systemctl", "--user", "try-restart", "hyprsunset.service"]);
 		}
 	}
 
@@ -124,8 +167,10 @@ Singleton {
 	Timer {
 		id: nightLightSave
 		interval: 500
-		onTriggered: Quickshell.execDetached(["sed", "-i", "--follow-symlinks", "-E",
-			"s/(temperature *= *)[0-9]+/\\1" + root.nightLightKelvin + "/", nightLightConfig.path])
+		onTriggered: {
+			nightLightConfig.setText(nightLightConfig.text().replace(/(temperature\s*=\s*)[0-9]+/, "$1" + root.nightLightKelvin));
+			root.reloadPending = true;
+		}
 	}
 
 	component Marker: FileView {

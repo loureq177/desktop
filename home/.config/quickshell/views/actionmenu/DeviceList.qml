@@ -5,8 +5,8 @@ import QtQuick
 import QtQuick.Layouts
 
 // The Wi-Fi and Bluetooth pages: radio switch, list, and what shows while off.
-// `items`: { key, name, icon, connected, saved, detail, level (Wi-Fi: "72%"), dim, open, battery }. They look
-// for devices on their own while `looking`, from when the panel opens.
+// `items`: { key, name, icon, iconBase (faint behind it), connected, saved, detail, level (Wi-Fi: "72%"),
+// dim, secured (a lock), battery }. They look for devices on their own while `looking`, from when the panel opens.
 FocusScope {
 	id: root
 
@@ -84,10 +84,10 @@ FocusScope {
 			root.activated(item);
 	}
 
-	function forget(item): void {
+	function forget(item, pointer): void {
 		if (!item)
 			return;
-		if (!forgetConfirm.ask(item.key))
+		if (!forgetConfirm.ask(item.key, pointer === true))
 			return;
 		if (pendingKey === item.key)
 			clearPending();
@@ -185,7 +185,7 @@ FocusScope {
 
 		ErrorBanner {
 			visible: root.radioOn && !root.prompting && (root.errorMessage !== "" || forgetConfirm.armed !== "")
-			message: forgetConfirm.armed !== "" ? "Press X again to forget \"" + (root.items.find(i => i.key === forgetConfirm.armed)?.name ?? "") + "\"" : root.errorMessage
+			message: forgetConfirm.armed !== "" ? (forgetConfirm.byPointer ? "Click the bin again" : "Press X again") + " to forget \"" + (root.items.find(i => i.key === forgetConfirm.armed)?.name ?? "") + "\"" : root.errorMessage
 		}
 
 		Item {
@@ -267,11 +267,25 @@ FocusScope {
 					anchors.rightMargin: 12
 					spacing: 10
 
-					LineIcon {
+					Item {
 						Layout.preferredWidth: 24
-						name: row.modelData.icon
-						size: 20
-						color: row.connected ? Theme.accentBlue : (row.modelData.dim ? Theme.textDim : Theme.textMain)
+						Layout.preferredHeight: 20
+
+						LineIcon {
+							anchors.centerIn: parent
+							visible: !!row.modelData.iconBase
+							name: row.modelData.iconBase ?? ""
+							size: 20
+							// Solid: an SVG stroke takes no alpha in the colour.
+							color: Theme.textMuted
+						}
+
+						LineIcon {
+							anchors.centerIn: parent
+							name: row.modelData.icon
+							size: 20
+							color: row.connected ? Theme.accentBlue : (row.modelData.dim ? Theme.textDim : Theme.textMain)
+						}
 					}
 
 					ColumnLayout {
@@ -290,8 +304,8 @@ FocusScope {
 							}
 
 							LineIcon {
-								visible: row.modelData.open
-								name: "lock-open"
+								visible: row.modelData.secured === true
+								name: "lock"
 								size: 13
 								color: Theme.textDim
 							}
@@ -379,7 +393,7 @@ FocusScope {
 						iconSize: 14
 						outlined: false
 						danger: true
-						onClicked: root.forget(row.modelData)
+						onClicked: root.forget(row.modelData, true)
 					}
 
 					StyledText {

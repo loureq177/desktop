@@ -25,6 +25,9 @@ LauncherPane {
 	placeholder: adding ? "An app, or a command to run…" : "Search keys…"
 	preferredHeight: list.preferredHeight
 	error: Keybinds.lastError
+	footer: list.currentTip
+	keepFooter: !adding
+	canGoBack: adding || editing !== null
 
 	function step(delta: int, repeat: bool): void {
 		list.step(delta, repeat);
@@ -89,9 +92,29 @@ LauncherPane {
 			+ [keys, Keybinds.changed(e) && !added ? "Ctrl+R: back to the config's" : "", "Delete twice: remove"].filter(t => t !== "").join("  ·  ");
 	}
 
-	// The line icon of a key: what it is pressed with.
-	function keyIcon(category: string): string {
-		return category === "Mouse" ? "mouse" : category === "Gestures" ? "hand" : category === "Removed" ? "x" : "keyboard";
+	// What a key does, as an icon: the command's or the special's own, else by its words.
+	readonly property var actionIcons: ({
+		"Essential: Browser": "globe", "Essential: Terminal": "terminal", "Essential: Launcher": "search",
+		"Windows: Focus window": "app-window", "Windows: Move window": "move", "Windows: Resize window": "maximize-2",
+		"Windows: Focus previous window": "rotate-ccw", "Windows: Switch to workspace": "layout-grid",
+		"Windows: Move window to workspace": "move", "Windows: Close window": "x", "Windows: Kill window": "circle-x",
+		"Windows: Toggle fullscreen": "maximize", "Windows: Toggle window split": "columns-2", "Windows: Toggle floating": "copy",
+		"Terminal: Scroll": "terminal", "Capture: Screenshot of the screen": "monitor",
+		"Notifications: Open latest notification": "message-square", "Notifications: Close latest notification": "x"
+	})
+
+	function keyIcon(e: var): string {
+		if (e.removed)
+			return "x";
+		if (e.category === "Mouse")
+			return "mouse";
+		if (e.category === "Gestures")
+			return "hand";
+		if (e.category === "In the launcher")
+			return "eye-off";
+		if (e.category === "Special Workspaces")
+			return Specials.list.find(sp => sp.title === e.action)?.icon || "app-window";
+		return actionIcons[e.id] ?? Commands.all.find(c => c.bind === e.id)?.icon ?? (e.category === "Custom" ? "zap" : "keyboard");
 	}
 
 	function startAdding(): void {
@@ -236,8 +259,10 @@ LauncherPane {
 					run: () => false
 				}];
 			if (pane.adding) {
+				// The text as a command of its own, after the apps it names: Enter on "calcul" is Calculator.
 				var typed = pane.q === "" ? [] : [{
 					label: pane.q,
+					subtitle: "Run as a command",
 					lineIcon: "terminal",
 					run: () => {
 						pane.pick(pane.q, pane.q);
@@ -245,7 +270,7 @@ LauncherPane {
 					}
 				}];
 				var apps = Search.rank(DesktopEntries.applications.values ?? [], e => Search.appScore(e, pane.q), (a, b) => a.name.localeCompare(b.name));
-				return typed.concat(apps.map(e => ({
+				return apps.map(e => ({
 					label: e.name || e.id,
 					subtitle: e.genericName || "",
 					icon: e.icon,
@@ -253,7 +278,7 @@ LauncherPane {
 						pane.pick(e.name || e.id, Hypr.shellLine(Commands.entryCommand(e)));
 						return false;
 					}
-				})));
+				})).concat(typed);
 			}
 			var rows = pane.q !== "" ? [] : [{
 				label: "Add a new key",
@@ -274,7 +299,7 @@ LauncherPane {
 						: pane.q === "" ? "" : e.category,
 					editing: now,
 					heading: pane.q === "" ? e.category : "",
-					lineIcon: now ? "pencil" : pane.keyIcon(e.category),
+					lineIcon: now ? "pencil" : pane.keyIcon(e),
 					chord: e.chord,
 					changed: changed || now,
 					tooltip: now ? "" : () => pane.tooltip(e),

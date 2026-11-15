@@ -5,7 +5,7 @@ import "."
 import QtQuick
 import QtQuick.Layouts
 
-// The night light's strength: its temperature, stronger as it gets warmer.
+// The night light's strength: its temperature, stronger as it gets warmer; its hours in Settings.
 FocusScope {
 	id: root
 
@@ -47,6 +47,7 @@ FocusScope {
 		SubViewHeader {
 			Layout.fillWidth: true
 			title: "Night light"
+			subtitle: "From " + Settings.clockLabel(Modes.nightStart) + " to " + Settings.clockLabel(Modes.dayStart)
 			enabledState: Modes.nightLight
 			toggleKey: "N"
 			onBackClicked: root.backRequested()
@@ -62,7 +63,7 @@ FocusScope {
 		SliderRow {
 			current: true
 			icon: "moon"
-			label: Modes.nightLightKelvin + " K"
+			label: Modes.nightLightStrength + "%"
 			ready: true
 			muted: !Modes.nightLight
 			value: root.strength

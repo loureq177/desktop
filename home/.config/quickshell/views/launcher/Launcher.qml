@@ -100,7 +100,8 @@ ModalWindow {
 			SearchBar {
 				id: search
 				Layout.fillWidth: true
-				icon: root.pane.icon
+				icon: root.pane.canGoBack ? "arrow-left" : root.pane.icon
+				iconClickable: root.pane.canGoBack
 				placeholder: root.pane.placeholder
 				leftRightNavigate: root.pane.grid
 
@@ -108,6 +109,10 @@ ModalWindow {
 				onCancelled: {
 					if (!root.pane.back())
 						Panels.close("launcher");
+				}
+				onIconClicked: {
+					root.pane.back();
+					search.focusInput();
 				}
 				onResetRequested: root.pane.resetValue()
 				onRemoveRequested: root.pane.removeValue()
@@ -120,19 +125,8 @@ ModalWindow {
 						Panels.open("launcher", "apps");
 				}
 
-				// The first click arms it, the second wipes the history.
-				TextButton {
-					visible: root.scope === "clipboard" && clipboard.entries.length > 0
-					icon: clipboard.wipeArmed ? "triangle-alert" : "list-x"
-					text: clipboard.wipeArmed ? "Click again" : "Clear all"
-					danger: clipboard.wipeArmed
-					onClicked: {
-						clipboard.wipe();
-						search.focusInput();
-					}
-				}
-
-				// The other lists, the open one in blue: a click on it goes back to the apps.
+				// The other lists, the open one in blue: a click on it goes back to its start, or
+				// from there to the apps.
 				Repeater {
 					model: ["windows", "clipboard", "emoji", "keys", "settings", "power"]
 
@@ -149,11 +143,17 @@ ModalWindow {
 						iconSize: 18
 						outlined: false
 						iconColor: open ? Theme.accentBlue : Theme.textDim
-						onClicked: Panels.open("launcher", open ? "apps" : modelData)
+						onClicked: {
+							if (!open)
+								Panels.open("launcher", modelData);
+							else if (!root.pane.home())
+								Panels.open("launcher", "apps");
+							search.focusInput();
+						}
 
 						Tip {
 							text: listButton.command.name + (listButton.chord !== "" ? "  ·  " + listButton.chord : "")
-							visible: listButton.hovered
+							visible: listButton.hovered && !listButton.wasClicked
 							x: Math.round((listButton.width - width) / 2)
 							y: listButton.height + 6
 						}
@@ -242,16 +242,27 @@ ModalWindow {
 				color: Theme.border
 			}
 
+			// What the picked row does: up to two lines, the same height for a page's rows.
 			StyledText {
 				id: footer
+				readonly property int line: Math.ceil(fontMetrics.height * 1.15)
 				Layout.fillWidth: true
-				Layout.preferredHeight: 36
-				visible: text !== ""
+				Layout.topMargin: -2
+				Layout.preferredHeight: root.pane.keepFooter ? line * 2 + 8 : Math.max(36, implicitHeight + 8)
+				visible: text !== "" || root.pane.keepFooter
 				verticalAlignment: Text.AlignVCenter
-				mono: true
+				wrapMode: Text.Wrap
+				maximumLineCount: 2
+				lineHeight: 1.15
+				font.pixelSize: Theme.fontSizeSmall
 				color: Theme.textDim
 				elide: Text.ElideRight
 				text: root.pane.footer
+
+				FontMetrics {
+					id: fontMetrics
+					font: footer.font
+				}
 			}
 		}
 	}

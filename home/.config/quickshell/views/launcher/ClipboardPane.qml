@@ -6,7 +6,7 @@ import QtQuick
 import QtQuick.Controls
 
 // The clipboard history (cliphist), newest first, the picked entry in full beside it;
-// Enter pastes it, the row's icon deletes it.
+// Enter pastes it, the row's X or Delete deletes it, Clear all under the list.
 LauncherPane {
 	id: pane
 
@@ -58,6 +58,11 @@ LauncherPane {
 		list.activate();
 	}
 
+	function removeValue(): void {
+		if (current)
+			remove(current);
+	}
+
 	// Drops one entry; the row the keyboard is on stays.
 	function remove(entry: var): void {
 		Quickshell.execDetached(["sh", "-c", 'printf "%s\\n" "$1" | cliphist delete', "sh", entry.id]);
@@ -81,10 +86,14 @@ LauncherPane {
 		id: wipeConfirm
 	}
 
+	// Nothing copied yet is no failure: cliphist has no database until the first copy.
 	Process {
 		id: listProc
 		command: ["cliphist", "list"]
-		onExited: code => pane.failed = code !== 0
+		onExited: code => pane.failed = code !== 0 && !listErr.text.includes("store something first")
+		stderr: StdioCollector {
+			id: listErr
+		}
 		stdout: StdioCollector {
 			onStreamFinished: pane.entries = this.text.split("\n").filter(l => l.includes("\t")).map(l => {
 				var tab = l.indexOf("\t");
@@ -127,7 +136,7 @@ LauncherPane {
 	SelectList {
 		id: list
 		anchors.top: parent.top
-		anchors.bottom: parent.bottom
+		anchors.bottom: clearBar.top
 		anchors.left: parent.left
 		width: parent.width * 0.42 - Theme.paddingItem
 		wrap: true
@@ -150,60 +159,55 @@ LauncherPane {
 			Row {
 				anchors.fill: parent
 				anchors.leftMargin: 12
-				anchors.rightMargin: 12
+				anchors.rightMargin: 8
 				spacing: 12
 
-				// What kind of entry it is; under the pointer, the X that deletes it.
-				Item {
-					readonly property bool armed: deleteArea.containsMouse
+				// What kind of entry it is.
+				LineIcon {
 					anchors.verticalCenter: parent.verticalCenter
 					width: Theme.rowIcon
-					height: Theme.rowIcon
-
-					LineIcon {
-						anchors.centerIn: parent
-						name: row.image ? "image" : "text"
-						size: 20
-						color: row.selected ? Theme.accentBlue : Theme.textDim
-						opacity: parent.armed ? 0 : 1
-
-						Behavior on opacity { NumberAnimation { duration: Theme.animFast } }
-					}
-
-					Rectangle {
-						anchors.fill: parent
-						radius: Theme.roundingSubtle
-						color: Theme.alpha(Theme.critical, 0.16)
-						opacity: parent.armed ? 1 : 0
-
-						Behavior on opacity { NumberAnimation { duration: Theme.animFast } }
-
-						LineIcon {
-							anchors.centerIn: parent
-							name: "x"
-							size: 18
-							color: Theme.critical
-						}
-					}
-
-					MouseArea {
-						id: deleteArea
-						anchors.fill: parent
-						hoverEnabled: true
-						cursorShape: Qt.PointingHandCursor
-						onClicked: pane.remove(row.modelData)
-					}
+					name: row.image ? "image" : "text"
+					size: 20
+					color: row.selected ? Theme.accentBlue : Theme.textDim
 				}
 
 				StyledText {
 					anchors.verticalCenter: parent.verticalCenter
-					width: parent.width - x
+					width: parent.width - x - remove.width - parent.spacing
 					elide: Text.ElideRight
 					textFormat: Text.PlainText
 					text: row.image ? "Image (" + row.image[2].toUpperCase() + " " + row.image[3] + ", " + row.image[0] + " " + row.image[1] + ")"
 						: row.modelData.preview.replace(/\s+/g, " ")
 				}
+
+				// At the row's end, as on a notification: deletes it.
+				CloseButton {
+					id: remove
+					anchors.verticalCenter: parent.verticalCenter
+					opacity: row.hovered || row.selected ? 1 : 0
+					onClicked: pane.remove(row.modelData)
+				}
 			}
+		}
+	}
+
+	// The whole history, on a second click.
+	Item {
+		id: clearBar
+		anchors.left: list.left
+		anchors.right: list.right
+		anchors.bottom: parent.bottom
+		height: pane.entries.length > 0 ? 40 : 0
+		visible: height > 0
+
+		TextButton {
+			anchors.left: parent.left
+			anchors.leftMargin: 4
+			anchors.bottom: parent.bottom
+			icon: pane.wipeArmed ? "triangle-alert" : "list-x"
+			text: pane.wipeArmed ? "Click again to clear all" : "Clear all"
+			danger: pane.wipeArmed
+			onClicked: pane.wipe()
 		}
 	}
 

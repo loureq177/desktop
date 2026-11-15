@@ -10,5 +10,4 @@ end
 return {
 	browser = type(apps.browser) == "table" and apps.browser or { exec = "firefox" },
 	specials = type(apps.specials) == "table" and apps.specials or {},
-	background = type(apps.background) == "table" and apps.background or {},
 }

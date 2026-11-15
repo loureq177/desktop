@@ -51,6 +51,7 @@ Singleton {
 
 	// The shell's own keys, shown nowhere else (not Esc and J / K, which every panel takes).
 	readonly property var shellEntries: [
+		{ category: "In the launcher", chord: "DELETE × 2", action: "Hide the app picked (Settings › Desktop shows it again)" },
 		{ category: "Mouse", chord: "RIGHT-CLICK BAR ICON", action: "Close a special workspace", special: true },
 		{ category: "Gestures", chord: "3 FINGERS ↔", action: "Switch workspace" },
 		{ category: "Gestures", chord: "3 FINGERS ↑", action: "Open the last special workspace", special: true },

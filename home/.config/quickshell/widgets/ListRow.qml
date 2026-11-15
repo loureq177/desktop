@@ -44,6 +44,8 @@ Rectangle {
 			onPressed: press.restart()
 			onClicked: {
 				row.view.currentIndex = row.index;
+				if (row.view.byPointer !== undefined)
+					row.view.byPointer = true;
 				row.view.activated(row.index);
 			}
 		}

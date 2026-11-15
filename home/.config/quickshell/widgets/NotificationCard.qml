@@ -1,6 +1,7 @@
 import ".."
 import "."
 import Quickshell.Services.Notifications
+import Quickshell.Widgets
 import QtQuick
 import QtQuick.Layouts
 
@@ -16,6 +17,7 @@ Rectangle {
 	required property int urgency
 	required property string image
 	required property string appIcon
+	required property string desktopEntry
 	required property var actions
 	required property double time
 
@@ -80,9 +82,19 @@ Rectangle {
 		anchors.topMargin: Theme.notifPadV + Math.max(0, (notifPic.implicitHeight - implicitHeight) / 2)
 		spacing: 3
 
+		// A toast says whose it is; in the center the group's heading does, and the time is here.
 		RowLayout {
 			Layout.fillWidth: true
-			spacing: 8
+			spacing: 6
+			visible: root.isToast && root.appName !== ""
+
+			IconImage {
+				readonly property string path: Notifications.appIconFor(root.desktopEntry, root.appName, root.appIcon)
+				visible: path !== ""
+				implicitSize: 16
+				source: path
+				asynchronous: true
+			}
 
 			StyledText {
 				Layout.fillWidth: true
@@ -91,7 +103,19 @@ Rectangle {
 				font.bold: true
 				color: Theme.textDim
 				elide: Text.ElideRight
-				visible: text !== ""
+			}
+		}
+
+		RowLayout {
+			Layout.fillWidth: true
+			spacing: 8
+			visible: root.summary !== "" || !root.isToast
+
+			StyledText {
+				Layout.fillWidth: true
+				text: root.summary
+				font.bold: true
+				elide: Text.ElideRight
 			}
 
 			StyledText {
@@ -101,14 +125,6 @@ Rectangle {
 				font.pixelSize: Theme.fontSizeSmall
 				color: Theme.textDim
 			}
-		}
-
-		StyledText {
-			Layout.fillWidth: true
-			text: root.summary
-			font.bold: true
-			elide: Text.ElideRight
-			visible: text !== ""
 		}
 
 		StyledText {

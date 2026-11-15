@@ -6,8 +6,8 @@ import Quickshell.Io
 import QtQuick
 import QtQuick.Controls
 
-// The emoji, a grid of them; Enter types the one picked into the focused
-// window and copies it. The footer names it.
+// The emoji, a grid of them, the most used first; Enter types the one picked into the
+// focused window and copies it. The footer names it.
 LauncherPane {
 	id: pane
 
@@ -21,7 +21,10 @@ LauncherPane {
 
 	readonly property var items: {
 		var needle = query.trim().toLowerCase();
-		return emojis.filter(it => it?.e && String(it.k || "").toLowerCase().includes(needle));
+		var found = emojis.filter(it => it?.e && String(it.k || "").toLowerCase().includes(needle));
+		// Stable: the rest keep the table's order.
+		var used = found.filter(it => Usage.score("emoji:" + it.e) > 0).sort((a, b) => Usage.score("emoji:" + b.e) - Usage.score("emoji:" + a.e));
+		return used.length === 0 ? found : used.concat(found.filter(it => Usage.score("emoji:" + it.e) === 0));
 	}
 	readonly property int count: items.length
 	readonly property int cell: 76
@@ -79,6 +82,7 @@ LauncherPane {
 			if (!emoji)
 				return;
 			Panels.close("launcher");
+			Usage.note("emoji:" + emoji);
 			Quickshell.execDetached([Commands.bin + "emoji-insert", emoji]);
 		}
 

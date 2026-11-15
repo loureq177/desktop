@@ -51,7 +51,7 @@ def special(category, app, key):
         if field in app:
             s["window_title" if field == "title" else field] = app[field]
     s.setdefault("icon", category.get("icon", ""))
-    for field in ("desc", "background", "bar"):
+    for field in ("desc", "bar"):
         if field in category:
             s[field] = category[field]
     for source in ("pacman", "flatpak"):
@@ -484,21 +484,17 @@ def hypr_special(s, browser):
             h["exe"] = f"{env}{BIN}/firefox-webapp {s['name']} {url}"
             h["class"] = "webapps"
             h["title"] = ".*" + regex_literal(s.get("window_title", s["app"])) + ".*"
-            h["firefox"] = True
         else:
             # Chromium names an --app window after the URL's host: chrome-x.com__-Default.
             host = urlsplit(s["url"]).hostname or ""
             h["exe"] = f"{BIN}/chromium-webapp {shlex.quote(browser['exec'])} {url}"
             h["class"] = ".*-" + regex_literal(host) + "_.*"
-            h["host"] = "-" + host + "_"
     elif "term" in s:
         h["exe"] = f"ghostty +new-window -e {s['term']}"
     else:
         h["exe"] = s["exec"]
         if "class" in s:
             h["class"] = s["class"]
-    if s.get("background"):
-        h["background"] = True
     return h
 
 
@@ -529,7 +525,6 @@ def render(catalog, choices):
     hypr = {
         "browser": {"exec": browser["exec"]},
         "specials": {s["name"]: hypr_special(s, browser) for s in specials},
-        "background": [s["name"] for s in specials if s.get("background")],
     }
     lua = "".join(f"-- {line}\n" for line in HEADER.splitlines()) + "\nreturn " + lua_table(hypr, 1) + "\n"
 
@@ -588,7 +583,7 @@ def rendered_exes():
 
 
 # The specials whose app is not what it ran before close their old windows; the next opening
-# starts the new app, and one started hidden with the session starts again now.
+# starts the new app.
 def swap(catalog, choices, before):
     browser = by_id(catalog, choices["browser"])
     now = {s["name"]: s for s in choices.get("special", [])}
@@ -615,8 +610,6 @@ def swap(catalog, choices, before):
         print(f"  \033[32m✓\033[0m Swapped: {', '.join(gone)} open with the new app")
     if left:
         print(f"  {DIM}{len(left)} old window(s) asked to stay open: close them by hand{RESET}")
-    if any(now[name].get("background") for name in gone):
-        subprocess.run(["hyprctl", "eval", 'require("hyprland.specials").start_background()'], capture_output=True)
 
 
 def main():

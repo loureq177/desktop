@@ -56,8 +56,9 @@ fi
 exec 200>&-
 wl-copy -t image/png <"$FILE" || true
 
-ACTION=$(notify-send --app-name "Screenshot" -t 3000 "Captured" -i "$FILE" -A "default=Edit" "Saved and copied to clipboard.")
+# No timeout: notify-send waits while the center keeps it, so Edit works there too.
+ACTION=$(notify-send --app-name "Screenshot" "Captured" -i "$FILE" -A "default=Edit" -A "edit=Edit" "Saved and copied to clipboard.")
 
-if [ "$ACTION" = "default" ]; then
+if [ "$ACTION" = "default" ] || [ "$ACTION" = "edit" ]; then
     satty --filename "$FILE" --output-filename "$FILE"
 fi

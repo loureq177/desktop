@@ -58,16 +58,18 @@ DeviceList {
 				net: net,
 				strength: strength,
 				icon: Net.signalIcon(strength),
+				// The whole fan faint behind the level: a weak one is a dot otherwise.
+				iconBase: "wifi",
 				connected: net.connected,
 				saved: net.known,
 				detail: net.known ? "Saved" : "",
-				level: strength > 0 ? Math.round(strength) + "%" : "",
+				// The bars say the rest's.
+				level: net.connected && strength > 0 ? Math.round(strength) + "%" : "",
 				dim: strength < 50,
 				// One password, or none: what a phone's camera can join from.
 				share: net.known && [WifiSecurityType.Wpa2Psk, WifiSecurityType.WpaPsk, WifiSecurityType.Sae, WifiSecurityType.Open, WifiSecurityType.Owe].includes(net.security),
 				secured: net.security !== WifiSecurityType.Open && net.security !== WifiSecurityType.Unknown,
 				enterprise: [WifiSecurityType.Wpa2Eap, WifiSecurityType.WpaEap, WifiSecurityType.Wpa3SuiteB192].includes(net.security),
-				open: net.security === WifiSecurityType.Open,
 				battery: -1
 			};
 		}

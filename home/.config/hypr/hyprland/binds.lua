@@ -105,7 +105,8 @@ do
 	end
 	bind("SUPER + Q", "Close window", hl.dsp.window.close())
 	-- SIGKILL to its process: every window of it goes (all of Ghostty, a browser's web apps).
-	bind("SUPER + SHIFT + Q", "Kill window", hl.dsp.window.kill())
+	-- The shell asks for a second press (Osd.qml): Q sits beside W, Messages.
+	bind("SUPER + SHIFT + Q", "Kill window", panel("kill-window"))
 	bind("SUPER + F", "Toggle fullscreen", hl.dsp.window.fullscreen())
 	bind("SUPER + T", "Toggle window split", hl.dsp.layout("togglesplit"))
 	bind("SUPER + M", "Toggle floating", hl.dsp.window.float({ action = "toggle" }))

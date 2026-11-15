@@ -1,10 +1,11 @@
 import ".."
 import "../widgets"
+import Quickshell.Widgets
 import QtQuick
 import QtQuick.Layouts
 
-// Every notification kept, newest first: Enter does what a click on it does,
-// X dismisses it.
+// Every notification kept, by app (the app with the newest first), newest first in each:
+// Enter does what a click on it does, X dismisses it, the group's X its app's all.
 Drawer {
 	id: win
 
@@ -91,6 +92,54 @@ Drawer {
 			spacing: 8
 			model: Notifications.history
 			onActivated: index => win.activate(Notifications.history.get(index).nid)
+
+			section.property: "appName"
+			section.delegate: Item {
+				id: group
+				required property string section
+				readonly property int count: { Notifications.history.count; return Notifications.countOf(section); }
+
+				width: ListView.view.rowWidth
+				height: 30
+
+				RowLayout {
+					anchors.fill: parent
+					anchors.bottomMargin: 4
+					spacing: 8
+
+					IconImage {
+						readonly property var first: { Notifications.history.count; return Notifications.firstOf(group.section); }
+						readonly property string path: first ? Notifications.appIconFor(first.desktopEntry, first.appName, first.appIcon) : ""
+						visible: path !== ""
+						implicitSize: 16
+						source: path
+						asynchronous: true
+					}
+
+					StyledText {
+						Layout.fillWidth: true
+						text: group.section || "Other"
+						mono: true
+						font.bold: true
+						color: Theme.textDim
+						elide: Text.ElideRight
+					}
+
+					StyledText {
+						visible: group.count > 1
+						text: group.count
+						mono: true
+						font.pixelSize: Theme.fontSizeTiny
+						color: Theme.textMuted
+					}
+
+					CloseButton {
+						implicitWidth: 22
+						implicitHeight: 22
+						onClicked: Notifications.dismissApp(group.section)
+					}
+				}
+			}
 
 			Keys.onPressed: event => {
 				if (event.key === Qt.Key_X && !event.isAutoRepeat && count > 0)

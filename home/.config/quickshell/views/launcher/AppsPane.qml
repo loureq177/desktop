@@ -1,11 +1,12 @@
 import "../.."
+import "../../widgets"
 import "../../Search.js" as Search
 import Quickshell
 import Quickshell.Io
 import QtQuick
 
 // The apps, specials and commands by name, then settings and files; arithmetic. "/" lists only
-// the commands.
+// the commands. With nothing typed, the most used apps come first; ties go to the more used.
 LauncherPane {
 	id: pane
 
@@ -26,6 +27,18 @@ LauncherPane {
 	function activate(): void {
 		applyRows();
 		list.activate();
+	}
+
+	// Delete twice: the app picked leaves the launcher (Settings › Desktop brings it back).
+	function removeValue(): void {
+		var row = list.items[list.currentIndex];
+		if (!row?.entry || !removal.ask(row.armId))
+			return;
+		HiddenApps.hide(row.entry.id);
+	}
+
+	Confirm {
+		id: removal
 	}
 
 	// Today, for the calendar's icon: set as the launcher opens.
@@ -53,7 +66,8 @@ LauncherPane {
 
 	// Desktop entries a special workspace stands for are listed as that special
 	// instead, which opens the app where it lives.
-	readonly property var apps: (DesktopEntries.applications.values ?? []).filter(e => !Specials.byDesktopEntry(e.id)).map(e => {
+	// Hidden ones too, at once: Quickshell reads a changed entry only as it starts.
+	readonly property var apps: (DesktopEntries.applications.values ?? []).filter(e => !Specials.byDesktopEntry(e.id) && !HiddenApps.ids.includes(e.id)).map(e => {
 		var label = e.name || e.id;
 		return {
 			label: label,
@@ -61,6 +75,8 @@ LauncherPane {
 			subtitle: e.genericName && e.genericName !== label ? e.genericName : "",
 			icon: e.icon,
 			entry: e,
+			usage: "app:" + e.id,
+			armId: "app:" + e.id,
 			run: () => Hypr.exec(Commands.entryCommand(e), e.workingDirectory)
 		};
 	}).concat(Specials.list.map(sp => ({
@@ -68,15 +84,17 @@ LauncherPane {
 		subtitle: sp.app !== sp.title ? sp.title : "",
 		icon: sp.appIcon.startsWith("icons/") ? pane.dated(sp.appIcon) : (sp.desktop ? DesktopEntries.byId(sp.desktop)?.icon : "") || sp.appIcon,
 		lineIcon: sp.icon,
+		usage: "special:" + sp.name,
 		keywords: [sp.name, sp.title, sp.keywords].join(" "),
 		run: () => Hypr.toggleSpecial(sp.name)
 	})))
 
 	// Not per key: the headings come in rows, for "/" alone.
-	readonly property var commands: Commands.all.filter(c => !c.home).map(c => ({
+	readonly property var commands: Commands.all.map(c => ({
 		label: Commands.label(c),
 		lineIcon: c.icon,
 		group: c.group,
+		usage: "cmd:" + c.id,
 		// What it does is found by typing, not shown.
 		keywords: [c.desc, c.keywords].filter(k => k).join(" "),
 		confirm: c.confirm,
@@ -170,6 +188,7 @@ LauncherPane {
 	}
 	Component.onCompleted: list.items = rows
 	onQueryChanged: {
+		removal.reset();
 		if (files.query === "")
 			allFiles = false;
 		list.reset();
@@ -179,6 +198,8 @@ LauncherPane {
 		id: list
 		anchors.fill: parent
 		emptyText: files.searching ? "" : "Nothing matches"
+		armedId: removal.armed
+		armedText: "Press Delete again to hide it from the launcher"
 	}
 
 	readonly property var rows: {
@@ -195,11 +216,17 @@ LauncherPane {
 		if (pane.commandsOnly)
 			return timer.concat(Search.rank(pane.commands, it => Search.itemScore(it, pane.q.substring(1).trim())));
 		var calc = Search.calculate(pane.q);
-		// The apps and the specials, best match first, then by name; the
-		// commands only come up when asked for.
-		var matches = Search.rank(pane.q === "" ? pane.apps : pane.apps.concat(pane.commands, pane.settingPages),
+		var byName = (a, b) => a.label.localeCompare(b.label);
+		if (pane.q === "") {
+			var frequent = pane.apps.filter(it => Usage.score(it.usage) > 0)
+				.sort((a, b) => Usage.score(b.usage) - Usage.score(a.usage) || byName(a, b)).slice(0, 5);
+			var heading = h => it => frequent.length > 0 ? Object.assign({ heading: h }, it) : it;
+			return frequent.map(heading("frequent")).concat(pane.apps.slice().sort(byName).map(heading("all apps")));
+		}
+		// The apps, the specials and the commands, best match first, then the more used.
+		var matches = Search.rank(pane.apps.concat(pane.commands, pane.settingPages),
 			it => it.entry ? Search.appScore(it.entry, pane.q) : it.page ? Search.matchScore([[it.label, 0], [it.keywords, 6]], pane.q) : Search.itemScore(it, pane.q),
-			(a, b) => a.label.localeCompare(b.label));
+			(a, b) => Usage.score(b.usage) - Usage.score(a.usage) || byName(a, b));
 		return timer.concat(calc === null ? [] : [{
 			label: "= " + calc,
 			lineIcon: "calculator",

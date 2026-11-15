@@ -19,6 +19,8 @@ ListView {
 	readonly property int rowWidth: width - (scrollBar && ScrollBar.vertical.visible ? 10 : 0)
 
 	signal activated(int index)
+	// The last activation was a click (ListRow), not Enter.
+	property bool byPointer: false
 
 	function step(delta: int, repeat: bool): void {
 		if (count === 0)
@@ -28,6 +30,7 @@ ListView {
 	}
 
 	function activate(): void {
+		byPointer = false;
 		if (count > 0)
 			activated(currentIndex);
 	}
@@ -55,7 +58,7 @@ ListView {
 	}
 
 	ScrollBar.vertical: ThinScrollBar {
-		visible: list.scrollBar && size < 1.0
+		visible: list.scrollBar && size < 0.99
 	}
 
 	ListHighlight {

@@ -1,7 +1,8 @@
 # shellcheck shell=bash
 # Steps run at once: `task LABEL FN` queues one, `run_tasks TITLE` runs them; a step's last
 # line is its summary (⚠ warns), all in $TASKS_LOG, `task_status TEXT` says how it is going.
-# `task_detail LINE...` lines come under the section once done.
+# `task_detail LINE...` lines come under the section once done; what a step writes to
+# $_TASK_LOG goes to $TASKS_LOG ahead of its output.
 
 TASKS_DIR=$(mktemp -d "${TMPDIR:-/tmp}/tasks.XXXXXX")
 TASKS_LOG=${TASKS_LOG:-}
@@ -43,6 +44,7 @@ _task_spawn() {
         rc=0
         _TASK_STATUS=$TASKS_DIR/$i.status
         _TASK_DETAILS=$TASKS_DIR/$i.details
+        _TASK_LOG=$TASKS_DIR/$i.log
         "${_TASK_FUNCS[$i]}" >"$TASKS_DIR/$i.out" 2>&1 </dev/null || rc=$?
         _task_now >"$TASKS_DIR/$i.end"
         echo "$rc" >"$TASKS_DIR/$i.rc"
@@ -230,13 +232,18 @@ _tasks_print() {
     done
 }
 
-# What a failed step printed, under the section; all of it in the log.
+# What a failed step printed, under the section; all of it in the log, one step after
+# another, without colours or the progress a carriage return draws over.
 _tasks_report() {
     local n=${#_TASK_LABELS[@]} i out
     for ((i = 0; i < n; i++)); do
         out=$(<"$TASKS_DIR/$i.out")
         if [[ -n "$TASKS_LOG" ]]; then
-            printf '== %s (exit %s)\n%s\n\n' "${_TASK_LABELS[i]}" "$(<"$TASKS_DIR/$i.rc")" "$out" >>"$TASKS_LOG"
+            {
+                printf '== %s (exit %s)\n' "${_TASK_LABELS[i]}" "$(<"$TASKS_DIR/$i.rc")"
+                cat -- "$TASKS_DIR/$i.log" 2>/dev/null
+                printf '%s\n\n' "$out"
+            } | sed -E 's/\x1b\[[0-9;?]*[A-Za-z]//g; s/.*\r(.)/\1/; s/\r$//' >>"$TASKS_LOG"
         fi
         [[ "${_TASK_KIND[i]}" == fail ]] || continue
         TASKS_FAILED=$((TASKS_FAILED + 1))
@@ -279,5 +286,5 @@ run_tasks() {
     _tasks_report
     _tasks_details
     _TASK_LABELS=() _TASK_FUNCS=() _TASK_PIDS=() _TASK_TEXT=() _TASK_KIND=()
-    rm -f -- "$TASKS_DIR"/*.{start,end,rc,out,status,details}
+    rm -f -- "$TASKS_DIR"/*.{start,end,rc,out,status,details,log}
 }

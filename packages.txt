@@ -63,6 +63,7 @@ qrencode
 reflector
 satty
 slurp
+socat
 sox
 tesseract
 tesseract-data-eng

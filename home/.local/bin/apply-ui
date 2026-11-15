@@ -9,6 +9,8 @@ import tomllib
 from pathlib import Path
 
 CONFIG_DIR = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
+# What each value set with --set was before the first change: the settings' "Changed" and Undo.
+BEFORE_FILE = Path(os.environ.get("XDG_STATE_HOME", Path.home() / ".local/state")) / "ui" / "before.json"
 
 # ui/templates/<template> -> ~/.config/<target>
 TEMPLATES = {
@@ -90,12 +92,26 @@ def mix(a, b, t):
     return tuple(x + (y - x) * t for x, y in zip(a, b))
 
 
+def load_before():
+    try:
+        return json.loads(BEFORE_FILE.read_text())
+    except (OSError, ValueError):
+        return {}
+
+
+def save_before(before):
+    BEFORE_FILE.parent.mkdir(parents=True, exist_ok=True)
+    BEFORE_FILE.write_text(json.dumps(before, indent=4) + "\n")
+
+
 # --set section.key=value: changes that one line of ui.toml, keeping its comments and
-# the value's kind; refused when it would not parse or the key is not there.
-def set_value(assignment):
+# the value's kind; refused when it would not parse or the key is not there. The value
+# it had first is kept in BEFORE_FILE, until it is set back to it.
+def set_value(assignment, remember=True):
     path = CONFIG_DIR / "ui" / "ui.toml"
     name, _, raw = assignment.partition("=")
-    section, _, key = name.strip().partition(".")
+    name = name.strip()
+    section, _, key = name.partition(".")
     text = path.read_text()
     old = tomllib.loads(text).get(section, {}).get(key)
     if old is None:
@@ -117,8 +133,23 @@ def set_value(assignment):
             lines[i] = re.sub(r"=.*", f"= {value}", line.rstrip("\n"), count=1) + "\n"
             break
     new = "".join(lines)
-    tomllib.loads(new)
+    now = tomllib.loads(new)[section][key]
     path.write_text(new)
+    before = load_before()
+    if remember and name not in before:
+        before[name] = old
+    if before.get(name) == now:
+        del before[name]
+    save_before(before)
+
+
+# --reset=section.key, or --reset-all: back to what it was before the settings changed it.
+def reset(names):
+    before = load_before()
+    for name in names:
+        if name in before:
+            value = before[name]
+            set_value(f"{name}={str(value).lower() if isinstance(value, bool) else value}", remember=False)
 
 
 # --dump: what the shell's settings list of ui.toml, as JSON: every value
@@ -126,13 +157,14 @@ def set_value(assignment):
 def dump():
     with open(CONFIG_DIR / "ui" / "ui.toml", "rb") as f:
         cfg = tomllib.load(f)
+    before = load_before()
     values = []
     for section, table in cfg.items():
         for key, value in table.items():
             kind = "bool" if isinstance(value, bool) else "int" if isinstance(value, int) else "float" if isinstance(value, float) else "str"
             if section == "colors":
                 kind = "color"
-            values.append({"section": section, "key": key, "value": value, "kind": kind})
+            values.append({"section": section, "key": key, "value": value, "kind": kind, "before": before.get(f"{section}.{key}")})
 
     roots = [Path.home() / ".local/share/icons", Path.home() / ".icons", Path("/usr/share/icons")]
     icons, cursors = set(), set()
@@ -169,6 +201,10 @@ def main():
     for arg in sys.argv[1:]:
         if arg.startswith("--set="):
             set_value(arg[len("--set="):])
+        elif arg.startswith("--reset="):
+            reset([arg[len("--reset="):]])
+        elif arg == "--reset-all":
+            reset(list(load_before()))
 
     with open(CONFIG_DIR / "ui" / "ui.toml", "rb") as f:
         cfg = tomllib.load(f)
@@ -188,10 +224,8 @@ def main():
     # Everything is rendered before anything is written: a bad template
     # leaves the old files in place.
     outputs = {CONFIG_DIR / target: render(template, values) for template, target in TEMPLATES.items()}
-    # The shell reads ui.toml as it is (Theme.qml).
-    outputs[CONFIG_DIR / "quickshell" / "ui.js"] = (
-        header("ui.toml", ".js") + ".pragma library\n\nvar config = " + json.dumps(cfg, indent=4) + ";\n"
-    )
+    # The shell reads ui.toml as it is (Theme.qml), and follows it as it changes.
+    outputs[CONFIG_DIR / "quickshell" / "ui.json"] = json.dumps(cfg, indent=4) + "\n"
     for path, content in outputs.items():
         write(path, content)
 
@@ -211,10 +245,6 @@ def main():
 
     apply_gtk(cfg)
     print("  \033[32m✓\033[0m GNOME/GTK settings updated")
-
-    # The shell reads ui.js once, as it starts.
-    if subprocess.run(["systemctl", "--user", "try-restart", "quickshell.service"], capture_output=True).returncode == 0:
-        print("  \033[32m✓\033[0m Shell restarted")
 
 
 if __name__ == "__main__":

@@ -8,6 +8,8 @@ Rectangle {
 	id: bar
 
 	property string icon: "search"
+	// The icon is a button (the way back).
+	property bool iconClickable: false
 	property string placeholder: ""
 	property alias text: input.text
 	property bool leftRightNavigate: false
@@ -15,6 +17,7 @@ Rectangle {
 	default property alias trailing: trailingRow.data
 
 	signal accepted()
+	signal iconClicked()
 	signal cancelled()
 	// `repeat`: the key is held down.
 	signal stepped(int delta, bool repeat)
@@ -53,12 +56,34 @@ Rectangle {
 		anchors.rightMargin: 4
 		spacing: 12
 
-		LineIcon {
+		Item {
 			Layout.alignment: Qt.AlignVCenter
 			Layout.preferredWidth: 28
-			name: bar.icon
-			size: 20
-			color: Theme.textDim
+			Layout.preferredHeight: 28
+
+			Rectangle {
+				anchors.fill: parent
+				anchors.margins: -2
+				radius: Theme.roundingSubtle
+				color: iconArea.containsMouse && bar.iconClickable ? Theme.hoverBg : "transparent"
+			}
+
+			LineIcon {
+				anchors.centerIn: parent
+				name: bar.icon
+				size: 20
+				color: iconArea.containsMouse && bar.iconClickable ? Theme.textMain : Theme.textDim
+			}
+
+			MouseArea {
+				id: iconArea
+				anchors.fill: parent
+				anchors.margins: -2
+				enabled: bar.iconClickable
+				hoverEnabled: true
+				cursorShape: Qt.PointingHandCursor
+				onClicked: bar.iconClicked()
+			}
 		}
 
 		TextInput {

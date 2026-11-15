@@ -1,7 +1,6 @@
 import ".."
 import "../widgets"
 import Quickshell
-import Quickshell.Hyprland
 import Quickshell.Wayland
 import QtQuick
 
@@ -16,7 +15,9 @@ StandbyWindow {
 
 	open: shown || level > 0
 
-	WlrLayershell.keyboardFocus: shown ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
+	// The keyboard whatever the pointer rests on, as the launcher: opened from the bar,
+	// the bar under the pointer took the keys and Esc did nothing.
+	WlrLayershell.keyboardFocus: shown ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
 	WlrLayershell.namespace: "quickshell"
 
 	// Taken when a drawer opens, kept while it leaves: the focus moving to
@@ -24,12 +25,6 @@ StandbyWindow {
 	onShownChanged: {
 		if (shown)
 			screen = Panels.screen;
-	}
-
-	HyprlandFocusGrab {
-		active: root.shown
-		windows: [root].concat(Bars.windows)
-		onCleared: Panels.close()
 	}
 
 	Rectangle {

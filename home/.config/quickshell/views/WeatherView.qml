@@ -133,9 +133,9 @@ Drawer {
 
 					Repeater {
 						model: [
-							{ label: "FEELS", value: Weather.current?.feelsLike },
+							{ label: "FEELS LIKE", value: Weather.current?.feelsLike },
 							{ label: "WIND", value: Weather.current?.wind },
-							{ label: "HUMID", value: Weather.current?.humidity }
+							{ label: "HUMIDITY", value: Weather.current?.humidity }
 						]
 
 						Column {

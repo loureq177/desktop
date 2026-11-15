@@ -8,8 +8,12 @@ Item {
 	property string placeholder: ""
 	// As tall as the list would like to be, up to the launcher's height.
 	property int preferredHeight: 0
-	// A line under the list, or nothing.
+	// What the picked row does, under the list (two lines at most), or nothing.
 	property string footer: ""
+	// Room for the footer even while it is empty: a list of rows that mostly have one.
+	property bool keepFooter: false
+	// Somewhere to step back to: the field's icon is an arrow then, as Esc or Backspace.
+	property bool canGoBack: false
 	// What went wrong, in red under the list, or nothing.
 	property string error: ""
 	// A grid: Left and Right move to the next cell, Up and Down by a row.
@@ -42,6 +46,14 @@ Item {
 	// (out of an edit), keeping the launcher open.
 	function back(): bool {
 		return false;
+	}
+
+	// Its tab clicked while open: true when it went back to its start, false when it was there.
+	function home(): bool {
+		if (query === "")
+			return false;
+		queryRequested("");
+		return true;
 	}
 
 	// Ctrl+R: what the selected row holds, back to its default.

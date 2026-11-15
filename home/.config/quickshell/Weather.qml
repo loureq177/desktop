@@ -4,8 +4,8 @@ import Quickshell.Io
 import QtQuick
 import "WeatherModel.js" as WeatherModel
 
-// Open-Meteo's forecast every 15 minutes, for ~/.config/weather.json's place or
-// wherever ipwho.is puts this IP.
+// Open-Meteo's forecast every 15 minutes, for the town set in the settings (Open-Meteo's
+// geocoding finds it), ~/.config/weather.json's place, or wherever ipwho.is puts this IP.
 Singleton {
 	id: root
 
@@ -21,7 +21,22 @@ Singleton {
 	// Failed tries in a row while there is no forecast.
 	property int retries: 0
 
+	// The town set in the settings, once found: { city, name, latitude, longitude }.
+	property var cityPlace: null
+
 	function refresh(): void {
+		var city = Prefs.values.weatherCity.trim();
+		if (city !== "" && cityPlace?.city === city) {
+			location = cityPlace.name;
+			fetchForecast(cityPlace.latitude, cityPlace.longitude);
+			return;
+		}
+		if (city !== "" && !cityProc.running) {
+			cityProc.city = city;
+			cityProc.command = ["curl", "-fsS", "--max-time", "4", "https://geocoding-api.open-meteo.com/v1/search?count=1&language=en&format=json&name=" + encodeURIComponent(city)];
+			cityProc.running = true;
+			return;
+		}
 		var place = WeatherModel.parseLocationFile(placeFile.text());
 		if (place.latitude !== null) {
 			location = place.name;
@@ -68,6 +83,45 @@ Singleton {
 		// Kept current here: text() right after a reload() is the read before.
 		watchChanges: true
 		onFileChanged: reload()
+	}
+
+	// Another town: its forecast at once.
+	Connections {
+		target: Prefs.values
+		function onWeatherCityChanged() {
+			root.retries = 0;
+			root.refresh();
+		}
+	}
+
+	Process {
+		id: cityProc
+		property string city: ""
+		onExited: code => {
+			if (code !== 0)
+				root.fail("Offline — couldn't find " + city);
+		}
+		stdout: StdioCollector {
+			onStreamFinished: {
+				var found = null;
+				try {
+					found = JSON.parse(this.text).results?.[0] ?? null;
+				} catch (e) {
+					found = null;
+				}
+				if (cityProc.city !== Prefs.values.weatherCity.trim())
+					return;
+				if (!found) {
+					// Not a place Open-Meteo knows: the network's, and a word why.
+					root.lastError = "No place called " + cityProc.city;
+					ipProc.running = true;
+					return;
+				}
+				root.cityPlace = { city: cityProc.city, name: found.name, latitude: found.latitude, longitude: found.longitude };
+				root.location = found.name;
+				root.fetchForecast(found.latitude, found.longitude);
+			}
+		}
 	}
 
 	Process {

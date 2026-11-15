@@ -73,8 +73,16 @@ init() {
     apply "$saved"
 }
 
+# One of list's (the settings pick from it), or any picture.
+set_path() {
+    [[ -f "${1:-}" ]] || die "no such picture: ${1:-}"
+    apply "$1"
+}
+
 case "${1:-}" in
 next) next ;;
 init) init ;;
-*) die "usage: wallpaper next|init" ;;
+list) list_files ;;
+set) set_path "${2:-}" ;;
+*) die "usage: wallpaper next|init|list|set PATH" ;;
 esac

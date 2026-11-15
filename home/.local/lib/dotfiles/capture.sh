@@ -41,30 +41,76 @@ output_rects() {
     ' 2>/dev/null || true
 }
 
+# What moves the windows while slurp is up: a workspace or special shown, a window
+# opened, closed, moved, floated or made fullscreen (Hyprland's socket2 events).
+_LAYOUT_EVENTS='^(workspace|activespecial|openwindow|closewindow|movewindow|changefloatingmode|fullscreen)>>'
+
+# _restart_on_layout PID FLAG: kills slurp's PID at the first of them, FLAG made first.
+_restart_on_layout() {
+    local sock="${XDG_RUNTIME_DIR:-}/hypr/${HYPRLAND_INSTANCE_SIGNATURE:-}/.socket2.sock" line
+    [[ -S "$sock" ]] || return 0
+    exec < <(exec socat -u "UNIX-CONNECT:$sock" - 2>/dev/null)
+    while IFS= read -r line; do
+        [[ "$line" =~ $_LAYOUT_EVENTS ]] || continue
+        : >"$2"
+        kill "$1" 2>/dev/null
+        break
+    done
+    kill $! 2>/dev/null
+}
+
 # pick_region [--freeze] [--windows] [--outputs]: an area from slurp into $GEOM;
-# returns 1 when cancelled.
+# returns 1 when cancelled. slurp starts again, with the windows where they are now,
+# when they move under it.
 # shellcheck disable=SC2034  # GEOM is read by the sourcing script
 pick_region() {
-    local arg freeze=false rects=""
+    local arg freeze=false windows=false outputs=false rects out slurp watch="" rc
     for arg in "$@"; do
         case "$arg" in
         --freeze) freeze=true ;;
-        --windows) rects+="$(window_rects)"$'\n' ;;
-        --outputs) rects+="$(output_rects)"$'\n' ;;
+        --windows) windows=true ;;
+        --outputs) outputs=true ;;
         esac
     done
-    rects="$(sed '/^$/d' <<<"$rects")"
-    if $freeze; then
-        hyprpicker -r -z &
-        HYPRPICKER_PID=$!
-        sleep 0.2
-    fi
-    if [[ -n "$rects" ]]; then
-        GEOM=$(printf "%s\n" "$rects" | slurp "${SLURP_ARGS[@]}") || { stop_picker; return 1; }
-    else
-        GEOM=$(slurp "${SLURP_ARGS[@]}") || { stop_picker; return 1; }
-    fi
-    stop_picker
+    out=$(mktemp "${XDG_RUNTIME_DIR:-/tmp}/pick_region.XXXXXX")
+    while :; do
+        rects=""
+        ! $windows || rects+="$(window_rects)"$'\n'
+        ! $outputs || rects+="$(output_rects)"$'\n'
+        rects="$(sed '/^$/d' <<<"$rects")"
+        if $freeze; then
+            hyprpicker -r -z 200>&- &
+            HYPRPICKER_PID=$!
+            sleep 0.2
+        fi
+        if [[ -n "$rects" ]]; then
+            slurp "${SLURP_ARGS[@]}" <<<"$rects" >"$out" 200>&- &
+        else
+            slurp "${SLURP_ARGS[@]}" >"$out" 200>&- &
+        fi
+        slurp=$!
+        if $windows; then
+            _restart_on_layout "$slurp" "$out.moved" 200>&- &
+            watch=$!
+        fi
+        rc=0
+        wait "$slurp" || rc=$?
+        if [[ -n "$watch" ]]; then
+            pkill -P "$watch" 2>/dev/null || true
+            kill "$watch" 2>/dev/null || true
+            wait "$watch" 2>/dev/null || true
+        fi
+        stop_picker
+        [[ -e "$out.moved" ]] || break
+        rm -f -- "$out.moved"
+        # A slurp done just before the kill keeps its pick.
+        ((rc == 143)) || break
+        # The frozen frame waits for the workspace's slide (look.lua) to end.
+        ! $freeze || sleep 0.45
+    done
+    GEOM=$(<"$out")
+    rm -f -- "$out"
+    ((rc == 0))
 }
 
 is_click() { [[ -z "$1" || "$1" =~ [[:space:]]1x1$ ]]; }

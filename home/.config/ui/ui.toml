@@ -1,5 +1,5 @@
 # The look shared by the desktop's programs: apply-ui renders it into templates/ and
-# quickshell/ui.js. What only the shell uses is in quickshell/Theme.qml.
+# quickshell/ui.json. What only the shell uses is in quickshell/Theme.qml.
 
 [rounding]
 window = 8

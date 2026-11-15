@@ -1,7 +1,6 @@
 pragma Singleton
 import Quickshell
 import Quickshell.Hyprland
-import Quickshell.Io
 import Quickshell.Services.Notifications
 import QtQuick
 
@@ -26,7 +25,7 @@ Singleton {
 			dndUntil = 0;
 			focusLeft = 0;
 		}
-		dimOthers(dnd);
+		dimOthers(dnd && Prefs.values.focusDim);
 	}
 
 	// The windows not in use darker while Focus is on; Hyprland's own strength back after.
@@ -37,6 +36,15 @@ Singleton {
 	}
 	// A shell restarted mid-Focus left them dark.
 	Component.onCompleted: dimOthers(false)
+
+	// Changed in the settings while Focus is on.
+	Connections {
+		target: Prefs.values
+		function onFocusDimChanged() {
+			if (root.dnd)
+				root.dimOthers(Prefs.values.focusDim);
+		}
+	}
 	// The ones already up go too; the center keeps them.
 	onSharingChanged: {
 		for (var i = toasts.count - 1; sharing && i >= 0; i--) {
@@ -208,8 +216,55 @@ Singleton {
 			} else {
 				root.history.insert(0, root.row(n));
 			}
+			root.regroup();
 			root.showToast(n);
 		}
+	}
+
+	// The center keeps an app's notifications together, under the newest: the row at 0's
+	// app gathers its others right after it.
+	function regroup(): void {
+		if (root.history.count < 2)
+			return;
+		var app = root.history.get(0).appName;
+		var to = 1;
+		for (var i = 1; i < root.history.count; i++) {
+			if (root.history.get(i).appName !== app)
+				continue;
+			if (i !== to)
+				root.history.move(i, to, 1);
+			to++;
+		}
+	}
+
+	// An app's icon by its desktop entry or name, else the icon it named; "" for none.
+	function appIconFor(desktopEntry: string, appName: string, appIcon: string): string {
+		var entry = (desktopEntry !== "" ? DesktopEntries.byId(desktopEntry) : null) ?? (appName !== "" ? DesktopEntries.heuristicLookup(appName) : null);
+		var name = entry?.icon || (appIcon !== "" && !appIcon.includes("/") && !appIcon.startsWith("image:") ? appIcon : "");
+		return name !== "" ? Quickshell.iconPath(name, true) : "";
+	}
+
+	// Every notification of one app, as its group's X in the center.
+	function dismissApp(appName: string): void {
+		for (var i = root.history.count - 1; i >= 0; i--) {
+			if (root.history.get(i).appName === appName)
+				root.dismiss(root.history.get(i).nid);
+		}
+	}
+
+	function firstOf(appName: string): var {
+		for (var i = 0; i < root.history.count; i++) {
+			if (root.history.get(i).appName === appName)
+				return root.history.get(i);
+		}
+		return null;
+	}
+
+	function countOf(appName: string): int {
+		var n = 0;
+		for (var i = 0; i < root.history.count; i++)
+			n += root.history.get(i).appName === appName ? 1 : 0;
+		return n;
 	}
 
 	function dismiss(nid): void {
@@ -369,6 +424,7 @@ Singleton {
 			root.keepImage(n);
 			root.removeFrom(root.history, id);
 			root.history.insert(0, root.row(n));
+			root.regroup();
 			while (root.history.count > root.historyLimit) {
 				var old = root.history.get(root.historyLimit).nid;
 				root.live(old)?.dismiss();
@@ -387,20 +443,6 @@ Singleton {
 			n.urgencyChanged.connect(changed);
 			n.actionsChanged.connect(changed);
 			n.closed.connect(() => root.removeFrom(root.toasts, id));
-		}
-	}
-
-	IpcHandler {
-		target: "notifications"
-
-		// Returns whether this turned it on, so a caller knows to turn it off.
-		function dndOn(): bool {
-			var was = root.dnd;
-			root.dnd = true;
-			return !was;
-		}
-		function dndOff(): void {
-			root.dnd = false;
 		}
 	}
 

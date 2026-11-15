@@ -74,21 +74,36 @@ function settingScore(e, q, desc) {
 	return total;
 }
 
-// "2+2", "15% * 80", "1,5 x 4": plain arithmetic, at once, or null.
+// What a formula may call, by the name it is typed with.
+var functions = {
+	sqrt: "Math.sqrt", cbrt: "Math.cbrt", abs: "Math.abs", round: "Math.round", floor: "Math.floor", ceil: "Math.ceil",
+	sin: "Math.sin", cos: "Math.cos", tan: "Math.tan", asin: "Math.asin", acos: "Math.acos", atan: "Math.atan",
+	ln: "Math.log", log: "Math.log10", log2: "Math.log2", exp: "Math.exp", pi: "Math.PI", e: "Math.E"
+};
+
+// "2+2", "15% * 80", "1,5 x 4", "sqrt(2)", "2 pi": arithmetic and the functions above, at
+// once, or null.
 function calculate(raw) {
 	var s = (raw || "").trim();
 	if (s.startsWith("="))
 		s = s.substring(1).trim();
 	if (s === "")
 		return null;
-	if (!/^[0-9+\-*/^().,% xX÷]+$/.test(s))
+	if (!/^[0-9a-z+\-*/^().,% ÷]+$/i.test(s))
 		return null;
 	s = s.replace(/(\d),(\d)/g, "$1.$2");
 	if (s.indexOf(",") !== -1)
 		return null;
-	s = s.replace(/x|X/g, "*").replace(/÷/g, "/");
-	if (!/[+\-*/^%]/.test(s))
+	s = s.replace(/÷/g, "/").replace(/(\d)\s*[xX]\s*(?=[\d(])/g, "$1*");
+	// Words only of the list: "sqrt", not a name of an app.
+	var words = s.match(/[a-z]+/gi) ?? [];
+	if (words.some(w => !(w.toLowerCase() in functions)))
 		return null;
+	if (!/[+\-*/^%(]/.test(s))
+		return null;
+	// "2pi", "2 sqrt(2)", "(1+1)(2)": side by side is times.
+	s = s.replace(/(\d|\))\s*(?=[a-z(])/gi, "$1*");
+	s = s.replace(/[a-z]+/gi, w => functions[w.toLowerCase()]);
 	s = s.replace(/\^/g, "**");
 	s = s.replace(/(\d+(?:\.\d+)?)%/g, "($1/100)");
 

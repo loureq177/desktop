@@ -19,16 +19,18 @@ Drawer {
 	property int navRow: 0
 	property int navCol: 0
 	readonly property var sliders: Brightness.percent >= 0 ? [volRow, briRow] : [volRow]
-	readonly property int rowCount: sliders.length + Math.ceil(tileGrid.children.length / 2)
+	// The tiles shown: Battery care only where the battery has a limit.
+	readonly property var tiles: Array.from(tileGrid.children).filter(t => t.visible)
+	readonly property int rowCount: sliders.length + Math.ceil(tiles.length / 2)
 
 	// An odd last row: its empty place is the tile beside it.
 	function tileAt(r: int, c: int): Item {
 		var i = (r - sliders.length) * 2 + c;
-		return r < sliders.length ? null : tileGrid.children[i] ?? tileGrid.children[i - 1] ?? null;
+		return r < sliders.length ? null : tiles[i] ?? tiles[i - 1] ?? null;
 	}
 
 	function selectTile(tile: Item): void {
-		var i = Array.from(tileGrid.children).indexOf(tile);
+		var i = tiles.indexOf(tile);
 		navRow = sliders.length + Math.floor(i / 2);
 		navCol = i % 2;
 	}
@@ -130,8 +132,8 @@ Drawer {
 				Layout.preferredWidth: 42
 				Layout.preferredHeight: 42
 				radius: Theme.roundingSubtle
-				color: !tile.switchable ? "transparent"
-					: tile.active ? (tile.badgeHovered ? Qt.lighter(tile.tint, 1.15) : tile.tint)
+				// The same for every tile: filled while on; only a page's tile has it as a switch of its own.
+				color: tile.active ? (tile.badgeHovered ? Qt.lighter(tile.tint, 1.15) : tile.tint)
 					: tile.badgeHovered ? Theme.glass(Theme.bgHover) : Theme.glass(Theme.bgCard)
 
 				Behavior on color { ColorAnimation { duration: Theme.animFast } }
@@ -140,8 +142,7 @@ Drawer {
 					anchors.centerIn: parent
 					name: tile.icon
 					size: 22
-					color: tile.switchable ? (tile.active ? Theme.bgMain : tile.badgeHovered ? Theme.textMain : Theme.textDim)
-						: tile.active ? tile.tint : tile.selected ? Theme.textMain : Theme.textDim
+					color: tile.active ? Theme.bgMain : tile.badgeHovered || tile.selected ? Theme.textMain : Theme.textDim
 				}
 
 				MouseArea {
@@ -241,7 +242,7 @@ Drawer {
 					tile.open();
 				break;
 			default:
-				tile = Array.from(tileGrid.children).find(t => t.key !== "" && event.key === t.key.charCodeAt(0));
+				tile = win.tiles.find(t => t.key !== "" && event.key === t.key.charCodeAt(0));
 				if (!tile)
 					return;
 				win.selectTile(tile);
@@ -316,6 +317,13 @@ Drawer {
 					onPressed: memPress.restart()
 					onClicked: Hypr.toggleSpecial("activity")
 				}
+
+				Tip {
+					text: "Memory in use  ·  a click opens the Activity Monitor"
+					visible: memPill.hovered
+					x: memPill.width - width
+					y: memPill.height + 6
+				}
 			}
 
 			CloseButton {
@@ -380,7 +388,7 @@ Drawer {
 			Tile {
 				key: "N"
 				command: "nightlight"
-				subtitle: active ? Modes.nightLightKelvin + " K" : ""
+				subtitle: active ? Modes.nightLightStrength + "%" : ""
 				page: "nightlight"
 			}
 
@@ -396,6 +404,12 @@ Drawer {
 			Tile {
 				key: "A"
 				command: "awake"
+			}
+
+			Tile {
+				key: "C"
+				command: "batterycare"
+				visible: Modes.batteryCareSupported
 			}
 		}
 	}

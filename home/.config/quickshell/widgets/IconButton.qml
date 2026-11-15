@@ -10,6 +10,12 @@ Rectangle {
 	property bool outlined: true
 	property bool danger: false
 	readonly property bool hovered: area.containsMouse
+	// Clicked since the pointer came: its tip has said enough.
+	property bool wasClicked: false
+	onHoveredChanged: {
+		if (!hovered)
+			wasClicked = false;
+	}
 	property color iconColor: Theme.textDim
 
 	signal clicked()
@@ -47,6 +53,9 @@ Rectangle {
 		hoverEnabled: true
 		cursorShape: Qt.PointingHandCursor
 		onPressed: press.restart()
-		onClicked: button.clicked()
+		onClicked: {
+			button.wasClicked = true;
+			button.clicked();
+		}
 	}
 }

@@ -241,7 +241,7 @@ build_own() {
             pkgbuild_install "$name" "$latest" 2>&1 || rc=$?
         done <"$TASKS_DIR/builds"
         echo "$rc" >"$TASKS_DIR/builds.exit"
-    } | tee -a "$TASKS_LOG")
+    } | tee "$_TASK_LOG")
     rc=$(<"$TASKS_DIR/builds.exit")
     if [[ "$rc" != 0 ]]; then
         tail -n 15 "$TASKS_DIR/builds.out"
@@ -263,7 +263,7 @@ update_system() {
         rc=0
         sudo pacman -Syu --noconfirm 2>&1 || rc=$?
         echo "$rc" >"$TASKS_DIR/pacman.exit"
-    } | tee -a "$TASKS_LOG")
+    } | tee "$_TASK_LOG")
     rc=$(<"$TASKS_DIR/pacman.exit")
     if [[ "$rc" != 0 ]]; then
         return "$rc"

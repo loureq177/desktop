@@ -54,9 +54,6 @@ PanelWindow {
 	exclusionMode: overFullscreen ? ExclusionMode.Ignore : ExclusionMode.Normal
 	exclusiveZone: Theme.barMarginY + Theme.barHeight - Theme.barGapTrim
 
-	Component.onCompleted: Bars.add(bar)
-	Component.onDestruction: Bars.remove(bar)
-
 	// Hyprland only reports the visible special through events; the monitor
 	// snapshot covers the time before the first one arrives.
 	property var specialEvent: null
@@ -256,10 +253,25 @@ PanelWindow {
 		id: trayMenu
 	}
 
+	// The level and the time it gives, and why the battery is blue.
 	BarTip {
 		target: system
-		shown: system.hovered && !system.overBt && Battery.present && !Prefs.values.batteryPercent && Panels.active !== "actions"
-		text: Battery.percent + "%"
+		shown: system.hovered && !system.overBt && Battery.present && Panels.active !== "actions"
+		text: [Battery.summary, Modes.awake ? "Keep awake: the screen stays on" : "", Modes.batteryCare ? "Battery care: stops short of full" : ""].filter(t => t !== "").join("\n")
+	}
+
+	// A tray app's name under it, as the specials say theirs.
+	property Item trayHovered: null
+	property Item trayTipTarget: system
+	onTrayHoveredChanged: {
+		if (trayHovered)
+			trayTipTarget = trayHovered;
+	}
+
+	BarTip {
+		target: bar.trayTipTarget
+		shown: bar.trayHovered !== null && !trayMenu.visible
+		text: bar.trayHovered ? (bar.trayHovered.modelData.tooltipTitle || bar.trayHovered.modelData.title || bar.trayHovered.modelData.id) : ""
 	}
 
 	BarTip {
@@ -532,6 +544,18 @@ PanelWindow {
 					required property SystemTrayItem modelData
 
 					custom: true
+					onHoveredChanged: {
+						if (hovered)
+							bar.trayHovered = trayPill;
+						else if (bar.trayHovered === trayPill)
+							bar.trayHovered = null;
+					}
+					Component.onDestruction: {
+						if (bar.trayHovered === trayPill)
+							bar.trayHovered = null;
+						if (bar.trayTipTarget === trayPill)
+							bar.trayTipTarget = system;
+					}
 					onActivated: modelData.onlyMenu ? showMenu() : modelData.activate()
 					onRightClicked: modelData.hasMenu ? showMenu() : modelData.secondaryActivate()
 

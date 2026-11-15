@@ -96,8 +96,6 @@ def main():
             )
 
     print(f"checked {checked} ipc calls against {sum(len(f) for f in known.values())} handler functions")
-    if checked == 0:
-        problems.append("found no `qs ipc call` at all: the scan is broken")
     if problems:
         sys.exit("\n".join(problems))
 

@@ -48,91 +48,6 @@ hl.on("workspace.created", function(ws)
 	end
 end)
 
--- Apps started hidden so their notifications come early, one after another, each
--- moved as it opens. Firefox web apps share one Firefox (windows named after the
--- first app), Chromium's are named after the URL's host.
-local background = apps.background
-
-local function has_window(name)
-	return hl.get_windows({ workspace = "special:" .. name })[1] ~= nil
-end
-
--- The class Firefox gives its web apps: that of whichever was opened first.
-local function firefox_class()
-	local first
-	for _, name in ipairs(background) do
-		first = first or (specials[name].firefox and name)
-	end
-	for _, w in ipairs(hl.get_windows()) do
-		local app = w.workspace ~= nil and w.workspace.special and specials[name_of(w.workspace)]
-		if app and app.firefox then
-			return w.class
-		end
-	end
-	return first
-end
-
-local function start_background()
-	local firefox = firefox_class()
-	local i = 0
-	local sub, shown
-
-	local function opened_by(w, app)
-		if app.host then
-			return w.class:find(app.host, 1, true) ~= nil
-		end
-		return w.class == (app.firefox and firefox or app.class)
-	end
-
-	local function start_next()
-		i = i + 1
-		-- Opened by hand while the network was away.
-		while background[i] ~= nil and has_window(background[i]) do
-			i = i + 1
-		end
-		if background[i] == nil then
-			sub:remove()
-			return
-		end
-		local showing = hl.get_active_special_workspace()
-		shown = showing ~= nil and name_of(showing) == background[i]
-		hl.exec_cmd(specials[background[i]].exe)
-	end
-	sub = hl.on("window.open", function(w)
-		-- One on another special is the user's own (workspace.created); a class rule puts it on its own.
-		local ws = w.workspace
-		if not opened_by(w, specials[background[i]]) or (ws ~= nil and ws.special and name_of(ws) ~= background[i]) then
-			return
-		end
-		-- The class rule shows the special it opens on.
-		local showing = hl.get_active_special_workspace()
-		if not shown and showing ~= nil and name_of(showing) == background[i] then
-			toggle(background[i])
-		end
-		hl.dispatch(hl.dsp.window.set_prop({ prop = "focus_on_activate", value = "0", window = w }))
-		hl.dispatch(hl.dsp.window.move({
-			workspace = "special:" .. background[i],
-			follow = false,
-			window = w,
-		}))
-		-- Back as misc:focus_on_activate has it: "unset" leaves it off.
-		hl.timer(function()
-			local value = hl.get_config("misc.focus_on_activate") and "1" or "0"
-			hl.dispatch(hl.dsp.window.set_prop({ prop = "focus_on_activate", value = value, window = w }))
-		end, { timeout = 10000, type = "oneshot" })
-		start_next()
-	end)
-	start_next()
-end
-
--- Once there is internet and the boot lock has opened the keyring (Chromium asks it for
--- its key), however long that takes; the session does not wait for it.
-hl.on("hyprland.start", function()
-	if background[1] ~= nil then
-		hl.exec_cmd([[sh -c 'until [ "$(nmcli -t -f CONNECTIVITY general || echo full)" = full ] && [ "$(busctl --user get-property org.freedesktop.secrets /org/freedesktop/secrets/collection/login org.freedesktop.Secret.Collection Locked || echo "b false")" = "b false" ]; do sleep 2; done; hyprctl eval "require(\"hyprland.specials\").start_background()"']])
-	end
-end)
-
 -- Three fingers up bring back the special workspace used last, down put away
 -- the one that is showing.
 hl.gesture({
@@ -168,4 +83,4 @@ hl.gesture({
 	end,
 })
 
-return { list = specials, toggle = toggle, start_background = start_background }
+return { list = specials, toggle = toggle }

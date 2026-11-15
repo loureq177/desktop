@@ -133,7 +133,7 @@ Variants {
 			anchors.fill: parent
 			z: 3
 			color: Theme.bgMain
-			opacity: Notifications.dnd ? 1 : 0
+			opacity: Notifications.dnd && Prefs.values.focusWallpaper ? 1 : 0
 
 			Behavior on opacity {
 				NumberAnimation { duration: 600; easing.type: Easing.InOutSine }

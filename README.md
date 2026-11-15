@@ -25,13 +25,14 @@ compromise on functionality.
   calendar, change music...): optional, picked while installing, again with
   `apply-apps --pick`, which installs a new pick and swaps it in at once, browser too
 - **Quickshell**:
-    - Launcher (apps, `/commands`, clipboard, emoji, keys): typing also finds settings and
-      files in your home folder, by name with fd
+    - Launcher (apps, `/commands`, clipboard, emoji, keys): the most used first; typing
+      also finds every command, settings and files in your home folder, by name with fd;
+      `Delete` twice hides an app
     - Power menu under `SUPER + Escape`: lock, suspend, log out, reboot, power off
     - Actions, notifications, OSD
     - Open windows under `SUPER + O`: a list of the launcher, every window with a
       live picture, on any workspace; also a right-click on the launcher's icon
-    - Weather module
+    - Weather module, for where the network is or a town set in Settings
     - Memory on the bar above 70%, always in Actions
     - Tray: the apps running in the background (Discord, Steam)
 - **Hyprlock**: password
@@ -40,17 +41,18 @@ compromise on functionality.
 - Screenshots with edits, screen recording with mic and camera!!, OCR
 - **Dictation** with Parakeet under `SUPER + D`, Polish and English mixed
 - Battery care, awake-mode, night-light, Focus: notifications held for a time you pick
-  (counted down on the bar), the wallpaper off and other windows dimmed; notifications
-  also held while the screen is shared
-- **Settings** under `SUPER + S`: displays, Wi-Fi, Bluetooth, audio, and every option
-  of Hyprland and the theme, searchable, changed on the spot
+  (counted down on the bar), the wallpaper off and other windows dimmed (both can be left
+  out in Settings); notifications also held while the screen is shared
+- **Settings** under `SUPER + S`: displays, sound, the look (wallpaper, accent, gaps,
+  fonts), the bar, keyboard, mouse and touchpad, sleep; every other Hyprland option in
+  Advanced; searchable, changed on the spot, each change undone in one place
 - **LocalSend** for files to and from the phone: started from the launcher, in the tray while it runs
 - **Keys** under `SUPER + /`: every bind, Enter gives it new keys, Delete twice
   removes it, the first row adds a new one (kept in `~/.config/hypr/keys.lua`),
   Ctrl+R gives the config's back
 - `sysupdate` and `sysclean` scripts, their steps run at once
 - A notification when the system runs out of RAM and kills an app
-- Wallpaper switcher with grow animation ("Next wallpaper" in the launcher)
+- Wallpaper switcher with grow animation ("Next wallpaper" in the launcher, a picker in Settings)
 
 ### Laptop features
 
@@ -73,8 +75,8 @@ git clone https://github.com/loureq177/desktop.git ~/Projects/desktop && ~/Proje
 It first shows what it will do; Enter starts it, Ctrl+C stops it. Then the sudo
 password, once, and one screen of choices: your browser (Firefox or
 Chromium, which also runs the web apps) and the apps on special workspaces, each with its
-key, starting from the standard set (calendar, mail, tasks, messages, music, files; the
-activity monitor is always there). `+ Add an app` offers the rest (AI, notes, social,
+key, starting from the standard set (calendar, mail, messages, music, files, notes; the
+activity monitor is always there). `+ Add an app` offers the rest (AI, social,
 video, maps, code, work chat, meetings...) or your own, a site or a program. The answers stay in `~/.config/apps/apps.toml`; `install.sh --defaults` skips
 the questions.
 

@@ -1,14 +1,31 @@
 pragma Singleton
 import Quickshell
+import Quickshell.Io
 import QtQuick
-import "ui.js" as Ui
 
-// Colours and shared sizes come from ~/.config/ui/ui.toml (via ui.js); the rest is
-// the shell's own.
+// Colours and shared sizes come from ~/.config/ui/ui.toml (via ui.json, followed as apply-ui
+// writes it: no restart); the rest is the shell's own.
 Singleton {
 	id: theme
 
-	readonly property var ui: Ui.config
+	// The last whole read: apply-ui empties the file before it writes it.
+	property var lastUi: null
+	readonly property var ui: {
+		try {
+			return JSON.parse(uiFile.text());
+		} catch (e) {
+			return theme.lastUi;
+		}
+	}
+	onUiChanged: lastUi = ui
+
+	FileView {
+		id: uiFile
+		path: Quickshell.shellDir + "/ui.json"
+		blockLoading: true
+		watchChanges: true
+		onFileChanged: reload()
+	}
 
 	readonly property string bgMain: ui.colors.bg_main
 	readonly property string bgCard: ui.colors.bg_card

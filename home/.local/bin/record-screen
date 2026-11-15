@@ -7,7 +7,6 @@ OUT_DIR="$HOME/Videos/Screencasts"
 mkdir -p "$OUT_DIR"
 RUN_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
 STATUS_FILE="$RUN_DIR/recording_status"
-DND_MARKER="$RUN_DIR/recording_dnd"
 
 CAM_PID_FILE="$RUN_DIR/recording_webcam.pid"
 AUDIO_MODULES_FILE="$RUN_DIR/recording_audio_modules"
@@ -34,10 +33,6 @@ cleanup_extras() {
     if [[ -f "$MIC_UNMUTED" ]]; then
         wpctl set-mute @DEFAULT_AUDIO_SOURCE@ 1 || true
         rm -f "$MIC_UNMUTED"
-    fi
-    if [[ -f "$DND_MARKER" ]]; then
-        qs ipc call notifications dndOff || true
-        rm -f "$DND_MARKER"
     fi
 }
 
@@ -200,10 +195,6 @@ FILE="$OUT_DIR/$(date +'%Y-%m-%d_%H-%M-%S').mp4"
 echo "$FILE" >"$STATUS_FILE"
 
 exec 200>&-
-# Do not disturb goes off again with the recording, unless it was on before.
-if [[ "$(qs ipc call notifications dndOn 2>/dev/null)" == true ]]; then
-    : >"$DND_MARKER"
-fi
 
 AUDIO_ARGS=()
 AUDIO_DEVICE=$(audio_device)

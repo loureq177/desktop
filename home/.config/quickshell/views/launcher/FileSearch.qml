@@ -102,16 +102,18 @@ Item {
 					var full = folder ? p.slice(0, -1) : p;
 					var rel = full.startsWith(prefix) ? full.slice(prefix.length) : full;
 					var parts = rel.split("/");
-					return { full: full, rel: rel, low: rel.toLowerCase(), name: parts[parts.length - 1], depth: parts.length, folder: folder };
+					// In a dot folder (~/.config, ~/.local/bin): the desktop's own files, after the user's.
+					var hidden = parts.slice(0, -1).some(p => p.startsWith("."));
+					return { full: full, rel: rel, low: rel.toLowerCase(), name: parts[parts.length - 1], depth: parts.length, folder: folder, hidden: hidden };
 				});
 				root.found = fd.word;
 			}
 		}
 	}
 
-	// A name that starts with a word first, then one with a word in it, then the path
-	// alone; the shallower and the shorter before the rest. Until fd answers, the last
-	// search's paths with the new words: the list does not empty at each key.
+	// Out of dot folders first; then a name that starts with a word, then one with a word in
+	// it, then the path alone; the shallower and the shorter before the rest. Until fd answers,
+	// the last search's paths with the new words: the list does not empty at each key.
 	readonly property var matches: {
 		if (words.length === 0)
 			return [];
@@ -128,7 +130,7 @@ Item {
 			scored.push(Object.assign({ score: best }, p));
 		}
 		// Not localeCompare: thousands of paths on a two-letter word.
-		scored.sort((a, b) => a.score - b.score || a.depth - b.depth || a.name.length - b.name.length || (a.rel < b.rel ? -1 : a.rel > b.rel ? 1 : 0));
+		scored.sort((a, b) => a.hidden - b.hidden || a.score - b.score || a.depth - b.depth || a.name.length - b.name.length || (a.rel < b.rel ? -1 : a.rel > b.rel ? 1 : 0));
 		return scored;
 	}
 
