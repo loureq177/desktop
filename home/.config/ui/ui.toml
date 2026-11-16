@@ -26,7 +26,7 @@ vibrancy = 0.2
 family = "JetBrainsMono Nerd Font Propo"
 mono = "JetBrainsMono Nerd Font Mono"
 ui = "Adwaita Sans 12"
-size_cursor = 24
+size_cursor = 20
 
 [theme]
 cursor = "Bibata-Modern-Classic"
