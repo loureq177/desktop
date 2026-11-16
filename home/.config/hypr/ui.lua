@@ -21,7 +21,7 @@ return {
     font = {
         mono = "JetBrainsMono Nerd Font Mono",
         ui = "Adwaita Sans 12",
-        size_cursor = 20,
+        size_cursor = 24,
     },
     theme = {
         cursor = "Bibata-Modern-Classic",
