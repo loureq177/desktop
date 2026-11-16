@@ -19,7 +19,7 @@ Drawer {
 	property int navRow: 0
 	property int navCol: 0
 	readonly property var sliders: Brightness.percent >= 0 ? [volRow, briRow] : [volRow]
-	// The tiles shown: Battery care only where the battery has a limit.
+	// The tiles shown.
 	readonly property var tiles: Array.from(tileGrid.children).filter(t => t.visible)
 	readonly property int rowCount: sliders.length + Math.ceil(tiles.length / 2)
 
@@ -404,12 +404,6 @@ Drawer {
 			Tile {
 				key: "A"
 				command: "awake"
-			}
-
-			Tile {
-				key: "C"
-				command: "batterycare"
-				visible: Modes.batteryCareSupported
 			}
 		}
 	}
