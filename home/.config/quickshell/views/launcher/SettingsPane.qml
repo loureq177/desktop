@@ -3,7 +3,7 @@ import "../../Search.js" as Search
 import QtQuick
 
 // Pages as other systems have them (Settings.pages), typing searches them all: Enter edits,
-// ←/→ steps, blue was set here, Ctrl+R gives it back to the config, Esc steps out. What the
+// ←/→ steps or goes in and out, blue was set here, Ctrl+R gives it back to the config, Esc steps out. What the
 // picked setting does is said under the list. The screens' arrangement is a picture of its own.
 LauncherPane {
 	id: pane
@@ -25,7 +25,7 @@ LauncherPane {
 	readonly property string sectionLabel: section === "changed" ? "Changed settings" : Settings.page(section)?.label ?? ""
 
 	icon: mode === "browse" ? "settings" : mode === "arrange" ? "monitor" : "pencil"
-	grid: mode === "browse" || mode === "arrange"
+	grid: mode !== "type"
 	placeholder: mode === "arrange" ? (arrangement.dirty ? "Enter applies the arrangement, Esc leaves it as it was" : "Arrange the screens")
 		: mode === "choose" ? "Pick " + editing.label.toLowerCase() + (editing.customHint ? ", " + editing.customHint : "") + "…"
 		: mode === "type" ? "A value for " + editing.label.toLowerCase() + range(editing)
@@ -78,27 +78,18 @@ LauncherPane {
 			arrangement.move(delta, 0);
 			return;
 		}
-		var e = current;
-		if (!e || e.stepless)
-			return;
-		list.keepIndex(() => Settings.set(e, Settings.stepped(e, delta)));
-	}
-
-	// Ctrl + L goes in (a page, a list of choices, a value to type), Ctrl + H back out; the
-	// arrows keep stepping values, and move the screens of the arrangement.
-	function sideways(delta: int, repeat: bool): void {
-		if (mode === "arrange") {
-			arrangement.move(delta, 0);
+		// A value steps; elsewhere → goes in (a page, the choices, a value to type), ← out.
+		var e = mode === "browse" ? current : null;
+		if (e && !e.stepless && Settings.stepped(e, delta) !== undefined) {
+			list.keepIndex(() => Settings.set(e, Settings.stepped(e, delta)));
 			return;
 		}
 		if (repeat)
 			return;
-		if (delta < 0) {
-			back();
-			return;
-		}
 		var row = list.items[list.currentIndex];
-		if (mode === "choose" || (mode === "browse" && row && !row.confirm && row.setting?.kind !== "bool"))
+		if (delta < 0)
+			back();
+		else if (row && !row.confirm)
 			list.activate();
 	}
 

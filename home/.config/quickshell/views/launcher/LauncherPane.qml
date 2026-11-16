@@ -33,12 +33,6 @@ Item {
 		step(delta, repeat);
 	}
 
-	// Ctrl + H / L: in a grid, the arrows' sideways step.
-	function sideways(delta: int, repeat: bool): void {
-		if (grid)
-			stepColumn(delta, repeat);
-	}
-
 	function activate(): void {
 	}
 
