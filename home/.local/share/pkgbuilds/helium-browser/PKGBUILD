@@ -1,0 +1,34 @@
+# Helium's Linux build from its makers' releases (the tarball: no FUSE, nothing mounted at
+# each start). Built only when apply-apps picks it. The profile is ~/.config/net.imput.helium,
+# the same as the AppImage's.
+
+pkgname=helium-browser
+pkgver=0.21.3.1
+pkgrel=1
+pkgdesc="Private, fast and honest web browser based on Chromium"
+arch=('x86_64')
+url="https://github.com/imputnet/helium-linux"
+license=('GPL-3.0-only' 'BSD-3-Clause')
+depends=('alsa-lib' 'gtk3' 'hicolor-icon-theme' 'libcups' 'libxkbcommon' 'mesa' 'nss' 'xdg-utils')
+optdepends=('qt6-base: the Qt theme')
+# Prebuilt Chromium: stripping breaks it.
+options=('!strip' '!debug')
+_dir="helium-$pkgver-x86_64_linux"
+source=("$url/releases/download/$pkgver/$_dir.tar.xz")
+sha256sums=('88f3c53a237182e872ac3061cc8c129e75aecbce84aead834225d8103096c254')
+
+# The newest release (sysupdate asks).
+_latest() {
+    curl -fsSI --max-time 15 -o /dev/null -w '%{redirect_url}' "$url/releases/latest" | sed -nE 's#.*/tag/v?##p'
+}
+
+package() {
+    install -d "$pkgdir/opt/$pkgname" "$pkgdir/usr/bin"
+    cp -a "$_dir/." "$pkgdir/opt/$pkgname/"
+    # Bug reports say where it came from (the wrapper's own note).
+    sed -i 's/^export CHROME_VERSION_EXTRA=.*/export CHROME_VERSION_EXTRA="Arch Linux"/' "$pkgdir/opt/$pkgname/helium-wrapper"
+    # The wrapper finds its libraries next to itself through readlink -f.
+    ln -s "/opt/$pkgname/helium-wrapper" "$pkgdir/usr/bin/helium"
+    install -Dm644 "$_dir/helium.desktop" "$pkgdir/usr/share/applications/helium.desktop"
+    install -Dm644 "$_dir/product_logo_256.png" "$pkgdir/usr/share/icons/hicolor/256x256/apps/helium.png"
+}

@@ -73,8 +73,9 @@ git clone https://github.com/loureq177/desktop.git ~/Projects/desktop && ~/Proje
 ```
 
 It first shows what it will do; Enter starts it, Ctrl+C stops it. Then the sudo
-password, once, and one screen of choices: your browser (Firefox or
-Chromium, which also runs the web apps) and the apps on special workspaces, each with its
+password, once, and one screen of choices: your browser (Firefox, Zen,
+Chromium or Helium, which also runs the web apps; Zen and Helium are built from their
+makers' releases once picked) and the apps on special workspaces, each with its
 key, starting from the standard set (calendar, mail, messages, music, files, notes; the
 activity monitor is always there). `+ Add an app` offers the rest (AI, social,
 video, maps, code, work chat, meetings...) or your own, a site or a program. The answers stay in `~/.config/apps/apps.toml`; `install.sh --defaults` skips

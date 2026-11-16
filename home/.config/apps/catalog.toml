@@ -6,7 +6,8 @@
 # the category's when left out), `app_icon` the launcher's (icons/ or a theme icon),
 # `desktop` the desktop entry the launcher lists as the special instead, `title`
 # what the web app's window title has in it (its name when left out), `player` the
-# MPRIS player it plays through. `pacman` and `flatpak` are what it needs.
+# MPRIS player it plays through. `pacman` and `flatpak` are what it needs, `pkgbuild`
+# what is built for it from home/.local/share/pkgbuilds (only once it is picked).
 
 # Taken by other SUPER + SHIFT binds (binds.lua): the browser, moving windows, killing one.
 reserved = ["B", "H", "J", "K", "L", "Q"]
@@ -15,7 +16,9 @@ reserved = ["B", "H", "J", "K", "L", "Q"]
 # their own or as Chromium --app windows.
 browsers = [
 	{ id = "firefox", name = "Firefox", exec = "firefox", desktop = "firefox.desktop", engine = "firefox", pacman = ["firefox"] },
+	{ id = "zen", name = "Zen", exec = "zen-browser", desktop = "zen.desktop", engine = "firefox", pkgbuild = ["zen-browser"] },
 	{ id = "chromium", name = "Chromium", exec = "chromium", desktop = "chromium.desktop", engine = "chromium", pacman = ["chromium"] },
+	{ id = "helium", name = "Helium", exec = "helium", desktop = "helium.desktop", engine = "chromium", pkgbuild = ["helium-browser"] },
 ]
 
 # `standard`: in the set the installer offers as a whole; `fixed`: always there, not

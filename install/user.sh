@@ -39,9 +39,15 @@ if command -v flatpak &>/dev/null; then
 fi
 
 # home/.local/share/pkgbuilds: from their makers' releases, the newest one when it can be found.
+# What the catalog offers (a browser) only when it was picked.
 _log_info "Building packages from their makers' releases..."
+mapfile -t offered < <(home/.local/bin/apply-apps --offered | awk '$1 == "pkgbuild" { print $2 }')
+mapfile -t chosen < <(picked pkgbuild)
 while IFS= read -r name; do
     pacman -Q "$name" &>/dev/null && continue
+    if [[ " ${offered[*]} " == *" $name "* && " ${chosen[*]} " != *" $name "* ]]; then
+        continue
+    fi
     pkgbuild_install "$name" "$(pkgbuild_latest "$name" 2>/dev/null || true)" || _log_warn "Could not build $name."
 done < <(pkgbuild_names)
 

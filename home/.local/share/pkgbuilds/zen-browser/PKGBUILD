@@ -1,0 +1,60 @@
+# Zen's Linux build from its makers' releases, with a desktop entry and icons of its own.
+# Built only when apply-apps picks it; pacman updates it, so its own updater is off.
+
+pkgname=zen-browser
+pkgver=1.24.2b
+pkgrel=1
+pkgdesc="Firefox-based browser with vertical tabs and workspaces"
+arch=('x86_64')
+url="https://github.com/zen-browser/desktop"
+license=('MPL-2.0')
+depends=('alsa-lib' 'ffmpeg' 'gtk3' 'hicolor-icon-theme' 'libpulse' 'mime-types' 'nss')
+# Prebuilt Firefox: stripping breaks it.
+options=('!strip' '!debug')
+# The file has no version in its name: the version goes in front.
+source=("zen-$pkgver.tar.xz::$url/releases/download/$pkgver/zen.linux-x86_64.tar.xz")
+sha256sums=('bcf7e43160ecfe5f29953ed2a984e7a8028a58f2ec0e3114d36bb904d5f5ce80')
+
+# The newest release, not the twilight builds (sysupdate asks).
+_latest() {
+    curl -fsSI --max-time 15 -o /dev/null -w '%{redirect_url}' "$url/releases/latest" | sed -nE 's#.*/tag/v?##p'
+}
+
+package() {
+    install -d "$pkgdir/opt/$pkgname" "$pkgdir/usr/bin"
+    cp -a zen/. "$pkgdir/opt/$pkgname/"
+    ln -s "/opt/$pkgname/zen" "$pkgdir/usr/bin/zen-browser"
+    install -Dm644 /dev/stdin "$pkgdir/opt/$pkgname/distribution/policies.json" <<'EOF'
+{ "policies": { "DisableAppUpdate": true } }
+EOF
+    local size
+    for size in 16 32 48 64 128; do
+        install -Dm644 "zen/browser/chrome/icons/default/default$size.png" \
+            "$pkgdir/usr/share/icons/hicolor/${size}x${size}/apps/zen-browser.png"
+    done
+    # The window's class is its RemotingName (application.ini): zen.
+    install -Dm644 /dev/stdin "$pkgdir/usr/share/applications/zen.desktop" <<'EOF'
+[Desktop Entry]
+Version=1.0
+Name=Zen Browser
+GenericName=Web Browser
+Comment=Browse the Web
+Exec=zen-browser %u
+Icon=zen-browser
+Terminal=false
+Type=Application
+StartupNotify=true
+StartupWMClass=zen
+Categories=Network;WebBrowser;
+MimeType=text/html;text/xml;application/xhtml+xml;application/pdf;x-scheme-handler/http;x-scheme-handler/https;
+Actions=new-window;new-private-window;
+
+[Desktop Action new-window]
+Name=New Window
+Exec=zen-browser --new-window %u
+
+[Desktop Action new-private-window]
+Name=New Private Window
+Exec=zen-browser --private-window %u
+EOF
+}

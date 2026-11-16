@@ -33,8 +33,14 @@ reserved = set(catalog["reserved"])
 for b in catalog["browsers"]:
     if b.get("engine") not in ("firefox", "chromium"):
         problems.append(f"browser {b['id']}: engine is firefox or chromium")
-    if not any(b.get(s) for s in ("pacman", "flatpak")):
+    if not any(b.get(s) for s in ("pacman", "flatpak", "pkgbuild")):
         problems.append(f"browser {b['id']}: no package")
+
+# A PKGBUILD the catalog names is one of the repo's.
+for item in catalog["browsers"] + [a for c in catalog["category"] for a in c["apps"]]:
+    for name in item.get("pkgbuild", []):
+        if not (repo / "home/.local/share/pkgbuilds" / name / "PKGBUILD").is_file():
+            problems.append(f"{item.get('id', item.get('name'))}: no PKGBUILD for {name}")
 
 ids, keys = set(), {}
 for c in catalog["category"]:
