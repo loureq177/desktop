@@ -133,10 +133,14 @@ Drawer {
 				Layout.preferredHeight: 42
 				radius: Theme.roundingSubtle
 				// The same for every tile: filled while on; only a page's tile has it as a switch of its own.
+				// Off: a tint of the text with an edge, as the tile's own glass is the same dark.
 				color: tile.active ? (tile.badgeHovered ? Qt.lighter(tile.tint, 1.15) : tile.tint)
-					: tile.badgeHovered ? Theme.glass(Theme.bgHover) : Theme.glass(Theme.bgCard)
+					: Theme.alpha(Theme.textMain, tile.badgeHovered ? 0.16 : 0.09)
+				border.color: tile.active ? "transparent" : tile.badgeHovered ? Theme.tileBorderHover : Theme.alpha(Theme.textMain, 0.14)
+				border.width: 1
 
 				Behavior on color { ColorAnimation { duration: Theme.animFast } }
+				Behavior on border.color { ColorAnimation { duration: Theme.animFast } }
 
 				LineIcon {
 					anchors.centerIn: parent
