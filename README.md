@@ -28,7 +28,8 @@ compromise on functionality.
     - Launcher (apps, `/commands`, clipboard, emoji, keys): the most used first; typing
       also finds every command, settings and files in your home folder, by name with fd;
       `Delete` twice hides an app
-    - Power menu under `SUPER + Escape`: lock, suspend, log out, reboot, power off
+    - Power menu under `SUPER + Escape`: lock, suspend, log out, reboot, power off; with
+      NVIDIA beside another GPU, reboot without it (a faster boot, kept until switched back) or with it
     - Actions, notifications, OSD
     - Open windows under `SUPER + O`: a list of the launcher, every window with a
       live picture, on any workspace; also a right-click on the launcher's icon

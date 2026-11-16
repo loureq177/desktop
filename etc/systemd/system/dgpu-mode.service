@@ -1,0 +1,14 @@
+# Before udev loads the drivers: see /etc/dgpu-mode.sh.
+[Unit]
+Description=Boot without the NVIDIA GPU when asked
+DefaultDependencies=no
+Before=systemd-udev-trigger.service systemd-modules-load.service
+RequiresMountsFor=/var/lib/dgpu
+ConditionPathExists=/var/lib/dgpu/mode
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh /etc/dgpu-mode.sh
+
+[Install]
+WantedBy=sysinit.target

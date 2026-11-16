@@ -13,6 +13,9 @@ Singleton {
 	readonly property string runDir: Quickshell.env("XDG_RUNTIME_DIR")
 	readonly property bool batteryCareSupported: batteryCareMarker.loaded
 	readonly property bool batteryCare: batteryCareMarker.loaded && batteryCareMarker.state === "on"
+	// The NVIDIA GPU of the next boot (`dgpu`); only where it can be switched.
+	readonly property bool dgpuSupported: dgpuMarker.loaded
+	readonly property bool dgpuOff: dgpuMarker.loaded && dgpuMarker.state === "off"
 	readonly property bool awake: awakeMarker.loaded
 	readonly property bool recording: recordingMarker.loaded
 	// "recording", "transcribing", or "" while it is off.
@@ -218,6 +221,15 @@ Singleton {
 		property string state: ""
 
 		path: root.runDir + "/battery_care"
+		onLoaded: state = text().trim()
+	}
+
+	Marker {
+		id: dgpuMarker
+
+		property string state: ""
+
+		path: "/var/lib/dgpu/mode"
 		onLoaded: state = text().trim()
 	}
 

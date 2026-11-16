@@ -117,6 +117,14 @@ if booted; then
     systemctl daemon-reload 2>/dev/null || true
 fi
 systemctl enable suspend-settle.service || _log_warn "Failed to enable suspend-settle."
+# NVIDIA beside another GPU: the power menu can reboot without it (`dgpu`), kept as last set.
+if grep -qx 0x10de /sys/bus/pci/devices/*/vendor 2>/dev/null &&
+    [ "$(grep -l '^0x03' /sys/bus/pci/devices/*/class | wc -l)" -gt 1 ]; then
+    install -d -o "$user" -g "$(id -gn "$user")" -m 755 /var/lib/dgpu
+    [ -e /var/lib/dgpu/mode ] || install -o "$user" -g "$(id -gn "$user")" -m 644 /dev/null /var/lib/dgpu/mode
+    [ -s /var/lib/dgpu/mode ] || echo on >/var/lib/dgpu/mode
+    systemctl enable dgpu-mode.service || _log_warn "Failed to enable dgpu-mode."
+fi
 systemctl enable reflector.timer || _log_warn "Failed to enable reflector.timer."
 # Certificates of the networks that sign in with a username (wifi-join): iwd reads no home.
 install -d -m 755 /var/lib/wifi-certs

@@ -1,0 +1,10 @@
+#!/bin/sh
+# The NVIDIA GPU from the next boot on: `dgpu off` boots without it (faster, no screens on
+# its ports), `dgpu on` with it; `dgpu` says which. Applied by dgpu-mode.service.
+mode=/var/lib/dgpu/mode
+[ -w "$mode" ] || { echo "dgpu: this machine has no switchable NVIDIA GPU" >&2; exit 1; }
+case "${1:-}" in
+on | off) echo "$1" >"$mode" ;;
+"") cat "$mode" ;;
+*) echo "usage: dgpu [on|off]" >&2; exit 2 ;;
+esac

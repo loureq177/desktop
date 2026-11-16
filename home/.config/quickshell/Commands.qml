@@ -101,6 +101,10 @@ Singleton {
 		{ id: "suspend", group: "session", name: "Suspend", desc: "Lock and sleep", icon: "moon", run: () => Hypr.exec(["sh", "-c", "loginctl lock-session && systemctl suspend"]) },
 		{ id: "logout", group: "session", name: "Log out", desc: "Close the apps, end the session", icon: "log-out", confirm: "log out", keywords: "logout exit", run: () => shutdown("") },
 		{ id: "reboot", group: "session", name: "Reboot", desc: "Close the apps, restart", icon: "rotate-cw", confirm: "reboot", run: () => shutdown("systemctl reboot --no-wall") },
+		...(Modes.dgpuSupported ? [Modes.dgpuOff
+			? { id: "dgpu", group: "session", name: "Reboot with dGPU", desc: "For external screens and games", icon: "rotate-cw", confirm: "reboot", keywords: "nvidia gpu", run: () => shutdown(root.bin + "dgpu on; systemctl reboot --no-wall") }
+			: { id: "dgpu", group: "session", name: "Reboot without dGPU", desc: "Faster boot, no screens on its ports", icon: "rotate-cw", confirm: "reboot", keywords: "nvidia gpu integrated", run: () => shutdown(root.bin + "dgpu off; systemctl reboot --no-wall") }
+		] : []),
 		{ id: "poweroff", group: "session", name: "Power off", desc: "Close the apps, shut down", icon: "power", confirm: "power off", keywords: "shutdown", run: () => shutdown("systemctl poweroff --no-wall") }
 	])
 }
