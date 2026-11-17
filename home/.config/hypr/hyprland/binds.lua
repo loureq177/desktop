@@ -219,8 +219,12 @@ do
 		{ "XF86MonBrightnessUp", "Brightness up", panel("brightness-up"), true },
 		{ "XF86MonBrightnessDown", "Brightness down", panel("brightness-down"), true },
 		{ "XF86AudioNext", "Next track", "playerctl next", false },
-		{ "XF86AudioPause", "Pause track", "playerctl play-pause", false },
-		{ "XF86AudioPlay", "Play track", "playerctl play-pause", false },
+		-- Keyboards' play/pause key (KEY_PLAYPAUSE); Play and Pause as such come from headphones
+		-- put on and taken off (KEY_PLAY, KEY_PAUSE), and must not toggle.
+		{ "code:172", "Play or pause", "playerctl play-pause", false },
+		{ "code:215", "Play track", "playerctl play", false },
+		{ "XF86AudioPause", "Pause track", "playerctl pause", false },
+		{ "Pause", "Pause track", "playerctl pause", false },
 		{ "XF86AudioPrev", "Previous track", "playerctl previous", false },
 	}) do
 		local action = type(m[3]) == "string" and exec(m[3]) or m[3]

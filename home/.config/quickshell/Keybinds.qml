@@ -134,7 +134,7 @@ Singleton {
 			var desc = (b.description || "").trim();
 			var key = (b.key || "").trim();
 			var cut = desc.indexOf(": ");
-			if (cut < 0 || key.toLowerCase().startsWith("xf86") || b.submap)
+			if (cut < 0 || !key || key.toLowerCase().startsWith("xf86") || b.submap)
 				continue;
 			var name = (b.modmask || 0) + desc;
 			if (!byName[name]) {
