@@ -12,7 +12,7 @@ Singleton {
 	// The special workspaces open now, by name: Quickshell gives all specials one id,
 	// so Hyprland.workspaces cannot tell them apart.
 	property var specials: []
-	// The other workspaces, { id, monitor, hasFullscreen } by id.
+	// The other workspaces, { id, monitor, hasFullscreen, tiled } by id.
 	property var workspaces: []
 
 	// A fullscreen window on that screen's workspace, as far as is known yet.
@@ -20,6 +20,13 @@ Singleton {
 		// Quickshell's own id of the focused one is right, and at once.
 		var id = Hyprland.monitorFor(screen)?.activeWorkspace?.id ?? -1;
 		return workspaces.find(w => w.id === id)?.hasFullscreen ?? false;
+	}
+
+	// One tiled window alone on that screen's workspace: look.lua's fill_single rule.
+	function singleOn(screen): bool {
+		var id = Hyprland.monitorFor(screen)?.activeWorkspace?.id ?? -1;
+		var w = workspaces.find(w => w.id === id);
+		return (w?.tiled ?? 0) === 1 && !w.hasFullscreen;
 	}
 
 	// Called once the reload being run is done.
@@ -90,7 +97,7 @@ Singleton {
 	Connections {
 		target: Hyprland
 		function onRawEvent(ev) {
-			if (["createworkspacev2", "destroyworkspacev2", "changeworkspaceid", "moveworkspacev2", "openwindow", "closewindow", "movewindowv2", "fullscreen"].includes(ev.name))
+			if (["createworkspacev2", "destroyworkspacev2", "changeworkspaceid", "moveworkspacev2", "openwindow", "closewindow", "movewindowv2", "fullscreen", "changefloatingmode"].includes(ev.name))
 				workspacesAsk.restart();
 			// Quickshell keeps the old id of the workspace on a monitor until it is asked again.
 			if (ev.name === "changeworkspaceid") {
@@ -115,20 +122,25 @@ Singleton {
 	Process {
 		id: workspacesList
 		running: true
-		command: ["hyprctl", "workspaces", "-j"]
+		// The workspaces, then the windows, each as one JSON array.
+		command: ["hyprctl", "--batch", "-j", "workspaces; clients"]
 		stdout: StdioCollector {
 			onStreamFinished: {
-				var all = [];
+				var all = [], clients = [];
 				try {
-					all = JSON.parse(this.text);
+					[all, clients] = this.text.split(/\n\s*\n/).filter(s => s.trim()).map(s => JSON.parse(s));
 				} catch (e) {
 					return;
 				}
+				var tiled = {};
+				for (const c of clients ?? [])
+					if (c.mapped && !c.hidden && !c.floating)
+						tiled[c.workspace.id] = (tiled[c.workspace.id] ?? 0) + 1;
 				var special = w => String(w.name).startsWith("special:");
 				var names = all.filter(special).map(w => w.name.slice(8));
 				if (names.join("\n") !== root.specials.join("\n"))
 					root.specials = names;
-				var normal = all.filter(w => !special(w)).map(w => ({ id: w.id, monitor: w.monitor, hasFullscreen: w.hasfullscreen })).sort((a, b) => a.id - b.id);
+				var normal = all.filter(w => !special(w)).map(w => ({ id: w.id, monitor: w.monitor, hasFullscreen: w.hasfullscreen, tiled: tiled[w.id] ?? 0 })).sort((a, b) => a.id - b.id);
 				if (JSON.stringify(normal) !== JSON.stringify(root.workspaces))
 					root.workspaces = normal;
 			}

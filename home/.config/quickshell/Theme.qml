@@ -72,15 +72,17 @@ Singleton {
 	// Bar geometry: a single translucent strip with hover-highlighted modules.
 	readonly property int barHeight: 30
 	readonly property int barMarginX: 20
-	readonly property int barMarginY: 4
+	readonly property int barMarginY: 2
 	// How much of the windows' outer gap the bar gives back on its side.
-	readonly property int barGapTrim: 4
+	readonly property int barGapTrim: 2
 
 	// The drawers, the toasts and the OSD: below the bar, the drawers and the
 	// toasts at its right end.
 	readonly property int drawerWidth: 500
 	readonly property int panelTop: 50
 	readonly property int panelMargin: ui.spacing.gaps_out
+	// One tiled window alone fills the screen below the bar (look.lua).
+	readonly property bool fillSingle: ui.spacing.fill_single ?? false
 	// Inside a notification card.
 	readonly property int notifPadV: 10
 	readonly property int notifPadH: 14

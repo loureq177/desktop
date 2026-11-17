@@ -9,6 +9,7 @@ return {
     spacing = {
         gaps_in = @spacing_gaps_in@,
         gaps_out = @spacing_gaps_out@,
+        fill_single = @spacing_fill_single@,
     },
     opacity = {
         active = @opacity_active@,

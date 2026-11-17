@@ -58,6 +58,19 @@ hl.config({
 	},
 })
 
+-- One tiled window alone fills the screen; the bar draws a band above it (Bar.qml).
+-- Top gap: the bar's barMarginY + barGapTrim, so the band is as tall below the bar as above.
+if ui.spacing.fill_single then
+	hl.workspace_rule({
+		workspace = "w[tv1]s[false]",
+		gaps_out = { top = 4, right = 0, bottom = 0, left = 0 },
+		gaps_in = 0,
+		no_border = true,
+		no_rounding = true,
+		no_shadow = true,
+	})
+end
+
 -- The shell drawers' curve and time, no overshoot (a resizing client would draw
 -- twice).
 hl.curve("easeOutQuint", { type = "bezier", points = { { 0.23, 1 }, { 0.32, 1 } } })

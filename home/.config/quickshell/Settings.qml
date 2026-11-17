@@ -113,6 +113,7 @@ Singleton {
 		"border.size": { section: "appearance", sub: "Windows", label: "Border width", icon: "square", min: 0, max: 8, desc: "The coloured edge of the focused window, in pixels" },
 		"spacing.gaps_in": { section: "appearance", sub: "Windows", label: "Gaps between windows", icon: "move", min: 0, max: 40 },
 		"spacing.gaps_out": { section: "appearance", sub: "Windows", label: "Gaps at the screen's edges", icon: "move", min: 0, max: 60 },
+		"spacing.fill_single": { section: "appearance", sub: "Windows", label: "A lone window fills the screen", icon: "panel-top", desc: "Up to the bar, with no gaps or border, while it is the only one on its workspace" },
 		"opacity.inactive": { section: "appearance", sub: "Windows", label: "Inactive window opacity", icon: "contrast", min: 0.5, max: 1, step: 0.05 },
 		"opacity.dim_special": { section: "appearance", sub: "Windows", label: "Dim behind special workspaces", icon: "contrast", min: 0, max: 1, step: 0.05, desc: "How dark the desktop gets behind an app's special workspace and the panels" },
 		"font.family": { section: "appearance", sub: "Text", label: "Shell font", icon: "type", desc: "The bar, the panels and the lock screen" },

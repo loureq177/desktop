@@ -11,6 +11,8 @@ size = 2
 [spacing]
 gaps_in = 10
 gaps_out = 20
+# One tiled window alone on a workspace fills the screen below the bar.
+fill_single = true
 
 [opacity]
 active = 1.0

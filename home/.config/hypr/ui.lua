@@ -12,6 +12,7 @@ return {
     spacing = {
         gaps_in = 10,
         gaps_out = 20,
+        fill_single = true,
     },
     opacity = {
         active = 1.0,

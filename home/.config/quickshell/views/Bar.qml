@@ -18,7 +18,9 @@ PanelWindow {
 
 	screen: modelData
 	color: "transparent"
-	WlrLayershell.layer: WlrLayer.Overlay
+	// Under a fullscreen window it stays mapped on the top layer, which Hyprland hides there
+	// without blocking direct scanout: its space stays reserved, so leaving fullscreen is one move.
+	WlrLayershell.layer: overFullscreen && peekShown === 0 ? WlrLayer.Top : WlrLayer.Overlay
 	WlrLayershell.namespace: "quickshell"
 
 	// Quickshell's own id of the focused one is right, and at once.
@@ -30,7 +32,8 @@ PanelWindow {
 	Behavior on peekShown {
 		NumberAnimation { duration: Theme.animFast; easing.type: Easing.OutCubic }
 	}
-	visible: !overFullscreen || peekShown > 0
+	// A window alone fills the screen below the bar (look.lua): the bar sits on a band joined to it.
+	readonly property bool filled: Theme.fillSingle && !overFullscreen && Hypr.singleOn(modelData)
 	onOverFullscreenChanged: {
 		if (!overFullscreen && Bars.peekScreen === screenName)
 			Bars.peekScreen = "";
@@ -42,8 +45,8 @@ PanelWindow {
 		right: true
 	}
 
-	// Only the strip takes input. Over a fullscreen window the margin below too, for the band.
-	implicitHeight: Theme.barMarginY * (overFullscreen ? 2 : 1) + Theme.barHeight
+	// Only the strip takes input. Over a fullscreen or lone window the margin below too, for the band.
+	implicitHeight: Theme.barMarginY * (overFullscreen || filled ? 2 : 1) + Theme.barHeight
 	mask: Region {
 		item: strip
 
@@ -51,7 +54,7 @@ PanelWindow {
 			item: peekArea
 		}
 	}
-	exclusionMode: overFullscreen ? ExclusionMode.Ignore : ExclusionMode.Normal
+	exclusionMode: ExclusionMode.Normal
 	exclusiveZone: Theme.barMarginY + Theme.barHeight - Theme.barGapTrim
 
 	// Hyprland only reports the visible special through events; the monitor
@@ -289,6 +292,18 @@ PanelWindow {
 		height: parent.height
 		y: -(1 - bar.peekShown) * height
 		color: Theme.bgMain
+	}
+
+	Rectangle {
+		width: parent.width
+		height: parent.height
+		color: Theme.bgMain
+		opacity: bar.filled ? 1 : 0
+		visible: opacity > 0
+
+		Behavior on opacity {
+			NumberAnimation { duration: Theme.animNormal; easing.type: Easing.OutCubic }
+		}
 	}
 
 	Item {

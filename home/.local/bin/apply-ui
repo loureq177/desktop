@@ -42,7 +42,8 @@ def header(source, suffix):
 # there by name as "#rrggbb", and @name:bare@ drops the "#".
 def render(template, values):
     def value(match):
-        text = str(values[match.group(1)])
+        v = values[match.group(1)]
+        text = str(v).lower() if isinstance(v, bool) else str(v)
         return text.lstrip("#") if match.group(2) else text
 
     text = (CONFIG_DIR / "ui" / "templates" / template).read_text()
