@@ -46,23 +46,6 @@ apply() {
     printf '%s\n' "$1" >"$STATE_FILE"
 }
 
-# Next wallpaper in alphabetical order, wrapping around.
-next() {
-    local files cur idx=-1 i
-    mapfile -t files < <(list_files)
-    if [[ "${#files[@]}" -eq 0 ]]; then
-        # Run from a key: stderr goes nowhere anyone reads.
-        notify-send --app-name=Wallpaper -i image-missing "No wallpapers" \
-            "Put images (png, jpg, webp) in ${WALL_DIR/#$HOME/\~}" 2>/dev/null || true
-        die "no wallpapers in $WALL_DIR or $SYSTEM_DIR"
-    fi
-    cur="$(current_path 2>/dev/null || true)"
-    for i in "${!files[@]}"; do
-        [[ "${files[$i]}" == "$cur" ]] && idx="$i" && break
-    done
-    apply "${files[$(((idx + 1) % ${#files[@]}))]}"
-}
-
 # Make sure a wallpaper is set (autostart entry).
 init() {
     local saved=""
@@ -80,9 +63,8 @@ set_path() {
 }
 
 case "${1:-}" in
-next) next ;;
 init) init ;;
 list) list_files ;;
 set) set_path "${2:-}" ;;
-*) die "usage: wallpaper next|init|list|set PATH" ;;
+*) die "usage: wallpaper init|list|set PATH" ;;
 esac

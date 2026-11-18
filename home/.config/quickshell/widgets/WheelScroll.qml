@@ -67,6 +67,10 @@ MouseArea {
 		glide.start();
 	}
 
+	function stop(): void {
+		glide.stop();
+	}
+
 	// Brings row `index` into sight as positionViewAtIndex(Contain) does, gliding in step
 	// with the highlight; the pointer's picks are left alone.
 	function reveal(index: int): void {

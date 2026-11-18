@@ -91,7 +91,6 @@ Singleton {
 		{ id: "keys", group: "system", bind: "Launcher: Keybindings", name: "Keybindings", desc: "See, change, remove or add keys", icon: "keyboard", keywords: "shortcuts hotkeys binds", run: () => open("launcher", "keys") },
 		{ id: "actions", group: "system", bind: "System & Tools: Actions", name: "Actions", desc: "Volume, brightness and the switches", icon: "sliders-horizontal", keywords: "quick settings", run: () => open("actions", "") },
 		{ id: "weather", group: "system", bind: "System & Tools: Weather", name: "Weather", desc: "The forecast", icon: "cloud-sun", run: () => open("weather", "") },
-		{ id: "wallpaper", group: "system", name: "Next wallpaper", desc: "From ~/Pictures/Wallpapers", icon: "image", keywords: "background", run: () => script("wallpaper next") },
 		{ id: "notifications", group: "system", bind: "Notifications: Toggle notification center", name: "Notifications", desc: "The notification center", icon: "bell", run: () => open("notifications", "") },
 		{ id: "sysupdate", group: "system", name: "System update", desc: "Upgrades the packages", icon: "package", keywords: "sysupdate", run: () => terminal("sysupdate") },
 		{ id: "sysclean", group: "system", name: "System cleanup", desc: "Caches, orphaned packages, the trash", icon: "trash", keywords: "sysclean", run: () => terminal("sysclean") },

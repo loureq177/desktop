@@ -19,6 +19,8 @@ LauncherPane {
 	property int browseIndex: 0
 
 	readonly property string q: query.trim()
+	// Choices that are pictures (wallpapers): big tiles, three to a row.
+	readonly property bool pictures: mode === "choose" && editing.choices.some(c => c.thumb)
 	readonly property var current: mode === "browse" ? (list.items[list.currentIndex]?.setting ?? null) : editing
 	// Hidden, not made: each volume or brightness step makes Settings.entries again.
 	readonly property var changedEntries: visible ? Settings.entries.filter(e => Settings.changed(e)) : []
@@ -76,6 +78,11 @@ LauncherPane {
 	function stepColumn(delta: int, repeat: bool): void {
 		if (mode === "arrange") {
 			arrangement.move(delta, 0);
+			return;
+		}
+		// Among pictures, ← out from the first one.
+		if (list.items[list.currentIndex]?.tiles && (delta > 0 || list.tileIndex > 0)) {
+			list.stepTile(delta);
 			return;
 		}
 		// A value steps; elsewhere → goes in (a page, the choices, a value to type), ← out.
@@ -199,6 +206,13 @@ LauncherPane {
 		}
 		mode = e.kind === "enum" ? "choose" : "type";
 		list.currentIndex = 0;
+		// Pictures open on the one set now.
+		var now = e.kind === "enum" ? e.choices.findIndex(c => c.thumb && c.value === e.value) : -1;
+		if (now > 0)
+			Qt.callLater(() => {
+				list.currentIndex = Math.floor(now / list.tilesPerRow);
+				list.tileIndex = now % list.tilesPerRow;
+			});
 		Settings.lastError = "";
 		pane.queryRequested(mode === "type" ? (e.kind === "color" && e.source === "hyprland" ? Settings.hyprColorInput(String(e.value)) : String(e.value)) : "");
 	}
@@ -269,7 +283,9 @@ LauncherPane {
 		id: list
 		anchors.fill: parent
 		visible: pane.mode !== "arrange"
-		// How long the page is: settings run to hundreds.
+		tilesPerRow: pane.pictures ? 3 : 6
+		// A 16:9 picture as wide as a third, its name under it.
+		tileHeight: pane.pictures ? Math.round((width / 3 - 16) * 9 / 16) + 44 : 84
 
 		// Displays and audio answer later than the keypress: a new model would go back to the top.
 		onRowsChanged: {
@@ -289,7 +305,7 @@ LauncherPane {
 				var made = v => ({ label: pane.editing.customLabel ? pane.editing.customLabel(v) : String(v), value: v, swatch: pane.editing.presets || pane.editing.custom && typeof v === "string" ? v : undefined });
 				var choices = pane.editing.choices.concat(typed !== undefined && !pane.editing.choices.some(c => c.value === typed) ? [made(typed)] : []);
 				var ranked = Search.rank(choices, c => typed !== undefined && c.value === typed ? -1000 : Search.matchScore([[String(c.label), 0]], pane.q));
-				return ranked.map(c => ({
+				var picks = ranked.map(c => ({
 					label: String(c.label),
 					// The one set now: a check, or a word where a picture takes the icon's place.
 					subtitle: (c.thumb || c.swatch) && c.value === pane.editing.value ? "Now" : "",
@@ -301,6 +317,12 @@ LauncherPane {
 						return false;
 					}
 				}));
+				if (!pane.pictures)
+					return picks;
+				var lines = [];
+				for (var i = 0; i < picks.length; i += tilesPerRow)
+					lines.push({ label: "", tiles: picks.slice(i, i + tilesPerRow) });
+				return lines;
 			}
 			if (pane.mode === "browse" && pane.q === "" && pane.section === "")
 				return pane.pageRows();

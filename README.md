@@ -57,7 +57,7 @@ compromise on functionality.
   Ctrl+R gives the config's back
 - `sysupdate` and `sysclean` scripts, their steps run at once
 - A notification when the system runs out of RAM and kills an app
-- Wallpaper switcher with grow animation ("Next wallpaper" in the launcher, a picker in Settings)
+- Wallpaper switcher with grow animation (a picker in Settings)
 
 ### Laptop features
 

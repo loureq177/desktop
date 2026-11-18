@@ -39,6 +39,15 @@ ListView {
 	highlightFollowsCurrentItem: false
 	keyNavigationEnabled: false
 	onCurrentIndexChanged: scrolling.reveal(currentIndex)
+	// Every row fits (one was revealed while the rows or the list had other heights): from the top.
+	function settle(): void {
+		if (contentHeight <= height && contentY !== originY) {
+			scrolling.stop();
+			positionViewAtBeginning();
+		}
+	}
+	onHeightChanged: settle()
+	onContentHeightChanged: settle()
 	onCountChanged: {
 		if (currentIndex >= count)
 			currentIndex = Math.max(0, count - 1);

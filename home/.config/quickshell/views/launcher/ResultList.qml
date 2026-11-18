@@ -9,7 +9,7 @@ import QtQuick.Layouts
 // changed (the chord in blue), editing (the subtitle in blue), tooltip (said under the list
 // for the picked row), thumb (a picture), swatch (a colour), accent, heading, confirm, setting,
 // armId, usage (Usage's key); run returning false keeps the launcher. A row of `tiles` (items
-// too) shows them side by side: Left and Right pick among them.
+// too) shows them side by side: Left and Right pick among them; a tile's thumb fills it.
 SelectList {
 	id: list
 
@@ -21,8 +21,8 @@ SelectList {
 	property string armedId: ""
 	property string armedText: ""
 	readonly property int headingHeight: 22
-	readonly property int tileHeight: 84
-	readonly property int tilesPerRow: 6
+	property int tileHeight: 84
+	property int tilesPerRow: 6
 	// The tile picked in a row of tiles.
 	property int tileIndex: 0
 	// What the picked row says of itself: a function is asked only for that row.
@@ -167,6 +167,26 @@ SelectList {
 						}
 					}
 
+					// A picture to pick (a wallpaper), with its name under it.
+					ClippingRectangle {
+						visible: !!tile.modelData.thumb
+						x: 8
+						y: 8
+						width: parent.width - 16
+						height: parent.height - 44
+						radius: Theme.roundingSubtle
+						color: Theme.glass(Theme.bgCard)
+
+						Image {
+							anchors.fill: parent
+							source: tile.modelData.thumb ?? ""
+							sourceSize.width: width * 2
+							sourceSize.height: height * 2
+							fillMode: Image.PreserveAspectCrop
+							asynchronous: true
+						}
+					}
+
 					IconImage {
 						readonly property string name: tile.modelData.icon ?? ""
 						visible: name !== ""
@@ -189,13 +209,14 @@ SelectList {
 
 					StyledText {
 						anchors.horizontalCenter: parent.horizontalCenter
-						y: 56
+						y: tile.modelData.thumb ? parent.height - 32 : 56
 						width: parent.width - 12
 						horizontalAlignment: Text.AlignHCenter
 						font.pixelSize: Theme.fontSizeSmall
+						color: tile.modelData.subtitle ? Theme.accentBlue : Theme.textMain
 						elide: Text.ElideRight
 						textFormat: Text.PlainText
-						text: tile.modelData.label
+						text: tile.modelData.label + (tile.modelData.subtitle ? "  ·  " + tile.modelData.subtitle : "")
 					}
 				}
 			}
