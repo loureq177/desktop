@@ -12,6 +12,8 @@ StandbyWindow {
 	// 0 hidden, 1 on screen.
 	property real progress: 0
 	readonly property bool animating: anim.running
+	onAnimatingChanged: GpuBoost.hold("modal", animating)
+	Component.onDestruction: GpuBoost.hold("modal", false)
 	default property alias content: stage.data
 
 	signal dismissRequested()

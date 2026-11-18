@@ -65,7 +65,9 @@ FocusScope {
 		target: root
 		property: "progress"
 		easing.bezierCurve: Theme.easeOutQuint
+		onRunningChanged: GpuBoost.hold("drawer " + root.name, running)
 	}
+	Component.onDestruction: GpuBoost.hold("drawer " + root.name, false)
 
 	Rectangle {
 		id: card

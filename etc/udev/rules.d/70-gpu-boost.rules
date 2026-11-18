@@ -1,0 +1,2 @@
+# The shell's GpuBoost raises an AMD GPU to its full clock while a panel moves, on battery.
+ACTION=="add|bind", SUBSYSTEM=="pci", DRIVER=="amdgpu", TEST=="power_dpm_force_performance_level", RUN+="/usr/bin/chgrp video /sys%p/power_dpm_force_performance_level", RUN+="/usr/bin/chmod g+w /sys%p/power_dpm_force_performance_level"
