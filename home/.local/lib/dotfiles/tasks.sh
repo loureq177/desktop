@@ -2,7 +2,7 @@
 # Steps run at once: `task LABEL FN` queues one, `run_tasks TITLE` runs them; a step's last
 # line is its summary (⚠ warns), all in $TASKS_LOG, `task_status TEXT` says how it is going.
 # `task_detail LINE...` lines come under the section once done; what a step writes to
-# $_TASK_LOG goes to $TASKS_LOG ahead of its output.
+# $_TASK_LOG goes to $TASKS_LOG ahead of its output. `tasks_brief` sums a run up at its end.
 
 TASKS_DIR=$(mktemp -d "${TMPDIR:-/tmp}/tasks.XXXXXX")
 TASKS_LOG=${TASKS_LOG:-}
@@ -241,7 +241,8 @@ _tasks_report() {
         if [[ -n "$TASKS_LOG" ]]; then
             {
                 printf '== %s (exit %s)\n' "${_TASK_LABELS[i]}" "$(<"$TASKS_DIR/$i.rc")"
-                cat -- "$TASKS_DIR/$i.log" 2>/dev/null
+                # Only some steps write one; a failing cat would end the run (errexit, pipefail).
+                if [[ -f "$TASKS_DIR/$i.log" ]]; then cat -- "$TASKS_DIR/$i.log"; fi
                 printf '%s\n\n' "$out"
             } | sed -E 's/\x1b\[[0-9;?]*[A-Za-z]//g; s/.*\r(.)/\1/; s/\r$//' >>"$TASKS_LOG"
         fi
@@ -264,6 +265,24 @@ _tasks_details() {
         [[ -s "$TASKS_DIR/$i.details" ]] || continue
         _log_info "${_TASK_LABELS[i]}"
         cat -- "$TASKS_DIR/$i.details"
+    done
+}
+
+# tasks_brief TITLE: "label<TAB>text" lines from stdin as a short section at the end of a
+# run, labels aligned, the text's details (after " · ") dimmed; nothing for no lines.
+tasks_brief() {
+    local -a labels=() texts=()
+    local label text width=0 i
+    while IFS=$'\t' read -r label text; do
+        [[ -n "$label" ]] || continue
+        labels+=("$label")
+        texts+=("$text")
+        ((${#label} > width)) && width=${#label}
+    done
+    ((${#labels[@]})) || return 0
+    _log_info "$1"
+    for i in "${!labels[@]}"; do
+        printf '    %-*s  %s\n' "$width" "${labels[i]}" "$(_task_paint "${texts[i]}" "")"
     done
 }
 

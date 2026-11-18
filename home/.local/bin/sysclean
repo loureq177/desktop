@@ -15,7 +15,7 @@ case "${1:-}" in
 esac
 
 # Keeps two versions of each package and drops uninstalled ones; prints what was removed
-# ("3 packages (124 MiB)"), or nothing.
+# ("3 packages (124 MiB)<TAB>bytes"), or nothing.
 prune_paccache() {
     local -a cmd=() extra=()
     local arg sep=0 mode out n=0 bytes=0 count size
@@ -37,12 +37,44 @@ prune_paccache() {
             bytes=$((bytes + $(numfmt --from=iec-i <<<"${size// /}" 2>/dev/null || echo 0)))
         done < <(sed -nE 's/.*finished: ([0-9]+) packages? removed \(disk space saved: ([0-9.]+) ([KMGT]?i?)B\).*/\1 \2\3/p' <<<"$out")
     done
-    ((n == 0)) || printf '%d packages (%s)' "$n" "$(numfmt --to=iec-i --suffix=B "$bytes")"
+    ((n == 0)) || printf '%d packages (%s)\t%d' "$n" "$(numfmt --to=iec-i --suffix=B "$bytes")" "$bytes"
 }
 
 avail_bytes() {
     df -B1 --output=source,avail "$@" 2>/dev/null |
         awk 'NR>1 && !seen[$1]++ {sum+=$2} END {print sum+0}'
+}
+
+# Bytes in "12.3 MiB", "120.0M" (binary) or, with `si`, "1.2GB".
+to_bytes() {
+    local v=${1// /} from=${2:-iec}
+    v=${v%B}
+    [[ "$v" == *i ]] && v=${v%i} from=iec
+    numfmt --from="$from" -- "${v:-0}" 2>/dev/null || echo 0
+}
+
+# Bytes under the paths that exist, each counted once.
+size_of() {
+    local -a there=() p
+    for p in "$@"; do
+        [ -e "$p" ] && there+=("$p")
+    done
+    ((${#there[@]})) || {
+        echo 0
+        return
+    }
+    du -scb -- "${there[@]}" 2>/dev/null | tail -n 1 | cut -f1
+}
+
+# freed LABEL BYTES [DETAIL]: what a step gave back, for the summary at the end. From the
+# --root run a line on stdout, which clean_root passes on.
+freed() {
+    (($2 > 0)) || return 0
+    if [ "$ROOT" = 1 ]; then
+        printf 'FREED\t%s\t%s\t%s\n' "$1" "$2" "${3:-}"
+    else
+        printf '%s\t%s\t%s\n' "$1" "$2" "${3:-}" >>"$TASKS_DIR/freed"
+    fi
 }
 
 # The root steps (`sysclean --root` under sudo), finding what to remove by themselves;
@@ -51,15 +83,23 @@ root_steps() {
     local -a said=() orphans
     mapfile -t orphans < <(pacman -Qdtq || true)
     if [ "${#orphans[@]}" -gt 0 ]; then
+        local size bytes=0
+        while read -r size; do
+            bytes=$((bytes + $(to_bytes "$size")))
+        done < <(LC_ALL=C pacman -Qi "${orphans[@]}" | sed -n 's/^Installed Size *: //p')
         echo "Removing orphans: ${orphans[*]}"
         pacman -Rns --noconfirm "${orphans[@]}"
         said+=("${#orphans[@]} orphans")
+        freed "Orphan packages" "$bytes" "$(_join ", " "${orphans[@]}")"
     fi
 
     local cache
     if command -v paccache >/dev/null 2>&1; then
         cache=$(prune_paccache paccache)
-        [ -z "$cache" ] || said+=("cache $cache")
+        if [ -n "$cache" ]; then
+            said+=("cache ${cache%%$'\t'*}")
+            freed "Package cache" "${cache##*$'\t'}" "${cache%% (*}"
+        fi
     fi
 
     local running_kernel dir ver
@@ -74,19 +114,27 @@ root_steps() {
         fi
         pacman -Qo "$dir" &>/dev/null && continue
         echo "Removing orphaned modules directory: $dir"
+        freed "Old kernel modules" "$(size_of "$dir")" "$ver"
         rm -rf -- "${dir:?module dir unset}"
         said+=("modules of $ver")
     done
 
     local dumps=(/var/lib/systemd/coredump/*)
     if ((${#dumps[@]})); then
+        freed "Core dumps" "$(size_of "${dumps[@]}")" "${#dumps[@]} files"
         rm -rf -- "${dumps[@]}"
         said+=("${#dumps[@]} coredumps")
     fi
 
-    local freed
-    freed=$(journalctl --vacuum-size=200M --vacuum-time=2weeks 2>&1 | sed -nE 's/.*freed ([0-9.]+[KMGT]?) .*/\1/p' | tail -n 1)
-    [[ -z "$freed" || "$freed" == 0B ]] || said+=("journal ${freed}B")
+    # A "freed 12.0M" line for each journal directory.
+    local journal=0 part
+    while read -r part; do
+        journal=$((journal + $(to_bytes "$part")))
+    done < <(journalctl --vacuum-size=200M --vacuum-time=2weeks 2>&1 | sed -nE 's/.*freed ([0-9.]+[KMGT]?B?) .*/\1/p')
+    if ((journal)); then
+        said+=("journal $(numfmt --to=iec-i --suffix=B "$journal")")
+        freed "Journal" "$journal"
+    fi
 
     if ((${#said[@]})); then
         _log_ok "Removed $(_join ", " "${said[@]}")"
@@ -120,12 +168,19 @@ clean_root() {
         fi
         return 0
     fi
-    sudo -n "$SELF" --root
+    local out rc=0 label bytes detail
+    out=$(sudo -n "$SELF" --root 2>&1) || rc=$?
+    while IFS=$'\t' read -r _ label bytes detail; do
+        freed "$label" "$bytes" "$detail"
+    done < <(grep $'^FREED\t' <<<"$out" || true)
+    grep -v $'^FREED\t' <<<"$out" || true
+    return "$rc"
 }
 
 # pkgbuild_install's copies: sources and built packages, fetched again on the next build.
 clean_builds() {
     if [ -d "$HOME/.cache/pkgbuilds" ]; then
+        freed "Build files" "$(size_of "$HOME/.cache/pkgbuilds")"
         rm -rf "$HOME/.cache/pkgbuilds" 2>/dev/null || true
         _log_ok "Build files cleared"
     else
@@ -134,7 +189,9 @@ clean_builds() {
 }
 
 clean_flatpak() {
-    local unused
+    local unused before
+    local -a repos=(/var/lib/flatpak "${XDG_DATA_HOME:-$HOME/.local/share}/flatpak")
+    before=$(size_of "${repos[@]}")
     if [ "$AUTO" = 1 ]; then
         unused=$(flatpak uninstall --user --unused -y 2>&1 || true)
     else
@@ -143,6 +200,7 @@ clean_flatpak() {
     printf '%s\n' "$unused"
     local removed
     removed=$(grep -cE '^ *[0-9]+\. ' <<<"$unused" || true)
+    ((removed == 0)) || freed "Flatpak runtimes" $((before - $(size_of "${repos[@]}"))) "$removed unused"
 
     # Uninstalling an app leaves its ~/.var/app data and permissions behind:
     # removed by hand, only listed by --auto (it is your data).
@@ -160,6 +218,7 @@ clean_flatpak() {
         [ -n "${installed[$app]:-}" ] && continue
         leftovers+=("$app ($(du -sh -- "$dir" 2>/dev/null | cut -f1))")
         if [ "$AUTO" = 0 ]; then
+            freed "Data of removed apps" "$(size_of "$dir")" "$app"
             rm -rf -- "$dir"
             flatpak permission-reset -- "$app" >/dev/null 2>&1 || true
         fi
@@ -177,6 +236,8 @@ clean_flatpak() {
 
 clean_misc() {
     # debuginfod_client: gdb's debug symbols. Its own expiry runs only with gdb.
+    freed "Thumbnails" "$(size_of "$HOME/.cache/thumbnails/"*)"
+    freed "Debug symbols" "$(size_of "$HOME/.cache/debuginfod_client/"*)"
     rm -rf "$HOME/.cache/thumbnails/"* "$HOME/.cache/debuginfod_client/"* 2>/dev/null || true
     _log_ok "Thumbnails, debug symbols"
 }
@@ -185,14 +246,35 @@ clean_trash() {
     if [ "$AUTO" = 1 ]; then
         _log_ok "Skipped (--auto: it is your data)"
     else
-        local n
+        local n trash="${XDG_DATA_HOME:-$HOME/.local/share}/Trash"
         n=$(gio list trash:// 2>/dev/null | wc -l || echo 0)
+        local before
+        before=$(size_of "$trash")
         run_if gio gio trash --empty
+        freed "Trash" $((before - $(size_of "$trash"))) "$n items"
         if ((n)); then _log_ok "Emptied ($n items)"; else _log_ok "Already empty"; fi
     fi
 }
 
+# Each tool's cache directory, "tool<TAB>dir".
+dev_cache_dirs() {
+    local d
+    command -v uv >/dev/null 2>&1 && d=$(uv cache dir 2>/dev/null) && printf 'uv\t%s\n' "$d"
+    command -v pip >/dev/null 2>&1 && d=$(pip cache dir 2>/dev/null) && printf 'pip\t%s\n' "$d"
+    command -v bun >/dev/null 2>&1 && d=$(bun pm cache 2>/dev/null) && printf 'bun\t%s\n' "$d"
+    command -v npm >/dev/null 2>&1 && d=$(npm config get cache 2>/dev/null) && printf 'npm\t%s\n' "$d/_cacache"
+    command -v pnpm >/dev/null 2>&1 && d=$(pnpm store path 2>/dev/null) && printf 'pnpm\t%s\n' "$d"
+    return 0
+}
+
 clean_dev_caches() {
+    local -a dirs
+    local -A before=()
+    local line
+    mapfile -t dirs < <(dev_cache_dirs)
+    for line in "${dirs[@]}"; do
+        before[$line]=$(size_of "${line#*$'\t'}")
+    done
     run_if uv uv cache prune
     run_if pip pip cache purge
     run_if bun bun pm cache rm
@@ -202,6 +284,15 @@ clean_dev_caches() {
     for t in uv pip bun npm pnpm; do
         command -v "$t" >/dev/null 2>&1 && tools+=("$t")
     done
+    local total=0 gone
+    local -a which=()
+    for line in "${dirs[@]}"; do
+        gone=$((before[$line] - $(size_of "${line#*$'\t'}")))
+        ((gone > 0)) || continue
+        total=$((total + gone))
+        which+=("${line%%$'\t'*}")
+    done
+    freed "Dev caches" "$total" "$(_join ", " "${which[@]}")"
     _log_ok "Pruned $(_join ", " "${tools[@]}")"
 }
 
@@ -211,9 +302,20 @@ clean_containers() {
     else
         # Images, stopped containers and build cache come back with a pull or a
         # build. Volumes hold data and do not: they stay.
-        run_if podman podman system prune -a --force
-        run_if docker docker system prune -a -f
-        run_if docker docker builder prune -f
+        # Each says "Total reclaimed space: 1.2GB".
+        local out="" bytes=0 size
+        if command -v podman >/dev/null 2>&1; then
+            out+=$(timeout 120 podman system prune -a --force </dev/null 2>&1)$'\n' || true
+        fi
+        if command -v docker >/dev/null 2>&1; then
+            out+=$(timeout 120 docker system prune -a -f </dev/null 2>&1)$'\n' || true
+            out+=$(timeout 120 docker builder prune -f </dev/null 2>&1)$'\n' || true
+        fi
+        printf '%s' "$out"
+        while read -r size; do
+            bytes=$((bytes + $(to_bytes "$size" si)))
+        done < <(sed -nE 's/.*[Rr]eclaimed space: *([0-9.]+ ?[kKMGT]?B).*/\1/p' <<<"$out")
+        freed "Containers" "$bytes"
         _log_ok "Unused images and build cache (volumes kept)"
     fi
 }
@@ -257,12 +359,41 @@ if [ -n "$failed_sys$failed_user" ]; then
         [ -z "$failed_user" ] || systemctl --user reset-failed -- $failed_user || true
     fi
 fi
+# Where the space came from, largest first: five rows, the rest as one. Details cut short.
+freed_brief() {
+    [ -s "$TASKS_DIR/freed" ] || return 0
+    local -a rows sizes=() labels=() details=()
+    local bytes label detail rest=0 k width=0 size
+    mapfile -t rows < <(awk -F'\t' '{ b[$1] += $2; if ($3 != "" && index(", " d[$1] ", ", ", " $3 ", ") == 0) d[$1] = d[$1] (d[$1] == "" ? "" : ", ") $3 }
+        END { for (k in b) printf "%d\t%s\t%s\n", b[k], k, d[k] }' "$TASKS_DIR/freed" | sort -t $'\t' -k1,1nr)
+    for k in "${!rows[@]}"; do
+        IFS=$'\t' read -r bytes label detail <<<"${rows[k]}"
+        if ((k >= 5 || bytes < 1048576)); then
+            rest=$((rest + bytes))
+            continue
+        fi
+        ((${#detail} > 40)) && detail="${detail:0:39}…"
+        size=$(numfmt --to=iec-i --suffix=B -- "$bytes")
+        sizes+=("$size") labels+=("$label") details+=("$detail")
+        ((${#size} > width)) && width=${#size}
+    done
+    if ((rest >= 1048576)); then
+        sizes+=("$(numfmt --to=iec-i --suffix=B -- "$rest")") labels+=("Other") details+=("")
+        ((${#sizes[-1]} > width)) && width=${#sizes[-1]}
+    fi
+    for k in "${!labels[@]}"; do
+        printf '%s\t%*s%s\n' "${labels[k]}" "$width" "${sizes[k]}" "${details[k]:+ · ${details[k]}}"
+    done | tasks_brief "Freed"
+}
+
 if ((${#attention[@]})); then
     _log_info "Needs you"
     for a in "${attention[@]}"; do
         _log_warn "$a"
     done
 fi
+
+freed_brief
 
 AVAIL_AFTER=$(avail_bytes "${CLEAN_MOUNTS[@]}")
 FREED_BYTES=$((AVAIL_AFTER - AVAIL_BEFORE))

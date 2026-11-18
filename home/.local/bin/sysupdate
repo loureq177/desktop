@@ -42,6 +42,20 @@ listing() {
     printf '%s' "$out"
 }
 
+# changed ORDER LABEL TEXT: what step LABEL changed, a row of the summary at the end.
+changed() {
+    printf '%s\t%s\n' "$2" "$3" >"$TASKS_DIR/changed.$1"
+}
+
+# "a, b, c +4 more": the first six of the names.
+some() {
+    if (($# > 6)); then
+        printf '%s +%d more' "$(_join ", " "${@:1:6}")" $(($# - 6))
+    else
+        _join ", " "$@"
+    fi
+}
+
 # Lines "name<TAB>what" under the section, as the package list shows them: names
 # aligned, the rest dimmed.
 detail_rows() {
@@ -173,6 +187,22 @@ pacman_changes() {
     done
 }
 
+# "87 updated · firefox, gst-* (4), linux": what pacman changed since line $1 of its log,
+# with the packages installed on purpose (pacman -Qe) by name; the rest are their libraries.
+package_brief() {
+    local -a lines names
+    mapfile -t lines < <(tail -n "+$(($1 + 1))" "$PACMAN_LOG" 2>/dev/null |
+        sed -nE 's/.*\[ALPM\] (upgraded|installed|removed|downgraded|reinstalled) ([^ ]+) .*/\1 \2/p')
+    ((${#lines[@]})) || return 0
+    # Three or more with the same start are one name.
+    mapfile -t names < <(printf '%s\n' "${lines[@]#* }" | sort -u | comm -12 - <(pacman -Qeq 2>/dev/null | sort) |
+        awk -F- '{ n[$1]++; all[NR] = $0; first[NR] = $1 }
+            END { for (i = 1; i <= NR; i++) if (n[first[i]] < 3) print all[i]; else if (!done[first[i]]++) print first[i] "-* (" n[first[i]] ")" }')
+    local verb=changed
+    printf '%s\n' "${lines[@]%% *}" | grep -qvx upgraded || verb=updated
+    printf '%d %s%s' "${#lines[@]}" "$verb" "${names[*]:+ · $(some "${names[@]}")}"
+}
+
 # --- Built here --------------------------------------------------------------
 
 # makepkg's and pacman's stages as the step's line; the rest kept in OUT for when it fails.
@@ -248,6 +278,9 @@ build_own() {
         return "$rc"
     fi
     pacman_changes "$builds_log_start" "" >"$TASKS_DIR/builds.changes"
+    local brief
+    brief=$(package_brief "$builds_log_start")
+    [[ -z "$brief" ]] || changed 2 "Built here" "$brief"
     tail -n +2 "$TASKS_DIR/builds.changes" >>"$_TASK_DETAILS"
     head -n 1 "$TASKS_DIR/builds.changes"
 }
@@ -269,6 +302,9 @@ update_system() {
         return "$rc"
     fi
     pacman_changes "$pacman_log_start" "${PACMAN_SIZE:-}" >"$TASKS_DIR/pacman.changes"
+    local brief
+    brief=$(package_brief "$pacman_log_start")
+    [[ -z "$brief" ]] || changed 1 "System packages" "$brief"
     tail -n +2 "$TASKS_DIR/pacman.changes" >>"$_TASK_DETAILS"
     head -n 1 "$TASKS_DIR/pacman.changes"
 }
@@ -294,6 +330,9 @@ update_zsh_plugins() {
     done
     if ((${#updated[@]})); then
         printf '%s\n' "${updated[@]}" | sort | detail_rows
+        local -a names
+        mapfile -t names < <(printf '%s\n' "${updated[@]%%$'\t'*}" | sort)
+        changed 5 "Zsh plugins" "${#updated[@]} updated · $(some "${names[@]}")"
         _log_ok "${#updated[@]} updated"
     else
         _log_ok "Up to date"
@@ -318,6 +357,7 @@ update_nvim_plugins() {
         <(lock_commits <<<"$old_lock") <(lock_commits <<<"$new_lock") | sort)
     if ((${#changed[@]})); then
         printf '%s\n' "${changed[@]}" | detail_rows
+        changed 8 "Neovim plugins" "${#changed[@]} updated · $(some "${changed[@]%%$'\t'*}")"
         _log_ok "${#changed[@]} updated"
     else
         _log_ok "Up to date"
@@ -347,6 +387,7 @@ update_flatpak() {
     printf '%s\n' "$OUT"
     if ((${#apps[@]})); then
         printf '%s\n' "${apps[@]}" | detail_rows
+        changed 3 "Flatpak apps" "${#apps[@]} updated · $(some "${apps[@]}")"
         _log_ok "${#apps[@]} updated"
     else
         _log_ok "Up to date"
@@ -360,6 +401,7 @@ update_claude() {
     local moved
     moved=$(sed -nE 's/.*Successfully updated from ([^ ]+) to version ([^ ]+).*/\1 → \2/p' <<<"$OUT")
     if [[ -n "$moved" ]]; then
+        changed 6 "Claude Code" "$moved"
         _log_ok "Updated · $moved"
     else
         _log_ok "Up to date"
@@ -380,6 +422,7 @@ update_uv_tools() {
     mapfile -t moved < <(sed -nE 's/^Updated ([^ ]+) v?([^ ]+) -> v?([^ ]+).*/\1\t\2 → \3/p' <<<"$OUT")
     if ((${#moved[@]})); then
         printf '%s\n' "${moved[@]}" | detail_rows
+        changed 7 "uv tools" "${#moved[@]} updated · $(some "${moved[@]%%$'\t'*}")"
         _log_ok "${#moved[@]} updated"
     else
         _log_ok "Up to date"
@@ -496,6 +539,11 @@ if ((${#attention[@]})); then
         _log_warn "$a"
     done
 fi
+
+# What changed, a row a step, above the last line; the full lists are under the sections.
+for f in "$TASKS_DIR"/changed.*; do
+    [[ -s "$f" ]] && cat -- "$f"
+done | tasks_brief "Changed"
 
 printf '\n'
 if ((TASKS_FAILED)); then
