@@ -12,7 +12,13 @@ Singleton {
 	readonly property int percent: device ? Math.round(device.percentage * 100) : 0
 	// The kernel's word, read here: plugging in a charger can come with no event at all,
 	// and UPower then only notices at its next poll, half a minute on.
-	property string status: ""
+	property string kernelStatus: ""
+	// The charger's uevent comes at once; the battery's status ~2.3 s later and UPower's
+	// ~3 s (2026-11-18). Until the status moves, the guess the charger's event gives.
+	property bool plugChanged: false
+	property string guessFrom: ""
+	property string guess: ""
+	readonly property string status: plugChanged ? guess : kernelStatus
 	readonly property bool full: status === "Full"
 	readonly property bool charging: status === "Charging"
 	readonly property bool onBattery: status === "Discharging"
@@ -51,11 +57,64 @@ Singleton {
 		onTriggered: statusFile.reload()
 	}
 
+	// Power supply uevents, as they come.
+	Process {
+		id: uevents
+		running: root.present
+		command: ["udevadm", "monitor", "--kernel", "--subsystem-match=power_supply"]
+		stdout: SplitParser {
+			onRead: line => {
+				if (!line.includes("/power_supply/"))
+					return;
+				// The mains adapter (ADP1, AC), as ghostty-effects reads it; USB-C ones waver.
+				var charger = line.match(/\/power_supply\/(A[^ \/]*) /);
+				if (charger) {
+					chargerFile.path = "/sys/class/power_supply/" + charger[1] + "/online";
+					chargerFile.reload();
+				}
+				statusFile.reload();
+			}
+		}
+		onExited: uRestart.start()
+	}
+
+	Timer {
+		id: uRestart
+		interval: 5000
+		onTriggered: uevents.running = root.present
+	}
+
+	// A charger the battery does not follow: its word after all.
+	Timer {
+		id: plugSettle
+		interval: 10000
+		onTriggered: root.plugChanged = false
+	}
+
+	FileView {
+		id: chargerFile
+		printErrors: false
+		onLoaded: {
+			var guess = this.text().trim() === "1" ? "Charging" : "Discharging";
+			if ((root.plugChanged ? root.guess : root.kernelStatus === "Discharging" ? "Discharging" : "Charging") === guess)
+				return;
+			if (!root.plugChanged)
+				root.guessFrom = root.kernelStatus;
+			root.guess = guess;
+			root.plugChanged = true;
+			plugSettle.restart();
+		}
+	}
+
 	FileView {
 		id: statusFile
 		path: root.device ? "/sys/class/power_supply/" + root.device.nativePath + "/status" : ""
 		printErrors: false
-		onLoaded: root.status = this.text().trim()
+		onLoaded: {
+			root.kernelStatus = this.text().trim();
+			if (root.plugChanged && root.kernelStatus !== root.guessFrom)
+				root.plugChanged = false;
+		}
 	}
 
 	onPercentChanged: root.warnLow()
