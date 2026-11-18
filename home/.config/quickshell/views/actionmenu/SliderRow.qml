@@ -75,7 +75,8 @@ Rectangle {
 			Layout.preferredHeight: 48
 			Layout.alignment: Qt.AlignVCenter
 			enabled: row.ready
-			opacity: enabled ? 1.0 : 0.4
+			// Not `enabled`: a closing drawer turns that off for all it holds.
+			opacity: row.ready ? 1.0 : 0.4
 
 			Rectangle {
 				id: track
@@ -83,7 +84,8 @@ Rectangle {
 				anchors.right: parent.right
 				anchors.verticalCenter: parent.verticalCenter
 				height: slideArea.pressed ? 17 : 15
-				radius: Theme.roundingElement
+				// As the icon box beside it: both sit on the row.
+				radius: Theme.roundingSubtle
 				color: Theme.bgHover
 				border.color: slideArea.containsMouse || slideArea.pressed ? Theme.tileBorderHover : Theme.tileBorder
 				border.width: 1
