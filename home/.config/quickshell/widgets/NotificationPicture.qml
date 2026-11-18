@@ -1,4 +1,5 @@
 import ".."
+import Quickshell.Widgets
 import QtQuick
 
 // The notification's picture (an avatar, a screenshot); app icons and placeholders are
@@ -15,6 +16,8 @@ Item {
 	readonly property string source: root.pictureUrl(root.image) || root.pictureUrl(root.appIcon)
 	// While it loads too: waiting for Ready would jump the layout.
 	readonly property bool hasPicture: root.source !== "" && img.status !== Image.Error
+	// Width over height once it has loaded: a screenshot is shown whole, under the text.
+	readonly property real aspect: img.status === Image.Ready && img.sourceSize.height > 0 ? img.sourceSize.width / img.sourceSize.height : 1
 
 	implicitWidth: root.hasPicture ? root.size : 0
 	implicitHeight: root.hasPicture ? root.size : 0
@@ -42,13 +45,20 @@ Item {
 
 	// Bare, no tile behind it: a site's icon (Firefox sends those as pixels)
 	// is see-through around the edges, and a tile there framed it in black.
-	Image {
-		id: img
+	// A square one is cut round: avatars come as a circle on a white square (WhatsApp).
+	ClippingRectangle {
 		anchors.fill: parent
-		source: root.source
-		fillMode: Image.PreserveAspectCrop
-		asynchronous: true
-		cache: false
-		mipmap: true
+		radius: Math.abs(root.aspect - 1) < 0.15 ? width / 2 : Theme.roundingElement
+		color: "transparent"
+
+		Image {
+			id: img
+			anchors.fill: parent
+			source: root.source
+			fillMode: Image.PreserveAspectCrop
+			asynchronous: true
+			cache: false
+			mipmap: true
+		}
 	}
 }

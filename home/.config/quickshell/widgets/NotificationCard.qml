@@ -27,6 +27,8 @@ Rectangle {
 	readonly property bool critical: urgency === NotificationUrgency.Critical
 
 	readonly property bool hovered: hover.hovered
+	// A wide picture (a screenshot) whole under the text, not a square crop beside it.
+	readonly property bool widePicture: notifPic.hasPicture && notifPic.aspect >= 1.2
 
 	signal activated()
 	signal dismissed()
@@ -35,9 +37,11 @@ Rectangle {
 	// A toast lights up under the pointer; in the center the pointer moves the
 	// selection instead (HoverSelect there).
 	color: isToast ? (hoverArea.containsMouse ? Theme.glass(Theme.bgHover) : Theme.glass(Theme.bgCard)) : Theme.glass(Theme.bgMain)
-	border.color: critical ? Theme.critical : isToast ? Theme.border : Theme.tileBorder
-	border.width: isToast ? Theme.borderSize : 1
-	radius: Theme.roundingElement
+	// A hairline: a heavy edge round a toast looked pasted on.
+	border.color: critical ? Theme.critical : isToast ? Theme.tileBorderHover : Theme.tileBorder
+	border.width: 1
+	// A toast is a card of its own on the screen, as the panels are.
+	radius: isToast ? Theme.roundingWindow : Theme.roundingElement
 	clip: true
 
 	Behavior on color { ColorAnimation { duration: Theme.animFast } }
@@ -70,12 +74,13 @@ Rectangle {
 		anchors.topMargin: Theme.notifPadV
 		image: root.image
 		appIcon: root.appIcon
+		size: root.widePicture ? 0 : 64
 	}
 
 	ColumnLayout {
 		id: bodyCol
-		anchors.left: notifPic.hasPicture ? notifPic.right : parent.left
-		anchors.leftMargin: notifPic.hasPicture ? 12 : Theme.notifPadH
+		anchors.left: notifPic.hasPicture && !root.widePicture ? notifPic.right : parent.left
+		anchors.leftMargin: notifPic.hasPicture && !root.widePicture ? 12 : Theme.notifPadH
 		anchors.right: closeBtn.left
 		anchors.rightMargin: 8
 		anchors.top: parent.top
@@ -129,12 +134,33 @@ Rectangle {
 
 		StyledText {
 			Layout.fillWidth: true
-			text: root.body
+			// Browsers put the site and an empty line before the message.
+			text: root.body.replace(/\n\s*\n/g, "\n")
 			color: Theme.textDim
 			wrapMode: Text.Wrap
 			maximumLineCount: 3
 			elide: Text.ElideRight
 			visible: text !== ""
+		}
+
+		ClippingRectangle {
+			visible: root.widePicture
+			// Past the close button's column, to the card's padding: even on both sides.
+			Layout.preferredWidth: root.width - Theme.notifPadH * 2
+			Layout.topMargin: 6
+			Layout.preferredHeight: Math.min(220, width / notifPic.aspect)
+			radius: Theme.roundingElement
+			color: Theme.bgMain
+
+			Image {
+				anchors.fill: parent
+				source: root.widePicture ? notifPic.source : ""
+				sourceSize.width: 800
+				fillMode: Image.PreserveAspectCrop
+				asynchronous: true
+				cache: false
+				mipmap: true
+			}
 		}
 
 		RowLayout {
