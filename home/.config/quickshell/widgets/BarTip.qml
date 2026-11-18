@@ -49,7 +49,7 @@ PopupWindow {
 		color: Theme.bgCard
 		border.color: Theme.border
 		border.width: Theme.borderSize > 1 ? 1 : Theme.borderSize
-		radius: Theme.roundingWindow
+		radius: Theme.roundingElement
 		opacity: tip.up ? 1 : 0
 
 		Behavior on opacity {

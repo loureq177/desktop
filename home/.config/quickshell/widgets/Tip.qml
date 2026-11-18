@@ -34,7 +34,7 @@ ToolTip {
 		color: Theme.bgCard
 		border.color: Theme.border
 		border.width: Theme.borderSize > 1 ? 1 : Theme.borderSize
-		radius: Theme.roundingWindow
+		radius: Theme.roundingElement
 		layer.enabled: true
 		layer.effect: MultiEffect {
 			shadowEnabled: true

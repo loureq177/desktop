@@ -58,15 +58,13 @@ hl.config({
 	},
 })
 
--- One tiled window alone fills the screen; the bar draws a band above it (Bar.qml).
--- Top gap: the bar's barMarginY + barGapTrim, so the band is as tall below the bar as above.
+-- One tiled window alone fills the screen below the bar; in Focus the bar draws a band joined
+-- to it (Bar.qml). Top gap: the bar's barMarginY + barGapTrim, as much below the bar as above.
 if ui.spacing.fill_single then
 	hl.workspace_rule({
 		workspace = "w[tv1]s[false]",
 		gaps_out = { top = 4, right = 0, bottom = 0, left = 0 },
 		gaps_in = 0,
-		no_border = true,
-		no_rounding = true,
 		no_shadow = true,
 	})
 end

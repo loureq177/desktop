@@ -39,6 +39,7 @@ Singleton {
 	readonly property string textMain: ui.colors.text_main
 	readonly property string textDim: ui.colors.text_dim
 	readonly property string textMuted: ui.colors.text_muted
+	readonly property string shadow: ui.colors.shadow
 
 	readonly property color backdropColor: Qt.rgba(0, 0, 0, ui.opacity.dim_special)
 
@@ -47,8 +48,10 @@ Singleton {
 
 	readonly property int borderSize: ui.border.size
 	readonly property int roundingWindow: ui.rounding.window
-	readonly property int roundingElement: 6
-	readonly property int roundingSubtle: 3
+	// Each level of nesting two thirds of the one around it: a card (the windows'), what is
+	// on it (tiles, rows), what is on those (icon boxes, buttons, the sliders' tracks).
+	readonly property int roundingElement: Math.max(6, Math.round(roundingWindow * 2 / 3))
+	readonly property int roundingSubtle: Math.max(3, Math.round(roundingElement * 0.6))
 	readonly property int paddingCard: 16
 	readonly property int paddingItem: 8
 	// The launcher; its lists stop growing at whole rows, never a few pixels short of one.

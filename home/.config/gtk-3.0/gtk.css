@@ -81,7 +81,7 @@ filechooser button.suggested-action:disabled {
 dialog popover.background {
     background: @ui_card;
     border: 1px solid @ui_border;
-    border-radius: 8px;
+    border-radius: 12px;
     box-shadow: none;
     color: @ui_text;
 }

@@ -3,7 +3,7 @@
 
 return {
     rounding = {
-        window = 8,
+        window = 12,
         power = 3.0,
     },
     border = {
