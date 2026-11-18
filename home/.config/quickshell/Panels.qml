@@ -13,6 +13,8 @@ Singleton {
 	property string active: ""
 	// What it was opened on: the launcher's list, the page of Actions.
 	property string mode: ""
+	// Panel windows on screen, closing ones too (StandbyWindow).
+	property int windowsShown: 0
 
 	// Where the panels, the OSD and the toasts show: the focused monitor.
 	readonly property var screen: Quickshell.screens.find(s => s.name === Hyprland.focusedMonitor?.name) ?? Quickshell.screens[0] ?? null

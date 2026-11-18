@@ -49,6 +49,7 @@ PanelWindow {
 
 	// Closed, it waits on the monitor with the focus.
 	onOpenChanged: {
+		Panels.windowsShown += open ? 1 : -1;
 		if (!open)
 			screen = Panels.screen;
 		pointerFollows.restart();
@@ -66,6 +67,11 @@ PanelWindow {
 		id: pointerFollows
 		interval: 40
 		onTriggered: Hypr.refreshPointer()
+	}
+
+	Component.onDestruction: {
+		if (open)
+			Panels.windowsShown -= 1;
 	}
 
 	Connections {

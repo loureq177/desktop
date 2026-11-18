@@ -33,14 +33,23 @@ PanelWindow {
 	Behavior on shown {
 		NumberAnimation { duration: Theme.animNormal; easing.type: Easing.BezierSpline; easing.bezierCurve: [0.23, 1, 0.32, 1, 1, 1] }
 	}
-	// A window alone fills the screen below the bar (look.lua): the bar sits on a band joined to it.
-	readonly property bool lone: Theme.fillSingle && Hypr.loneOn(modelData)
-	readonly property bool filled: lone && !overFullscreen
+	// A window alone fills the screen below the bar (look.lua). The bar stays on the wallpaper;
+	// in Focus it sits on a band joined to the window.
+	readonly property bool focusLook: Notifications.dnd && Prefs.values.focusWallpaper
+	readonly property bool lone: Theme.fillSingle && Hypr.loneOn(modelData) && focusLook
 	// The band stays solid while the bar slides: over the lone window, and back over a fullscreen one.
 	property bool peekBand: false
 	onPeekingChanged: {
-		if (peeking)
+		if (peeking) {
 			peekBand = true;
+			// A resting pointer gets no enter as the strip grows under it (StandbyWindow's rule).
+			pointerFollows.restart();
+		}
+	}
+	Timer {
+		id: pointerFollows
+		interval: 40
+		onTriggered: Hypr.refreshPointer()
 	}
 	onShownChanged: {
 		if (shown === 0)
@@ -249,14 +258,14 @@ PanelWindow {
 		}
 	}
 
-	// The pointer gone from it for a moment, and no panel open: away again.
+	// The pointer gone from it for a moment, and no panel on screen, a closing one either: away again.
 	HoverHandler {
 		id: peekHover
 	}
 
 	Timer {
 		interval: 200
-		running: bar.peeking && !peekHover.hovered && Panels.active === ""
+		running: bar.peeking && !peekHover.hovered && Panels.active === "" && Panels.windowsShown === 0
 		onTriggered: Bars.peekScreen = ""
 	}
 
@@ -299,14 +308,15 @@ PanelWindow {
 		text: Bt.connected.map(d => Bt.name(d) + (d.batteryAvailable ? "  " + Math.round(d.battery * 100) + "%" : "")).join("\n")
 	}
 
-	// The bar on a solid band, as much above it as below: joined to a lone window, and over a
-	// fullscreen one, where a bright video hides it otherwise. Solid while it slides.
+	// The bar on a solid band, as much above it as below: joined to a lone window in Focus, and
+	// over a fullscreen one, where a bright video hides it otherwise. Solid while it slides.
 	property real bandFade: lone ? 1 : 0
 	Behavior on bandFade {
 		NumberAnimation { duration: Theme.animNormal; easing.type: Easing.OutCubic }
 	}
-	// Focus paints the wallpaper bgMain: a lighter band keeps the bar apart from the window.
-	property color bandColor: Notifications.dnd && Prefs.values.focusWallpaper ? Theme.bgCard : Theme.bgMain
+	// Focus paints the wallpaper bgMain, which the windows' GitHub Dark share: a band of the
+	// darker shadow black keeps the bar apart.
+	property color bandColor: focusLook ? Theme.shadow : Theme.bgMain
 	Behavior on bandColor {
 		ColorAnimation { duration: 600; easing.type: Easing.InOutSine }
 	}
@@ -804,17 +814,8 @@ PanelWindow {
 					id: batteryIcon
 					anchors.verticalCenter: parent.verticalCenter
 					// One colour at a time: running low comes first, then keep awake.
-					color: Modes.awake && !Battery.low ? Theme.accentBlue : Battery.color
-				}
-
-				StyledText {
-					anchors.verticalCenter: parent.verticalCenter
-					visible: Battery.present && Prefs.values.batteryPercent
-					text: Battery.percent + "%"
-					mono: true
-					font.bold: true
-					font.pixelSize: Theme.fontSizeBar
-					color: Battery.low ? batteryIcon.color : Theme.textMain
+					color: Modes.awake && !Battery.critical ? Theme.accentBlue : Battery.color
+					percent: Prefs.values.batteryPercent
 				}
 			}
 

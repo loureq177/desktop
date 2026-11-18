@@ -17,11 +17,9 @@ Singleton {
 	readonly property bool charging: status === "Charging"
 	readonly property bool onBattery: status === "Discharging"
 	readonly property bool critical: !charging && !full && percent < 15
-	readonly property bool low: !charging && !full && percent < 30
-	// Green on the charger, then warning and critical as it runs down.
+	// Green on the charger, red once it runs short; no yellow step between.
 	readonly property color color: charging || full ? Theme.accentGreen
 		: critical ? Theme.critical
-		: low ? Theme.warning
 		: Theme.textMain
 
 	// "2 h 10 min", or "" while UPower does not know yet.
