@@ -31,6 +31,8 @@ Singleton {
 		"return": "RETURN",
 		"escape": "ESC",
 		"print": "PRINT",
+		// kanata's Right Control tapped alone.
+		"f20": "RIGHT CTRL",
 		"left": "←",
 		"down": "↓",
 		"up": "↑",

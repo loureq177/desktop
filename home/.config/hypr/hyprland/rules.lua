@@ -66,3 +66,26 @@ hl.window_rule({
 	float = true,
 	center = true,
 })
+
+-- Bitwarden's popout (unlock, passkeys): a small dialog over the browser, not a tile that
+-- halves it. Helium names an extension's window by its id; the title covers other browsers.
+-- 630 px tall, as it asks, scrolls under Helium's title strip: room for it all.
+local bitwarden = { class = "^(chrome-nngceckbapebfimnlniiiahkandclblb-.*)$", title = "^(Bitwarden)$" }
+for key, pattern in pairs(bitwarden) do
+	hl.window_rule({
+		name = "bitwarden-popout-" .. key,
+		match = { [key] = pattern },
+		float = true,
+		size = "400 700",
+		center = true,
+	})
+end
+
+-- The pointer to its middle: with focus following the mouse, the least move sent the typing
+-- back to the browser.
+hl.on("window.open", function(w)
+	if not (w.class:find("^chrome%-nngceckbapebfimnlniiiahkandclblb%-") or w.title == "Bitwarden") then
+		return
+	end
+	hl.dispatch(hl.dsp.cursor.move({ x = w.at.x + w.size.x / 2, y = w.at.y + w.size.y / 2 }))
+end)

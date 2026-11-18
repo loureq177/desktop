@@ -79,4 +79,17 @@ Singleton {
 		name: "brightness-down"
 		onPressed: root.step(-10)
 	}
+
+	// With SHIFT: half the step.
+	GlobalShortcut {
+		appid: "shell"
+		name: "brightness-up-fine"
+		onPressed: root.step(5)
+	}
+
+	GlobalShortcut {
+		appid: "shell"
+		name: "brightness-down-fine"
+		onPressed: root.step(-5)
+	}
 }

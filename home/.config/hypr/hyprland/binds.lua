@@ -166,7 +166,12 @@ do
 	local bind = section("Capture")
 	bind("print", "Screenshot", exec("~/.local/bin/screenshot region"))
 	bind("SHIFT + print", "Screenshot of the screen", exec("~/.local/bin/screenshot fullscreen"))
+	-- The Legion's PrtSc without Fn in hotkey mode: KEY_SELECTIVE_SCREENSHOT, no keysym.
+	bind("code:642", "Screenshot", exec("~/.local/bin/screenshot region"))
+	bind("SHIFT + code:642", "Screenshot of the screen", exec("~/.local/bin/screenshot fullscreen"))
 	bind("SUPER + D", "Dictation", exec("~/.local/bin/dictation"))
+	-- Right Control tapped alone (kanata.kbd in .files sends F20 for it).
+	bind("F20", "Dictation", exec("~/.local/bin/dictation"))
 end
 
 do
@@ -231,6 +236,8 @@ do
 		},
 		{ "XF86MonBrightnessUp", "Brightness up", panel("brightness-up"), true },
 		{ "XF86MonBrightnessDown", "Brightness down", panel("brightness-down"), true },
+		{ "SHIFT + XF86MonBrightnessUp", "Brightness up, fine", panel("brightness-up-fine"), true },
+		{ "SHIFT + XF86MonBrightnessDown", "Brightness down, fine", panel("brightness-down-fine"), true },
 		{ "XF86AudioNext", "Next track", "playerctl next", false },
 		-- Keyboards' play/pause key (KEY_PLAYPAUSE); Play and Pause as such come from headphones
 		-- put on and taken off (KEY_PLAY, KEY_PAUSE), and must not toggle.
