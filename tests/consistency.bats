@@ -41,8 +41,8 @@ UNITS="home/.config/systemd/user"
 @test "every referenced ~/.local/bin script exists and is executable" {
     local bad=0 file name
     while IFS=: read -r file name; do
-        # firefox-apply and ghostty-effects are linked from .files.
-        if [[ ! -x "$REPO/home/.local/bin/$name" && "$name" != firefox-apply && "$name" != ghostty-effects ]]; then
+        # firefox-apply and ghostty-effects are linked from .files; bedtime is FreshArchLinux's.
+        if [[ ! -x "$REPO/home/.local/bin/$name" && "$name" != firefox-apply && "$name" != ghostty-effects && "$name" != bedtime ]]; then
             echo "$file refers to .local/bin/$name, which does not exist" >&2
             bad=1
         fi

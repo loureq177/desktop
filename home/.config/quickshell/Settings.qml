@@ -113,7 +113,7 @@ Singleton {
 		"border.size": { section: "appearance", sub: "Windows", label: "Border width", icon: "square", min: 0, max: 8, desc: "The coloured edge of the focused window, in pixels" },
 		"spacing.gaps_in": { section: "appearance", sub: "Windows", label: "Gaps between windows", icon: "move", min: 0, max: 40 },
 		"spacing.gaps_out": { section: "appearance", sub: "Windows", label: "Gaps at the screen's edges", icon: "move", min: 0, max: 60 },
-		"spacing.fill_single": { section: "appearance", sub: "Windows", label: "A lone window fills the screen", icon: "panel-top", desc: "Up to the bar, with no gaps or border, while it is the only one on its workspace" },
+		"spacing.fill_single": { section: "appearance", sub: "Windows", label: "A lone window fills the screen", icon: "panel-top", desc: "Up to the bar, with no gaps, while it is the only one on its workspace" },
 		"opacity.inactive": { section: "appearance", sub: "Windows", label: "Inactive window opacity", icon: "contrast", min: 0.5, max: 1, step: 0.05 },
 		"opacity.dim_special": { section: "appearance", sub: "Windows", label: "Dim behind special workspaces", icon: "contrast", min: 0, max: 1, step: 0.05, desc: "How dark the desktop gets behind an app's special workspace and the panels" },
 		"font.family": { section: "appearance", sub: "Text", label: "Shell font", icon: "type", desc: "The bar, the panels and the lock screen" },
@@ -150,6 +150,7 @@ Singleton {
 		monitorsQuery.running = true;
 		uiDump.running = true;
 		wallpaperList.running = true;
+		bedtimeGet.running = true;
 	}
 
 	Component.onCompleted: refresh()
@@ -409,7 +410,7 @@ Singleton {
 			label: label, desc: desc, kind: "bool", value: Prefs.values[key], icon: icon, apply: v => Prefs.set(key, v)
 		}, extra ?? {});
 		return [
-			entry("batteryPercent", "Top bar", "Battery percentage", "Beside the battery, not only on hover", "battery-medium"),
+			entry("batteryPercent", "Top bar", "Battery percentage", "Inside the battery, not only on hover", "battery-medium"),
 			entry("weather", "Top bar", "Weather", "The temperature and the sky, a click for the forecast", "cloud-sun"),
 			entry("clock24", "Clock", "24-hour time", "Off: 2:05 PM", "calendar", { keywords: "12-hour am pm format" }),
 			entry("clockSeconds", "Clock", "Seconds", "In the time on the bar", "calendar"),
@@ -434,7 +435,7 @@ Singleton {
 		return out;
 	}
 
-	// The night light's schedule (hyprsunset.conf), and the apps hidden from the launcher.
+	// The night light's schedule (hyprsunset.conf), bedtime, and the apps hidden from the launcher.
 	readonly property var desktopEntries: {
 		var night = (key, label, icon, times, value, apply) => ({
 			id: "nightlight:" + key, source: "nightlight", key: key, name: label, section: "desktop", sub: "Night light",
@@ -445,7 +446,8 @@ Singleton {
 		});
 		return [
 			night("on", "Turns on at", "sunset", halfHours(16, 23), Modes.nightStart, v => Modes.setSchedule(v, Modes.dayStart)),
-			night("off", "Turns off at", "sunrise", halfHours(4, 10), Modes.dayStart, v => Modes.setSchedule(Modes.nightStart, v)),
+			night("off", "Turns off at", "sunrise", halfHours(4, 10), Modes.dayStart, v => Modes.setSchedule(Modes.nightStart, v))
+		].concat(bedtimeEntries, [
 			{
 				id: "apps:hidden", source: "apps", name: "Hidden apps", section: "desktop", sub: "Launcher", group: "Desktop › Launcher",
 				label: "Hidden apps", icon: "eye-off", kind: "enum", stepless: true, value: "", keywords: "launcher hide show apps",
@@ -454,7 +456,44 @@ Singleton {
 				choices: HiddenApps.list.map(a => ({ label: a.name, value: a.id })),
 				apply: v => HiddenApps.unhide(v)
 			}
-		];
+		]);
+	}
+
+	// FreshArchLinux's `bedtime`, where it is installed: { at: "21:30", def: "21:30" }.
+	property var bedtime: null
+	readonly property string bedtimeBin: Quickshell.env("HOME") + "/.local/bin/bedtime"
+
+	readonly property var bedtimeEntries: !bedtime ? [] : [{
+		id: "bedtime", source: "bedtime", name: "Wi-Fi off at", section: "desktop", sub: "Bedtime", group: "Desktop › Bedtime",
+		label: "Wi-Fi off at", icon: "moon", kind: "enum", value: bedtime.at, keywords: "bedtime curfew night sleep wifi",
+		desc: "Each night until 7:00, with a warning 15 minutes before",
+		choices: halfHours(20, 23).concat(halfHours(20, 23).includes(bedtime.at) ? [] : [bedtime.at]).map(t => ({ label: clockLabel(t), value: t })),
+		apply: v => setBedtime(v)
+	}]
+
+	function setBedtime(at: string): void {
+		root.bedtime = Object.assign({}, root.bedtime, { at: at });
+		bedtimeSet.command = [root.bedtimeBin, "set", at];
+		bedtimeSet.running = true;
+	}
+
+	Process {
+		id: bedtimeGet
+		// Not every machine has it.
+		command: ["sh", "-c", "[ -x \"$0\" ] && exec \"$0\" get", root.bedtimeBin]
+		stdout: StdioCollector {
+			onStreamFinished: {
+				var [at, def] = this.text.trim().split("\n");
+				// "07:00" as the clock shows it: "7:00".
+				var bare = t => t.replace(/^0(\d)/, "$1");
+				root.bedtime = at && def ? { at: bare(at), def: bare(def) } : null;
+			}
+		}
+	}
+
+	Process {
+		id: bedtimeSet
+		onExited: bedtimeGet.running = true
 	}
 
 	// The pictures `wallpaper` picks from, by path.
@@ -545,6 +584,8 @@ Singleton {
 			return root.idleSaved[e.key] !== undefined;
 		if (e.source === "ui")
 			return e.before !== undefined && e.before !== null;
+		if (e.source === "bedtime")
+			return e.value !== root.bedtime.def;
 		if (e.source === "nightlight")
 			return e.value !== (e.key === "on" ? Modes.defaultNightStart : Modes.defaultDayStart);
 		return e.source === "hyprland" && root.saved[e.name] !== undefined;
@@ -616,6 +657,10 @@ Singleton {
 			uiRun(["--reset=" + e.name]);
 			return;
 		}
+		if (e.source === "bedtime") {
+			setBedtime(root.bedtime.def);
+			return;
+		}
 		if (e.source === "nightlight") {
 			Modes.setSchedule(e.key === "on" ? Modes.defaultNightStart : Modes.nightStart, e.key === "off" ? Modes.defaultDayStart : Modes.dayStart);
 			return;
@@ -649,6 +694,8 @@ Singleton {
 			uiRun(["--reset-all"]);
 		if (Modes.nightStart !== Modes.defaultNightStart || Modes.dayStart !== Modes.defaultDayStart)
 			Modes.setSchedule(Modes.defaultNightStart, Modes.defaultDayStart);
+		if (root.bedtime && root.bedtime.at !== root.bedtime.def)
+			setBedtime(root.bedtime.def);
 	}
 
 	// apply-ui with `args`, one at a time: a held arrow's last step wins, then ui.toml is read again.
