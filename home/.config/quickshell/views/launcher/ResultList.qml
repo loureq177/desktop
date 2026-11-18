@@ -8,7 +8,8 @@ import QtQuick.Layouts
 // Rows of the launcher's lists: { label, subtitle, icon, lineIcon, run } and maybe chord,
 // changed (the chord in blue), editing (the subtitle in blue), tooltip (said under the list
 // for the picked row), thumb (a picture), swatch (a colour), accent, heading, confirm, setting,
-// armId, usage (Usage's key); run returning false keeps the launcher.
+// armId, usage (Usage's key); run returning false keeps the launcher. A row of `tiles` (items
+// too) shows them side by side: Left and Right pick among them.
 SelectList {
 	id: list
 
@@ -20,13 +21,29 @@ SelectList {
 	property string armedId: ""
 	property string armedText: ""
 	readonly property int headingHeight: 22
+	readonly property int tileHeight: 84
+	readonly property int tilesPerRow: 6
+	// The tile picked in a row of tiles.
+	property int tileIndex: 0
 	// What the picked row says of itself: a function is asked only for that row.
 	readonly property string currentTip: {
 		var it = items[currentIndex];
 		return !it ? "" : typeof it.tooltip === "function" ? it.tooltip() : (it.tooltip ?? "");
 	}
 	readonly property int preferredHeight: items.length === 0 ? 72
-		: items.length * Theme.rowHeight + items.filter((it, i) => headingAt(i) !== "").length * headingHeight
+		: items.reduce((h, it) => h + (it.tiles ? tileHeight : Theme.rowHeight), 0) + items.filter((it, i) => headingAt(i) !== "").length * headingHeight
+
+	// The item picked: the row, or its tile.
+	function picked(): var {
+		var it = items[currentIndex];
+		return it?.tiles ? it.tiles[Math.min(tileIndex, it.tiles.length - 1)] : it;
+	}
+
+	function stepTile(delta: int): void {
+		var n = items[currentIndex]?.tiles?.length ?? 0;
+		if (n > 0)
+			tileIndex = Math.max(0, Math.min(n - 1, tileIndex + delta));
+	}
 
 	function headingAt(i: int): string {
 		var h = items[i]?.heading ?? "";
@@ -45,6 +62,7 @@ SelectList {
 		if (currentIndex === 0)
 			positionViewAtBeginning();
 		currentIndex = 0;
+		tileIndex = 0;
 		confirm.reset();
 	}
 
@@ -68,7 +86,7 @@ SelectList {
 	}
 	Component.onCompleted: itemsChanged()
 	onActivated: index => {
-		var item = items[index];
+		var item = items[index]?.tiles ? picked() : items[index];
 		if (item.confirm && !confirm.ask(item.label, list.byPointer))
 			return;
 		Usage.note(item.usage ?? "");
@@ -100,8 +118,88 @@ SelectList {
 			: armed || armedOutside ? Theme.warning
 			: selected ? Theme.textMain : Theme.textDim
 
-		height: Theme.rowHeight + topInset
+		readonly property var tiles: modelData.tiles ?? null
+		readonly property real tileWidth: width / list.tilesPerRow
+
+		height: (tiles ? list.tileHeight : Theme.rowHeight) + topInset
 		topInset: heading !== "" ? list.headingHeight : 0
+		highlightPart: tiles && selected ? tileSpot : null
+
+		// Where the picked tile is, for the highlight to light.
+		Item {
+			id: tileSpot
+			x: Math.min(list.tileIndex, (row.tiles?.length ?? 1) - 1) * row.tileWidth
+			y: row.topInset
+			width: row.tileWidth
+			// Clear of the heading below.
+			height: list.tileHeight - 6
+		}
+
+		Row {
+			visible: row.tiles !== null
+			y: row.topInset
+
+			Repeater {
+				model: row.tiles ?? []
+
+				delegate: Item {
+					id: tile
+					required property var modelData
+					required property int index
+					width: row.tileWidth
+					height: list.tileHeight
+
+					HoverSelect {
+						onSelected: {
+							list.currentIndex = row.index;
+							list.tileIndex = tile.index;
+						}
+					}
+
+					MouseArea {
+						anchors.fill: parent
+						cursorShape: Qt.PointingHandCursor
+						onClicked: {
+							list.currentIndex = row.index;
+							list.tileIndex = tile.index;
+							list.byPointer = true;
+							list.activated(row.index);
+						}
+					}
+
+					IconImage {
+						readonly property string name: tile.modelData.icon ?? ""
+						visible: name !== ""
+						anchors.horizontalCenter: parent.horizontalCenter
+						y: 12
+						implicitSize: 36
+						source: name.startsWith("data:") ? name
+							: name.startsWith("icons/") ? "file://" + Quickshell.shellDir + "/" + name
+							: name ? Quickshell.iconPath(name, true) : ""
+						asynchronous: true
+					}
+
+					LineIcon {
+						anchors.horizontalCenter: parent.horizontalCenter
+						y: 18
+						name: tile.modelData.icon ? "" : (tile.modelData.lineIcon ?? "")
+						size: 24
+						color: Theme.textMain
+					}
+
+					StyledText {
+						anchors.horizontalCenter: parent.horizontalCenter
+						y: 56
+						width: parent.width - 12
+						horizontalAlignment: Text.AlignHCenter
+						font.pixelSize: Theme.fontSizeSmall
+						elide: Text.ElideRight
+						textFormat: Text.PlainText
+						text: tile.modelData.label
+					}
+				}
+			}
+		}
 
 		// The heading's name inside its divider: ── NAME ──────
 		RowLayout {
@@ -132,6 +230,7 @@ SelectList {
 		}
 
 		RowLayout {
+			visible: row.tiles === null
 			anchors.fill: parent
 			anchors.topMargin: row.topInset
 			anchors.leftMargin: 12

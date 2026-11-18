@@ -18,10 +18,16 @@ LauncherPane {
 	icon: commandsOnly ? "zap" : q.startsWith("=") ? "calculator" : "search"
 	placeholder: "Search…"
 	preferredHeight: list.preferredHeight
+	// The most used apps' tiles, picked: Left and Right go among them.
+	grid: q === "" && list.items[list.currentIndex]?.tiles !== undefined
 
 	function step(delta: int, repeat: bool): void {
 		applyRows();
 		list.step(delta, repeat);
+	}
+
+	function stepColumn(delta: int, repeat: bool): void {
+		list.stepTile(delta);
 	}
 
 	function activate(): void {
@@ -31,7 +37,7 @@ LauncherPane {
 
 	// Delete twice: the app picked leaves the launcher (Settings › Desktop brings it back).
 	function removeValue(): void {
-		var row = list.items[list.currentIndex];
+		var row = list.picked();
 		if (!row?.entry || !removal.ask(row.armId))
 			return;
 		HiddenApps.hide(row.entry.id);
@@ -219,9 +225,10 @@ LauncherPane {
 		var byName = (a, b) => a.label.localeCompare(b.label);
 		if (pane.q === "") {
 			var frequent = pane.apps.filter(it => Usage.score(it.usage) > 0)
-				.sort((a, b) => Usage.score(b.usage) - Usage.score(a.usage) || byName(a, b)).slice(0, 5);
+				.sort((a, b) => Usage.score(b.usage) - Usage.score(a.usage) || byName(a, b)).slice(0, list.tilesPerRow);
 			var heading = h => it => frequent.length > 0 ? Object.assign({ heading: h }, it) : it;
-			return frequent.map(heading("frequent")).concat(pane.apps.slice().sort(byName).map(heading("all apps")));
+			return (frequent.length > 0 ? [{ label: "", heading: "frequent", tiles: frequent }] : [])
+				.concat(pane.apps.slice().sort(byName).map(heading("all apps")));
 		}
 		// The apps, the specials and the commands, best match first, then the more used.
 		var matches = Search.rank(pane.apps.concat(pane.commands, pane.settingPages),

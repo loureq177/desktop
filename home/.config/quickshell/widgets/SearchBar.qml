@@ -24,6 +24,8 @@ Rectangle {
 	signal steppedColumn(int delta, bool repeat)
 	// Tab and Shift+Tab: a step too, unless the list has its own use for it.
 	signal tabbed(int delta, bool repeat)
+	// Ctrl+Shift with H or L: the list before or after.
+	signal switched(int delta)
 	// Backspace in an empty field.
 	signal erased()
 	signal resetRequested()
@@ -102,6 +104,11 @@ Rectangle {
 				var vim = ctrl ? [Qt.Key_H, Qt.Key_J, Qt.Key_K, Qt.Key_L].indexOf(event.key) : -1;
 				var key = vim < 0 ? event.key : [Qt.Key_Left, Qt.Key_Down, Qt.Key_Up, Qt.Key_Right][vim];
 				var held = event.isAutoRepeat;
+				if (ctrl && event.modifiers & Qt.ShiftModifier && (vim === 0 || vim === 3)) {
+					bar.switched(vim === 0 ? -1 : 1);
+					event.accepted = true;
+					return;
+				}
 				if (key === Qt.Key_Down)
 					bar.stepped(1, held);
 				else if (key === Qt.Key_Up)

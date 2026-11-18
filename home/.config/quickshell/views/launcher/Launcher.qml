@@ -11,6 +11,8 @@ ModalWindow {
 	property string scope: "apps"
 	readonly property var panes: ({ apps: apps, windows: windows, emoji: emoji, clipboard: clipboard, keys: keys, settings: settings, power: power })
 	readonly property var pane: panes[scope]
+	// After the apps, in the order of their buttons.
+	readonly property var lists: ["windows", "clipboard", "emoji", "keys", "settings", "power"]
 
 	shown: Panels.active === "launcher"
 	onDismissRequested: Panels.close("launcher")
@@ -119,6 +121,10 @@ ModalWindow {
 				onStepped: (delta, repeat) => root.pane.step(delta, repeat)
 				onSteppedColumn: (delta, repeat) => root.pane.stepColumn(delta, repeat)
 				onTabbed: (delta, repeat) => root.pane.tab(delta, repeat)
+				onSwitched: delta => {
+					var order = ["apps"].concat(root.lists);
+					Panels.open("launcher", order[(order.indexOf(root.scope) + delta + order.length) % order.length]);
+				}
 				onErased: {
 					if (!root.pane.back() && root.scope !== "apps")
 						Panels.open("launcher", "apps");
@@ -127,7 +133,7 @@ ModalWindow {
 				// The other lists, the open one in blue: a click on it goes back to its start, or
 				// from there to the apps.
 				Repeater {
-					model: ["windows", "clipboard", "emoji", "keys", "settings", "power"]
+					model: root.lists
 
 					delegate: IconButton {
 						id: listButton

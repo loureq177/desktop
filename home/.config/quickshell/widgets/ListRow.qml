@@ -13,7 +13,9 @@ Rectangle {
 	// Room around the highlight on every side (the cells of a grid).
 	property int inset: 0
 	property real pressDepth: 0.985
-	readonly property Item highlightArea: area
+	// A part of the row lit instead of all of it (one of its tiles); a direct child of the row.
+	property Item highlightPart: null
+	readonly property Item highlightArea: highlightPart ?? area
 	readonly property bool hovered: hover.hovered
 
 	width: view?.rowWidth ?? view?.width ?? 0
