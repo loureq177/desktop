@@ -654,52 +654,92 @@ PanelWindow {
 				interactive: listening
 				onActivated: Commands.script("dictation stop")
 
-				Row {
+				Item {
 					anchors.verticalCenter: parent.verticalCenter
-					spacing: 5
+					implicitWidth: listeningDots.visible ? listeningDots.implicitWidth : writing.implicitWidth
+					implicitHeight: 16
 
-					// The microphone grows a little with the voice, and stays put in a quiet room.
-					LineIcon {
-						anchors.verticalCenter: parent.verticalCenter
-						name: "mic"
-						color: dictationPill.textColor
-						scale: dictationPill.listening ? 1 + 0.3 * Audio.micLevel : 1
-
-						Behavior on scale {
-							NumberAnimation { duration: 60 }
-						}
-					}
-
-					// Writing it out: a wave through three dots.
+					// Listening: three dots that stretch with the voice, the middle one most, each a
+					// moment after the last; dots again in a quiet room.
 					Row {
-						id: writing
-						property real phase: 0
-
+						id: listeningDots
 						anchors.verticalCenter: parent.verticalCenter
-						visible: !dictationPill.listening
+						visible: dictationPill.listening
 						spacing: 3
-
-						NumberAnimation on phase {
-							running: writing.visible
-							from: 0
-							to: 1
-							duration: 900
-							loops: Animation.Infinite
-						}
 
 						Repeater {
 							model: 3
 
 							Rectangle {
 								required property int index
-								readonly property real lift: 0.5 + 0.5 * Math.cos(2 * Math.PI * (writing.phase - index / 3))
 
+								anchors.verticalCenter: parent.verticalCenter
 								width: 4
-								height: 4
+								height: 4 + (index === 1 ? 10 : 6) * Audio.micLevel
 								radius: 2
-								color: Theme.textMain
-								opacity: 0.25 + 0.75 * lift
-								scale: 0.8 + 0.4 * lift
+								color: dictationPill.textColor
+
+								Behavior on height {
+									NumberAnimation { duration: 60 + 40 * index; easing.type: Easing.OutCubic }
+								}
+							}
+						}
+					}
+
+					// Writing it out: the dots slide onto a ring and orbit with a tail, blue to purple.
+					Item {
+						id: writing
+						property real t: 0
+						property real into: 0
+						readonly property color start: Theme.critical
+						readonly property color blue: Theme.accentBlue
+						readonly property color purple: Theme.accentPurple
+
+						function mix(a, b, k) {
+							return Qt.rgba(a.r + (b.r - a.r) * k, a.g + (b.g - a.g) * k, a.b + (b.b - a.b) * k, 1);
+						}
+
+						anchors.fill: parent
+						implicitWidth: 18
+						visible: !dictationPill.listening
+
+						NumberAnimation on into {
+							running: writing.visible
+							from: 0
+							to: 1
+							duration: 170
+							easing.type: Easing.OutCubic
+						}
+
+						// 40.8 s: a whole number of turns (0.85 s) and of colour sweeps (2.4 s).
+						NumberAnimation on t {
+							running: writing.visible
+							from: 0
+							to: 40.8
+							duration: 40800
+							loops: Animation.Infinite
+						}
+
+						Repeater {
+							model: 12
+
+							Rectangle {
+								required property int index
+								readonly property int dot: index % 3
+								readonly property int tail: Math.floor(index / 3)
+								readonly property real e: writing.into
+								readonly property real a: 2 * Math.PI * (writing.t / 0.85 - tail * 0.035 + dot / 3) - Math.PI / 2
+								readonly property real sweep: 0.5 - 0.5 * Math.cos(2 * Math.PI * (dot / 3 + writing.t / 2.4))
+
+								x: writing.width / 2 + (1 - e) * (dot - 1) * 7 + e * 5 * Math.cos(a) - width / 2
+								y: writing.height / 2 + e * 5 * Math.sin(a) - height / 2
+								z: -tail
+								width: tail === 0 ? 3.6 : 3.2 - tail * 0.5
+								height: width
+								radius: width / 2
+								visible: tail === 0 || e >= 0.6
+								opacity: tail === 0 ? 1 : 0.45 - tail * 0.1
+								color: writing.mix(writing.start, writing.mix(writing.blue, writing.purple, sweep), e)
 							}
 						}
 					}
