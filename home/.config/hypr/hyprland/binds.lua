@@ -170,8 +170,8 @@ do
 	bind("code:642", "Screenshot", exec("~/.local/bin/screenshot region"))
 	bind("SHIFT + code:642", "Screenshot of the screen", exec("~/.local/bin/screenshot fullscreen"))
 	bind("SUPER + D", "Dictation", exec("~/.local/bin/dictation"))
-	-- Right Control tapped alone (kanata.kbd in .files sends F20 for it).
-	bind("F20", "Dictation", exec("~/.local/bin/dictation"))
+	-- Right Control tapped alone (kanata.kbd in .files sends F19: F20 is XF86AudioMicMute to XKB).
+	bind("F19", "Dictation", exec("~/.local/bin/dictation"))
 end
 
 do
