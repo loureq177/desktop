@@ -18,9 +18,9 @@ PanelWindow {
 
 	screen: modelData
 	color: "transparent"
-	// Under a fullscreen window it stays mapped on the top layer, which Hyprland hides there
-	// without blocking direct scanout: its space stays reserved, so leaving fullscreen is one move.
-	WlrLayershell.layer: overFullscreen && peekShown === 0 ? WlrLayer.Top : WlrLayer.Overlay
+	// Overlay under fullscreen too: Hyprland fades a top layer in and out there, over the slide.
+	// Mapped, its space stays reserved, so leaving fullscreen is one move.
+	WlrLayershell.layer: WlrLayer.Overlay
 	WlrLayershell.namespace: "quickshell"
 
 	// Quickshell's own id of the focused one is right, and at once.
@@ -28,15 +28,29 @@ PanelWindow {
 	// Over a fullscreen window only while Bars.peekScreen brings it; it slides down from the edge.
 	readonly property bool overFullscreen: Hypr.fullscreenOn(modelData)
 	readonly property bool peeking: overFullscreen && Bars.peekScreen === screenName
-	property real peekShown: peeking ? 1 : 0
-	Behavior on peekShown {
-		NumberAnimation { duration: Theme.animFast; easing.type: Easing.OutCubic }
+	// The bar slides up off the screen and back, as Hyprland moves the window (windows, easeOutQuint).
+	property real shown: !overFullscreen || peeking ? 1 : 0
+	Behavior on shown {
+		NumberAnimation { duration: Theme.animNormal; easing.type: Easing.BezierSpline; easing.bezierCurve: [0.23, 1, 0.32, 1, 1, 1] }
 	}
 	// A window alone fills the screen below the bar (look.lua): the bar sits on a band joined to it.
-	readonly property bool filled: Theme.fillSingle && !overFullscreen && Hypr.singleOn(modelData)
+	readonly property bool lone: Theme.fillSingle && Hypr.loneOn(modelData)
+	readonly property bool filled: lone && !overFullscreen
+	// The band stays solid while the bar slides: over the lone window, and back over a fullscreen one.
+	property bool peekBand: false
+	onPeekingChanged: {
+		if (peeking)
+			peekBand = true;
+	}
+	onShownChanged: {
+		if (shown === 0)
+			peekBand = false;
+	}
 	onOverFullscreenChanged: {
 		if (!overFullscreen && Bars.peekScreen === screenName)
 			Bars.peekScreen = "";
+		if (!overFullscreen)
+			peekBand = false;
 	}
 
 	anchors {
@@ -45,8 +59,9 @@ PanelWindow {
 		right: true
 	}
 
-	// Only the strip takes input. Over a fullscreen or lone window the margin below too, for the band.
-	implicitHeight: Theme.barMarginY * (overFullscreen || filled ? 2 : 1) + Theme.barHeight
+	// Only the strip takes input. Over a fullscreen or lone window the margin below too, for the
+	// band, and the band's rounded corners into the lone window.
+	implicitHeight: Theme.barMarginY * (overFullscreen || lone ? 2 : 1) + Theme.barHeight + (lone ? Theme.roundingWindow : 0)
 	mask: Region {
 		item: strip
 
@@ -284,33 +299,66 @@ PanelWindow {
 		text: Bt.connected.map(d => Bt.name(d) + (d.batteryAvailable ? "  " + Math.round(d.battery * 100) + "%" : "")).join("\n")
 	}
 
-	// Over a fullscreen window the bar comes on a solid band, as much above it as below: a
-	// bright video hides it otherwise.
-	Rectangle {
-		visible: bar.overFullscreen
-		width: parent.width
-		height: parent.height
-		y: -(1 - bar.peekShown) * height
-		color: Theme.bgMain
+	// The bar on a solid band, as much above it as below: joined to a lone window, and over a
+	// fullscreen one, where a bright video hides it otherwise. Solid while it slides.
+	property real bandFade: lone ? 1 : 0
+	Behavior on bandFade {
+		NumberAnimation { duration: Theme.animNormal; easing.type: Easing.OutCubic }
 	}
+	// Focus paints the wallpaper bgMain: a lighter band keeps the bar apart from the window.
+	property color bandColor: Notifications.dnd && Prefs.values.focusWallpaper ? Theme.bgCard : Theme.bgMain
+	Behavior on bandColor {
+		ColorAnimation { duration: 600; easing.type: Easing.InOutSine }
+	}
+	readonly property int bandHeight: Theme.barMarginY * 2 + Theme.barHeight
 
-	Rectangle {
+	// Slides off as far as the window grows, so its edge stays on the window's. Back at once on
+	// leaving fullscreen: Hyprland moves the window before the shell hears of it.
+	Item {
 		width: parent.width
-		height: parent.height
-		color: Theme.bgMain
-		opacity: bar.filled ? 1 : 0
+		height: bar.bandHeight + Theme.roundingWindow
+		y: bar.overFullscreen ? -(1 - bar.shown) * bar.bandHeight : 0
+		opacity: bar.peekBand ? 1 : bar.bandFade
 		visible: opacity > 0
 
-		Behavior on opacity {
-			NumberAnimation { duration: Theme.animNormal; easing.type: Easing.OutCubic }
+		Rectangle {
+			width: parent.width
+			height: bar.bandHeight
+			color: bar.bandColor
+		}
+
+		// Concave corners: the lone window looks rounded at the top, unlike a fullscreen one.
+		Repeater {
+			model: bar.lone && !bar.peekBand ? 2 : 0
+
+			Item {
+				required property int index
+				x: index === 0 ? 0 : parent.width - width
+				y: bar.bandHeight
+				width: Theme.roundingWindow
+				height: width
+				clip: true
+				opacity: bar.shown
+
+				Rectangle {
+					readonly property int r: Theme.roundingWindow
+					x: parent.index === 0 ? -r : -2 * r
+					y: -r
+					width: 4 * r
+					height: 4 * r
+					radius: 2 * r
+					color: "transparent"
+					border.color: bar.bandColor
+					border.width: r
+				}
+			}
 		}
 	}
 
 	Item {
 		id: strip
 		x: Theme.barMarginX
-		y: Theme.barMarginY - (bar.overFullscreen ? (1 - bar.peekShown) * (Theme.barMarginY + Theme.barHeight) : 0)
-		opacity: bar.overFullscreen ? bar.peekShown : 1
+		y: Theme.barMarginY - (1 - bar.shown) * bar.bandHeight
 		width: parent.width - Theme.barMarginX * 2
 		height: Theme.barHeight
 

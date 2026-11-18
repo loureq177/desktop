@@ -4,7 +4,7 @@ import Quickshell.Wayland
 import QtQuick
 
 // A window of the panels. Closed, it stays mapped as one clear pixel: opening only resizes it,
-// 10 ms against 140 to make a surface. Over a fullscreen window it goes, as the bar does.
+// 10 ms against 140 to make a surface. Over a fullscreen window it goes.
 PanelWindow {
 	id: root
 
@@ -16,7 +16,15 @@ PanelWindow {
 
 	// Panels.screen, where it waits: its own `screen` would loop, as mapping sets that.
 	readonly property bool covered: Hypr.fullscreenOn(Panels.screen)
-	visible: open || !covered
+	// Back once the bar has slid in: mapping these surfaces holds the shell up for ~80 ms.
+	property bool away: covered
+	onCoveredChanged: {
+		if (covered)
+			away = true;
+		else
+			comeBack.restart();
+	}
+	visible: open || !away
 	// Under the bar, so it stays what the pointer is on; over a fullscreen window the bar is gone.
 	WlrLayershell.layer: covered ? WlrLayer.Overlay : WlrLayer.Top
 	color: "transparent"
@@ -44,6 +52,12 @@ PanelWindow {
 		if (!open)
 			screen = Panels.screen;
 		pointerFollows.restart();
+	}
+
+	Timer {
+		id: comeBack
+		interval: Theme.animNormal + 100
+		onTriggered: root.away = root.covered
 	}
 
 	// A resting pointer stays with the surface it was on, though another now lies under it:

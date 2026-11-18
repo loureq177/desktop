@@ -22,11 +22,10 @@ Singleton {
 		return workspaces.find(w => w.id === id)?.hasFullscreen ?? false;
 	}
 
-	// One tiled window alone on that screen's workspace: look.lua's fill_single rule.
-	function singleOn(screen): bool {
+	// One tiled window alone on that screen's workspace, fullscreen or not: look.lua's fill_single rule.
+	function loneOn(screen): bool {
 		var id = Hyprland.monitorFor(screen)?.activeWorkspace?.id ?? -1;
-		var w = workspaces.find(w => w.id === id);
-		return (w?.tiled ?? 0) === 1 && !w.hasFullscreen;
+		return (workspaces.find(w => w.id === id)?.tiled ?? 0) === 1;
 	}
 
 	// Called once the reload being run is done.
@@ -99,6 +98,13 @@ Singleton {
 		function onRawEvent(ev) {
 			if (["createworkspacev2", "destroyworkspacev2", "changeworkspaceid", "moveworkspacev2", "openwindow", "closewindow", "movewindowv2", "fullscreen", "changefloatingmode"].includes(ev.name))
 				workspacesAsk.restart();
+			// At once on the focused workspace, so the bar slides with the window; the ask confirms it.
+			if (ev.name === "fullscreen") {
+				var id = Hyprland.focusedMonitor?.activeWorkspace?.id ?? -1;
+				var on = ev.data === "1";
+				if (root.workspaces.some(w => w.id === id && w.hasFullscreen !== on))
+					root.workspaces = root.workspaces.map(w => w.id === id ? Object.assign({}, w, { hasFullscreen: on }) : w);
+			}
 			// Quickshell keeps the old id of the workspace on a monitor until it is asked again.
 			if (ev.name === "changeworkspaceid") {
 				Hyprland.refreshWorkspaces();
