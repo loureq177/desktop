@@ -18,6 +18,9 @@ Rectangle {
 	// Percent a notch of the wheel moves it.
 	property int wheelStep: 5
 	signal scrubbed(real v)
+	// Its settings elsewhere: a "›" at the end opens them.
+	property string pageName: ""
+	signal pageRequested()
 
 	Layout.fillWidth: true
 	Layout.preferredHeight: 48
@@ -133,6 +136,39 @@ Rectangle {
 			mono: true
 			font.pixelSize: Theme.fontSizeSmall
 			font.bold: true
+		}
+
+		// Kept empty on a row without a page: the tracks line up.
+		Rectangle {
+			id: pageButton
+			Layout.preferredWidth: 24
+			Layout.preferredHeight: 40
+			radius: Theme.roundingSubtle
+			color: pageArea.containsMouse ? Theme.hoverBg : "transparent"
+			opacity: row.pageName !== "" ? 1 : 0
+
+			StyledText {
+				anchors.centerIn: parent
+				text: "›"
+				font.bold: true
+				color: pageArea.containsMouse || row.current ? Theme.textMain : Theme.textDim
+			}
+
+			MouseArea {
+				id: pageArea
+				anchors.fill: parent
+				enabled: row.pageName !== ""
+				hoverEnabled: true
+				cursorShape: Qt.PointingHandCursor
+				onClicked: row.pageRequested()
+			}
+
+			Tip {
+				text: row.pageName + "  ·  O"
+				visible: pageArea.containsMouse
+				x: pageButton.width - width
+				y: pageButton.height + 6
+			}
 		}
 	}
 

@@ -210,7 +210,7 @@ Drawer {
 		focus: true
 		visible: win.subView === "main"
 
-		// Enter clicks the tile, Space its badge, O opens its page, a tile's letter = Enter,
+		// Enter clicks the tile, Space its badge, O opens its page (the volume's: Settings › Sound), a tile's letter = Enter,
 		// Shift + letter = Space; only moves repeat.
 		Keys.onPressed: event => {
 			var moves = [Qt.Key_H, Qt.Key_J, Qt.Key_K, Qt.Key_L, Qt.Key_Left, Qt.Key_Down, Qt.Key_Up, Qt.Key_Right];
@@ -242,7 +242,9 @@ Drawer {
 					event.key === Qt.Key_Space ? tile.flip() : tile.open();
 				break;
 			case Qt.Key_O:
-				if (tile?.page)
+				if (win.navRow === 0)
+					volRow.pageRequested();
+				else if (tile?.page)
 					tile.open();
 				break;
 			default:
@@ -348,6 +350,9 @@ Drawer {
 			onSelectRequested: win.navRow = 0
 			onIconClicked: Audio.toggleMute()
 			onScrubbed: v => Audio.setVolume(v)
+			// Devices and the microphone live in Settings.
+			pageName: "Sound settings"
+			onPageRequested: Panels.open("launcher", "settings:sound")
 		}
 
 		SliderRow {

@@ -33,7 +33,9 @@ ModalWindow {
 		function onOpened(name, mode) {
 			if (name !== "launcher")
 				return;
-			var next = root.panes[mode] ? mode : "apps";
+			// "settings:sound": a list, and a page of it.
+			var parts = (mode || "").split(":");
+			var next = root.panes[parts[0]] ? parts[0] : "apps";
 			// Another list in the open window: its contents fade in.
 			if (next !== root.scope) {
 				root.pane.closed();
@@ -44,6 +46,8 @@ ModalWindow {
 			search.clear();
 			search.focusInput();
 			root.pane.opened();
+			if (parts[1] && root.pane.openSection)
+				root.pane.openSection(parts[1]);
 		}
 	}
 
