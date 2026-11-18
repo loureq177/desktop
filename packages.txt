@@ -59,6 +59,8 @@ grim
 jq
 libnotify
 pacman-contrib
+rclone
+fuse3
 qrencode
 reflector
 satty

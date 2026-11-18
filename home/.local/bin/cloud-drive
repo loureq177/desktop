@@ -1,0 +1,88 @@
+#!/usr/bin/env bash
+# Cloud storage as a folder ~/NAME, as the desktop clients have it (~/Dropbox, ~/OneDrive): files
+# come down as they are opened, a save goes up within seconds, changes made elsewhere show within
+# half a minute. Any rclone backend works (Google Drive, OneDrive, Dropbox, MEGA, pCloud, WebDAV...).
+#
+#   cloud-drive                        the drives and whether they are up
+#   cloud-drive add NAME [TYPE]        sign in (in the browser) and mount; TYPE drive by default
+#   cloud-drive add NAME --from REMOTE mount a remote rclone already knows, no new sign-in
+#   cloud-drive remove NAME            unmount and forget it; nothing in the cloud is touched
+set -euo pipefail
+
+UNIT="cloud-drive@"
+
+die() {
+    echo "cloud-drive: $*" >&2
+    exit 1
+}
+
+# rclone's remote names: letters, digits, - and _, no leading -.
+valid() { [[ "$1" =~ ^[A-Za-z0-9_][A-Za-z0-9_-]*$ ]] || die "not a name: '$1' (letters, digits, - and _)"; }
+
+remotes() { rclone listremotes 2>/dev/null | sed 's/:$//'; }
+
+list() {
+    local name any=0
+    for name in $(remotes); do
+        [[ -n "$(systemctl --user list-unit-files "$UNIT$name.service" --no-legend 2>/dev/null)" ]] || continue
+        systemctl --user is-enabled --quiet "$UNIT$name.service" 2>/dev/null || continue
+        any=1
+        if systemctl --user is-active --quiet "$UNIT$name.service"; then
+            printf '%-16s %s\n' "$name" "$HOME/$name"
+        else
+            printf '%-16s %s (not mounted: journalctl --user -u %s%s)\n' "$name" "$HOME/$name" "$UNIT" "$name"
+        fi
+    done
+    [[ "$any" -eq 1 ]] || echo "No cloud drives yet: cloud-drive add Cloud"
+}
+
+add() {
+    local name="${1:-}" type="drive" from=""
+    [[ -n "$name" ]] || die "usage: cloud-drive add NAME [TYPE | --from REMOTE]"
+    valid "$name"
+    shift
+    if [[ "${1:-}" == "--from" ]]; then
+        from="${2:-}"
+        [[ -n "$from" ]] || die "--from needs a remote: $(remotes | tr '\n' ' ')"
+        remotes | grep -qx "$from" || die "rclone has no remote '$from': $(remotes | tr '\n' ' ')"
+    elif [[ -n "${1:-}" ]]; then
+        type="$1"
+    fi
+
+    # The folder is ~/NAME: never over one that holds something.
+    if ! mountpoint -q "$HOME/$name" && [[ -n "$(find "$HOME/$name" -mindepth 1 -maxdepth 1 -print -quit 2>/dev/null)" ]]; then
+        die "$HOME/$name is not empty: pick another name"
+    fi
+
+    if remotes | grep -qx "$name"; then
+        echo "Using rclone's remote '$name'."
+    elif [[ -n "$from" ]]; then
+        rclone config create "$name" alias remote="$from:" >/dev/null
+    else
+        echo "Sign in to $type in the browser that opens..."
+        rclone config create "$name" "$type"
+    fi
+    mkdir -p "$HOME/$name"
+    systemctl --user enable --now "$UNIT$name.service"
+    echo "$name is in $HOME/$name"
+}
+
+remove() {
+    local name="${1:-}"
+    [[ -n "$name" ]] || die "usage: cloud-drive remove NAME"
+    valid "$name"
+    systemctl --user disable --now "$UNIT$name.service" 2>/dev/null || true
+    # An empty mount point goes; anything left in it (the mount failed and files landed
+    # there) stays for the user to look at.
+    rmdir "$HOME/$name" 2>/dev/null || true
+    rclone config delete "$name"
+    echo "$name is gone from here; its files are still in the cloud."
+}
+
+case "${1:-}" in
+"" | list) list ;;
+add) shift; add "$@" ;;
+remove) shift; remove "$@" ;;
+-h | --help) sed -n '2,10p' "$0" | sed 's/^# \{0,1\}//' ;;
+*) die "unknown command '$1' (add, remove, list)" ;;
+esac

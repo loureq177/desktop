@@ -79,7 +79,8 @@ Item {
 				root.found = "";
 				return;
 			}
-			var cmd = ["fd", "--hidden", "--no-ignore-vcs", "--full-path", "--fixed-strings", "--ignore-case", "--max-results", "1000"];
+			// Not into mounts (~/Cloud): every keypress would list the cloud.
+			var cmd = ["fd", "--hidden", "--no-ignore-vcs", "--one-file-system", "--full-path", "--fixed-strings", "--ignore-case", "--max-results", "1000"];
 			for (var d of root.skipped)
 				cmd.push("--exclude", d);
 			command = cmd.concat([word, root.home]);

@@ -1,0 +1,28 @@
+# ~/NAME: rclone's remote NAME as a folder (cloud-drive add NAME).
+[Unit]
+Description=Cloud drive %i in ~/%i
+After=network-online.target
+Wants=network-online.target
+PartOf=hyprland-session.target
+
+[Service]
+Type=notify
+ExecStartPre=/usr/bin/mkdir -p %h/%i
+# Opened files are kept (up to 10 GB, a year), so they open at once and offline too; a save
+# goes up 2 s after it; the cloud's own changes come in every 30 s, so listings can be kept.
+# Folders are listed as they are opened: walking the whole cloud at start cost 110 MB.
+ExecStart=/usr/bin/rclone mount %i: %h/%i \
+    --vfs-cache-mode full \
+    --vfs-cache-max-size 10G \
+    --vfs-cache-max-age 8760h \
+    --vfs-write-back 2s \
+    --dir-cache-time 1000h \
+    --poll-interval 30s
+# Its folders and the ones in them listed at once, off the start: the first look is quick.
+ExecStartPost=-/bin/sh -c 'find "%h/%i" -mindepth 1 -maxdepth 2 >/dev/null 2>&1 &'
+ExecStop=/usr/bin/fusermount3 -uz %h/%i
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=hyprland-session.target

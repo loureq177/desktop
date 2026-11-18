@@ -48,6 +48,10 @@ compromise on functionality.
   fonts), the bar, keyboard, mouse and touchpad, sleep; every other Hyprland option in
   Advanced; searchable, changed on the spot, each change undone in one place
 - **LocalSend** for files to and from the phone: started from the launcher, in the tray while it runs
+- **Cloud drives** as folders: `cloud-drive add Cloud` signs in to Google Drive in the
+  browser and mounts it at `~/Cloud` (any rclone backend: `cloud-drive add OneDrive onedrive`);
+  files come down as they are opened, saves go up in seconds, changes from the phone show
+  within half a minute
 - **Keys** under `SUPER + /`: every bind, Enter gives it new keys, Delete twice
   removes it, the first row adds a new one (kept in `~/.config/hypr/keys.lua`),
   Ctrl+R gives the config's back
