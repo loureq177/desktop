@@ -204,6 +204,19 @@ do
 			audio("wpctl set-volume @DEFAULT_AUDIO_SINK@ 2%-"),
 			true,
 		},
+		-- SHIFT: half the step, for fine control.
+		{
+			"SHIFT + XF86AudioRaiseVolume",
+			"Volume up, fine",
+			audio("wpctl set-volume -l 1.0 @DEFAULT_AUDIO_SINK@ 1%+"),
+			true,
+		},
+		{
+			"SHIFT + XF86AudioLowerVolume",
+			"Volume down, fine",
+			audio("wpctl set-volume @DEFAULT_AUDIO_SINK@ 1%-"),
+			true,
+		},
 		{
 			"XF86AudioMute",
 			"Volume mute",
